@@ -95,12 +95,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="产品编号" prop="productCode">
-          <el-input
-            v-model="formData.productCode"
-            class="!w-full"
-            readonly
-            placeholder="选择 DCC 项目后自动生成"
-          />
+          <ProductCodeLink :code="formData.productCode" />
           <div v-if="selectedProjectCode" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
             来源：DCC 项目代码 {{ selectedProjectCode.projectName }} / {{ selectedProjectCode.projectCode || '-' }}
           </div>

@@ -35,8 +35,8 @@
               <dt>原退回轮次编号</dt><dd data-correction-rejected-review-id>{{ row.supersededReviewId ?? '未记录' }}</dd>
               <dt>签名人编号</dt><dd data-correction-signer-id>{{ row.signerUserId }}</dd>
               <dt>签名记录编号</dt><dd data-correction-signature-id>{{ row.signatureId }}</dd>
-              <dt>原始业务类型</dt><dd data-correction-event-type>{{ row.eventType }}</dd>
-              <dt>原始验证状态</dt><dd data-correction-verification>{{ row.verificationStatus }}</dd>
+              <dt>原始业务类型</dt><dd data-correction-event-type>{{ businessValueLabel('eventType', row.eventType) }}</dd>
+              <dt>原始验证状态</dt><dd data-correction-verification>{{ verificationStatusLabel(row.verificationStatus) }}</dd>
             </dl>
           </details>
           <el-button data-active-order-correction-signature :disabled="row.verificationStatus !== 'VALID'" @click="$emit('signature', row.signatureId)">
@@ -49,6 +49,8 @@
 
 <script setup lang="ts">
 import BusinessEvidenceDetails from './BusinessEvidenceDetails.vue'
+import { businessValueLabel } from './businessEvidenceDisplay'
+import { verificationStatusLabel } from './activeOrderDisplayLabels'
 import { watch, onBeforeUnmount } from 'vue'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import { getActiveOrderCorrections } from '@/api/mes/pro/edhr/activeOrderCorrection'

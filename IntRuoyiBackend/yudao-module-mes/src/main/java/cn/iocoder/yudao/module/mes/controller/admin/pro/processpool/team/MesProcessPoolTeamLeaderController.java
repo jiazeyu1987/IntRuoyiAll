@@ -619,7 +619,7 @@ public class MesProcessPoolTeamLeaderController {
 
     @GetMapping("/active-order/detail")
     @Operation(summary = "查询生产组长活跃订单逐工序提交详情")
-    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-process-pool-team-leader:query', 'mes:pro-in-process-order:query')")
     public CommonResult<MesTeamLeaderActiveOrderDetailRespVO> getActiveOrderDetail(
             @RequestParam("activeOrderId") Long activeOrderId) {
         return success(toActiveOrderDetailRespVO(activeOrderDetailService.getDetail(
@@ -628,7 +628,7 @@ public class MesProcessPoolTeamLeaderController {
 
     @GetMapping("/active-order/audit/page")
     @Operation(summary = "查询活跃订单统一 GxP 审计")
-    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-process-pool-team-leader:query', 'mes:pro-in-process-order:query')")
     public CommonResult<PageResult<GxpAuditEventRespVO>> getActiveOrderAuditPage(
             @Valid GxpAuditEventPageReqVO reqVO,
             @RequestParam("activeOrderId") Long activeOrderId) {
@@ -639,7 +639,7 @@ public class MesProcessPoolTeamLeaderController {
 
     @GetMapping("/active-order/audit/get")
     @Operation(summary = "查询活跃订单统一 GxP 审计详情")
-    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-process-pool-team-leader:query', 'mes:pro-in-process-order:query')")
     public CommonResult<GxpAuditEventRespVO> getActiveOrderAudit(
             @RequestParam("activeOrderId") Long activeOrderId,
             @RequestParam("eventId") Long eventId) {
@@ -1082,6 +1082,7 @@ public class MesProcessPoolTeamLeaderController {
                 .setId(activeOrder.getId())
                 .setWorkOrderId(activeOrder.getWorkOrderId())
                 .setWorkOrderCode(activeOrder.getWorkOrderCode())
+                .setBatchCode(activeOrder.getBatchCode())
                 .setProductName(activeOrder.getProductName())
                 .setProductCode(activeOrder.getProductCode())
                 .setQuantity(activeOrder.getQuantity())

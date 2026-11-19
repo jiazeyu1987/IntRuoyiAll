@@ -94,6 +94,19 @@ public class DccRegistrationCertificateCommandController {
                 reqVO.getExpectedSnapshotRevision(), reqVO.getBusinessFileId()));
     }
 
+    @DeleteMapping("/{id}")
+    @Operation(summary = "删除注册证并保留历史证据")
+    @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:delete')")
+    public CommonResult<Long> deleteCertificate(
+            @PathVariable("id") @Positive Long id,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @RequestParam("expectedRowVersion") @Positive Integer expectedRowVersion,
+            HttpServletRequest request) {
+        return success(commandService.deleteCertificate(
+                TenantContextHolder.getRequiredTenantId(), getLoginUserId(), idempotencyKey,
+                requestTraceId(request), id, expectedRowVersion));
+    }
+
     private static String requestTraceId(HttpServletRequest request) {
         return DccRequestAuditContext.from(request, TracerUtils.getTraceId()).requestId();
     }

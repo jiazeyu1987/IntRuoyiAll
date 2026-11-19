@@ -15,6 +15,11 @@
           clearable
           :disabled="loading || submitting"
         />
+        <el-checkbox
+          v-model="exactMatch"
+          :disabled="loading || submitting"
+          @change="handleMatchChange"
+        >完全匹配</el-checkbox>
         <el-button native-type="submit" type="primary" :loading="loading" :disabled="submitting">
           查询
         </el-button>
@@ -43,7 +48,7 @@
         @select-all="handlePageSelect"
       >
         <el-table-column type="selection" width="50" :selectable="isSelectable" />
-        <el-table-column prop="code" label="产品编号" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="code" label="产品编号" min-width="180" show-overflow-tooltip><template #default="{ row }"><ProductCodeLink :code="row.code" /></template></el-table-column>
         <el-table-column prop="name" label="产品名称" min-width="220" show-overflow-tooltip />
         <el-table-column prop="specification" label="规格型号" min-width="180" show-overflow-tooltip />
         <el-table-column label="关联状态" width="100">
@@ -76,6 +81,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { MdItemApi, type MdItemVO } from '@/api/mes/md/item'
 import { CommonStatusEnum } from '@/utils/constants'
 import type { ElTable } from 'element-plus'
@@ -95,6 +101,7 @@ const visible = computed({
 })
 const PAGE_SIZE = 20
 const keyword = ref('')
+const exactMatch = ref(false)
 const results = ref<MdItemVO[]>([])
 const selected = ref(new Map<number, MdItemVO>())
 const loading = ref(false)
@@ -134,6 +141,7 @@ const queryAll = async (field: 'code' | 'name', value: string, requestId: number
 const search = async () => {
   if (loading.value || props.submitting) return
   const value = keyword.value.trim()
+  const matchExactly = exactMatch.value
   if (!value) {
     error.value = '请输入产品名称或编号'
     return
@@ -145,10 +153,12 @@ const search = async () => {
   pageNo.value = 1
   try {
     const [byCode, byName] = await Promise.all([
-      queryAll('code', value, requestId), queryAll('name', value, requestId)
+      matchExactly ? Promise.resolve([]) : queryAll('code', value, requestId),
+      queryAll('name', value, requestId)
     ])
     if (requestId !== searchId) return
     results.value = [...new Map([...byCode, ...byName].map((item) => [item.id, item])).values()]
+      .filter((item) => !matchExactly || item.name === value)
       .sort((left, right) => left.code.localeCompare(right.code, 'zh-CN', { numeric: true }))
     searched.value = true
   } catch (cause) {
@@ -157,6 +167,10 @@ const search = async () => {
   } finally {
     if (requestId === searchId) loading.value = false
   }
+}
+
+const handleMatchChange = () => {
+  if (keyword.value.trim()) search()
 }
 
 const handleRowSelect = (items: MdItemVO[], row: MdItemVO) => {
@@ -195,6 +209,7 @@ watch(visible, (open) => {
   loading.value = false
   if (open) {
     keyword.value = ''
+    exactMatch.value = false
     results.value = []
     selected.value.clear()
     searched.value = false
@@ -207,8 +222,17 @@ watch(visible, (open) => {
 <style scoped>
 .product-number-selector__search {
   display: flex;
+  align-items: center;
   gap: 12px;
   margin-bottom: 16px;
+}
+.product-number-selector__search .el-input {
+  flex: 1;
+  min-width: 0;
+}
+.product-number-selector__search .el-checkbox {
+  flex-shrink: 0;
+  margin-right: 0;
 }
 .product-number-selector__summary {
   display: flex;

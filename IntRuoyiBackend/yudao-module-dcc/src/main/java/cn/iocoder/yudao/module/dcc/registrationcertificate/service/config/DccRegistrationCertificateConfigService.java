@@ -215,9 +215,9 @@ public class DccRegistrationCertificateConfigService {
             }
             normalized.put(thresholdLevel, List.copyOf(new ArrayList<>(userIds)));
         }
-        if (rawRecipients.containsKey(CHANGE_CONFIRMATION_RECIPIENTS)) {
+        {
             List<Long> userIds=rawRecipients.get(CHANGE_CONFIRMATION_RECIPIENTS);
-            if (userIds == null || userIds.size()>100 || userIds.stream().anyMatch(id -> id == null || id<=0))
+            if (userIds == null || userIds.isEmpty() || userIds.size()>100 || userIds.stream().anyMatch(id -> id == null || id<=0))
                 throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_RECIPIENT_REQUIRED);
             normalized.put(CHANGE_CONFIRMATION_RECIPIENTS, List.copyOf(new LinkedHashSet<>(userIds)));
         }

@@ -50,6 +50,8 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
     @Resource
     private MesProRouteVersionMapper routeVersionMapper;
     @Resource
+    private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
+    @Resource
     private MesProcessPoolTeamDeviceMapper teamDeviceMapper;
     @Resource
     private MesProRouteMapper routeMapper;
@@ -149,7 +151,8 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
             if (StrUtil.isBlank(entry.getKey()) || entry.getValue() == null) {
                 throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidate.getId());
             }
-            Object jsonSnapshot = JSON.parse(JSON.toJSONString(entry.getValue()));
+            Object jsonSnapshot = JSON.parse(JSON.toJSONString(entry.getValue(),
+                    com.alibaba.fastjson.serializer.SerializerFeature.DisableCircularReferenceDetect));
             if (jsonSnapshot == null) {
                 throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidate.getId());
             }
@@ -163,6 +166,7 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
         validateProductionDevicesExist(candidate.getId(), configSnapshots);
 
         persistDraftSnapshot(candidate, snapshot);
+        deviceIdentitySnapshots.captureDraft(candidate.getId());
     }
 
     private void persistDraftSnapshot(MesProRouteVersionDO candidate, JSONObject snapshot) {

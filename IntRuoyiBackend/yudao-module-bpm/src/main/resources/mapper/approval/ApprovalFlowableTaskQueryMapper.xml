@@ -32,6 +32,7 @@
       AND CAST(d.TENANT_ID_ AS BINARY)=CAST(#{tenantText} AS BINARY)
       AND CAST(p.TENANT_ID_ AS BINARY)=CAST(#{tenantText} AS BINARY)
     </if>
+    <if test="processInstanceId != null">AND CAST(t.PROC_INST_ID_ AS BINARY)=CAST(#{processInstanceId} AS BINARY)</if>
     <if test="taskId != null">AND t.ID_=#{taskId}<if test="edhrVoidOnly != null and edhrVoidOnly"> AND CAST(t.ID_ AS BINARY)=CAST(#{taskId} AS BINARY)</if></if>
     <if test="registrationOnly != null and registrationOnly">AND (<include refid="cn.iocoder.yudao.module.bpm.dal.mysql.approval.ApprovalFlowableTaskQueryMapper.registrationCandidate"/>)</if>
     <choose><when test="done">

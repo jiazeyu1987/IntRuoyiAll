@@ -2,6 +2,25 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesKingdeeProductionMaterialListMapper">
 
+    <!-- Rebind existing source rows after production orders arrive; preserve every ERP source field. -->
+    <update id="refreshWorkOrderLinks">
+        UPDATE mes_kingdee_production_material_list m
+        JOIN mes_pro_work_order w ON w.code = m.production_order_no
+            AND CAST(w.code AS BINARY) = CAST(m.production_order_no AS BINARY)
+            AND w.tenant_id = #{tenantId} AND w.deleted = 0
+        LEFT JOIN (
+            SELECT tenant_id, work_order_id, item_id, MIN(id) id
+            FROM mes_pro_work_order_bom
+            WHERE tenant_id = #{tenantId} AND deleted = 0
+            GROUP BY tenant_id, work_order_id, item_id
+        ) b ON b.tenant_id = m.tenant_id AND b.work_order_id = w.id AND b.item_id = m.child_material_id
+        SET m.work_order_id = w.id, m.work_order_code = w.code,
+            m.product_id = w.product_id, m.work_order_bom_id = b.id
+        WHERE m.tenant_id = #{tenantId} AND m.deleted = 0
+            AND NOT (m.work_order_id &lt;=&gt; w.id AND m.work_order_code &lt;=&gt; w.code
+                AND m.product_id &lt;=&gt; w.product_id AND m.work_order_bom_id &lt;=&gt; b.id)
+    </update>
+
     <sql id="MatchedBillFilters">
         <if test="reqVO.syncCode != null and reqVO.syncCode != ''">
             AND matched.source_bill_no = #{reqVO.syncCode}
@@ -32,13 +51,14 @@
     </sql>
 
     <sql id="GroupPageQuery">
+        <bind name="productionOrderSummarySql" value="@cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesKingdeeProductionMaterialListMapper@PRODUCTION_ORDER_SUMMARY_SQL"/>
         SELECT
             summary.source_bill_no AS sourceBillNo,
             summary.line_count AS lineCount,
             summary.source_modify_time AS sourceModifyTime,
             summary.last_sync_time AS lastSyncTime,
             summary.production_order_count AS productionOrderCount,
-            summary.production_order_summary AS productionOrderSummary
+            ${productionOrderSummarySql} AS productionOrderSummary
         FROM (
             SELECT
                 base.source_bill_no,
@@ -46,10 +66,12 @@
                 COUNT(*) AS line_count,
                 MAX(base.source_modify_time) AS source_modify_time,
                 MAX(base.last_sync_time) AS last_sync_time,
-                COUNT(DISTINCT NULLIF(base.production_order_no, '')) AS production_order_count,
-                (SELECT JSON_UNQUOTE(CONCAT(CHAR(34), REPLACE(SUBSTRING(CAST(mja.parts AS CHAR), 3, CHAR_LENGTH(CAST(mja.parts AS CHAR))-4), CONCAT(CHAR(34), ', ', CHAR(34)), '、'), CHAR(34))) FROM (SELECT (SELECT JSON_ARRAYAGG(i.production_order_no) OVER (ORDER BY i.production_order_no ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM mes_kingdee_production_material_list i WHERE i.source_bill_no=base.source_bill_no AND i.tenant_id=base.tenant_id AND i.deleted=0 AND i.production_order_no IS NOT NULL AND i.production_order_no != '' AND NOT EXISTS (SELECT 1 FROM mes_kingdee_production_material_list earlier WHERE earlier.source_bill_no=i.source_bill_no AND earlier.tenant_id=i.tenant_id AND earlier.deleted=0 AND earlier.id &lt; i.id AND earlier.production_order_no=i.production_order_no) LIMIT 1) parts) mja) AS production_order_summary
+                COUNT(DISTINCT NULLIF(base.production_order_no, '')) AS production_order_count
             FROM mes_kingdee_production_material_list base
             WHERE base.deleted = 0
+            <if test="reqVO.syncCode != null and reqVO.syncCode != ''">
+                AND base.source_bill_no = #{reqVO.syncCode}
+            </if>
             GROUP BY base.source_bill_no, base.tenant_id
         ) summary
         WHERE EXISTS (

@@ -7,16 +7,16 @@
       </template>
     </el-table-column>
     <el-table-column
-      :formatter="dateFormatter"
+      :formatter="businessDateTimeFormatter"
       align="center"
-      label="开始时间"
+      label="开始时间（北京时间）"
       prop="createTime"
       min-width="140"
     />
     <el-table-column
-      :formatter="dateFormatter"
+      :formatter="businessDateTimeFormatter"
       align="center"
-      label="结束时间"
+      label="结束时间（北京时间）"
       prop="endTime"
       min-width="140"
     />
@@ -51,7 +51,8 @@
   </Dialog>
 </template>
 <script lang="ts" setup>
-import { dateFormatter, formatPast2 } from '@/utils/formatTime'
+import { formatPast2 } from '@/utils/formatTime'
+import { businessDateTimeFormatter } from '@/utils/businessTime'
 import { propTypes } from '@/utils/propTypes'
 import { DICT_TYPE } from '@/utils/dict'
 import type { Api } from '@form-create/element-ui'

@@ -28,4 +28,8 @@ public interface BpmProcessInstanceApi {
      */
     void cancelProcessInstance(Long userId, String processInstanceId, String reason);
 
+    /** 内部业务整批作废；校验审批请求归属，保留实际操作者，不冒用发起人撤回。 */
+    void cancelBusinessApprovalProcess(Long actorUserId, String processInstanceId,
+                                      String expectedExecutorCode, String expectedObjectId, String reason);
+
 }

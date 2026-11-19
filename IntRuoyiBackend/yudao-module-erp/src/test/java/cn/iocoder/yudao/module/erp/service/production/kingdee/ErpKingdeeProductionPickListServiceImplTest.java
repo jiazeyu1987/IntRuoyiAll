@@ -22,10 +22,12 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -81,6 +83,7 @@ class ErpKingdeeProductionPickListServiceImplTest {
             record.setId(501L);
             return 1;
         }).when(productionPickListMapper).insert(any(ErpKingdeeProductionPickListDO.class));
+        when(productionPickListItemMapper.insertBatch(any(), eq(1000))).thenReturn(true);
 
         ErpKingdeeProductionPickListSyncResult result = service.syncAll(windowStart, windowEnd);
 
@@ -93,13 +96,16 @@ class ErpKingdeeProductionPickListServiceImplTest {
         assertEquals("PICK001", headerCaptor.getValue().getSourceBillNo());
         assertEquals(1L, headerCaptor.getValue().getTenantId());
         verify(productionPickListItemMapper).deleteByProductionPickListId(501L);
-        ArgumentCaptor<ErpKingdeeProductionPickListItemDO> itemCaptor =
-                ArgumentCaptor.forClass(ErpKingdeeProductionPickListItemDO.class);
-        verify(productionPickListItemMapper).insert(itemCaptor.capture());
-        assertEquals("1001|2001", itemCaptor.getValue().getSourceLineKey());
-        assertEquals("MAT001", itemCaptor.getValue().getMaterialNumber());
-        assertEquals(new BigDecimal("6"), itemCaptor.getValue().getActualQuantity());
-        assertEquals(1L, itemCaptor.getValue().getTenantId());
+        ArgumentCaptor<Collection<ErpKingdeeProductionPickListItemDO>> itemCaptor =
+                ArgumentCaptor.forClass(Collection.class);
+        verify(productionPickListItemMapper).insertBatch(itemCaptor.capture(), eq(1000));
+        assertEquals(1, itemCaptor.getValue().size());
+        ErpKingdeeProductionPickListItemDO item = itemCaptor.getValue().iterator().next();
+        assertEquals("1001|2001", item.getSourceLineKey());
+        assertEquals("MAT001", item.getMaterialNumber());
+        assertEquals(new BigDecimal("6"), item.getActualQuantity());
+        assertEquals(1L, item.getTenantId());
+        verify(productionPickListItemMapper, never()).insert(any(ErpKingdeeProductionPickListItemDO.class));
     }
 
     @Test
@@ -117,6 +123,7 @@ class ErpKingdeeProductionPickListServiceImplTest {
             record.setId(502L);
             return 1;
         }).when(productionPickListMapper).insert(any(ErpKingdeeProductionPickListDO.class));
+        when(productionPickListItemMapper.insertBatch(any(), eq(1000))).thenReturn(true);
 
         ErpKingdeeProductionPickListSyncResult result = service.syncModifiedBetween(windowStart, windowEnd);
 
@@ -124,6 +131,25 @@ class ErpKingdeeProductionPickListServiceImplTest {
         verify(productionPickListClient, never()).fetchProductionPickLists(
                 any(ErpKingdeeProperties.class), any(LocalDateTime.class), any(LocalDateTime.class));
         verify(productionPickListClient).fetchProductionPickListsModifiedBetween(properties, windowStart, windowEnd);
+    }
+
+    @Test
+    void syncAll_batchFailureIsReportedInsteadOfReturningSuccess() {
+        ErpKingdeeProductionPickList pickList = buildPickList();
+        LocalDateTime windowStart = LocalDateTime.of(2026, 8, 21, 0, 0);
+        LocalDateTime windowEnd = windowStart.plusDays(1);
+        when(kingdeeConfigService.getEffectiveProperties()).thenReturn(properties);
+        when(productionPickListClient.fetchProductionPickLists(properties, windowStart, windowEnd))
+                .thenReturn(List.of(pickList));
+        when(productionPickListMapper.selectBySource("PRD_PickMtrl", "1001"))
+                .thenReturn(ErpKingdeeProductionPickListDO.builder().id(501L).build());
+        when(productionPickListItemMapper.insertBatch(any(), eq(1000))).thenReturn(false);
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> service.syncAll(windowStart, windowEnd));
+
+        assertEquals("Production pick list item batch insert failed: fid=1001", error.getMessage());
+        verify(productionPickListItemMapper).deleteByProductionPickListId(501L);
     }
 
     @Test

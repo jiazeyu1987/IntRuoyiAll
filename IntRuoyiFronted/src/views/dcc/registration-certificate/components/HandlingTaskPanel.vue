@@ -7,7 +7,7 @@
     <el-descriptions-item label="任务" :span="2">{{detail.task.title}}</el-descriptions-item>
     <el-descriptions-item label="原负责人">{{detail.task.responsibleName}}</el-descriptions-item>
     <el-descriptions-item label="当前办理人">{{detail.task.assignedName}}</el-descriptions-item>
-    <el-descriptions-item label="办理期限">{{formatDateTimeValue(detail.task.dueAt)}}</el-descriptions-item>
+    <el-descriptions-item label="办理期限（北京时间）">{{formatRegistrationCertificateDateTime(detail.task.dueAt)}}</el-descriptions-item>
     <el-descriptions-item label="状态">{{statuses[detail.task.status]}}</el-descriptions-item>
     <el-descriptions-item label="实际提交人">{{detail.task.actualHandlerName||'尚未提交'}}</el-descriptions-item>
     <el-descriptions-item label="审批结果">{{detail.task.result==='APPROVED'?'审批通过':detail.task.result==='REJECTED'?'审批驳回':detail.task.result==='WITHDRAWN'?'申请撤回':'尚无结果'}}</el-descriptions-item>
@@ -19,7 +19,7 @@
    </div>
    <el-form v-if="delegateVisible&&detail.canDelegate" label-width="110px">
     <el-form-item label="指定办理人" required><el-select v-model="assignment.assignedUserId" remote filterable :remote-method="search" placeholder="输入姓名查询（本人可收回授权）"><el-option v-for="user in candidates" :key="user.id" :value="user.id" :label="user.name" /></el-select></el-form-item>
-    <el-form-item label="授权截止" required><el-date-picker v-model="assignment.dueAt" type="datetime" /></el-form-item>
+    <el-form-item label="授权截止" required><el-date-picker v-model="assignment.dueAt" type="datetime" /><span class="ml-8px">按浏览器时区 {{browserTimeZone}} 选择</span></el-form-item>
     <el-form-item label="授权说明" required><el-input v-model="assignment.reason" maxlength="1024" type="textarea" /></el-form-item>
     <el-button type="primary" :loading="saving" @click="delegate">保存授权并通知</el-button>
    </el-form>
@@ -28,7 +28,7 @@
     <el-table-column prop="reason" label="授权说明 / 处理结果" min-width="180" />
     <el-table-column prop="actorName" label="操作人 / 授权人" width="130" />
     <el-table-column prop="assignedName" label="指定 / 实际办理人" width="135" />
-    <el-table-column label="时间" width="155"><template #default="{row}">{{formatDateTimeValue(row.createdAt)}}</template></el-table-column>
+    <el-table-column label="时间（北京时间）" width="180"><template #default="{row}">{{formatRegistrationCertificateDateTime(row.createdAt)}}</template></el-table-column>
    </el-table>
   </template>
   <UploadDialog v-model="uploadVisible" :task-project="detail?.project" :request-id="detail?.restartRequestId" @saved="load" />
@@ -36,13 +36,14 @@
  </ContentWrap>
 </template>
 <script setup lang="ts">
-import {formatDateTimeValue} from '@/utils/formatTime'
+import {formatRegistrationCertificateDateTime} from '../shared/dateTimeDisplay'
 import {getHandlingTask,getHandlingCandidates,delegateHandlingTask,type HandlingDetail} from '@/api/dcc/registrationCertificate/handlingTasks'
 import UploadDialog from '../upload/UploadDialog.vue'
 import RenewalDialog from '../renewal/RenewalDialog.vue'
 const props=defineProps<{taskId:string}>()
 const detail=ref<HandlingDetail>(),loading=ref(false),saving=ref(false),error=ref(''),uploadVisible=ref(false),renewalVisible=ref(false),delegateVisible=ref(false)
 const assignment=reactive({assignedUserId:'',dueAt:undefined as Date|undefined,reason:''})
+const browserTimeZone=Intl.DateTimeFormat().resolvedOptions().timeZone
 const candidates=ref<Array<{id:string;name:string}>>([])
 const statuses:Record<string,string>={OPEN:'待办理',SUBMITTED:'审批中',COMPLETED:'已完成'}
 const events:Record<string,string>={CREATED:'创建任务',DELEGATED:'授权办理',SUBMITTED:'提交审批',APPROVED:'审批通过',REJECTED:'审批驳回',WITHDRAWN:'申请撤回'}

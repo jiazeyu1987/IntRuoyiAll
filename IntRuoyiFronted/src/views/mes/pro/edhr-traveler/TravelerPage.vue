@@ -151,7 +151,7 @@
           <el-table-column label="模板版本" prop="templateVersion" width="120" />
           <el-table-column label="适用范围" min-width="260">
             <template #default="{ row }">
-              <div>产品：{{ row.applicableProductCode || '通用' }}</div>
+              <div>产品：<ProductCodeLink :code="row.applicableProductCode" empty-text="通用" /></div>
               <div class="edhr-traveler-page__muted">路线：{{ row.applicableRouteCode || row.applicableRouteId || '通用' }}</div>
               <div class="edhr-traveler-page__muted">工序：{{ row.applicableProcessName || row.applicableProcessCode || row.applicableProcessId || '通用' }}</div>
             </template>
@@ -208,7 +208,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="产品编码">
-              <el-input v-model="templateForm.applicableProductCode" />
+              <el-input v-model="templateForm.applicableProductCode" /><ProductCodeLink :code="templateForm.applicableProductCode" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -302,6 +302,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import {
   activateEdhrTravelerTemplate,

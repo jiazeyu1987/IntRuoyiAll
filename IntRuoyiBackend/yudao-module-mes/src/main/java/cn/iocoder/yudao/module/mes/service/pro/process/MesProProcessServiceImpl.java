@@ -141,10 +141,9 @@ public class MesProProcessServiceImpl implements MesProProcessService {
             throw exception(PRO_PROCESS_USED_BY_ROUTE);
         }
 
-        // 2. 删除工序
-        processMapper.deleteById(id);
-        // 3. 级联删除工序内容
+        // 删除步骤时仍需校验工序的共享引用，主资料最后删除。
         processContentService.deleteProcessContentByProcessId(id);
+        processMapper.deleteById(id);
     }
 
     @Override

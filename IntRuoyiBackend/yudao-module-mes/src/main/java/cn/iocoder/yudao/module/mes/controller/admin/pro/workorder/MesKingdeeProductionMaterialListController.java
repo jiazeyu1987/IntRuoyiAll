@@ -50,6 +50,13 @@ public class MesKingdeeProductionMaterialListController {
     @Resource
     private ErpKingdeeSyncRuntimeService kingdeeSyncRuntimeService;
 
+    @PostMapping("/refresh-work-order-links")
+    @Operation(summary = "更新现有生产用料清单的本租户工单关联")
+    @PreAuthorize("@ss.hasPermission('erp:data-material:operate')")
+    public CommonResult<Integer> refreshWorkOrderLinks() {
+        return success(productionMaterialListSyncService.refreshWorkOrderLinks());
+    }
+
     @GetMapping("/page")
     @Operation(summary = "分页查询 ERP 生产用料清单")
     @PreAuthorize("@ss.hasPermission('erp:production-material-list:query')")

@@ -64,6 +64,14 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeePurchaseOrderSyncResult syncAllWithUpdates() {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        properties.validatePurchaseOrderSyncConfig();
+        return syncPurchaseOrders(properties, kingdeePurchaseOrderClient.fetchAllPurchaseOrders(properties), false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public ErpKingdeePurchaseOrderSyncResult syncPurchaseOrdersFullSkipExisting() {
         return syncPurchaseOrdersFullSkipExisting(null, null);
     }
@@ -184,7 +192,22 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
             amount.setTotalAmount(line.getTotalAmount());
             amounts.getLines().add(amount);
         }
-        amounts.validate(createReqVO.getItems().size());
+        try {
+            amounts.validateSourceSnapshot(createReqVO.getItems().size());
+        } catch (IllegalStateException e) {
+            throw new IllegalStateException("采购ERP金额快照不完整: FID=" + kingdeeOrder.getFid()
+                    + ", billNo=" + kingdeeOrder.getBillNo() + ", amounts=" + JsonUtils.toJsonString(amounts)
+                    + ", reason=" + e.getMessage(), e);
+        }
+        boolean amountDifference = amounts.getProductAmount().add(amounts.getTaxAmount())
+                .compareTo(amounts.getTotalAmount()) != 0
+                || amounts.getLines().stream().anyMatch(line -> line.getNetAmount().add(line.getTaxAmount())
+                        .compareTo(line.getTotalAmount()) != 0);
+        if (amountDifference) {
+            org.slf4j.LoggerFactory.getLogger(ErpKingdeePurchaseOrderSyncServiceImpl.class).warn(
+                    "采购ERP原值快照金额差异: FID={}, billNo={}, amounts={}",
+                    kingdeeOrder.getFid(), kingdeeOrder.getBillNo(), JsonUtils.toJsonString(amounts));
+        }
         createReqVO.setDiscountPercent(amounts.discountPercent());
         createReqVO.setKingdeeAmounts(amounts);
         return createReqVO;
@@ -200,8 +223,10 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
         for (ErpKingdeePurchaseOrder.Line line : kingdeeOrder.getLines()) {
             ErpPurchaseOrderSaveReqVO.Item item = new ErpPurchaseOrderSaveReqVO.Item();
             item.setProductId(resolveProductId(kingdeeProperties, line, materialDetails));
-            item.setProductUnitId(ensureOrderUnit(line.getUnitName()));
-            item.setProductPrice(ErpKingdeeOrderAmounts.transactionUnitPrice(line.getPrice(), line.getQuantity(),
+            item.setProductUnitId(StrUtil.isBlank(line.getUnitName()) ? null : ensureOrderUnit(line.getUnitName()));
+            // Source drafts may have no unit. Preserve their reported price without inventing a conversion.
+            item.setProductPrice(StrUtil.isBlank(line.getUnitName()) || StrUtil.isBlank(line.getPriceUnitName())
+                    ? line.getPrice() : ErpKingdeeOrderAmounts.transactionUnitPrice(line.getPrice(), line.getQuantity(),
                     line.getPriceUnitQuantity(), line.getUnitName(), line.getPriceUnitName()));
             item.setCount(line.getQuantity());
             item.setTaxPercent(line.getTaxPercent());
@@ -212,6 +237,9 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
     }
 
     private Long resolveSupplierId(ErpKingdeeProperties kingdeeProperties, ErpKingdeePurchaseOrder kingdeeOrder) {
+        if (StrUtil.isBlank(kingdeeOrder.getSupplierNumber())) {
+            return null; // Preserve an absent source supplier; do not create a placeholder.
+        }
         Long supplierId = kingdeeProperties.getSupplierId(kingdeeOrder.getSupplierNumber());
         if (supplierId != null) {
             return supplierId;
@@ -243,6 +271,12 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
     private Long resolveProductId(ErpKingdeeProperties kingdeeProperties,
                                   ErpKingdeePurchaseOrder.Line line,
                                   Map<String, ErpKingdeeMaterialDetail> materialDetails) {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new java.util.concurrent.CancellationException("采购同步已停止，当前事务回滚");
+        }
+        if (StrUtil.isBlank(line.getMaterialNumber())) {
+            return null; // Source draft lines are retained even when no material is selected.
+        }
         Long productId = kingdeeProperties.getProductId(line.getMaterialNumber());
         if (productId != null) {
             return productId;

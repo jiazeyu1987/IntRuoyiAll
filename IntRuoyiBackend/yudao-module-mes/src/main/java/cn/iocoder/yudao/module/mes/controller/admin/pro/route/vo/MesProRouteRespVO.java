@@ -12,6 +12,9 @@ import java.time.LocalDateTime;
 @ExcelIgnoreUnannotated
 public class MesProRouteRespVO {
 
+    private Long parentId;
+    private String nodeType;
+
     @Schema(description = "编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "1")
     @ExcelProperty("编号")
     private Long id;

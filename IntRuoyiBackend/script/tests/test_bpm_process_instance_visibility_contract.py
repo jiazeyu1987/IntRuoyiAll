@@ -69,4 +69,4 @@ def test_bpm_access_denied_error_code_is_explicit() -> None:
     text = ERROR_CODE_PATH.read_text(encoding="utf-8")
 
     assert "PROCESS_INSTANCE_ACCESS_DENIED" in text
-    assert "流程实例访问失败，只有发起人、处理人或 BPM 管理员可查看该流程" in text
+    assert "流程实例访问失败，只有发起人、处理人、当前任务合法候选人或 BPM 管理员可查看该流程" in text

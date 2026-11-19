@@ -59,6 +59,7 @@ import {
   type RouteVersionEditContext
 } from '@/api/mes/pro/route'
 import RouteFormContent from './RouteFormContent.vue'
+import { submitRouteVersionWithTreeReview } from './routeTreePublish'
 import {
   buildRouteCandidateEditQuery,
   ensureSameSourceDraftCandidateForProductionConfig
@@ -228,6 +229,7 @@ const syncRouteQueryAfterLatestSubmitStatus = async (latestVersion: ProRouteVers
 const loadRoute = async () => {
   if (!isCurrentRouteEditPage.value) {
     routeLoadError.value = ''
+    loadedRouteRequestKey.value = undefined
     return
   }
   if (routeIdInvalidError.value) {
@@ -294,9 +296,7 @@ const submitRouteCandidateVersion = async (options: SubmitRouteCandidateVersionO
         '提交后当前候选版本将进入审批阶段；审批通过后自动发布生效，本次候选版本中的多项生产配置会统一发布。是否继续？',
       options.confirmTitle || '提交发布'
     )
-    const nextVersion = await ProRouteApi.submitAndPublishRouteCandidateVersion({
-      id: latestVersion.id
-    })
+    const nextVersion = await submitRouteVersionWithTreeReview(latestVersion)
     message.success(resolveRoutePublishSuccessMessage(nextVersion))
     await router.replace({
       name: 'MesProRouteEdit',

@@ -1,5 +1,5 @@
 <!--
-  MES 点检保养项目弹窗选择器（支持单选/多选）
+  MES 维保项目弹窗选择器（支持单选/多选）
 
   Props:
     multiple — true 多选（checkbox），false 单选（radio）；默认 true
@@ -10,7 +10,7 @@
     open(selectedIds?: number[]) — 打开弹窗，可传入已选 ID 用于预选高亮
 -->
 <template>
-  <Dialog title="点检保养项目选择" v-model="dialogVisible" width="70%">
+  <Dialog title="维保项目选择" v-model="dialogVisible" width="70%">
     <ContentWrap>
       <el-form :inline="true" :model="queryParams" label-width="85px">
         <el-form-item label="项目编码">

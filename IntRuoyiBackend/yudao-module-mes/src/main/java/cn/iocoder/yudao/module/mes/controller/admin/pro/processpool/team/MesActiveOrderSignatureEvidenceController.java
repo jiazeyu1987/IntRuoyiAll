@@ -17,7 +17,7 @@ public class MesActiveOrderSignatureEvidenceController {
     private final MesActiveOrderSignatureEvidenceService service;
 
     @GetMapping("/mes/pro/process-pool/team-leader/active-order/signature/get")
-    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-process-pool-team-leader:query', 'mes:pro-in-process-order:query')")
     public CommonResult<MesActiveOrderSignatureEvidenceRespVO> team(
             @RequestParam("activeOrderId") Long activeOrderId, @RequestParam("signatureId") Long signatureId) {
         return CommonResult.success(MesActiveOrderSignatureEvidenceRespVO.from(

@@ -1071,6 +1071,28 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
                 userId);
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @DataPermission(enable = false)
+    public void cancelProcessInstanceByBusiness(Long actorUserId, String processInstanceId,
+                                                String expectedBusinessKey, String expectedDefinitionKey, String reason) {
+        if (actorUserId == null || actorUserId <= 0 || StrUtil.isBlank(processInstanceId)
+                || StrUtil.isBlank(expectedBusinessKey) || StrUtil.isBlank(expectedDefinitionKey)
+                || StrUtil.isBlank(reason)) {
+            throw new IllegalArgumentException("业务联动作废缺少操作者、流程归属或原因");
+        }
+        ProcessInstance instance = getProcessInstance(processInstanceId);
+        if (instance == null) throw exception(PROCESS_INSTANCE_CANCEL_FAIL_NOT_EXISTS);
+        String tenantId = String.valueOf(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+        if (!Objects.equals(tenantId, instance.getTenantId())
+                || !Objects.equals(expectedBusinessKey, instance.getBusinessKey())
+                || !Objects.equals(expectedDefinitionKey, instance.getProcessDefinitionKey())
+                || StrUtil.isNotBlank(instance.getSuperExecutionId())) {
+            throw new IllegalStateException("业务联动作废的流程归属不一致");
+        }
+        updateProcessInstanceCancel(processInstanceId, "业务联动作废：" + reason, actorUserId);
+    }
+
     private void updateProcessInstanceCancel(String id, String reason, Long actorUserId) {
         Assert.notNull(actorUserId, "取消流程操作者不能为空");
         // 1. 更新流程实例 status

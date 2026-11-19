@@ -40,6 +40,7 @@ class BpmTaskServiceImplOpinionTest {
         Fixture f = new Fixture(false);
         assertTrue(BpmnModelUtils.parseReasonRequire(f.model, "CURRENT"));
         BpmTaskApproveReqVO request = approval(reason);
+        request.setVariables(Map.of(PROCESS_INSTANCE_VARIABLE_REASON, "forged"));
 
         f.service.approveTask(1L, request);
 
@@ -49,7 +50,8 @@ class BpmTaskServiceImplOpinionTest {
         verify(f.tasks).addComment("task", "instance", BpmCommentTypeEnum.APPROVE.getType(),
                 BpmCommentTypeEnum.APPROVE.formatComment(expected));
         verify(f.tasks).complete(eq("task"), argThat(variables ->
-                Long.valueOf(1L).equals(variables.get(PROCESS_INSTANCE_VARIABLE_LAST_APPROVER_USER_ID))
+                expected.equals(variables.get(PROCESS_INSTANCE_VARIABLE_REASON))
+                        && Long.valueOf(1L).equals(variables.get(PROCESS_INSTANCE_VARIABLE_LAST_APPROVER_USER_ID))
                         && Map.of("NEXT", List.of(2L)).equals(variables.get(
                         PROCESS_INSTANCE_VARIABLE_APPROVE_USER_SELECT_ASSIGNEES))), eq(true));
     }

@@ -23,6 +23,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.springframework.stereotype.Service;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteDeviceIdentitySnapshotService;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -41,6 +42,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE
 
 @Service
 public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntimeConfigService {
+    @jakarta.annotation.Resource
+    private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
 
     private static final String DEVICE_STATUS_ENABLED = "ENABLED";
     private static final String PRODUCTION_CONTEXT_PREFIX = "productionSubmitContext.";
@@ -186,7 +189,7 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         if (activeOrderId == null) {
             return new ParameterRuntimeSnapshot(null, null,
                     MesDeviceParameterSnapshotCodec.SOURCE_CURRENT_ROUTE_PROCESS_AT_SUBMIT, null, null,
-                    List.of(), null, null, null, null);
+                    List.of(), null, null, null, null, Map.of());
         }
         MesProcessPoolActiveOrderProcessSnapshotDO snapshot = processSnapshotMapper.selectByActiveOrderAndProcess(
                 activeOrderId, process.routeProcessId(), process.processId());
@@ -222,7 +225,8 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         return new ParameterRuntimeSnapshot(snapshot.getId(), snapshot.getParameterSnapshotSha256(), state, rules,
                 selectionGroups, parseLossReasonSnapshot(snapshot), snapshot.getDeviceSelectionSnapshotJson(),
                 snapshot.getDeviceSelectionSnapshotSha256(), snapshot.getProductionConfigSnapshotJson(),
-                snapshot.getProductionConfigSnapshotSha256());
+                snapshot.getProductionConfigSnapshotSha256(), deviceIdentitySnapshots.require(snapshot.getRouteVersionId(),
+                    selectionGroups.stream().flatMap(group -> group.deviceIds().stream()).collect(Collectors.toSet())));
     }
 
     private static List<MesProcessPoolTeamProcessDeviceDO> toFrozenProcessDeviceBindings(
@@ -484,8 +488,10 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
             if (parameterSnapshot.selectionGroups() != null && frozenGroup == null) {
                 continue;
             }
-            options.add(new MesFrontlineTeamDeviceOption(device.getId(), device.getDeviceCode(),
-                    device.getDeviceName(), device.getDeviceStatus(),
+            var identity = isFrozenSnapshot(parameterSnapshot) ? parameterSnapshot.deviceIdentities().get(device.getId())
+                    : new MesProRouteDeviceIdentitySnapshotService.Identity(device.getId(), device.getDeviceCode(), device.getDeviceName());
+            options.add(new MesFrontlineTeamDeviceOption(device.getId(), identity.deviceCode(),
+                    identity.deviceName(), device.getDeviceStatus(),
                     frozenGroup == null ? binding.getDeviceGroupKey() : frozenGroup.deviceGroupKey(),
                     frozenGroup == null ? binding.getSelectionMode() : frozenGroup.selectionMode(),
                     parametersByDevice.getOrDefault(device.getId(), List.of())));
@@ -632,7 +638,8 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
                                             String deviceSelectionSnapshotJson,
                                             String deviceSelectionSnapshotSha256,
                                             String productionConfigSnapshotJson,
-                                            String productionConfigSnapshotSha256) {
+                                            String productionConfigSnapshotSha256,
+                                            Map<Long, MesProRouteDeviceIdentitySnapshotService.Identity> deviceIdentities) {
     }
 
 }

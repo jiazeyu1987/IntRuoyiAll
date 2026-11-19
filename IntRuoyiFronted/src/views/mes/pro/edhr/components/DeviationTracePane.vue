@@ -10,7 +10,7 @@
       <el-table-column label="来源" min-width="180"><template #default="{ row }">{{ row.batchExecutionCode || (row.activeOrderId ? `${row.workOrderCode || '订单'}（生产中发起）` : '—') }}</template></el-table-column>
       <el-table-column label="等级" width="110"><template #default="{ row }">{{ row.level === 'CRITICAL' ? '重大（关键）' : '普通' }}</template></el-table-column>
       <el-table-column label="状态" width="90"><template #default="{ row }">{{ row.status === 'OPEN' ? '未处理' : '已处理' }}</template></el-table-column>
-      <el-table-column label="不合格评审" min-width="220"><template #default="{ row }">{{ row.nonconformanceReviewCode || (row.nonconformanceReviewId ? `#${row.nonconformanceReviewId}` : '—') }}<span v-if="row.nonconformanceDisposition"> / {{ row.nonconformanceDisposition }}</span></template></el-table-column>
+      <el-table-column label="不合格评审" min-width="220"><template #default="{ row }">{{ row.nonconformanceReviewCode || (row.nonconformanceReviewId ? `#${row.nonconformanceReviewId}` : '—') }}<span v-if="row.nonconformanceDisposition"> / {{ nonconformanceDispositionLabel(row.nonconformanceDisposition) }}</span></template></el-table-column>
       <el-table-column label="详情" width="160" fixed="right"><template #default="{ row }"><el-button link type="primary" @click="openDeviation(row)">查看发起与处理</el-button></template></el-table-column>
     </el-table>
     <el-dialog v-model="detailVisible" title="偏差详情" width="min(1240px, calc(100vw - 32px))" top="5vh" class="edhr-detail-surface" destroy-on-close append-to-body>
@@ -27,6 +27,7 @@
 <script setup lang="ts">
 import { getDeviationPage, type DeviationRespVO } from '@/api/mes/pro/edhr/deviation'
 import DeviationDetail from '@/views/mes/pro/edhr-deviation/DeviationDetail.vue'
+import { nonconformanceDispositionLabel } from '@/views/mes/pro/processpool/components/activeOrderDisplayLabels'
 const props = defineProps<{ batchExecutionId?: number | string; activeOrderId?: number | string }>()
 const loading = ref(false)
 const error = ref('')

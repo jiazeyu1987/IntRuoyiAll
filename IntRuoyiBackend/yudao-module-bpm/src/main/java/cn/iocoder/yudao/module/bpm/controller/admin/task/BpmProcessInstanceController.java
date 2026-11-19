@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.bpm.controller.admin.task;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.iocoder.yudao.module.bpm.approval.service.ApprovalFlowableTaskQueryService;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
@@ -56,6 +58,8 @@ public class BpmProcessInstanceController {
     private BpmProcessInstanceService processInstanceService;
     @Resource
     private BpmTaskService taskService;
+    @Resource
+    private ApprovalFlowableTaskQueryService approvalTaskQueryService;
     @Resource
     private BpmProcessDefinitionService processDefinitionService;
     @Resource
@@ -200,6 +204,9 @@ public class BpmProcessInstanceController {
         if (StrUtil.isNotEmpty(reqVO.getProcessVariablesStr())) {
             reqVO.setProcessVariables(JsonUtils.parseObject(reqVO.getProcessVariablesStr(), Map.class));
         }
+        if (StrUtil.isNotBlank(reqVO.getProcessInstanceId())) {
+            assertCanReadProcessInstance(getLoginUserId(), reqVO.getProcessInstanceId());
+        }
         return success(processInstanceService.getNextApprovalNodes(getLoginUserId(), reqVO));
     }
 
@@ -244,6 +251,10 @@ public class BpmProcessInstanceController {
     }
 
     private void assertCanReadProcessInstance(Long loginUserId, HistoricProcessInstance processInstance) {
+        if (loginUserId == null || !StrUtil.equals(processInstance.getTenantId(),
+                String.valueOf(TenantContextHolder.getRequiredTenantId()))) {
+            throw exception(PROCESS_INSTANCE_ACCESS_DENIED);
+        }
         if (permissionApi.hasAnyRolesOrSuperAdmin(loginUserId, RoleCodeEnum.BPM_ADMIN.getCode())) {
             return;
         }
@@ -251,6 +262,9 @@ public class BpmProcessInstanceController {
             return;
         }
         if (hasTaskParticipant(loginUserId, processInstance.getId())) {
+            return;
+        }
+        if (approvalTaskQueryService.hasCurrentProcessTaskAuthority(processInstance.getId(), loginUserId)) {
             return;
         }
         throw exception(PROCESS_INSTANCE_ACCESS_DENIED);

@@ -3,6 +3,9 @@ package cn.iocoder.yudao.module.mes.service.pro.craft;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.craft.vo.MesSharedChangeReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.content.MesProProcessContentSaveReqVO;
+import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessContentService;
+import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.craft.*;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
@@ -36,6 +39,8 @@ public class MesProSharedChangeService implements cn.iocoder.yudao.module.mes.se
     @Resource private MesProcessPoolTeamDeviceMapper deviceMapper;
     @Resource private MesProRouteVersionMapper versionMapper;
     @Resource private ObjectProvider<MesProProcessService> processes;
+    @Resource @org.springframework.context.annotation.Lazy
+    private MesProProcessContentService processContents;
     @Resource private ObjectProvider<MesDvMachineryService> machinery;
     @Resource private org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc;
     private final MesProRouteSnapshotCanonicalizer canonicalizer = new MesProRouteSnapshotCanonicalizer();
@@ -75,6 +80,11 @@ public class MesProSharedChangeService implements cn.iocoder.yudao.module.mes.se
             JSONObject row = (JSONObject) JSON.toJSON(raw);
             if (!Objects.equals(sourceId, row.getLong("id"))) result.add(row);
         }
+        if ("PROCESS".equals(type)) {
+            var usage = cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessWorkshopUsage.load(
+                    jdbc, result.stream().map(row -> row.getLong("id")).toList());
+            for (JSONObject row : result) row.put("workshops", usage.getOrDefault(row.getLong("id"), List.of()));
+        }
         return result;
     }
 
@@ -88,7 +98,16 @@ public class MesProSharedChangeService implements cn.iocoder.yudao.module.mes.se
             default -> throw invalid("变更对象类型无效");
         };
         if (row == null) throw invalid("变更资料不存在，请刷新");
-        return (JSONObject) JSON.toJSON(row);
+        // 在入口固定日期等值的 JSON 表达，保证持久化前后使用相同的指纹。
+        JSONObject data = JSON.parseObject(JSON.toJSONString(row));
+        if ("PROCESS".equals(type)) {
+            var contents = processContents.getProcessContentListByProcessId(id).stream()
+                    .map(content -> BeanUtils.toBean(content, MesProProcessContentSaveReqVO.class))
+                    .sorted(Comparator.comparing(MesProProcessContentSaveReqVO::getSort))
+                    .toList();
+            data.put("processContents", JSON.parseArray(JSON.toJSONString(contents)));
+        }
+        return data;
     }
 
     public Map<String, Object> preview(MesSharedChangeReqVO request) {
@@ -117,6 +136,19 @@ public class MesProSharedChangeService implements cn.iocoder.yudao.module.mes.se
             JSONObject fields = (JSONObject) JSON.toJSON(update);
             if (!Objects.equals(request.getSourceId(), fields.getLong("id"))) throw invalid("修改对象身份不一致");
             after.putAll(fields);
+            if ("PROCESS".equals(request.getSubjectType()) && request.getProcessContents() != null) {
+                Set<Long> existing = before.getJSONArray("processContents").toJavaList(JSONObject.class).stream()
+                        .map(content -> content.getLong("id")).collect(Collectors.toSet());
+                Set<Long> selected = new HashSet<>();
+                Set<Integer> sorts = new HashSet<>();
+                for (var content : request.getProcessContents()) {
+                    if (!Objects.equals(request.getSourceId(), content.getProcessId())
+                            || content.getSort() == null || content.getSort() < 1 || !sorts.add(content.getSort())
+                            || (content.getId() != null && (!existing.contains(content.getId()) || !selected.add(content.getId()))))
+                        throw invalid("操作步骤归属或序号无效，请重新确认");
+                }
+                after.put("processContents", JSON.parseArray(JSON.toJSONString(request.getProcessContents())));
+            }
         } else throw invalid("变更方式无效");
         if ("CRAFT".equals(request.getSubjectType()) && !Objects.equals(before.getLong("processId"), after.getLong("processId")))
             throw invalid("替换工艺必须属于同一工序");
@@ -163,7 +195,7 @@ public class MesProSharedChangeService implements cn.iocoder.yudao.module.mes.se
             if (!found) throw invalid("所选工序已不在影响范围，请重新预览");
         }
         Plan plan = new Plan(request, before, after, deviceIds, targetDeviceId, refs, new LinkedHashMap<>());
-        Map<Long, JSONObject> workshops = workshops(impacts);
+        Map<Long, JSONObject> workshops = workshops(impacts, jdbc);
         for (JSONObject impact : impacts.toJavaList(JSONObject.class)) for (JSONObject node : impact.getJSONArray("nodes").toJavaList(JSONObject.class)) {
             Long workstationId = node.getLong("routeProcessWorkstationId");
             JSONObject workshop = workstationId == null ? null : workshops.get(workstationId);
@@ -212,7 +244,7 @@ public class MesProSharedChangeService implements cn.iocoder.yudao.module.mes.se
         return missing;
     }
 
-    private Map<Long, JSONObject> workshops(JSONArray impacts) {
+    static Map<Long, JSONObject> workshops(JSONArray impacts, org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc) {
         Set<Long> ids = new HashSet<>();
         for (JSONObject impact : impacts.toJavaList(JSONObject.class)) for (JSONObject node : impact.getJSONArray("nodes").toJavaList(JSONObject.class)) {
             Long id = node.getLong("routeProcessWorkstationId"); if (id != null) ids.add(id);
@@ -407,7 +439,20 @@ public class MesProSharedChangeService implements cn.iocoder.yudao.module.mes.se
         if (applyingSource.get() != null) throw invalid("共享资料变更执行状态冲突");
         applyingSource.set(request.getSubjectType() + ":" + request.getSourceId());
         try {
-        if ("PROCESS".equals(request.getSubjectType())) processes.getObject().updateProcess(request.getProcess());
+        if ("PROCESS".equals(request.getSubjectType())) {
+            processes.getObject().updateProcess(request.getProcess());
+            if (request.getProcessContents() != null) {
+                Set<Long> retained = request.getProcessContents().stream().map(content -> content.getId())
+                        .filter(Objects::nonNull).collect(Collectors.toSet());
+                for (var existing : processContents.getProcessContentListByProcessId(request.getSourceId())) {
+                    if (!retained.contains(existing.getId())) processContents.deleteProcessContent(existing.getId());
+                }
+                for (var content : request.getProcessContents()) {
+                    if (content.getId() == null) processContents.createProcessContent(content);
+                    else processContents.updateProcessContent(content);
+                }
+            }
+        }
         else if ("DEVICE".equals(request.getSubjectType())) {
             machinery.getObject().updateMachinery(request.getDevice());
             for (Long id : proposal.getJSONArray("sourceDeviceIds").toJavaList(Long.class)) {

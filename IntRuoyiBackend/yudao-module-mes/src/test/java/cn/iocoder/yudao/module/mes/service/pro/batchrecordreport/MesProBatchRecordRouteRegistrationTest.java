@@ -29,6 +29,7 @@ class MesProBatchRecordRouteRegistrationTest {
 
     MesProBatchRecordRouteRegistrationTest() {
         ReflectionTestUtils.setField(service, "routeVersionMapper", versions);
+        ReflectionTestUtils.setField(service, "deviceIdentitySnapshots", mock(cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteDeviceIdentitySnapshotService.class));
         ReflectionTestUtils.setField(service, "routeControlledContentAdapter", adapter);
         ReflectionTestUtils.setField(service, "routeProductMapper", mock(MesProRouteProductMapper.class));
         ReflectionTestUtils.setField(service, "processMapper", mock(MesProProcessMapper.class));

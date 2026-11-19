@@ -36,7 +36,8 @@
         >
           <div class="frontline-production-order-summary" :aria-label="productionActiveOrderSummaryLabel">
             <div class="frontline-production-order-summary__value">
-              <div class="frontline-production-order-summary__code" data-pqc-order-code>{{ productionOrderLabel }}</div>
+              <div class="frontline-production-order-summary__code" :title="selectedActiveOrder?.workOrderCode" data-pqc-order-code>订单号：{{ productionOrderLabel }}</div>
+              <div v-if="selectedActiveOrder" class="frontline-production-order-summary__batch" data-pqc-batch-code>批次号：{{ selectedActiveOrder.batchCode || '批次号缺失' }}</div>
               <div v-if="selectedActiveOrder" class="frontline-production-order-summary__product" data-pqc-product-name>{{ productionProductNameLabel }}</div>
             </div>
             <div
@@ -650,8 +651,11 @@
                 data-frontline-production-active-order-summary
               >
                 <span class="frontline-production-order-summary__code">
-                  {{ productionOrderLabel }}
+                  订单号：{{ productionOrderLabel }}
                 </span><br />
+                <span v-if="selectedActiveOrder" class="frontline-production-order-summary__batch" data-frontline-production-batch-code>
+                  批次号：{{ selectedActiveOrder.batchCode || '批次号缺失' }}
+                </span>
                 <span class="frontline-production-order-summary__product">
                   {{ productionProductNameLabel }}
                 </span>
@@ -770,8 +774,8 @@
                 class="frontline-picker__order-search"
                 type="search"
                 data-frontline-production-order-search-input
-                aria-label="输入订单号筛选活跃订单"
-                placeholder="输入订单号"
+                aria-label="输入生产订单号或批次号筛选活跃订单"
+                placeholder="输入生产订单号或批次号"
                 autocomplete="off"
                 spellcheck="false"
                 @keydown.enter="handleActiveOrderSearchEnter"
@@ -813,10 +817,14 @@
                 >
                   <span v-if="option.activeOrder.readBlocked" role="status">暂不可填写：{{ option.activeOrder.readBlockReason }}</span>
                   <span class="frontline-order-picker-option__row">
-                    <span>编码</span>
+                    <span>生产订单号</span>
                     <strong class="frontline-order-picker-option__value is-code" data-frontline-production-order-option-code>
                       {{ option.activeOrder.workOrderCode || `订单ID：${option.activeOrder.workOrderId}` }}
                     </strong>
+                  </span>
+                  <span class="frontline-order-picker-option__row" data-frontline-production-order-option-batch>
+                    <span>批次号</span>
+                    <strong class="frontline-order-picker-option__value is-code">{{ option.activeOrder.batchCode || '批次号缺失' }}</strong>
                   </span>
                   <span class="frontline-order-picker-option__row">
                     <span>产品</span>
@@ -1482,8 +1490,8 @@
             class="frontline-picker__order-search"
             type="search"
             data-pqc-order-search-input
-            aria-label="输入订单号筛选活跃订单"
-            placeholder="输入订单号"
+            aria-label="输入生产订单号或批次号筛选活跃订单"
+            placeholder="输入生产订单号或批次号"
             autocomplete="off"
             spellcheck="false"
             @keydown.enter="handleActiveOrderSearchEnter"
@@ -1509,7 +1517,7 @@
             :data-pqc-order-option="activePicker === 'order' ? 'true' : undefined"
             :data-pqc-process-option="activePicker === 'process' ? option.key : undefined"
             :aria-label="option.activeOrder
-              ? `编码 ${option.activeOrder.workOrderCode}，产品 ${option.activeOrder.productName}，数量 ${formatProductionQuantity(option.activeOrder.quantity)}`
+              ? `生产订单号 ${option.activeOrder.workOrderCode}，批次号 ${option.activeOrder.batchCode || '批次号缺失'}，产品 ${option.activeOrder.productName}，数量 ${formatProductionQuantity(option.activeOrder.quantity)}`
               : option.label"
             @click="option.onClick"
           >
@@ -1519,10 +1527,14 @@
             >
               <span v-if="option.activeOrder.readBlocked" class="frontline-order-picker-option__blocked-reason" role="status">暂不可填写：{{ option.activeOrder.readBlockReason }}</span>
               <span class="frontline-order-picker-option__row" data-pqc-order-option-code>
-                <span>编码</span>
+                <span>生产订单号</span>
                 <strong class="frontline-order-picker-option__value is-code">
                   {{ option.activeOrder.workOrderCode || `订单ID：${option.activeOrder.workOrderId}` }}
                 </strong>
+              </span>
+              <span class="frontline-order-picker-option__row" data-pqc-order-option-batch>
+                <span>批次号</span>
+                <strong class="frontline-order-picker-option__value is-code">{{ option.activeOrder.batchCode || '批次号缺失' }}</strong>
               </span>
               <span class="frontline-order-picker-option__row" data-pqc-order-option-product>
                 <span>产品</span>
@@ -2226,7 +2238,7 @@ const productionActiveOrderSummaryLabel = computed(() => {
     throw new Error(`一线活跃订单缺少正式产品名：workOrderId=${selectedOrder.workOrderId}`)
   }
   const quantityText = formatProductionQuantity(selectedOrder.quantity)
-  return `${workOrderCode}-${productName}(${quantityText})`
+  return `${workOrderCode}-${productName}(${quantityText})，批次号：${selectedOrder.batchCode || '批次号缺失'}`
 })
 
 const formatProductionQuantity = (quantity: number) => {
@@ -2244,7 +2256,7 @@ const selectedProductionOrderQuantityLabel = computed(() =>
 
 const formatProductionSubmittedQuantity = (quantity: number) => {
   if (!Number.isFinite(quantity) || quantity < 0) {
-    throw new Error(`一线生产工序已提交数量无效：${quantity}`)
+    throw new Error(`生产作业工序已提交数量无效：${quantity}`)
   }
   return String(quantity)
 }
@@ -3424,7 +3436,8 @@ const filteredActiveOrderOptions = computed(() => {
     return deviceState.activeOrderOptions
   }
   return deviceState.activeOrderOptions.filter((order) =>
-    normalizeActiveOrderKeyword(order.workOrderCode).includes(keyword)
+    normalizeActiveOrderKeyword(order.workOrderCode).includes(keyword) ||
+    normalizeActiveOrderKeyword(order.batchCode).includes(keyword)
   )
 })
 
@@ -5262,10 +5275,10 @@ const handlePqcFullscreenToggle = async () => {
 const enterProductionFullscreen = async () => {
   const panel = frontlinePanelRef.value
   if (!panel) {
-    throw new Error('一线生产填写最大化区域尚未加载。')
+    throw new Error('生产作业填写最大化区域尚未加载。')
   }
   if (typeof panel.requestFullscreen !== 'function') {
-    throw new Error('当前浏览器不支持一线生产填写最大化。')
+    throw new Error('当前浏览器不支持生产作业填写最大化。')
   }
   await panel.requestFullscreen()
   syncPqcFullscreenState()
@@ -5277,7 +5290,7 @@ const exitProductionFullscreen = async () => {
     return
   }
   if (typeof document.exitFullscreen !== 'function') {
-    throw new Error('当前浏览器不支持退出一线生产填写最大化。')
+    throw new Error('当前浏览器不支持退出生产作业填写最大化。')
   }
   await document.exitFullscreen()
   syncPqcFullscreenState()
@@ -5591,7 +5604,7 @@ const handleNavigatePqcProcess = async (direction: -1 | 1) => {
 
 const handleSelectEmployee = async (employee: FrontlineEmployeeCandidateVO) => {
   if (isPqcMode.value && !isCurrentLoginEmployee(employee)) {
-    showFrontlineError('一线PQC员工必须使用当前登录账号。')
+    showFrontlineError('过程检验员工必须使用当前登录账号。')
     return
   }
   if (isPqcMode.value && pqcSelectedTaskReadonly.value) {
@@ -6354,7 +6367,7 @@ const assertFrontlineFormalSubmitContext = (formalContext: FrontlineFormalSubmit
 const buildFrontlineProductionSubmitIdempotencyKey = () => {
   const submitIdempotencyKey = `frontline-submit-${productionSubmitDraftKey.value}`
   if (submitIdempotencyKey.length > FRONTLINE_PRODUCTION_IDEMPOTENCY_KEY_MAX_LENGTH) {
-    throw new Error('一线生产提交幂等键超过服务端长度限制，无法提交。')
+    throw new Error('生产作业提交幂等键超过服务端长度限制，无法提交。')
   }
   return submitIdempotencyKey
 }
@@ -7316,7 +7329,7 @@ const initializePqcReturnedSelection = async () => {
       String(option.returnedSubmission.row.eventId) === String(route.query.eventId) &&
       String(option.returnedSubmission.row.rejectedReviewId) === String(route.query.rejectedReviewId)
     ).map(option => ({ process, option })))
-  if (matches.length !== 1) throw new Error('原检验已重新提交或退回轮次已变化，请从一线PQC打开订单查看。')
+  if (matches.length !== 1) throw new Error('原检验已重新提交或退回轮次已变化，请从检验填报打开订单查看。')
   const { process, option } = matches[0]
   invalidateFrontlinePqcProcessCacheForActiveOrder(deviceState, order.activeOrderId)
   await handleSelectActiveOrder(order)

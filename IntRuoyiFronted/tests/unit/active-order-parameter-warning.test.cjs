@@ -55,3 +55,21 @@ test('saved parameter flag renders an explicit red warning and hides it for norm
   }
   assert.deepEqual(compileTemplate({ source: descriptor.template.content, filename, id: 'parameter-warning' }).errors, [])
 })
+
+test('order identity and both advisory labels render together for every warning combination', async () => {
+  const marker = descriptor.template.content.indexOf('class="team-leader-workbench__active-order-code-cell"')
+  const start = descriptor.template.content.lastIndexOf('<div', marker)
+  const end = descriptor.template.content.indexOf('</div>', marker) + '</div>'.length
+  const render = Vue.compile(descriptor.template.content.slice(start, end))
+  for (const [quantity, parameter] of [[false, false], [true, false], [false, true], [true, true]]) {
+    const app = Vue.createSSRApp({
+      data: () => ({ row: { workOrderCode: 'WO-627', hasQuantityConflict: quantity, hasParameterAbnormal: parameter } }),
+      render
+    })
+    app.component('ElTag', { setup: (_, { slots }) => () => Vue.h('span', slots.default()) })
+    const html = await renderToString(app)
+    assert.ok(html.includes('WO-627'))
+    assert.equal(html.includes('数量超限（仅提示）'), quantity)
+    assert.equal(html.includes('参数异常（仅提示）'), parameter)
+  }
+})

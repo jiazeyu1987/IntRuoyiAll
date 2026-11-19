@@ -29,7 +29,7 @@ public class MesTeamLeaderActiveOrderProductionMaterialController {
 
     @GetMapping("/active-order/production-material-lists")
     @Operation(summary = "查询当前生产组长活跃订单的完整生产用料清单")
-    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-process-pool-team-leader:query', 'mes:pro-in-process-order:query')")
     public CommonResult<List<MesKingdeeProductionMaterialListRespVO>> getList(
             @RequestParam("activeOrderId") Long activeOrderId) {
         return success(service.getList(SecurityFrameworkUtils.getLoginUserId(), activeOrderId));

@@ -72,9 +72,7 @@
             v-bind="sortColumnAttrs('productCode')"
           >
             <template #default="{ row }">
-              <el-link :underline="false" type="primary" @click="openForm('update', row.id)">
-                {{ row.productCode }}
-              </el-link>
+              <ProductCodeLink :code="row.productCode" />
             </template>
           </el-table-column>
           <el-table-column
@@ -202,10 +200,10 @@
   >
     <el-form ref="formRef" :model="formData" :rules="formRules" label-width="118px">
       <el-form-item label="产品编码" prop="productCode">
-        <el-input v-model="formData.productCode" maxlength="64" />
+        <el-input v-model="formData.productCode" maxlength="64" /><ProductCodeLink :code="formData.productCode" />
       </el-form-item>
       <el-form-item label="DCC产品编号" prop="dccProductCode">
-        <el-input v-model="formData.dccProductCode" clearable maxlength="14" placeholder="14 位字母或数字，可为空" />
+        <el-input v-model="formData.dccProductCode" clearable maxlength="14" placeholder="14 位字母或数字，可为空" /><ProductCodeLink :code="formData.dccProductCode" />
       </el-form-item>
       <el-form-item label="中文名称" prop="nameCn">
         <el-input v-model="formData.nameCn" maxlength="255" />
@@ -304,8 +302,8 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="产品编码" prop="productCode" min-width="150" />
-      <el-table-column label="DCC产品编号" prop="dccProductCode" min-width="150" />
+      <el-table-column label="产品编码" prop="productCode" min-width="150"><template #default="{ row }"><ProductCodeLink :code="row.productCode" /></template></el-table-column>
+      <el-table-column label="DCC产品编号" prop="dccProductCode" min-width="150"><template #default="{ row }"><ProductCodeLink :code="row.dccProductCode" /></template></el-table-column>
       <el-table-column label="中文名称" prop="nameCn" min-width="180" />
       <el-table-column label="失败原因" prop="failureReason" min-width="260">
         <template #default="{ row }">{{ row.failureReason || '-' }}</template>
@@ -315,7 +313,7 @@
 
   <el-dialog v-model="referenceVisible" class="scheme-d-form-control" title="引用情况" width="460px">
     <el-descriptions :column="1" border>
-      <el-descriptions-item label="产品编码">{{ selectedReferenceProduct?.productCode }}</el-descriptions-item>
+      <el-descriptions-item label="产品编码"><ProductCodeLink :code="selectedReferenceProduct?.productCode" /></el-descriptions-item>
       <el-descriptions-item label="DCC引用数">{{ referenceData?.dccReferenceCount ?? '-' }}</el-descriptions-item>
       <el-descriptions-item label="展厅引用数">{{ referenceData?.showroomReferenceCount ?? '-' }}</el-descriptions-item>
     </el-descriptions>
@@ -323,6 +321,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 

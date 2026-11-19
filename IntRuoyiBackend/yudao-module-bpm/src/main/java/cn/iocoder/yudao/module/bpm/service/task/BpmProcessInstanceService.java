@@ -149,6 +149,10 @@ public interface BpmProcessInstanceService {
      */
     void cancelProcessInstanceByAdmin(Long userId, BpmProcessInstanceCancelReqVO cancelReqVO);
 
+    /** 仅供已校验业务归属的内部联动作废调用，不受发起人主动撤回开关限制。 */
+    void cancelProcessInstanceByBusiness(Long actorUserId, String processInstanceId,
+                                         String expectedBusinessKey, String expectedDefinitionKey, String reason);
+
     /**
      * 更新 ProcessInstance 为不通过
      *

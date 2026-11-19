@@ -33,7 +33,7 @@
       <el-table-column label="条码" min-width="150">
         <template #default="{ row }">
           <el-form-item class="mb-0px!">
-            <el-input disabled v-model="row.productNo" />
+            <ProductCodeLink :code="row.productNo" />
           </el-form-item>
         </template>
       </el-table-column>
@@ -94,6 +94,7 @@
   </el-row>
 </template>
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import * as ProductApi from '@/api/crm/product'
 import { erpPriceInputFormatter, erpPriceMultiply } from '@/utils'
 import { DICT_TYPE } from '@/utils/dict'

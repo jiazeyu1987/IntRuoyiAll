@@ -1,4 +1,5 @@
 import { h } from 'vue'
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { ElMessageBox } from 'element-plus'
 import type { DccProjectProductCreateReqVO, DccProjectReviewerRole } from '@/api/dcc/controlledFile/projectProductRequests'
 import { reviewerIdentity } from './project-reviewer'
@@ -49,7 +50,7 @@ export const confirmProjectProductApplication = async (
   ]
   await ElMessageBox.confirm(h('div', { 'data-testid': 'dcc-project-product-confirmation', style: { maxHeight: '65vh', overflowY: 'auto' } }, [
     h('p', resubmission ? '请核对本次项目、产品及默认属性，提交后进入审核。' : '请核对本次项目、产品及默认属性，确认后直接创建，无需审核。'),
-    h('dl', fields.flatMap(([label, value]) => [h('dt', { class: 'font-600 mt-8px' }, label), h('dd', { class: 'm-0 break-all' }, value)]))
+    h('dl', fields.flatMap(([label, value]) => [h('dt', { class: 'font-600 mt-8px' }, label), h('dd', { class: 'm-0 break-all' }, label === '产品编码' ? h(ProductCodeLink, { code: value }) : value)]))
   ]), resubmission ? '核对重新提交的项目及产品申请' : '核对新建项目及产品', {
     confirmButtonText: resubmission ? '提交申请' : '确认创建', cancelButtonText: '返回修改', closeOnClickModal: false
   })

@@ -27,7 +27,7 @@
           />
         </template>
       </el-table-column>
-      <el-table-column label="产品物料编码" align="center" prop="itemCode" min-width="120" />
+      <el-table-column label="产品物料编码" align="center" prop="itemCode" min-width="120"><template #default="{ row }"><ProductCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="产品物料名称" align="center" prop="itemName" min-width="140" />
       <el-table-column label="规格型号" align="center" prop="specification" min-width="120" />
       <el-table-column label="单位" align="center" prop="unitMeasureName" width="80" />
@@ -134,6 +134,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { WmProductReceiptLineApi, WmProductReceiptLineVO } from '@/api/mes/wm/productreceipt/line'
 import { WmMaterialStockVO } from '@/api/mes/wm/materialstock'
 import WmMaterialStockSelect from '@/views/mes/wm/materialstock/components/WmMaterialStockSelect.vue'

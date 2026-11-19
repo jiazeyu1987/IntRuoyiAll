@@ -87,6 +87,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteServiceImplTest {
+    @org.mockito.Mock private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
+
 
     @Mock
     private cn.iocoder.yudao.module.mes.service.audit.MesVersionOperateLogService versionOperateLogService;
@@ -1016,6 +1018,10 @@ class MesProRouteServiceImplTest {
         graph.setNodes(emptyList());
         when(routeMapper.selectById(routeId)).thenReturn(route);
         when(routeVersionMapper.selectById(routeVersionId)).thenReturn(routeVersion);
+        JSONObject savedSnapshot = JSON.parseObject(routeVersion.getRouteSnapshotJson());
+        JSONObject sharedSources = JSON.parseObject("{\"DEVICE:7\":{\"id\":8,\"code\":\"B\",\"name\":\"已确认设备\"}}");
+        savedSnapshot.getJSONObject("configSnapshots").put("sharedSourceSnapshots", sharedSources);
+        routeVersion.setRouteSnapshotJson(savedSnapshot.toJSONString());
         when(routeProcessFlowService.getGraph(routeId)).thenReturn(graph);
         when(routeProductMapper.selectListByRouteId(routeId)).thenReturn(emptyList());
         when(routeProductBomMapper.selectList(routeId, null, null)).thenReturn(emptyList());
@@ -1027,6 +1033,7 @@ class MesProRouteServiceImplTest {
 
         JSONObject snapshot = JSON.parseObject(routeService.buildCurrentRouteSnapshotJson(routeId, routeVersionId));
 
+        assertEquals(sharedSources, snapshot.getJSONObject("configSnapshots").getJSONObject("sharedSourceSnapshots"));
         assertEquals(new BigDecimal("1.25"), snapshot.getJSONObject("configSnapshots").getBigDecimal("lossCoefficient"));
         JSONArray owners = snapshot.getJSONObject("configSnapshots").getJSONArray("batchRecordAttachmentOwners");
         assertEquals(4, owners.size());

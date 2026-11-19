@@ -728,7 +728,7 @@
           </el-table-column>
           <el-table-column label="产品编码" min-width="150">
             <template #default="{ row }">
-              {{ buildTaskProductCodeLabel(row) }}
+              <ProductCodeLink :code="buildTaskProductCodeLabel(row)" empty-text="--" />
             </template>
           </el-table-column>
           <el-table-column label="产品名称" min-width="180">
@@ -833,7 +833,7 @@
           </div>
           <div class="summary-chip">
             <label>产品</label>
-            <strong>{{ buildWorkOrderAnalysisProductLabel() }}</strong>
+            <strong><ProductCodeLink :code="workOrderAnalysis.productCode" /><span v-if="workOrderAnalysis.productCode && workOrderAnalysis.productName"> / </span><span>{{ workOrderAnalysis.productName }}</span><span v-if="!workOrderAnalysis.productCode && !workOrderAnalysis.productName">--</span></strong>
           </div>
           <div class="summary-chip">
             <label>数量</label>
@@ -911,6 +911,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import {
@@ -2493,6 +2494,7 @@ function buildTaskProcessLabel(task: ProScheduleCalendarTaskVO) {
   return task.processName || '--'
 }
 
+
 function buildTaskProductCodeLabel(task: ProScheduleCalendarTaskVO) {
   return task.itemCode || '--'
 }
@@ -2536,13 +2538,6 @@ function buildTaskFreezeText(task: ProScheduleCalendarTaskVO) {
   return task.scheduleOrderFreezeReason ? `已冻结：${task.scheduleOrderFreezeReason}` : '已冻结'
 }
 
-function buildWorkOrderAnalysisProductLabel() {
-  return (
-    [workOrderAnalysis.value?.productCode, workOrderAnalysis.value?.productName]
-      .filter(Boolean)
-      .join(' / ') || '--'
-  )
-}
 
 function buildWorkOrderAnalysisLineLabel() {
   return workOrderAnalysis.value?.lineName || '--'

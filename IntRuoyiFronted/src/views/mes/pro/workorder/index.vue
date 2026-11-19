@@ -110,7 +110,7 @@
             v-bind="sortColumnAttrs('productCode')"
             ><template #default="scope">
               <div class="work-order-key-cell">
-                <span class="work-order-key-text">{{ scope.row.productCode }}</span>
+                <ProductCodeLink :code="scope.row.productCode" class="work-order-key-text" />
               </div></template
             ></el-table-column
           >
@@ -358,7 +358,7 @@
       </el-form-item>
       <el-form-item label="正式申请" required>
         <el-select v-model="localTestDialog.requestId" filterable :loading="localTestDialog.loadingProducts" placeholder="选择已完成的正式申请精确 ID" style="width: 100%" data-local-test-request>
-          <el-option v-for="product in localTestProducts" :key="product.requestId" :value="product.requestId" :label="`申请 ${product.requestId} · ${product.projectCode} · ${product.productCode} · ${product.productName}`" />
+          <el-option v-for="product in localTestProducts" :key="product.requestId" :value="product.requestId" :label="`申请 ${product.requestId} · ${product.projectCode} · ${product.productCode} · ${product.productName}`">{{ `申请 ${product.requestId} · ${product.projectCode} · ` }}<ProductCodeLink :code="product.productCode" />{{ ` · ${product.productName}` }}</el-option>
         </el-select>
         <span v-if="!localTestDialog.loadingProducts && !localTestDialog.error && !localTestProducts.length" class="text-red-500">暂无已完成申请，请先完成项目产品申请。</span>
         <el-button link type="primary" @click="router.push('/mdm/product-catalog')">处理正式项目产品申请</el-button>
@@ -369,7 +369,7 @@
         <el-descriptions-item label="产品目录 ID">{{ localTestProduct.catalogId }}</el-descriptions-item>
         <el-descriptions-item label="关系 ID">{{ localTestProduct.relationId }}</el-descriptions-item>
         <el-descriptions-item label="MES 产品 ID">{{ localTestProduct.mesProductId ?? '缺失，预检后处理' }}</el-descriptions-item>
-        <el-descriptions-item label="产品">{{ localTestProduct.productCode }} · {{ localTestProduct.productName }}</el-descriptions-item>
+        <el-descriptions-item label="产品"><ProductCodeLink :code="localTestProduct.productCode" /> · {{ localTestProduct.productName }}</el-descriptions-item>
       </el-descriptions>
       <el-form-item label="本轮槽位"><span data-local-test-slot>A、B 两槽，共用所选正式申请及产品关系</span></el-form-item>
       <el-table :data="localTestInputOrders" border>
@@ -460,6 +460,7 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
 import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'
 

@@ -4,7 +4,7 @@
       <el-row :gutter="24">
         <el-col :span="12"><el-form-item label="数据所属公司" required><el-select v-model="companyId" filterable remote :remote-method="searchOwnerCompanies" :loading="companyLoading"><el-option v-for="item in companies" :key="item.id" :label="item.name" :value="item.id"/></el-select></el-form-item></el-col>
         <el-col v-if="facts.ownProduct" :span="12"><el-form-item label="系统项目代码" :required="facts.ownProduct"><el-select v-model="projectCodeId" :disabled="!facts.ownProduct || !!taskProject" filterable remote clearable :remote-method="searchProjectCodes" :loading="projectLoading"><el-option v-for="item in projects" :key="item.id" :label="[item.projectCode,item.projectName].filter(Boolean).join(' - ')" :value="item.id"/></el-select></el-form-item></el-col>
-        <el-col v-if="facts.ownProduct" :span="12"><el-form-item label="DCC产品编码"><el-input :model-value="facts.projectProduct?.productCode" readonly placeholder="选择项目后自动显示"/></el-form-item></el-col>
+        <el-col v-if="facts.ownProduct" :span="12"><el-form-item label="DCC产品编码"><ProductCodeLink :code="facts.projectProduct?.productCode" /></el-form-item></el-col>
         <el-col :span="facts.ownProduct ? 12 : 24"><el-form-item label="产品中文名称" required><el-input v-model="productName" :readonly="facts.ownProduct" :placeholder="facts.ownProduct ? '选择项目后自动显示' : '请输入产品中文名称'" maxlength="255"/></el-form-item></el-col>
       </el-row>
       <FactsFields v-model="facts"/>
@@ -24,6 +24,7 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { computed, nextTick, ref, watch } from 'vue'
 import type { UploadUserFile } from 'element-plus'
 import { getMyRegistrationCertificateUpload, getUploadEntrustedEnterprises, getUploadOwnerCompanies, getUploadProjectCodes, getUploadProjectProduct, submitRegistrationCertificateUpload,

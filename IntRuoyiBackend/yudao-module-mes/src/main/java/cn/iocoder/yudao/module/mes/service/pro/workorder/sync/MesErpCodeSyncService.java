@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.workorder.sync;
 
 import cn.iocoder.yudao.module.erp.service.product.sync.ErpKingdeeProductSyncService;
+import cn.iocoder.yudao.module.erp.service.sale.sync.ErpKingdeeSaleOrderSyncService;
 import cn.iocoder.yudao.module.erp.service.production.kingdee.ErpKingdeeProductionPickListService;
 import cn.iocoder.yudao.module.erp.service.production.kingdee.ErpKingdeeProductionReplenishmentListService;
 import cn.iocoder.yudao.module.erp.service.stock.kingdee.ErpKingdeeInventoryListService;
@@ -29,6 +30,7 @@ public class MesErpCodeSyncService {
     private final ErpKingdeeProductionReplenishmentListService replenishmentListService;
     private final MesKingdeeProductionOrderSyncService productionOrderService;
     private final MesKingdeeItemSyncService itemSyncService;
+    private final ErpKingdeeSaleOrderSyncService saleOrderService;
 
     // Targeted reads must not advance the incremental watermark or start a full sync.
     @Transactional(rollbackFor = Exception.class)
@@ -54,6 +56,7 @@ public class MesErpCodeSyncService {
             case "PRODUCTION_PICK_LIST" -> pickListService.syncByCode(code);
             case "PRODUCTION_REPLENISHMENT_LIST" -> replenishmentListService.syncByCode(code);
             case "PRODUCTION_ORDER" -> productionOrderService.syncByCode(code);
+            case "SALE_ORDER" -> saleOrderService.syncByCode(code);
             default -> throw failure("不支持的ERP同步类型：" + syncType);
         };
         if (count == 0) {

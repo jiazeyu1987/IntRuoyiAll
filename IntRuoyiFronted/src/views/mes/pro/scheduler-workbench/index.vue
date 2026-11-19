@@ -725,7 +725,7 @@
                     :min-width="getRouteActiveOrderColumnMinWidthString('products', 280)"
                     show-overflow-tooltip
                   >
-                    <template #default="{ row }">{{ routeActiveProductsText(row) }}</template>
+                    <template #default="{ row }"><span v-if="!row.products?.length">未关联产品</span><template v-for="(product, index) in row.products" :key="product.productCode || index"><span v-if="index">；</span><span v-if="product.productName">{{ product.productName }}</span><ProductCodeLink v-else :code="product.productCode" empty-text="未命名产品" /> {{ product.wipOrderCount || 0 }} 单</template></template>
                   </el-table-column>
                 </el-table>
               </template>
@@ -824,7 +824,7 @@
                         <el-table-column label="排产订单" prop="scheduleOrderCode" :width="getReplanOrderColumnWidthString('scheduleOrderCode', 150)" :min-width="getReplanOrderColumnMinWidthString('scheduleOrderCode', 132)" show-overflow-tooltip />
                         <el-table-column label="生产工单" prop="workOrderCode" :width="getReplanOrderColumnWidthString('workOrderCode', 150)" :min-width="getReplanOrderColumnMinWidthString('workOrderCode', 132)" show-overflow-tooltip />
                         <el-table-column label="产品" :width="getReplanOrderColumnWidthString('product', 190)" :min-width="getReplanOrderColumnMinWidthString('product', 170)" show-overflow-tooltip>
-                          <template #default="{ row }">{{ row.productName || row.productCode || '—' }}</template>
+                          <template #default="{ row }"><span v-if="row.productName">{{ row.productName }}</span><ProductCodeLink v-else :code="row.productCode" empty-text="—" /></template>
                         </el-table-column>
                         <el-table-column label="数量" prop="quantity" :width="getReplanOrderColumnWidthString('quantity', 110)" :min-width="getReplanOrderColumnMinWidthString('quantity', 96)" align="right">
                           <template #default="{ row }">{{ formatExplanationNumber(row.quantity) }}</template>
@@ -1191,6 +1191,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import dayjs from 'dayjs'

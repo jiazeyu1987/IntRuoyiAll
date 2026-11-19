@@ -202,6 +202,8 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     @Resource
     private MesProRouteVersionMapper routeVersionMapper;
     @Resource
+    private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
+    @Resource
     private MesProRouteProcessService routeProcessService;
     @Resource
     private MesProProcessMapper processMapper;
@@ -1011,20 +1013,27 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         Map<Long, MesProcessPoolTeamDeviceDO> deviceMap = deviceIds.isEmpty()
                 ? Collections.emptyMap()
                 : convertMap(teamDeviceMapper.selectBatchIds(deviceIds), MesProcessPoolTeamDeviceDO::getId);
-        if (deviceMap.size() != deviceIds.size()) {
-            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
-        }
+        Map<Long, MesProRouteDeviceIdentitySnapshotService.Identity> identities = deviceIds.isEmpty()
+                ? Map.of() : deviceIdentitySnapshots.require(routeVersionId, deviceIds);
         Map<Long, List<JSONObject>> rulesByDeviceId = productionParameterRulesByDeviceId(processConfig, deviceIds);
         List<MesProRouteProcessDeviceParameterDeviceRespVO> devices = deviceIds.stream()
-                .map(deviceMap::get)
-                .filter(Objects::nonNull)
+                .map(id -> {
+                    var identity = identities.get(id);
+                    var current = deviceMap.get(id);
+                    return new MesProcessPoolTeamDeviceDO().setId(id).setDeviceCode(identity.deviceCode())
+                            .setDeviceName(identity.deviceName())
+                            .setDeviceStatus(current == null ? "DELETED" : current.getDeviceStatus());
+                })
                 .sorted(Comparator.comparing(MesProcessPoolTeamDeviceDO::getDeviceCode,
                         Comparator.nullsLast(String::compareTo)))
                 .map(device -> toRouteDeviceParameterDeviceRespFromSnapshot(
                         device, rulesByDeviceId.get(device.getId())))
                 .toList();
         Long processId = processConfig.getLong("processId");
-        MesProProcessDO process = processId == null ? null : processMapper.selectById(processId);
+        String processName = processConfig.getString("processName");
+        if (StrUtil.isBlank(processName)) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
         return new MesProRouteProcessDeviceParameterRespVO()
                 .setCraftId(processConfig.getLong("craftId"))
                 .setCraftCode(processConfig.getString("craftCode"))
@@ -1038,7 +1047,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .setRouteSnapshotSha256(context.version().getRouteSnapshotSha256())
                 .setRouteProcessId(routeProcessId)
                 .setProcessId(processId)
-                .setProcessName(process == null ? null : process.getName())
+                .setProcessName(processName)
                 .setDevices(devices);
     }
 

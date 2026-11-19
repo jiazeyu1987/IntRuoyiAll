@@ -77,6 +77,7 @@ public final class NativeApprovalListFilterSql {
         String type=variable(process,tenant,"businessType");
         String node="CASE "+type+" WHEN 'BATCH_RECORD_VERSION_APPROVAL' THEN '批记录升版审核'"
                 +" WHEN 'MES_ROUTE_VERSION_PUBLISH' THEN '工艺路线发布审核'"
+                +" WHEN 'MES_ROUTE_BATCH_CHANGE_PUBLISH' THEN '工艺路线批量变更审批'"
                 +" WHEN 'MES_ACTIVE_ORDER_VERSION_UPGRADE_RESTART' THEN '活跃订单升级重启审核'"
                 +" WHEN 'EDHR_BATCH_EXECUTION_VOID' THEN '电子批记录批次作废审核'"
                 +" ELSE CASE WHEN "+first(process,tenant,"edhrExecutionCode","edhrExecutionId")+" IS NOT NULL THEN '电子批记录审核'"
@@ -97,6 +98,7 @@ public final class NativeApprovalListFilterSql {
                 +" WHEN 'BATCH_RECORD_VERSION_APPROVAL' THEN "+title("批记录升版",variable(process,tenant,"batchRecordName"),variable(process,tenant,"versionNo"))
                 +" WHEN 'EDHR_BATCH_EXECUTION_VOID' THEN "+title("电子批记录批次作废",first(process,tenant,"batchExecutionCode","batchExecutionId"),labelPart("批次",variable(process,tenant,"batchCode")),labelPart("工单",variable(process,tenant,"workOrderCode")))
                 +" WHEN 'MES_ROUTE_VERSION_PUBLISH' THEN "+title("工艺路线发布",first(process,tenant,"routeName","routeCode","routeId","objectId"),first(process,tenant,"routeVersionNo","objectVersion"))
+                +" WHEN 'MES_ROUTE_BATCH_CHANGE_PUBLISH' THEN "+title("工艺路线批量变更",variable(process,tenant,"changeId"),labelPart("影响路线",variable(process,tenant,"affectedRouteCount")))
                 +" WHEN 'MES_ACTIVE_ORDER_VERSION_UPGRADE_RESTART' THEN "+title("活跃订单升级重启",first(process,tenant,"requestCode","requestId"),labelPart("工单",variable(process,tenant,"workOrderCode")))
                 +" ELSE CASE WHEN "+first(process,tenant,"edhrExecutionCode","edhrExecutionId")+" IS NOT NULL THEN "+title("电子批记录审核",first(process,tenant,"edhrExecutionCode","edhrExecutionId"),labelPart("工单",variable(process,tenant,"workOrderCode")),labelPart("批次",variable(process,tenant,"batchCode")),labelPart("工序",variable(process,tenant,"processName")))
                 +" WHEN "+certificate(process,tenant)+" THEN "+certificateTitle(process,tenant)
@@ -161,7 +163,7 @@ public final class NativeApprovalListFilterSql {
         return "(SELECT CONCAT("+label+",COALESCE(CONCAT(' ',nct.certificate_no),''),CASE WHEN "+request+"='UPLOAD_CERTIFICATE' THEN '' ELSE COALESCE(CONCAT(' ',nct.request_key),'') END) FROM (SELECT "+variable(p,t,"requestType")+" request_type,"+first(p,t,"requestOperation","operation")+" request_operation,"+variable(p,t,"certificateNo")+" certificate_no,"+first(p,t,"requestKey","registrationCertificateAccessRequestId","requestId")+" request_key) nct)";
     }
     private static String first(String p,String t,String...keys) { return "COALESCE("+Arrays.stream(keys).map(k->variable(p,t,k)).collect(java.util.stream.Collectors.joining(","))+",NULL)"; }
-    private static final List<String> VARIABLE_KEYS=List.of("PROCESS_START_USER_ID","batchCode","batchExecutionCode","batchExecutionId","batchRecordCode","batchRecordName","batchRecordVersionId","businessCode","businessKey","businessType","certificateId","certificateNo","classification","edhrExecutionCode","edhrExecutionId","objectId","objectVersion","operation","ownerCompanyId","ownerCompanyName","processName","productName","reasonCategory","reasonText","registrationCertificateAccessRequestId","requestCode","requestId","requestKey","requestOperation","requestType","routeCode","routeId","routeName","routeVersionNo","sourceActiveOrderId","sourceVersionNo","targetVersionsSummary","versionNo","workOrderCode","workstationName");
+    private static final List<String> VARIABLE_KEYS=List.of("changeId","affectedRouteCount","changeReason","PROCESS_START_USER_ID","batchCode","batchExecutionCode","batchExecutionId","batchRecordCode","batchRecordName","batchRecordVersionId","businessCode","businessKey","businessType","certificateId","certificateNo","classification","edhrExecutionCode","edhrExecutionId","objectId","objectVersion","operation","ownerCompanyId","ownerCompanyName","processName","productName","reasonCategory","reasonText","registrationCertificateAccessRequestId","requestCode","requestId","requestKey","requestOperation","requestType","routeCode","routeId","routeName","routeVersionNo","sourceActiveOrderId","sourceVersionNo","targetVersionsSummary","versionNo","workOrderCode","workstationName");
     private static String variable(String process,String tenant,String key) {
         if (!VARIABLE_KEYS.contains(key)) throw new IllegalArgumentException("APPROVAL_FILTER_VARIABLE_UNMAPPED: "+key);
         return "nv."+key;
@@ -197,6 +199,7 @@ public final class NativeApprovalListFilterSql {
         String raw="CASE "+type
             +" WHEN 'BATCH_RECORD_VERSION_APPROVAL' THEN "+jsonTags(tag("批记录",variable(p,t,"batchRecordName")),tag("版本",variable(p,t,"versionNo")),tag("源版本",variable(p,t,"sourceVersionNo")),tag("工艺路线",first(p,t,"routeName","routeCode","routeId")))
             +" WHEN 'MES_ROUTE_VERSION_PUBLISH' THEN "+jsonTags(tag("路线编号",variable(p,t,"routeCode")),tag("路线名称",variable(p,t,"routeName")),tag("版本",first(p,t,"routeVersionNo","objectVersion")))
+            +" WHEN 'MES_ROUTE_BATCH_CHANGE_PUBLISH' THEN "+jsonTags(tag("变更单",variable(p,t,"changeId")),tag("影响路线",variable(p,t,"affectedRouteCount")),tag("原因",variable(p,t,"changeReason")))
             +" WHEN 'MES_ACTIVE_ORDER_VERSION_UPGRADE_RESTART' THEN "+jsonTags(tag("申请单",variable(p,t,"requestCode")),tag("来源活跃订单",variable(p,t,"sourceActiveOrderId")),tag("工单",variable(p,t,"workOrderCode")),tag("目标版本",variable(p,t,"targetVersionsSummary")))
             +" WHEN 'EDHR_BATCH_EXECUTION_VOID' THEN "+jsonTags(tag("工单",variable(p,t,"workOrderCode")),tag("批次",variable(p,t,"batchCode")),tag("原因",first(p,t,"reasonText","reasonCategory")))
             +" ELSE CASE WHEN "+first(p,t,"edhrExecutionCode","edhrExecutionId")+" IS NOT NULL THEN "+jsonTags(tag("工单",variable(p,t,"workOrderCode")),tag("批次",variable(p,t,"batchCode")),tag("工序",variable(p,t,"processName")),tag("工作站",variable(p,t,"workstationName")))

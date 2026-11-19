@@ -48,6 +48,11 @@ public class MesProCraftController {
     @GetMapping("/changes")
     @PreAuthorize("@ss.hasPermission('mes:pro-craft:query')")
     public CommonResult<List<MesProCraftChangeDO>> changes() { return success(service.changes()); }
+    @GetMapping("/change-routes")
+    @PreAuthorize("@ss.hasPermission('mes:pro-craft:query')")
+    public CommonResult<List<Map<String, Object>>> changeRoutes(@RequestParam("id") Long id) {
+        return success(service.changeRoutes(id));
+    }
     @PostMapping("/cancel-change")
     @PreAuthorize("@ss.hasPermission('mes:pro-craft:update')")
     public CommonResult<Boolean> cancel(@RequestParam("id") Long id) {

@@ -85,7 +85,7 @@
               :min-width="getFeedbackColumnMinWidthString('excelProductCode', 170)"
               v-bind="sortColumnAttrs('excelProductCode')"
             >
-              <template #default="scope">{{ resolveFeedbackProductCode(scope.row) }}</template>
+              <template #default="scope"><ProductCodeLink :code="resolveFeedbackProductCode(scope.row) === '--' ? undefined : resolveFeedbackProductCode(scope.row)" empty-text="--" /></template>
             </el-table-column>
             <el-table-column
               v-if="isFeedbackColumnVisible('excelProductName')"
@@ -325,7 +325,7 @@
           :cell-class-name="resolveImportRecordCellClassName"
         >
           <el-table-column label="工单" prop="workOrderCode" min-width="150" />
-          <el-table-column label="产品编码" prop="itemCode" min-width="140" />
+          <el-table-column label="产品编码" prop="itemCode" min-width="140"><template #default="{ row }"><ProductCodeLink :code="row.itemCode" /></template></el-table-column>
           <el-table-column label="产品名称" prop="itemName" min-width="160" />
           <el-table-column label="规格" prop="specification" min-width="120" />
           <el-table-column label="工序" min-width="180">
@@ -472,6 +472,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { showImportResult } from '@/utils/importResult'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 

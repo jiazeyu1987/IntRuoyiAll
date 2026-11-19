@@ -31,7 +31,8 @@ public class MesSimpleParserReuseService {
     @Transactional(readOnly = true)
     public List<JSONObject> matches(SimpleParserPublishReqVO request) {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
-        JSONObject root = (JSONObject) JSON.toJSON(request.getRecognitionJson());
+        JSONObject root = JSON.parseObject(JSON.toJSONString(request.getRecognitionJson(),
+                com.alibaba.fastjson.serializer.SerializerFeature.DisableCircularReferenceDetect));
         JSONArray inputs = root.getJSONArray("processes");
         if (inputs == null || inputs.isEmpty() || inputs.size() > 200) throw invalid("工序数量应为 1 至 200");
         Set<String> names = new LinkedHashSet<>();
@@ -49,7 +50,7 @@ public class MesSimpleParserReuseService {
                 new LambdaQueryWrapperX<MesProCraftDO>().in(MesProCraftDO::getProcessId, ids)
                         .orderByAsc(MesProCraftDO::getId)).stream()
                 .collect(Collectors.groupingBy(MesProCraftDO::getProcessId));
-        Map<Long, List<JSONObject>> workshops = usageWorkshops(tenantId, ids);
+        Map<Long, List<JSONObject>> workshops = cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessWorkshopUsage.load(jdbc, ids);
         List<JSONObject> result = new ArrayList<>();
         for (int i = 0; i < inputs.size(); i++) {
             JSONObject input = inputs.getJSONObject(i);
@@ -102,22 +103,4 @@ public class MesSimpleParserReuseService {
         return result;
     }
 
-    private Map<Long, List<JSONObject>> usageWorkshops(Long tenantId, List<Long> processIds) {
-        if (processIds.isEmpty()) return Map.of();
-        // 使用车间来源于路线节点实际绑定的工作站，不能将共享工序伪装成单车间所有。
-        List<JSONObject> rows = jdbc.query("""
-                SELECT DISTINCT rp.process_id, w.id, w.name
-                FROM mes_pro_route_process rp
-                JOIN mes_pro_route r ON r.id=rp.route_id AND r.tenant_id=rp.tenant_id AND r.deleted=0
-                JOIN mes_md_workstation s ON s.id=rp.workstation_id AND s.tenant_id=rp.tenant_id AND s.deleted=0
-                JOIN mes_md_workshop w ON w.id=s.workshop_id AND w.tenant_id=rp.tenant_id AND w.deleted=0
-                WHERE rp.tenant_id=:tenantId AND rp.deleted=0 AND rp.process_id IN (:processIds)
-                ORDER BY rp.process_id,w.id
-                """, Map.of("tenantId", tenantId, "processIds", processIds), (rs, index) -> {
-            JSONObject row = new JSONObject(true);
-            row.put("processId", rs.getLong("process_id")); row.put("id", rs.getLong("id"));
-            row.put("name", rs.getString("name")); return row;
-        });
-        return rows.stream().collect(Collectors.groupingBy(row -> row.getLong("processId")));
-    }
 }

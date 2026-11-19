@@ -79,6 +79,13 @@
           <Icon icon="ep:plus" class="mr-5px" />
           添加工序
         </el-button>
+        <el-button
+          v-if="showRouteFlowMutationControls"
+          :disabled="routeFlowWriteControlsDisabled || loading || routeNodes.length < 2"
+          @click="handleOpenProcessOrder"
+        >
+          调整顺序
+        </el-button>
         <div
           v-if="showRouteFlowMutationControls"
           class="route-flow-graph-designer__connection-control"
@@ -1775,6 +1782,21 @@
       </aside>
     </div>
 
+    <el-dialog v-model="processOrderVisible" append-to-body title="调整工序顺序" width="620px">
+      <p>通过上移、下移调整工序序号。顺序流程同步重连；含分支的流程保留原连线，可在画布继续调整。</p>
+      <el-table :data="processOrderDraft" row-key="routeProcessId" max-height="440">
+        <el-table-column label="顺序" width="70"><template #default="{ $index }">{{ $index + 1 }}</template></el-table-column>
+        <el-table-column prop="processName" label="工序" />
+        <el-table-column label="调整" width="160"><template #default="{ $index }">
+          <el-button link :disabled="$index === 0 || routeFlowWriteControlsDisabled" @click="moveProcessOrder($index, -1)">上移</el-button>
+          <el-button link :disabled="$index === processOrderDraft.length - 1 || routeFlowWriteControlsDisabled" @click="moveProcessOrder($index, 1)">下移</el-button>
+        </template></el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="processOrderVisible = false">取消</el-button>
+        <el-button type="primary" :disabled="routeFlowWriteControlsDisabled" @click="handleApplyProcessOrder">应用顺序</el-button>
+      </template>
+    </el-dialog>
     <el-dialog v-model="routeProcessDialogVisible" append-to-body title="添加工序" width="460px">
       <el-form
         ref="routeProcessFormRef"
@@ -2810,6 +2832,9 @@ const {
   loadConfig: loadRouteProcessSettingColumnConfig
 } = useUserTableColumns(ROUTE_PROCESS_SETTINGS_TABLE_KEY, routeProcessSettingsDefaultColumns)
 const routeProcessDialogVisible = ref(false)
+const processOrderVisible = ref(false)
+const processOrderDraft = ref<RouteFlowNodeVO[]>([])
+const changedProcessOrderIds = ref(new Set<string>())
 const routeProcessFormRef = ref()
 const routeProcessForm = reactive<{ processId?: MesRouteId }>({
   processId: undefined
@@ -3071,8 +3096,12 @@ const buildProcessDetailTextLink = (
 }
 
 const normalizePositiveProcessId = (value?: number | string | null) => {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+  // 工作站跳转保留 Long 工序编号，避免在进入列表前丢失精度。
+  if (typeof value === 'string') {
+    const text = value.trim()
+    return /^[1-9]\d*$/.test(text) ? text : undefined
+  }
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : undefined
 }
 
 const buildWorkstationProcessQuery = (processId?: number | string | null) => {
@@ -6814,6 +6843,7 @@ const clearSelectedProcessAttributeDraftForRouteProcess = (routeProcessId: MesRo
 
 const markRouteProcessGraphSaveClean = () => {
   graphDirty.value = false
+  changedProcessOrderIds.value = new Set()
   pendingDeletedRouteProcessIds.value = new Set()
   resetLoadedRouteProcessIds()
   nextDraftRouteProcessId.value = resolveNextDraftRouteProcessId()
@@ -7344,6 +7374,7 @@ const loadGraph = async () => {
     connectionSourceRouteProcessId.value = null
     connectionTargetRouteProcessId.value = null
     graphDirty.value = false
+    changedProcessOrderIds.value = new Set()
     clearSelectedProcessAttributeDrafts()
     clearRouteProcessKeyFlagBaselines()
     clearRouteProcessCheckFlagBaselines()
@@ -7468,6 +7499,9 @@ const getChangedRouteProcessWorkstationNodes = () =>
 
 const getChangedRouteProcessUpdateNodes = () => {
   const nodesById = new Map<MesRouteId, RouteFlowNodeVO>()
+  routeNodes.value.filter(node => isLoadedRouteProcessId(node.routeProcessId) &&
+    changedProcessOrderIds.value.has(routeProcessIdKey(node.routeProcessId)))
+    .forEach(node => nodesById.set(node.routeProcessId, node))
   getChangedRouteProcessKeyFlagNodes().forEach((node) => {
     nodesById.set(node.routeProcessId, node)
   })
@@ -7481,6 +7515,7 @@ const getChangedRouteProcessUpdateNodes = () => {
 }
 
 const hasRouteProcessUpdateDraftChanges = () =>
+  changedProcessOrderIds.value.size > 0 ||
   hasRouteProcessKeyFlagDraftChanges() ||
   hasRouteProcessCheckFlagDraftChanges() ||
   getChangedRouteProcessWorkstationNodes().length > 0
@@ -7913,6 +7948,7 @@ const applyPersistedRouteProcessIdMap = (routeProcessIdMap?: Record<string, MesR
 
 const markGraphSaveClean = () => {
   graphDirty.value = false
+  changedProcessOrderIds.value = new Set()
   pendingDeletedRouteProcessIds.value = new Set()
   resetLoadedRouteProcessIds()
   nextDraftRouteProcessId.value = resolveNextDraftRouteProcessId()
@@ -8051,6 +8087,7 @@ const hasWorkspaceDraftChanges = () =>
 const discardWorkspaceDraftChanges = () => {
   lossCoefficientEditor.value?.discard()
   graphDirty.value = false
+  changedProcessOrderIds.value = new Set()
   clearSelectedProcessAttributeDrafts()
   clearRouteProcessKeyFlagBaselines()
   clearRouteProcessCheckFlagBaselines()
@@ -8481,6 +8518,59 @@ const loadProcessOptions = async () => {
   } finally {
     processOptionsLoading.value = false
   }
+}
+
+const handleOpenProcessOrder = () => {
+  if (!canMutateRouteFlow.value) return
+  processOrderDraft.value = sortedActiveRouteNodes.value.map(node => ({ ...node }))
+  processOrderVisible.value = true
+}
+
+const moveProcessOrder = (index: number, offset: number) => {
+  if (!canMutateRouteFlow.value) return
+  const destination = index + offset
+  if (destination < 0 || destination >= processOrderDraft.value.length) return
+  const [node] = processOrderDraft.value.splice(index, 1)
+  processOrderDraft.value.splice(destination, 0, node)
+}
+
+const handleApplyProcessOrder = async () => {
+  if (!canMutateRouteFlow.value) return
+  const before = sortedActiveRouteNodes.value
+  const after = processOrderDraft.value
+  if (before.map(node => routeProcessIdKey(node.routeProcessId)).join(',') ===
+      after.map(node => routeProcessIdKey(node.routeProcessId)).join(',')) {
+    processOrderVisible.value = false
+    return
+  }
+  await ensureSelectedProcessRouteConfigCache()
+  const sequential = routeEdges.value.filter(isActiveRouteEdge).length === before.length - 1 &&
+    before.slice(1).every((node, index) => routeEdges.value.some(edge =>
+      sameRouteProcessId(edge.sourceRouteProcessId, before[index].routeProcessId) &&
+      sameRouteProcessId(edge.targetRouteProcessId, node.routeProcessId)))
+  const order = new Map(after.map((node, index) => [routeProcessIdKey(node.routeProcessId), index + 1]))
+  routeNodes.value.forEach(node => {
+    const sort = order.get(routeProcessIdKey(node.routeProcessId))
+    if (sort != null && node.sort !== sort) {
+      node.sort = sort
+      changedProcessOrderIds.value.add(routeProcessIdKey(node.routeProcessId))
+    }
+  })
+  if (sequential) {
+    routeEdges.value = after.slice(1).map((node, index) => ({
+      sourceRouteProcessId: after[index].routeProcessId,
+      targetRouteProcessId: node.routeProcessId,
+      relationType: 'NORMAL'
+    }))
+    boundaryEdges.value = boundaryEdges.value.map(edge => ({ ...edge,
+      routeProcessId: edge.boundaryType === 'START' ? after[0].routeProcessId : after[after.length - 1].routeProcessId
+    }))
+  }
+  processOrderVisible.value = false
+  markGraphDraftChanged()
+  syncFlowElements()
+  await applyAutoLayout({ notify: false })
+  message.warning('工序顺序已调整为草稿，请点击顶部保存。')
 }
 
 const handleOpenRouteProcessAddDialog = async () => {

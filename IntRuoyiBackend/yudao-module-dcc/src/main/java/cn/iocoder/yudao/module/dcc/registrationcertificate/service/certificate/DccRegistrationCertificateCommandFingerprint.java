@@ -52,6 +52,14 @@ final class DccRegistrationCertificateCommandFingerprint {
         return sha256(canonical.toString());
     }
 
+    static String deleteCertificate(Long certificateId, Integer rowRevision) {
+        StringBuilder canonical = new StringBuilder();
+        add(canonical, "CERTIFICATE_DELETE");
+        add(canonical, certificateId);
+        add(canonical, rowRevision);
+        return sha256(canonical.toString());
+    }
+
     static String formalize(Long certificateId, Integer rowRevision, Integer snapshotRevision, Long fileId) {
         StringBuilder canonical = new StringBuilder();
         add(canonical, "FORMALIZE");

@@ -3,7 +3,7 @@
   <ContentWrap>
     <div class="edhr-batch-record-test-page" data-edhr-batch-record-test-page>
       <el-tabs v-model="activeInnerTab" class="edhr-batch-record-test-page__inner-tabs">
-        <el-tab-pane label="生产组长" name="productionLeader">
+        <el-tab-pane label="生产班长" name="productionLeader">
           <UnifiedListTemplate
             class="edhr-batch-record-test-page__list-template"
             data-edhr-batch-record-test-production-leader-list
@@ -167,7 +167,7 @@
             </template>
           </UnifiedListTemplate>
         </el-tab-pane>
-        <el-tab-pane label="一线PQC" name="frontlinePqc">
+        <el-tab-pane label="检验填报" name="frontlinePqc">
           <UnifiedListTemplate
             class="edhr-batch-record-test-page__list-template"
             data-edhr-batch-record-test-frontline-pqc-list
@@ -331,7 +331,7 @@
             </template>
           </UnifiedListTemplate>
         </el-tab-pane>
-        <el-tab-pane label="一线生产" name="frontlineProduction">
+        <el-tab-pane label="生产作业" name="frontlineProduction">
           <UnifiedListTemplate
             class="edhr-batch-record-test-page__list-template"
             data-edhr-batch-record-test-frontline-production-list

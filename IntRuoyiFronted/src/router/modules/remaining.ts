@@ -93,7 +93,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: 'PQC生产放行',
+          title: '放行执行',
           activeMenu: '/mes/production-release/pqc'
         }
       }
@@ -195,7 +195,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
         component: () => import('@/views/system/role/index.vue'),
         name: 'SystemRoleCompatibilityIndex',
         meta: {
-          title: '权限角色',
+          title: '角色权限',
           noCache: true,
           hidden: true,
           canTo: true,
@@ -219,7 +219,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
         component: () => import('@/views/system/post/index.vue'),
         name: 'SystemPostCompatibilityIndex',
         meta: {
-          title: '组织角色',
+          title: '岗位角色',
           noCache: true,
           hidden: true,
           canTo: true,
@@ -270,7 +270,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
     name: 'SSOLogin',
     meta: {
       hidden: true,
-      title: t('router.login'),
+      title: '单点登录',
       noTagsView: true
     }
   },
@@ -463,7 +463,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
                   noCache: true,
                   hidden: true,
                   canTo: true,
-                  title: '表单模板',
+                  title: '审批模板',
                   activeMenu: '/mdm/form-center/template',
                   permission: ['form:template:query']
                 }
@@ -476,7 +476,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
                   noCache: true,
                   hidden: true,
                   canTo: true,
-                  title: '表单策略',
+                  title: '模板策略',
                   activeMenu: '/mdm/form-center/policy',
                   permission: ['form:policy:query']
                 }
@@ -489,7 +489,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
                   noCache: true,
                   hidden: true,
                   canTo: true,
-                  title: '生效待处理',
+                  title: '生效处理',
                   activeMenu: '/mdm/form-center/effect',
                   permission: ['form:effect:query']
                 }
@@ -691,8 +691,8 @@ const remainingRouter: AppRouteRecordRaw[] = [
           noCache: true,
           hidden: true,
           canTo: true,
-          title: 'DCC产品目录',
-          breadcrumbTitle: 'DCC产品目录',
+          title: '产品目录',
+          breadcrumbTitle: '产品目录',
           activeMenu: '/mes/md/dcc-project-code',
           permission: ['dcc:project-code:query']
         }
@@ -705,7 +705,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           noCache: true,
           hidden: true,
           canTo: true,
-          title: 'DCC项目代码',
+          title: '项目维护',
           activeMenu: '/mdm/product-catalog',
           permission: ['dcc:project-code:query']
         }
@@ -741,7 +741,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
     name: 'NoFound',
     meta: {
       hidden: true,
-      title: '404',
+      title: '错误页面',
       noTagsView: true
     }
   },
@@ -760,7 +760,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
     component: () => import('@/views/Error/404.vue'),
     name: '',
     meta: {
-      title: '404',
+      title: '页面缺失',
       hidden: true,
       breadcrumb: false
     }
@@ -781,7 +781,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           noCache: true,
           hidden: true,
           canTo: true,
-          title: '流程模型',
+          title: '模型维护',
           activeMenu: '/approval-center/manager/model'
         }
       },
@@ -793,7 +793,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           noCache: true,
           hidden: true,
           canTo: true,
-          title: '流程表单',
+          title: '表单维护',
           activeMenu: '/approval-center/manager/form'
         }
       },
@@ -805,7 +805,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           noCache: true,
           hidden: true,
           canTo: true,
-          title: '流程分类',
+          title: '分类维护',
           activeMenu: '/approval-center/manager/category'
         }
       },
@@ -817,7 +817,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           noCache: true,
           hidden: true,
           canTo: true,
-          title: '业务审批策略',
+          title: '审批规则',
           activeMenu: '/approval-center/manager/business-approval-policy'
         }
       },
@@ -829,7 +829,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           noCache: true,
           hidden: true,
           canTo: true,
-          title: '用户分组',
+          title: '分组维护',
           activeMenu: '/approval-center/manager/user-group'
         }
       },
@@ -841,7 +841,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           noCache: true,
           hidden: true,
           canTo: true,
-          title: '流程表达式',
+          title: '条件表达',
           activeMenu: '/approval-center/manager/process-expression'
         }
       },
@@ -894,7 +894,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           noCache: true,
           hidden: true,
           canTo: true,
-          title: '发起流程',
+          title: '流程申请',
           activeMenu: '/approval-center/my-initiated'
         }
       },
@@ -1215,7 +1215,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           noCache: true,
           hidden: true,
           canTo: true,
-          title: '外来文件评审',
+          title: '外来评审',
           activeMenu: '/dcc/controlled-file/upload'
         }
       },
@@ -1227,7 +1227,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           noCache: true,
           hidden: true,
           canTo: true,
-          title: '外来文件评审',
+          title: '文件评审',
           activeMenu: '/dcc/controlled-file/upload'
         }
       },
@@ -1239,7 +1239,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           noCache: true,
           hidden: true,
           canTo: true,
-          title: '外来文件评审',
+          title: '外件审核',
           activeMenu: '/dcc/controlled-file/upload'
         }
       },
@@ -1311,7 +1311,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           noCache: true,
           hidden: true,
           canTo: true,
-          title: '审批角色',
+          title: '会签岗位',
           activeMenu: '/system/role/approval-role',
           permission: ['dcc:controlled-file:position:manage']
         }
@@ -1483,7 +1483,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
         path: 'product/detail/:id',
         name: 'CrmProductDetail',
         meta: {
-          title: '产品详情',
+          title: '销售详情',
           noCache: true,
           hidden: true,
           activeMenu: '/crm/product'
@@ -1577,7 +1577,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           noCache: true,
           hidden: true,
           canTo: true,
-          title: '设计 AI 工作流',
+          title: '智能编排',
           activeMenu: '/ai/console/workflow'
         }
       },
@@ -1589,7 +1589,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           noCache: true,
           hidden: true,
           canTo: true,
-          title: '设计 AI 工作流',
+          title: '编排编辑',
           activeMenu: '/ai/console/workflow'
         }
       }
@@ -1607,7 +1607,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
         path: 'product/product/detail/:id',
         name: 'IoTProductDetail',
         meta: {
-          title: '产品详情',
+          title: '物联详情',
           noCache: true,
           tagsViewKeyMode: 'path',
           hidden: true,
@@ -1732,7 +1732,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: '工艺流程',
+          title: '流程编辑',
           noTagsView: true,
           tagsViewKeyMode: 'path',
           activeMenu: '/mes/pro/route'
@@ -1747,7 +1747,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: 'PQC生产放行',
+          title: '放行办理',
           activeMenu: '/mes/production-release/pqc',
           permission: ['mes:pro-production-release:query']
         }
@@ -1966,7 +1966,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: 'eDHR历史追溯',
+          title: '历史追溯',
           activeMenu: '/mes/pro/feedback/edhr-batch-execution',
           permission: ['mes:pro-edhr-batch-execution:query']
         }
@@ -2023,7 +2023,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: '一线生产',
+          title: '生产作业',
           activeMenu: '/mes/pro/feedback/edhr-batch-production-fill',
           permission: ['mes:pro-edhr-batch-execution:query']
         }
@@ -2037,7 +2037,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: '一线PQC',
+          title: '检验填报',
           activeMenu: '/mes/pro/feedback/edhr-batch-pqc-fill',
           permission: ['mes:pro-edhr-batch-execution:query']
         }
@@ -2051,7 +2051,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: '批记录测试',
+          title: '记录测试',
           activeMenu: '/mes/pro/feedback/edhr-batch-test',
           permission: ['mes:pro-edhr-batch-execution:query']
         }
@@ -2148,7 +2148,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: 'QA检验规程',
+          title: '检验规程',
           activeMenu: '/mes/pro/process-pool/qa-regulation',
           permission: ['mes:qa-inspection-regulation:query']
         }
@@ -2162,7 +2162,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: '通用检验规程',
+          title: '通用规程',
           activeMenu: '/mes/pro/process-pool/common-regulation',
           permission: ['mes:qa-inspection-regulation:query']
         }
@@ -2176,9 +2176,22 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: '生产组长',
+          title: '生产班长',
           activeMenu: '/mes/pro/process-pool/production-leader',
           permission: ['mes:pro-process-pool-team-leader:query']
+        }
+      },
+      {
+        path: 'pro/in-process-order/:activeOrderId/detail',
+        component: () => import('@/views/mes/pro/processpool/ActiveOrderSubmissionDetailPage.vue'),
+        name: 'MesInProcessOrderDetail',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          title: '活跃工单详情',
+          activeMenu: '/mes/pro/in-process-order',
+          permission: ['mes:pro-in-process-order:query']
         }
       },
       {
@@ -2204,7 +2217,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: 'PQC组长',
+          title: '检验组长',
           activeMenu: '/mes/pro/process-pool/pqc-leader',
           permission: ['mes:pro-process-pool-pqc-leader:query']
         }

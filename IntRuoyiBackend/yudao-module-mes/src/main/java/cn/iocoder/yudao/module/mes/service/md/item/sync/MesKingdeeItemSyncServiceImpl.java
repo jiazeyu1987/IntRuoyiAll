@@ -58,6 +58,12 @@ public class MesKingdeeItemSyncServiceImpl implements MesKingdeeItemSyncService 
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public MesKingdeeItemSyncResult syncCurrentErpProducts() {
+        return syncProducts(productMapper.selectList(), false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public MesKingdeeItemSyncResult syncItemsByProductCodes(Collection<String> productCodes) {
         LinkedHashSet<String> normalizedCodes = normalizeProductCodes(productCodes);
         if (normalizedCodes.isEmpty()) {
@@ -75,7 +81,7 @@ public class MesKingdeeItemSyncServiceImpl implements MesKingdeeItemSyncService 
 
         Map<String, ErpProductDO> productMap = new LinkedHashMap<>();
         for (ErpProductDO product : products) {
-            String productCode = StrUtil.trimToEmpty(product.getBarCode());
+            String productCode = product.getBarCode();
             if (StrUtil.isBlank(productCode)) {
                 throw ServiceExceptionUtil.exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID,
                         "erp product bar code is blank");
@@ -147,12 +153,11 @@ public class MesKingdeeItemSyncServiceImpl implements MesKingdeeItemSyncService 
         }
         LinkedHashSet<String> normalizedCodes = new LinkedHashSet<>();
         for (String productCode : productCodes) {
-            String normalizedCode = StrUtil.trimToNull(productCode);
-            if (normalizedCode == null) {
+            if (StrUtil.isBlank(productCode)) {
                 throw ServiceExceptionUtil.exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID,
                         "erp product code is blank");
             }
-            normalizedCodes.add(normalizedCode);
+            normalizedCodes.add(productCode);
         }
         return normalizedCodes;
     }

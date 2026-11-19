@@ -403,24 +403,12 @@ public class UserController {
     }
 
     private List<UserImportExcelVO> convertExportedUsersForImport(List<UserRespVO> users) {
-        // 导出中的部门名称属于源环境，不使用源部门编号关联目标租户。
-        Map<String, List<DeptDO>> departments = users.stream()
-                .anyMatch(user -> user.getDeptName() != null && !user.getDeptName().isBlank())
-                ? deptService.getDeptList(new cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptListReqVO())
-                    .stream().collect(java.util.stream.Collectors.groupingBy(DeptDO::getName))
-                : Map.of();
+        // 这里只解析文件；部门匹配及创建在正式导入的事务内执行，预览不写库。
         return users.stream().map(user -> {
             UserImportExcelVO row = cn.iocoder.yudao.framework.common.util.object.BeanUtils
                     .toBean(user, UserImportExcelVO.class);
-            if (user.getDeptName() != null && !user.getDeptName().isBlank()) {
-                List<DeptDO> matches = departments.getOrDefault(user.getDeptName(), List.of());
-                if (matches.size() != 1) {
-                    throw ServiceExceptionUtil.invalidParamException("用户[" + user.getUsername() + "]的部门["
-                            + user.getDeptName() + "]在目标租户中" + (matches.isEmpty() ? "不存在" : "存在重名")
-                            + "，请先完善部门或使用导入模板明确填写目标部门编号");
-                }
-                row.setDeptId(matches.get(0).getId());
-            }
+            // 源环境的编号不能用于关联目标租户。
+            row.setDeptId(null);
             return row;
         }).toList();
     }
@@ -430,7 +418,10 @@ public class UserController {
     @Parameter(name = "file", description = "Excel 文件", required = true)
     @PreAuthorize("@ss.hasPermission('system:user:import')")
     public CommonResult<UserDingTalkImportRespVO> importDingTalkExcel(@RequestParam("file") MultipartFile file) throws Exception {
-        List<UserDingTalkImportExcelVO> list = userDingTalkImportExcelParser.parse(file.getInputStream());
+        List<UserDingTalkImportExcelVO> list;
+        try (InputStream input = file.getInputStream()) {
+            list = userDingTalkImportExcelParser.parse(input);
+        }
         return success(userService.importDingTalkUserList(list));
     }
 
@@ -446,7 +437,9 @@ public class UserController {
             int line = i + 1;
             personnel.add(previewValue(row.getUsername(), line, "账号") + " / "
                     + previewValue(row.getNickname(), line, "姓名"));
-            organizations.add(row.getDeptId() == null ? "第" + line + "条记录：部门编号缺失"
+            organizations.add(row.getDeptName() != null && !row.getDeptName().isBlank()
+                    ? "部门名称：" + row.getDeptName() + "（不存在时创建为根级部门）"
+                    : row.getDeptId() == null ? "第" + line + "条记录：部门编号缺失"
                     : "部门编号：" + row.getDeptId());
         }
         return success(new UserImportPreviewRespVO(rows.size(), personnel, new java.util.ArrayList<>(organizations)));

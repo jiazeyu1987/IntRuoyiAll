@@ -30,6 +30,7 @@ class MesProCraftGroupTransactionTest {
     private MesProRouteVersionMapper versions;
     private MesProRouteVersionLifecycleService publisher;
     private MesProRouteControlledContentAdapter platform;
+    private MesProSharedChangeService sharedChanges;
     private final MesProCraftChangeDO change = new MesProCraftChangeDO();
 
     @BeforeEach @SuppressWarnings("unchecked") void setup() {
@@ -46,6 +47,13 @@ class MesProCraftGroupTransactionTest {
         change.setCandidateIdsJson("[101,102]");change.setCandidateHashesJson("{\"101\":\"h101\",\"102\":\"h102\",\"101:source\":\"source101\",\"102:source\":\"source102\"}");
         MesProCraftDO next=new MesProCraftDO();next.setId(2L);next.setName("new craft");
         change.setAfterJson(JSON.toJSONString(next));
+        var before = new MesProCraftDO(); before.setId(2L); before.setName("old craft"); before.setFingerprint("old fingerprint");
+        change.setBeforeJson(JSON.toJSONString(before));
+        when(crafts.selectById(2L)).thenReturn(before);
+        var proposal = JSON.parseObject(change.getAfterJson());
+        proposal.put("routes", List.of(Map.of("routeVersionId",101L), Map.of("routeVersionId",102L)));
+        change.setAfterJson(proposal.toJSONString());
+        when(versions.selectActiveListWithExistingRoutes()).thenReturn(List.of(activeWithCraft(101L), activeWithCraft(102L)));
         when(changes.selectById(1L)).thenAnswer(call->{change.setStatus(state(1));return change;});
         when(changes.updateById(any(MesProCraftChangeDO.class))).thenAnswer(call->{
             MesProCraftChangeDO c=call.getArgument(0);return jdbc.update("update state set status=? where id=1",c.getStatus());});
@@ -64,12 +72,21 @@ class MesProCraftGroupTransactionTest {
         ReflectionTestUtils.setField(target,"craftMapper",crafts);ReflectionTestUtils.setField(target,"changeMapper",changes);
         ReflectionTestUtils.setField(target,"versionMapper",versions);ReflectionTestUtils.setField(target,"lifecycle",provider);
         ReflectionTestUtils.setField(target,"platform",platform);
+        sharedChanges = mock(MesProSharedChangeService.class);
+        ObjectProvider<MesProSharedChangeService> sharedProvider = mock(ObjectProvider.class);
+        when(sharedProvider.getObject()).thenReturn(sharedChanges);
+        ReflectionTestUtils.setField(target, "sharedChanges", sharedProvider);
         ProxyFactory proxy=new ProxyFactory(target);proxy.setProxyTargetClass(true);
         proxy.addAdvice(new TransactionInterceptor(new DataSourceTransactionManager(source),new AnnotationTransactionAttributeSource()));
         service=(MesProCraftService)proxy.getProxy();
     }
     @AfterEach void cleanContext(){TenantContextHolder.clear();}
     private String state(long id){return jdbc.queryForObject("select status from state where id=?",String.class,id);}
+    private MesProRouteVersionDO activeWithCraft(long id) {
+        var active = new MesProRouteVersionDO(); active.setId(id); active.setRouteId(id+100);
+        active.setRouteSnapshotJson("{\"configSnapshots\":{\"productionProcessConfigs\":[{\"craftId\":2}]}}");
+        return active;
+    }
     private MesProRouteVersionDO version(long id,String status){
         MesProRouteVersionDO v=new MesProRouteVersionDO();v.setId(id);v.setRouteId(id+100);v.setSourceRouteVersionId(id);
         v.setLifecycleStatus(status);v.setRouteSnapshotSha256("h"+id);
@@ -79,6 +96,38 @@ class MesProCraftGroupTransactionTest {
         jdbc.update("update state set status='PENDING_APPROVAL' where id=102");
         assertTrue(service.onRouteReady(version(101,"READY_TO_PUBLISH"),7L));
         verifyNoInteractions(publisher);assertEquals("PENDING",state(1));assertEquals("old craft",state(2));
+    }
+    @Test void sharedChangeWaitsForAllApprovalsBeforeSourceValidationAndPublication() {
+        change.setChangeType("SHARED");
+        jdbc.update("update state set status='PENDING_APPROVAL' where id=102");
+        assertTrue(service.onRouteReady(version(101,"READY_TO_PUBLISH"),7L));
+        verifyNoInteractions(sharedChanges, publisher);
+        assertEquals("PENDING", state(1));
+    }
+    @Test void sharedSourceFailureRollsBackEveryPublishedRouteAndMasterData() {
+        change.setChangeType("SHARED");
+        when(publisher.publishCandidate(anyLong(),eq(7L))).thenAnswer(call -> {
+            long id=call.getArgument(0);
+            jdbc.update("update state set status='ACTIVE' where id=?",id);
+            return version(id,"ACTIVE");
+        });
+        doAnswer(call -> {
+            assertEquals("ACTIVE",state(101)); assertEquals("ACTIVE",state(102));
+            jdbc.update("update state set status='changed master' where id=2");
+            throw new IllegalStateException("master write failed");
+        }).when(sharedChanges).apply(change);
+        assertThrows(IllegalStateException.class, () -> service.onRouteReady(version(102,"READY_TO_PUBLISH"),7L));
+        verify(sharedChanges).verifyBeforePublish(change);
+        assertEquals("READY_TO_PUBLISH",state(101)); assertEquals("READY_TO_PUBLISH",state(102));
+        assertEquals("old craft",state(2)); assertEquals("PENDING",state(1));
+    }
+    @Test void sharedSourceConflictRejectsWholeBatchBeforeFirstPublication() {
+        change.setChangeType("SHARED");
+        doThrow(new IllegalStateException("source changed")).when(sharedChanges).verifyBeforePublish(change);
+        assertThrows(IllegalStateException.class, () -> service.onRouteReady(version(102,"READY_TO_PUBLISH"),7L));
+        verifyNoInteractions(publisher);
+        verify(sharedChanges,never()).apply(any());
+        assertEquals("PENDING",state(1)); assertEquals("old craft",state(2));
     }
     @Test void allApprovalsPublishAllRoutesBeforeCraftBecomesCurrent(){
         when(publisher.publishCandidate(anyLong(),eq(7L))).thenAnswer(call->{
@@ -100,6 +149,17 @@ class MesProCraftGroupTransactionTest {
         change.setCandidateHashesJson("{\"101\":\"changed\",\"102\":\"h102\"}");
         assertThrows(RuntimeException.class,()->service.onRouteReady(version(102,"READY_TO_PUBLISH"),7L));
         verifyNoInteractions(publisher);assertEquals("old craft",state(2));assertEquals("PENDING",state(1));
+    }
+    @Test void newCraftReferenceDuringApprovalRejectsEntireBatch() {
+        when(versions.selectActiveListWithExistingRoutes()).thenReturn(List.of(activeWithCraft(101L), activeWithCraft(102L), activeWithCraft(103L)));
+        assertThrows(RuntimeException.class, () -> service.onRouteReady(version(102,"READY_TO_PUBLISH"),7L));
+        verifyNoInteractions(publisher); assertEquals("old craft", state(2)); assertEquals("PENDING", state(1));
+    }
+    @Test void draftOnlyCraftReferenceDuringApprovalRejectsEntireBatch() {
+        var draft = activeWithCraft(103L); draft.setLifecycleStatus("DRAFT");
+        when(versions.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(draft));
+        assertThrows(RuntimeException.class, () -> service.onRouteReady(version(102,"READY_TO_PUBLISH"),7L));
+        verifyNoInteractions(publisher); assertEquals("PENDING", state(1));
     }
     @Test void changedActiveSourceRejectsWholeBatchBeforePublishing(){
         when(versions.selectActiveByRouteIdForUpdate(202L)).thenReturn(MesProRouteVersionDO.builder().id(999L).build());

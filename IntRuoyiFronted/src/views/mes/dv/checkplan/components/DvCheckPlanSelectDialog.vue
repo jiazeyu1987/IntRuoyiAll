@@ -1,5 +1,5 @@
 <!--
-  MES 点检保养方案弹窗选择器（支持单选/多选）
+  MES 维保方案弹窗选择器（支持单选/多选）
 
   Props:
     multiple — true 多选（checkbox），false 单选（radio）；默认 true

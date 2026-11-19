@@ -11,7 +11,6 @@ const workstationSelect = read('src/views/mes/md/workstation/components/MdWorkst
 const workstationSelectDialog = read(
   'src/views/mes/md/workstation/components/MdWorkstationSelectDialog.vue'
 )
-const routeProcessList = read('src/views/mes/pro/route/RouteProcessList.vue')
 const routeFlowGraph = read('src/views/mes/pro/route/RouteFlowGraphDesigner.vue')
 const edhrTrackingApi = read('src/api/mes/pro/edhr/tracking.ts')
 const edhrTrackingPage = read('src/views/mes/pro/edhr/TrackingPage.vue')
@@ -33,7 +32,6 @@ for (const [label, source] of [
   ['workstation page', workstationPage],
   ['workstation select', workstationSelect],
   ['workstation select dialog', workstationSelectDialog],
-  ['route process list', routeProcessList],
   ['route flow graph', routeFlowGraph],
   ['eDHR tracking page', edhrTrackingPage],
   ['form trace audit tab', formTraceAuditTab]
@@ -43,8 +41,8 @@ for (const [label, source] of [
 
 assertPattern(
   workstationApi,
-  /const normalizePositiveIdParam = \(value: unknown\) =>[\s\S]*Number\.isFinite\(parsed\) && parsed > 0 \? parsed : undefined/,
-  'workstation API must normalize non-positive processId before request'
+  /const normalizePositiveIdParam = \(value: unknown\) =>[\s\S]*typeof value === 'string'[\s\S]*return .*\.test\(text\) \? text : undefined[\s\S]*Number\.isSafeInteger\(value\) && value > 0/,
+  'workstation API must preserve Long strings and normalize non-positive processId before request'
 )
 assertIncludes(
   workstationApi,
@@ -101,7 +99,6 @@ assertNotIncludes(
 )
 
 for (const [label, source] of [
-  ['route process list', routeProcessList],
   ['route flow graph', routeFlowGraph]
 ]) {
   assertIncludes(

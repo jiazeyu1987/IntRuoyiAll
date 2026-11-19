@@ -18,6 +18,27 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class ErpKingdeePurchaseOrderClientImplTest {
 
     @Test
+    void sourceDraftWithUnselectedSupplierMaterialAndUnitsIsRetained() {
+        var rest = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(rest).build();
+        String base = "https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.";
+        server.expect(requestTo(base + "AuthService.ValidateUser.common.kdsvc"))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.SET_COOKIE, "session=test"));
+        server.expect(requestTo(base + "DynamicFormService.ExecuteBillQuery.common.kdsvc"))
+                .andRespond(withSuccess("[[158553,\"test\",\"2023-02-13T00:00:00\",\"Z\",\"A\",\"A\",\"881\",null,null,null,null,0,0,0,null,null,0,0,0,0,0,0,0,0,\"1\",null,0]]", MediaType.APPLICATION_JSON));
+        var orders = new ErpKingdeePurchaseOrderClientImpl(rest).fetchAllPurchaseOrders(buildConfiguredProperties());
+        assertEquals(1, orders.size());
+        assertEquals("158553", orders.get(0).getFid());
+        assertEquals("Z", orders.get(0).getDocumentStatus());
+        org.junit.jupiter.api.Assertions.assertNull(orders.get(0).getSupplierNumber());
+        assertEquals(1, orders.get(0).getLines().size());
+        org.junit.jupiter.api.Assertions.assertNull(orders.get(0).getLines().get(0).getMaterialNumber());
+        org.junit.jupiter.api.Assertions.assertNull(orders.get(0).getLines().get(0).getUnitName());
+        server.verify();
+    }
+
+    @Test
     void fetchPurchaseOrders_usesConfiguredEndpointAndReturnsGroupedOrders() {
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();

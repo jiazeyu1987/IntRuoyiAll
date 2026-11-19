@@ -78,7 +78,7 @@
           >
             <template #default="{ row }">
               <div class="edhr-form-trace-release__strong">{{ row.productName || '--' }}</div>
-              <div class="edhr-form-trace-release__muted">产品：{{ row.productCode || '--' }}</div>
+              <div class="edhr-form-trace-release__muted">产品：<ProductCodeLink :code="row.productCode" empty-text="--" /></div>
               <div class="edhr-form-trace-release__muted">路线：{{ row.routeName || row.routeCode || '--' }}</div>
             </template>
           </el-table-column>
@@ -248,6 +248,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'

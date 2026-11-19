@@ -38,7 +38,7 @@ export interface CraftImpact {
   warnings?: string[]
   newCraftCount?: number
   existingCraftCount?: number
-  routes?: Array<{ routeId: number; routeName: string; routeCode: string; versionNo: string }>
+  routes?: Array<{ routeId: number; routeName: string; routeCode: string; versionNo: string; nextVersionNo: string; nodes: Array<{ routeProcessId: number | string; processName?: string; processId: number | string; workshopName?: string }> }>
   sources?: Array<{
     routeId: number
     routeName: string
@@ -56,6 +56,8 @@ export interface CraftImpact {
 }
 export interface CraftChange {
   id: number
+  approvalScope?: 'ROUTE' | 'BATCH'
+  approvalRequestId?: number
   craftId?: number
   changeType: string
   status: string
@@ -78,6 +80,8 @@ export const CraftApi = {
   initialize: (impactToken: string): Promise<CraftChange> =>
     request.post({ url: '/mes/pro/craft/initialize', params: { impactToken } }),
   changes: (): Promise<CraftChange[]> => request.get({ url: '/mes/pro/craft/changes' }),
+  changeRoutes: (id: number): Promise<Array<{routeId: number | string; routeCode: string; routeName: string; versionNo: string; nextVersionNo: string; status: string}>> =>
+    request.get({ url: '/mes/pro/craft/change-routes', params: { id } }),
   cancelChange: (id: number) =>
     request.post({ url: '/mes/pro/craft/cancel-change', params: { id } }),
   bind: (data: {

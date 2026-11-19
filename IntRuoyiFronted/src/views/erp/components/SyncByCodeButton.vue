@@ -23,6 +23,7 @@ const props = defineProps<{
   syncType: string
   codeLabel: string
   onSynced: (code: string) => Promise<void>
+  successMessage?: string
 }>()
 const visible = ref(false)
 const syncing = ref(false)
@@ -48,7 +49,7 @@ const submit = async () => {
     synchronized = true
     await props.onSynced(result.code)
     resultType.value = 'success'
-    resultMessage.value = `同步成功：${result.code}，列表已仅显示对应数据。`
+    resultMessage.value = `同步成功：${result.code}，${props.successMessage || '列表已仅显示对应数据。'}`
   } catch (error: any) {
     resultType.value = 'error'
     const reason = typeof error === 'string' ? error : error?.message

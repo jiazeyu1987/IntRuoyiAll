@@ -7,7 +7,7 @@
       :rules="formRules"
       label-width="100px"
       v-loading="formLoading"
-      :disabled="isDetail"
+      :disabled="isDetail || formLoading"
       >
       <el-form-item v-if="formType === 'create'" label="所属项目" prop="projectId" :rules="[{ required: true, message: '请选择所属项目' }]"><el-select v-model="formData.projectId" filterable><el-option v-for="p in codeProjects" :key="p.id" :value="p.id" :label="p.projectCode + ' / ' + p.projectName" /></el-select></el-form-item>
       <el-row :gutter="20">
@@ -77,7 +77,7 @@
       <!-- 编辑时展示操作步骤 -->
       <template v-if="formData.id">
         <el-divider content-position="left">操作步骤</el-divider>
-        <ProProcessContentList :processId="formData.id" />
+        <ProProcessContentList v-model="processContents" :processId="formData.id" :readonly="isDetail || formLoading" />
       </template>
     </el-form>
     <template v-if="formData.id">
@@ -159,6 +159,8 @@ import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { ProProcessApi, ProProcessRouteVO, ProProcessVO } from '@/api/mes/pro/process'
 import { ProRouteProcessApi } from '@/api/mes/pro/route/process'
 import ProProcessContentList from './ProProcessContentList.vue'
+import { ProProcessContentApi, type ProProcessContentVO } from '@/api/mes/pro/process/content'
+const processContents = ref<ProProcessContentVO[]>([])
 import { UploadFile } from '@/components/UploadFile'
 import SharedChangeDialog from '@/views/mes/pro/shared/SharedChangeDialog.vue'
 import { SharedChangeApi } from '@/api/mes/pro/sharedChange'
@@ -235,6 +237,7 @@ const open = async (type: string, id?: number, context: ProProcessFormOpenContex
   dialogTitle.value = titles[type] || type
   formType.value = type
   resetForm()
+  sharedFingerprint.value = ''
   applyRouteContext(context.row, context.routeId)
   // 修改时，设置数据
   if (id) {
@@ -249,6 +252,9 @@ const open = async (type: string, id?: number, context: ProProcessFormOpenContex
         const source = await SharedChangeApi.source('PROCESS', id)
         Object.assign(fetchedData, source.data)
         sharedFingerprint.value = source.fingerprint
+        processContents.value = source.data.processContents
+      } else {
+        processContents.value = await ProProcessContentApi.getProcessContentListByProcessId(id)
       }
       formData.value = {
         ...fetchedData,
@@ -257,6 +263,9 @@ const open = async (type: string, id?: number, context: ProProcessFormOpenContex
       }
       applyRouteContext(formData.value, context.routeId)
       await resolveSelectedRouteProcess()
+    } catch (error) {
+      dialogVisible.value = false
+      throw error
     } finally {
       formLoading.value = false
     }
@@ -342,7 +351,7 @@ const submitForm = async () => {
   const valid = await formRef.value.validate()
   if (!valid) return
   if (formType.value !== 'create' && formData.value.id) {
-    await sharedChangeDialog.value?.open({ subjectType: 'PROCESS', action: 'UPDATE', sourceId: formData.value.id, expectedFingerprint: sharedFingerprint.value, requestId: crypto.randomUUID(), process: { ...formData.value }, nodes: [], reason: '' })
+    await sharedChangeDialog.value?.open({ subjectType: 'PROCESS', action: 'UPDATE', sourceId: formData.value.id, expectedFingerprint: sharedFingerprint.value, requestId: crypto.randomUUID(), process: { ...formData.value }, processContents: processContents.value.map(row => ({ ...row })), nodes: [], reason: '' })
     return
   }
   // 提交请求
@@ -366,6 +375,7 @@ const submitForm = async () => {
 
 /** 重置表单 */
 const resetForm = () => {
+  processContents.value = []
   formData.value = {
     id: undefined,
     productName: '',

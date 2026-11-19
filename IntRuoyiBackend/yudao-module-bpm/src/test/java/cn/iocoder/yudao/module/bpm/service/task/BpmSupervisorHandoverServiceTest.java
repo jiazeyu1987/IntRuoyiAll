@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.*;
 
 class BpmSupervisorHandoverServiceTest extends BaseMockitoUnitTest {
     @InjectMocks private BpmSupervisorHandoverService service;
+    @Mock private cn.iocoder.yudao.module.bpm.framework.flowable.core.candidate.BpmTaskCandidateInvoker candidateInvoker;
     @Mock private TaskService taskService;
     @Mock private RuntimeService runtimeService;
     @Mock(answer = Answers.RETURNS_SELF) private org.flowable.task.api.TaskQuery taskQuery;
@@ -111,6 +112,8 @@ class BpmSupervisorHandoverServiceTest extends BaseMockitoUnitTest {
         var task = supervisorTask();
         when(task.getId()).thenReturn("task-1");
         when(adminUserApi.getUser(1L)).thenReturn(new AdminUserRespDTO().setId(1L).setNickname("管理员"));
+        when(candidateInvoker.calculateUsersByActivity(any(), anyString(), anyLong(), anyString(), any()))
+                .thenReturn(java.util.Set.of(20L));
         service.handover(1L, request());
         var order = inOrder(taskService);
         order.verify(taskService).setVariableLocal("task-1", BpmSupervisorHandoverService.HANDOVER_VARIABLE, true);
@@ -134,6 +137,9 @@ class BpmSupervisorHandoverServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test void confirmedSupervisorChangeKeepsApprovalPending() {
+        when(candidateInvoker.calculateUsersByActivity(any(), anyString(), anyLong(), anyString(), any()))
+                .thenReturn(java.util.Set.of(20L));
+
         var task = supervisorTask();
         when(task.getId()).thenReturn("task-1");
         when(adminUserApi.getUser(1L)).thenReturn(new AdminUserRespDTO().setId(1L).setNickname("管理员"));
@@ -141,6 +147,15 @@ class BpmSupervisorHandoverServiceTest extends BaseMockitoUnitTest {
         service.handover(1L, request().setApplicantUserId(30L));
         verify(taskService).setAssignee("task-1", "20");
         verify(taskService, never()).complete(anyString());
+    }
+
+    @Test void activeUserOutsideCurrentNodeCandidatesCannotReceiveTask() {
+        supervisorTask();
+        when(candidateInvoker.calculateUsersByActivity(any(), anyString(), anyLong(), anyString(), any()))
+                .thenReturn(java.util.Set.of(21L));
+        assertThrows(ServiceException.class, () -> service.handover(1L, request()));
+        verify(taskService, never()).setAssignee(anyString(), anyString());
+        verify(taskService, never()).addComment(anyString(), anyString(), anyString(), anyString());
     }
 
     @Test void previewIsRestrictedToTheEmployeeAndOriginalSupervisor() {

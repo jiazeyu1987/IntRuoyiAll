@@ -165,8 +165,8 @@ interface EntrustedEnterpriseSnapshot {
   enterpriseName?: unknown
 }
 
-export const formatEntrustedEnterpriseNames = (value?: string | null) => {
-  if (!value || !value.trim() || value.trim() === '[]') return '—'
+export const formatEntrustedEnterpriseNames = (value?: string | null, emptyText = '—') => {
+  if (!value || !value.trim() || value.trim() === '[]') return emptyText
   const parsed = JSON.parse(value) as unknown
   if (!Array.isArray(parsed)) {
     throw new Error('注册证受托生产企业数据格式无效。')
@@ -181,5 +181,5 @@ export const formatEntrustedEnterpriseNames = (value?: string | null) => {
     }
     return enterpriseName.trim()
   })
-  return names.length ? names.join('、') : '—'
+  return names.length ? names.join('、') : emptyText
 }

@@ -15,8 +15,8 @@
           <tbody
             ><tr v-for="row in rows" :key="row.key">
               <th scope="row">{{ row.label }}</th
-              ><td>{{ row.value }}</td
-              ><td v-if="compare">{{ row.after }}</td>
+              ><td><ProductCodeLink v-if="row.productCode" :code="row.productCode" /><span v-else>{{ row.value }}</span></td
+              ><td v-if="compare"><ProductCodeLink v-if="row.afterProductCode" :code="row.afterProductCode" /><span v-else>{{ row.after }}</span></td>
             </tr></tbody
           >
         </table>
@@ -27,6 +27,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { computed } from 'vue'
 import { readBusinessEvidence } from './businessEvidenceDisplay'
 
@@ -49,7 +50,9 @@ const rows = computed(() => {
     key,
     label: (left.get(key) || right.get(key))!.label,
     value: left.get(key)?.value ?? '未记录该字段',
-    after: right.get(key)?.value ?? '未记录该字段'
+    after: right.get(key)?.value ?? '未记录该字段',
+    productCode: left.get(key)?.productCode,
+    afterProductCode: right.get(key)?.productCode
   }))
 })
 </script>

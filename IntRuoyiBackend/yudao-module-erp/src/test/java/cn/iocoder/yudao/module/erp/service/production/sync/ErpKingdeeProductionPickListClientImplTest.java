@@ -28,6 +28,48 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class ErpKingdeeProductionPickListClientImplTest {
 
     @Test
+    void readTimeoutRetriesSamePageWithoutChangingDataSource() {
+        RestTemplate rest = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(rest).build();
+        expectLogin(server);
+        server.expect(requestTo(queryUrl()))
+                .andExpect(content().string(containsString("%22StartRow%22%3A0")))
+                .andRespond(request -> { throw new java.net.SocketTimeoutException("timeout"); });
+        server.expect(requestTo(queryUrl()))
+                .andExpect(content().string(containsString("%22StartRow%22%3A0")))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+        assertTrue(new ErpKingdeeProductionPickListClientImpl(rest).fetchProductionPickLists(buildProperties(),
+                LocalDateTime.of(1970,1,1,0,0),LocalDateTime.of(2026,11,17,12,0)).isEmpty());
+        server.verify();
+    }
+
+    @Test
+    void repeatedReadTimeoutFailsAfterThreeAttempts() {
+        RestTemplate rest = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(rest).build();
+        expectLogin(server);
+        server.expect(org.springframework.test.web.client.ExpectedCount.times(3), requestTo(queryUrl()))
+                .andRespond(request -> { throw new java.net.SocketTimeoutException("timeout"); });
+        assertThrows(org.springframework.web.client.ResourceAccessException.class,
+                () -> new ErpKingdeeProductionPickListClientImpl(rest).fetchProductionPickLists(buildProperties(),
+                        LocalDateTime.of(1970,1,1,0,0),LocalDateTime.of(2026,11,17,12,0)));
+        server.verify();
+    }
+
+    @Test
+    void nonTimeoutTransportFailureIsNotRetried() {
+        RestTemplate rest = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(rest).build();
+        expectLogin(server);
+        server.expect(requestTo(queryUrl()))
+                .andRespond(request -> { throw new java.net.ConnectException("refused"); });
+        assertThrows(org.springframework.web.client.ResourceAccessException.class,
+                () -> new ErpKingdeeProductionPickListClientImpl(rest).fetchProductionPickLists(buildProperties(),
+                        LocalDateTime.of(1970,1,1,0,0),LocalDateTime.of(2026,11,17,12,0)));
+        server.verify();
+    }
+
+    @Test
     void allHistoryDoesNotIssueThousandsOfEmptyWeeklyQueries() {
         RestTemplate rest = new RestTemplate();
         var server = MockRestServiceServer.bindTo(rest).build();
@@ -36,9 +78,54 @@ class ErpKingdeeProductionPickListClientImplTest {
         server.expect(requestTo(queryUrl()))
                 .andExpect(content().string(containsString("FDate+%3E%3D+%271970-01-01%27")))
                 .andExpect(content().string(containsString("FDate+%3C+%272026-11-18%27")))
+                .andExpect(content().string(containsString("%22Limit%22%3A1%7D")))
+                .andExpect(content().string(containsString("FDate+ASC%2CFID+ASC%2CFEntity_FEntryID+ASC")))
                 .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
         assertTrue(client.fetchProductionPickLists(buildProperties(),
                 LocalDateTime.of(1970, 1, 1, 0, 0), LocalDateTime.of(2026, 11, 17, 12, 0)).isEmpty());
+        server.verify();
+    }
+
+    @Test
+    void allHistoryAdvancesByActualLargerPageAndKeepsTail() {
+        RestTemplate rest = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(rest).build();
+        var client = new ErpKingdeeProductionPickListClientImpl(rest);
+        expectLogin(server);
+        var data = new java.util.ArrayList<List<Object>>();
+        for (int i = 0; i < 1000; i++) {
+            data.add(java.util.Arrays.asList(1001, "PICK001", "2026-08-13 07:30:00", "C",
+                    "881", "org", "881", "org", "OWNER", "owner", "remark", 2001+i,
+                    "MAT001", "material", "spec", "unit", 6,6,8,"WH1","warehouse",
+                    "LOC1","location","LOT1","MO001",1,"PPBOM001","WS1","workshop","AVL","available",null));
+        }
+        server.expect(requestTo(queryUrl()))
+                .andExpect(content().string(containsString("%22Limit%22%3A1%7D")))
+                .andRespond(withSuccess(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(List.of(data.get(0))), MediaType.APPLICATION_JSON));
+        server.expect(requestTo(queryUrl()))
+                .andExpect(content().string(containsString("%22StartRow%22%3A0")))
+                .andExpect(content().string(containsString("%22Limit%22%3A1000")))
+                .andExpect(content().string(containsString("FDate+%3E%3D+%272026-08-13%27")))
+                .andExpect(content().string(containsString("FDate+%3C+%272026-09-01%27")))
+                .andRespond(withSuccess(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(data), MediaType.APPLICATION_JSON));
+        var tail = new java.util.ArrayList<>(data.get(0));
+        tail.set(11, 3001);
+        server.expect(requestTo(queryUrl()))
+                .andExpect(content().string(containsString("%22StartRow%22%3A1000")))
+                .andRespond(withSuccess(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(List.of(tail)), MediaType.APPLICATION_JSON));
+        for (String[] range : List.of(new String[]{"2026-09-01", "2026-10-01"},
+                new String[]{"2026-10-01", "2026-11-01"}, new String[]{"2026-11-01", "2026-11-18"})) {
+            server.expect(requestTo(queryUrl()))
+                    .andExpect(content().string(containsString("FDate+%3E%3D+%27" + range[0] + "%27")))
+                    .andExpect(content().string(containsString("FDate+%3C+%27" + range[1] + "%27")))
+                    .andExpect(content().string(containsString("%22StartRow%22%3A0")))
+                    .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+        }
+        var rows = client.fetchProductionPickLists(buildProperties(),
+                LocalDateTime.of(1970,1,1,0,0),LocalDateTime.of(2026,11,17,12,0));
+        assertEquals(1,rows.size());
+        assertEquals(1001,rows.get(0).getLines().size());
+        assertEquals("3001",rows.get(0).getLines().get(1000).getEntryId());
         server.verify();
     }
 

@@ -29,6 +29,9 @@ public class MesTeamLeaderActiveOrderRespVO {
     @Schema(description = "生产工单号", example = "881MO090889")
     private String workOrderCode;
 
+    @Schema(description = "生产批次号")
+    private String batchCode;
+
     @Schema(description = "产品名称", example = "球囊扩张压力泵")
     private String productName;
 

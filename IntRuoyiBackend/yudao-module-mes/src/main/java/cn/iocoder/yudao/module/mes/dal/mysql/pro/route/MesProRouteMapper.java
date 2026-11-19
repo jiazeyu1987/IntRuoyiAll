@@ -65,6 +65,7 @@ public interface MesProRouteMapper extends BaseMapperX<MesProRouteDO> {
 
     default PageResult<MesProRouteDO> selectPage(MesProRoutePageReqVO reqVO) {
         return selectPage(reqVO, ListFilterQueryUtils.apply(reqVO, new LambdaQueryWrapperX<MesProRouteDO>()
+                .eq(MesProRouteDO::getNodeType, "FLOW")
                 .likeIfPresent(MesProRouteDO::getCode, reqVO.getCode())
                 .likeIfPresent(MesProRouteDO::getName, reqVO.getName())
                 .eqIfPresent(MesProRouteDO::getStatus, reqVO.getStatus())

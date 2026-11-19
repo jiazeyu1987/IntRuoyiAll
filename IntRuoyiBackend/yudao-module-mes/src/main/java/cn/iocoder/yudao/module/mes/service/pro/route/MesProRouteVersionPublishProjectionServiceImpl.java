@@ -160,6 +160,8 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
     private MesProcessPoolDeviceParameterRuleMapper deviceParameterRuleMapper;
     @Resource
     private MesProEdhrPermissionScopeService permissionScopeService;
+    @Resource
+    private MesProRouteWorkstationService routeWorkstationService;
 
     @Transactional(rollbackFor = Exception.class)
     public ProjectionResult projectCandidate(MesProRouteVersionDO candidate) {
@@ -170,6 +172,14 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
         JSONArray nodes = requireFrozenFlowNodes(flowGraph);
         validateEdhrWordImportSnapshot(snapshot, configSnapshots, nodes);
 
+        for (Object value : nodes) {
+            JSONObject node = (JSONObject) value;
+            Long workstationId = node.getLong("routeProcessWorkstationId");
+            if (workstationId != null) {
+                node.put("routeProcessWorkstationId", routeWorkstationService.forPublishedProcess(candidate.getId(),
+                        node.getIntValue("sort"), workstationId, node.getLong("processId"), node.getString("processName")));
+            }
+        }
         updateRoute(routeId, snapshot);
         RouteProcessProjection routeProcesses = projectProcesses(routeId, nodes);
         projectFlowEdges(routeId, flowGraph, routeProcesses);

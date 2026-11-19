@@ -21,7 +21,7 @@ function component(file, bindings, exposed) {
   const source = parse(read(file)).descriptor.scriptSetup.content
   const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true)
   const body = ast.statements.filter(s => !ts.isImportDeclaration(s)).map(s => s.getText(ast)).join('\n')
-  const errors = [], successes = [], context = { ...vue, onMounted() {}, watch() {}, defineExpose() {}, defineOptions() {}, defineProps: () => ({ canUpdate: true }), useMessage: () => ({ error: x => errors.push(x), success: x => successes.push(x) }), ...bindings }
+  const errors = [], successes = [], context = { ...vue, onMounted() {}, onActivated() {}, onDeactivated() {}, onBeforeUnmount() {}, watch() {}, useDocumentVisibility: () => vue.ref('visible'), useTimeoutPoll: () => ({ pause() {}, resume() {} }), defineExpose() {}, defineOptions() {}, defineProps: () => ({ canUpdate: true }), useMessage: () => ({ error: x => errors.push(x), success: x => successes.push(x) }), ...bindings }
   const instance = Function(...Object.keys(context), compile(body) + `; return { ${exposed} };`)(...Object.values(context))
   return { instance, errors, successes }
 }
@@ -41,6 +41,9 @@ test('published config menus replace registered static shells and resolve to the
   const options = evaluate(read('src/store/modules/permission.ts'), {
     pinia: { defineStore: (_name, options) => options },
     './testMode': {},
+    '@/utils/signatureAccess': {},
+    '@/utils/operationLogAccess': {},
+    './user': {},
     '@/store': { store: {} },
     'lodash-es': await import('lodash-es'),
     '@/router/modules/remaining': { default: staticRoutes },
@@ -76,6 +79,8 @@ test('access policies retain explicit MES/DCC and existing infra administrator s
   user.getUser.username = 'ordinary'
   user.permissions = new Set([golden, 'erp:kingdee-sync:query'])
   assert.equal(access.hasErpConfigCapability(['infra:job:query', 'erp:kingdee-sync:query']), false)
+  assert.equal(access.hasErpConfigCapability(['erp:kingdee-sync:query']), false, 'sync query alone does not grant configuration access')
+  user.permissions.add('erp:data-config:operate')
   assert.equal(access.hasErpConfigCapability(['erp:kingdee-sync:query']), true)
   user.permissions.add('infra:job:query')
   assert.equal(access.hasErpConfigCapability(['infra:job:query', 'erp:kingdee-sync:query']), true)
@@ -136,9 +141,11 @@ test('ERP guards every mutation before requests; permitted cron/status update re
     InfraJobStatusEnum: { NORMAL: 1, STOP: 2 },
     JobApi: { updateJobStatus: async (...args) => calls.push(['status', ...args]), updateJob: async job => calls.push(['update', job]) },
     ErpKingdeeConfigApi: {}, ErpKingdeeSyncApi: {}, formatDateTimeValue: x => x, toDateTimeValue: x => x
-  }, 'handleSave, handleSaveConnection, handleRunOnce, handleRunIncremental, handleRunFull, updateJobForAutoSync, form, dailyCronExpression')
-  for (const action of ['handleSave', 'handleSaveConnection', 'handleRunOnce', 'handleRunIncremental', 'handleRunFull']) await h.instance[action]({ syncType: 'PRODUCT' })
-  assert.equal(calls.length, 5)
+  }, 'handleSave, handleSaveConnection, handleRunSync, updateJobForAutoSync, form, dailyCronExpression')
+  for (const action of ['handleSave', 'handleSaveConnection']) await h.instance[action]({ syncType: 'PRODUCT' })
+  await h.instance.handleRunSync({ syncType: 'PRODUCT' }, 'INCREMENTAL')
+  await h.instance.handleRunSync({ syncType: 'PRODUCT' }, 'FULL')
+  assert.equal(calls.length, 4)
   assert.ok(calls.every(call => call[0] === 'error'))
   calls.length = 0
   h.instance.form.enabled = true
@@ -159,11 +166,14 @@ test('all four explicit targets resolve by name; no automatic redirect; fixed ma
   for (const [name, expected] of Object.entries(paths)) {
     const route = router.resolve({ name })
     assert.equal(route.path, expected)
-    assert.equal(route.meta.activeMenu, expected)
+    assert.equal(route.meta.activeMenu, name === 'ErpTableAutoSyncConfig' ? '/erp/kingdee-sync' : expected)
     assert.equal(route.matched[route.matched.length - 1].redirect, undefined)
   }
   const notice = read('src/views/system/config-migration/BusinessConfigMigrationNotice.vue')
-  for (const name of Object.keys(paths)) assert.ok(notice.includes(`name: '${name}'`))
+  for (const name of ['ErpTableAutoSyncConfig', 'DccRegistrationCertificateConfig', 'InfraBasicConfig']) {
+    assert.ok(notice.includes(`name: '${name}'`))
+  }
+  assert.doesNotMatch(notice, /name: 'MesEdhrGlobalConfig'/, 'the retired MES configuration link must stay hidden')
   const fixed = parse(read('src/views/mes/pro/edhr-config/components/ReleaseDossierRequirements.vue')).descriptor
   assert.equal((fixed.scriptSetup.content.match(/'[^']+'/g) || []).length, 4)
   assert.doesNotMatch(fixed.template.content, /el-switch|el-button|@click|v-model/)
@@ -248,9 +258,9 @@ test('MES rejects missing or invalid global facts and serializes confirmation wi
 const erpHarness = bindings => component(erpFile, {
   hasErpConfigCapability: () => true, ElMessage: { error() {}, success() {}, warning() {} },
   InfraJobStatusEnum: { NORMAL: 1, STOP: 2 }, ErpKingdeeConfigApi: {},
-  formatDateTimeValue: x => x, toDateTimeValue: x => x,
+  formatDateTimeValue: x => x, toDateTimeValue: x => new Date(x),
   ...bindings
-}, 'loadJobs, handleSave, form, jobsLoaded, jobsByHandlerName, loadLatestRuns, loadRunningSyncRuns, latestRuns, latestRunsLoaded, latestRunsError, runningSyncRuns, runningRunsLoaded, runningRunsError, formatLatestSyncStatus, waitForSubmittedRun, syncTypes, selectedSyncTypes, handleRunOnce, toDailyCronExpression')
+}, 'loadJobs, handleSave, form, jobsLoaded, jobsByHandlerName, loadLatestRuns, loadRunningSyncRuns, latestRuns, latestRunsLoaded, latestRunsError, runningSyncRuns, runningRunsLoaded, runningRunsError, formatLatestSyncStatus, waitForSubmittedRun, syncTypes, selectedSyncTypes, handleRunSync, toDailyCronExpression')
 
 test('ERP remembers changed daily time across stopped tasks and reloads persisted cron', async () => {
   const jobs = new Map()
@@ -274,7 +284,7 @@ test('ERP remembers changed daily time across stopped tasks and reloads persiste
   assert.ok([...jobs.values()].every(job => job.status === 2 && job.cronExpression === '20 15 3 * * ?'))
   await h.instance.loadJobs()
   assert.equal(h.instance.form.dailyStartTime, '03:15:20')
-  assert.match(read(erpFile), /增量执行一次/)
+  assert.match(read(erpFile), /handleRunSync\(row, 'INCREMENTAL'\)/)
 })
 
 test('ERP rejected run facts invalidate old facts and fail polling rather than reporting absent runs', async () => {
@@ -329,7 +339,7 @@ test('ERP loads exact daily cron and explicitly saves over an independent schedu
   assert.equal(h.instance.form.dailyStartTime, '03:04:05')
   cron = '0 0 2 * * MON'
   await h.instance.handleSave()
-  assert.equal(writes, 10, 'explicit save unifies independent task schedules')
+  assert.equal(writes, h.instance.syncTypes.length, 'explicit save updates every configured task exactly once')
 })
 
 
@@ -348,27 +358,31 @@ test('MES only treats real cancel/close actions silently; other confirmation rej
   }
 })
 
-test('ERP manual once runs incremental selection without writing schedules', async () => {
-  for (const mode of ['weekly', 'different', 'unselected-weekly']) {
+test('ERP row actions submit incremental and full sync without writing schedules', async () => {
+  for (const mode of ['INCREMENTAL', 'FULL']) {
     const submitted = [], messages = [], writes = []
-    let selectedHandler
+    let selected, startedAt
     const h = erpHarness({
-      ElMessage: { error: text => messages.push(['error', text]), success: text => messages.push(['success', text]), warning() {} },
+      ElMessage: { error: text => messages.push(['error', text]), success: text => messages.push(['success', text]), warning: text => messages.push(['warning', text]) },
       JobApi: {
-        getJobPage: async query => ({ list: [{ id: 1, handlerName: query.handlerName, status: 1,
-          cronExpression: mode === 'weekly' || (mode === 'unselected-weekly' && query.handlerName !== selectedHandler) ? '0 0 2 * * MON' : query.handlerName === selectedHandler ? '0 0 2 * * ?' : '0 0 3 * * ?' }] }),
+        getJobPage: async query => ({ list: [{ id: 1, handlerName: query.handlerName, status: 1, cronExpression: '0 0 2 * * MON' }] }),
         updateJob: async value => writes.push(value), updateJobStatus: async value => writes.push(value)
       },
-      ErpKingdeeSyncApi: { runIncrementalSync: async type => submitted.push(type), getRunPage: async () => ({ list: [] }) }
+      ErpKingdeeSyncApi: {
+        runIncrementalSync: async type => { submitted.push(['INCREMENTAL', type]); startedAt = Date.now() },
+        runFullSync: async type => { submitted.push(['FULL', type]); startedAt = Date.now() },
+        getRunPage: async query => ({ list: query.syncType === selected.syncType ? [{ id: 7, syncType: selected.syncType, status: 10, startedAt }] : [] })
+      }
     })
-    const selected = h.instance.syncTypes[0]; selectedHandler = selected.handlerName
-    h.instance.selectedSyncTypes.value = [selected.syncType]
-    await h.instance.handleRunOnce()
-    assert.deepEqual(submitted, [selected.syncType]); assert.equal(writes.length, 0)
+    selected = h.instance.syncTypes[0]
+    await h.instance.handleRunSync(selected, mode)
+    assert.deepEqual(submitted, [[mode, selected.syncType]])
+    assert.equal(writes.length, 0, 'manual sync must not change cron or job status')
     assert.ok(messages.some(([kind, text]) => kind === 'success' && text.includes('已提交')))
-    assert.equal(messages.some(([kind]) => kind === 'error'), false)
-    assert.equal(messages.some(([, text]) => text.includes('立即执行一次失败')), false)
-    h.instance.jobsLoaded.value = true; h.instance.form.dailyStartTime = '02:00:00'
-    await h.instance.handleSave(); assert.ok(writes.length > 0)
+    assert.equal(messages.some(([kind]) => kind === 'error' || kind === 'warning'), false)
+    await h.instance.loadJobs()
+    h.instance.form.dailyStartTime = '02:00:00'
+    await h.instance.handleSave()
+    assert.equal(writes.length, h.instance.syncTypes.length)
   }
 })

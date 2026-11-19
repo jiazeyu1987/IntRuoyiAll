@@ -1217,7 +1217,20 @@
     "20261117_edhr_data_sync_root_menu.sql",
     "20261117_mes_edhr_deviation_corrective_handling.sql",
     "20261117_mes_edhr_deviation_task_readable_notifications.sql",
-    "20261117_mes_edhr_deviation_workbench_category.sql"
+    "20261117_mes_edhr_deviation_workbench_category.sql",
+    "20261117_erp_product_tenant_bar_code_index.sql",
+    "20261118_erp_sale_order_item_order_index.sql",
+    "20261118_erp_sale_order_no_index.sql",
+    "20261118_mes_route_batch_change_approval.sql",
+    "20261118_mes_route_batch_change_approval_read_permissions.sql",
+    "20261118_mes_route_batch_change_bpm_seed.sql",
+    "20261118_mes_route_device_identity_snapshot.sql",
+    "20261118_mes_route_tree.sql",
+    "20261118_mes_workshop_export_permission.sql",
+    "20261118_registration_certificate_delete_menu.sql",
+    "20261119_edhr_navigation_names.sql",
+    "20261119_mdm_dcc_menu_names.sql",
+    "20261119_unique_navigation_names.sql"
   ],
   "migrationScopes": [
     {

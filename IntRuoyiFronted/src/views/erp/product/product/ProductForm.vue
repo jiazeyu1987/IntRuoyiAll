@@ -16,7 +16,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="条码" prop="barCode">
-            <el-input v-model="formData.barCode" placeholder="请输入条码" />
+            <el-input v-model="formData.barCode" placeholder="请输入条码" /><ProductCodeLink :code="formData.barCode" />
           </el-form-item>
         </el-col>
         <el-col :span="12">
@@ -130,6 +130,7 @@
   </Dialog>
 </template>
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { ProductApi, ProductVO } from '@/api/erp/product/product'
 import { ProductCategoryApi, ProductCategoryVO } from '@/api/erp/product/category'
 import { ProductUnitApi, ProductUnitVO } from '@/api/erp/product/unit'

@@ -1,5 +1,5 @@
 <template>
-  <doc-alert title="【设备】点检保养项目、点检保养方案" url="https://doc.iocoder.cn/mes/dv/check-plan/" />
+  <doc-alert title="【设备】维保项目、维保方案" url="https://doc.iocoder.cn/mes/dv/check-plan/" />
 
   <ContentWrap>
     <UnifiedListTemplate
@@ -294,7 +294,7 @@ const handleExport = async () => {
     await message.exportConfirm()
     exportLoading.value = true
     const data = await DvSubjectApi.exportSubject(queryParams)
-    download.excel(data, '点检保养项目.xls')
+    download.excel(data, '维保项目.xls')
   } catch {
   } finally {
     exportLoading.value = false

@@ -26,8 +26,12 @@ export interface MdWorkstationVO {
 }
 
 const normalizePositiveIdParam = (value: unknown) => {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+  // 保留后端 Long 编号的全部位数，禁止用浮点数转换字符串编号。
+  if (typeof value === 'string') {
+    const text = value.trim()
+    return /^[1-9]\d*$/.test(text) ? text : undefined
+  }
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : undefined
 }
 
 const buildWorkstationPageParams = (params: any = {}) => ({
@@ -43,7 +47,7 @@ export const MdWorkstationApi = {
   },
 
   // 查询工作站详情
-  getWorkstation: async (id: number) => {
+  getWorkstation: async (id: number | string) => {
     return await request.get({ url: `/mes/md-workstation/get?id=` + id })
   },
 

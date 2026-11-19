@@ -664,6 +664,10 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
             return sanitizeBusinessTitle(fallback, null);
         }
         String businessType = asText(variables.get("businessType"));
+        if ("MES_ROUTE_BATCH_CHANGE_PUBLISH".equals(businessType)) {
+            return "工艺路线批量变更 · " + asText(variables.get("changeId")) + " · "
+                    + asText(variables.get("affectedRouteCount")) + " 条路线";
+        }
         if (Objects.equals(BATCH_RECORD_VERSION_APPROVAL_BUSINESS_TYPE, businessType)) {
             return resolveBatchRecordVersionTitle(variables);
         }
@@ -774,6 +778,12 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
         }
         List<String> tags = new ArrayList<>();
         String businessType = asText(variables.get("businessType"));
+        if ("MES_ROUTE_BATCH_CHANGE_PUBLISH".equals(businessType)) {
+            addTag(tags, "变更单", variables.get("changeId"));
+            addTag(tags, "影响路线", variables.get("affectedRouteCount"));
+            addTag(tags, "原因", variables.get("changeReason"));
+            return tags;
+        }
         if (Objects.equals(BATCH_RECORD_VERSION_APPROVAL_BUSINESS_TYPE, businessType)) {
             addTag(tags, "批记录", variables.get("batchRecordName"));
             addTag(tags, "版本", variables.get("versionNo"));
@@ -818,6 +828,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
     private static String resolveCurrentNodeName(String taskName, String taskDefinitionKey,
                                                  Map<String, Object> variables) {
         String businessType = variables == null ? null : asText(variables.get("businessType"));
+        if ("MES_ROUTE_BATCH_CHANGE_PUBLISH".equals(businessType)) return "工艺路线批量变更审批";
         if (Objects.equals(BATCH_RECORD_VERSION_APPROVAL_BUSINESS_TYPE, businessType)) {
             return "批记录升版审核";
         }
@@ -1030,6 +1041,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
             return null;
         }
         String businessType = asText(variables.get("businessType"));
+        if ("MES_ROUTE_BATCH_CHANGE_PUBLISH".equals(businessType)) return "/mes/pro/craft";
         if (Objects.equals(BATCH_RECORD_VERSION_APPROVAL_BUSINESS_TYPE, businessType)) {
             return BATCH_RECORD_VERSION_DETAIL_ROUTE;
         }
@@ -1061,6 +1073,10 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
             return query;
         }
         String businessType = asText(variables.get("businessType"));
+        if ("MES_ROUTE_BATCH_CHANGE_PUBLISH".equals(businessType)) {
+            putIfPresent(query, "changeId", variables.get("changeId"));
+            return query;
+        }
         if (Objects.equals(BATCH_RECORD_VERSION_APPROVAL_BUSINESS_TYPE, businessType)) {
             putIfPresent(query, "businessType", businessType);
             putIfPresent(query, "batchRecordDefinitionId", variables.get("batchRecordDefinitionId"));

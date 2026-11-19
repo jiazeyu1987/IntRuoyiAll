@@ -28,13 +28,16 @@ public class MesProCraftService {
     @Resource private MesProCraftChangeMapper changeMapper;
     @Resource private MesProProcessMapper processMapper;
     @Resource private MesProRouteVersionMapper versionMapper;
+    @Resource private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
     @Resource private ObjectProvider<MesProRouteCandidateConfigService> candidateConfig;
     @Resource private ObjectProvider<MesProRouteVersionWorkflowService> workflow;
-    @Resource private ObjectProvider<MesProRouteVersionBusinessApprovalSubmitService> submitService;
+    @Resource private ObjectProvider<MesProBatchChangeApprovalExecutor> batchApproval;
     @Resource private ObjectProvider<MesProRouteVersionLifecycleService> lifecycle;
     @Resource private MesProRouteControlledContentAdapter platform;
     @Resource private cn.iocoder.yudao.module.bpm.api.task.BpmProcessInstanceApi bpmApi;
     @Resource private ObjectProvider<MesProSharedChangeService> sharedChanges;
+    @Resource private ObjectProvider<MesProRouteTreeService> routeTrees;
+    @Resource private org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc;
 
     public void lockCatalog() {
         Long tenant = TenantContextHolder.getRequiredTenantId();
@@ -60,6 +63,38 @@ public class MesProCraftService {
         MesProCraftDO craft = craftMapper.selectById(id);
         if (craft == null) throw invalid("工艺不存在：" + id);
         return craft;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> changeRoutes(Long changeId) {
+        MesProCraftChangeDO change = changeMapper.selectById(changeId);
+        if (change == null) throw invalid("变更记录不存在");
+        List<Long> ids = JSON.parseArray(change.getCandidateIdsJson()).toJavaList(Long.class);
+        if (ids.isEmpty()) return List.of();
+        Map<Long, MesProRouteVersionDO> candidates = versionMapper.selectBatchIds(ids).stream()
+                .collect(java.util.stream.Collectors.toMap(MesProRouteVersionDO::getId, version -> version));
+        if (candidates.size() != ids.size()) throw invalid("变更关联版本缺失");
+        Set<Long> sourceIds = candidates.values().stream().map(MesProRouteVersionDO::getSourceRouteVersionId)
+                .collect(java.util.stream.Collectors.toSet());
+        if (sourceIds.contains(null)) throw invalid("变更来源版本缺失");
+        Map<Long, MesProRouteVersionDO> sources = versionMapper.selectBatchIds(sourceIds).stream()
+                .collect(java.util.stream.Collectors.toMap(MesProRouteVersionDO::getId, version -> version));
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Long id : ids) {
+            MesProRouteVersionDO version = candidates.get(id);
+            MesProRouteVersionDO source = sources.get(version.getSourceRouteVersionId());
+            JSONObject snapshot = JSON.parseObject(version.getRouteSnapshotJson());
+            JSONObject configs = snapshot == null ? null : snapshot.getJSONObject("configSnapshots");
+            if (source == null || !Objects.equals(source.getRouteId(), version.getRouteId()) || configs == null
+                    || !Objects.equals(changeId, configs.getLong("craftChangeId")))
+                throw invalid("变更关联版本身份不一致");
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("routeId", version.getRouteId()); row.put("routeCode", snapshot.getString("routeCode"));
+            row.put("routeName", snapshot.getString("routeName")); row.put("versionNo", source.getVersionNo());
+            row.put("nextVersionNo", version.getVersionNo()); row.put("status", version.getLifecycleStatus());
+            result.add(row);
+        }
+        return result;
     }
 
     public MesProCraftDO create(MesProCraftSaveReqVO request) {
@@ -185,15 +220,42 @@ public class MesProCraftService {
         for (MesProRouteVersionDO active : versionMapper.selectActiveListWithExistingRoutes()) {
             boolean used = bindingConfigs(JSON.parseObject(active.getRouteSnapshotJson())).stream()
                     .anyMatch(config -> usesCraft(config, craftId));
-            MesProRouteVersionDO open = versionMapper.selectOpenCandidateByRouteId(active.getRouteId());
-            boolean draftUsed = open != null && bindingConfigs(JSON.parseObject(open.getRouteSnapshotJson())).stream()
-                    .anyMatch(config -> usesCraft(config, craftId));
             if (used) result.add(active);
-            if ((used || draftUsed) && open != null)
-                blockers.add(routeLabel(active) + " 已有未完成的候选版本，请先处理");
+        }
+        Set<Long> affectedRoutes = new HashSet<>();
+        result.forEach(v -> affectedRoutes.add(v.getRouteId()));
+        for (MesProRouteVersionDO open : openCandidates()) {
+            if (affectedRoutes.contains(open.getRouteId()) || bindingConfigs(JSON.parseObject(open.getRouteSnapshotJson()))
+                    .stream().anyMatch(config -> usesCraft(config, craftId)))
+                blockers.add(routeLabel(open) + " 已有未完成的候选版本，请先处理");
         }
         result.sort(Comparator.comparing(MesProRouteVersionDO::getRouteId));
         return result;
+    }
+
+    private List<MesProRouteVersionDO> openCandidates() {
+        return versionMapper.selectList(new LambdaQueryWrapperX<MesProRouteVersionDO>()
+                .in(MesProRouteVersionDO::getLifecycleStatus, List.of("DRAFT", "PENDING_APPROVAL", "READY_TO_PUBLISH")));
+    }
+
+    private void verifyCraftBeforePublish(MesProCraftChangeDO change) {
+        MesProCraftDO before = JSON.parseObject(change.getBeforeJson(), MesProCraftDO.class);
+        requireUnchanged(require(change.getCraftId()), before.getFingerprint());
+        Set<Long> expected = new HashSet<>();
+        JSON.parseObject(change.getAfterJson()).getJSONArray("routes").toJavaList(JSONObject.class)
+                .forEach(row -> expected.add(row.getLong("routeVersionId")));
+        Set<Long> actual = new HashSet<>();
+        for (MesProRouteVersionDO active : versionMapper.selectActiveListWithExistingRoutes()) {
+            if (bindingConfigs(JSON.parseObject(active.getRouteSnapshotJson())).stream()
+                    .anyMatch(config -> usesCraft(config, change.getCraftId()))) actual.add(active.getId());
+        }
+        if (!expected.equals(actual)) throw invalid("工艺引用范围已变化，请作废本次变更并重新确认");
+        Set<Long> ownCandidates = new HashSet<>(JSON.parseArray(change.getCandidateIdsJson()).toJavaList(Long.class));
+        for (MesProRouteVersionDO open : openCandidates()) {
+            if (!ownCandidates.contains(open.getId()) && bindingConfigs(JSON.parseObject(open.getRouteSnapshotJson()))
+                    .stream().anyMatch(config -> usesCraft(config, change.getCraftId())))
+                throw invalid("新增候选版本引用了该工艺，请作废本次变更并重新确认");
+        }
     }
     private JSONArray impacts(List<MesProRouteVersionDO> refs, Long craftId) {
         JSONArray result = new JSONArray();
@@ -203,9 +265,22 @@ public class MesProCraftService {
             impact.put("routeId", version.getRouteId()); impact.put("routeCode", row.getString("routeCode"));
             impact.put("routeName", row.getString("routeName")); impact.put("routeVersionId", version.getId());
             impact.put("versionNo", version.getVersionNo()); impact.put("snapshotSha256", version.getRouteSnapshotSha256());
-            impact.put("nodes", configs(row).stream().filter(c -> usesCraft(c, craftId))
-                    .map(c -> Map.of("routeProcessId", c.getLong("routeProcessId"), "processId", c.getLong("processId"))).toList());
+            String maxVersion = versionMapper.selectMaxVersionNoByRouteId(version.getRouteId());
+            if (maxVersion == null || !maxVersion.matches("V[0-9]+")) throw invalid("路线版本编号无效");
+            impact.put("nextVersionNo", "V" + Math.addExact(Integer.parseInt(maxVersion.substring(1)), 1));
+            Set<Long> affectedNodes = new HashSet<>();
+            configs(row).stream().filter(c -> usesCraft(c, craftId)).forEach(c -> affectedNodes.add(c.getLong("routeProcessId")));
+            impact.put("nodes", new JSONArray(MesSharedRouteSnapshotChange.nodes(row).stream()
+                    .filter(n -> affectedNodes.contains(n.getLong("routeProcessId"))).map(n -> (Object) n).toList()));
             result.add(impact);
+        }
+        Map<Long, JSONObject> workshops = MesProSharedChangeService.workshops(result, jdbc);
+        for (JSONObject impact : result.toJavaList(JSONObject.class)) {
+            for (JSONObject node : impact.getJSONArray("nodes").toJavaList(JSONObject.class)) {
+                Long workstationId = node.getLong("routeProcessWorkstationId");
+                JSONObject workshop = workstationId == null ? null : workshops.get(workstationId);
+                if (workshop != null) node.putAll(workshop);
+            }
         }
         return result;
     }
@@ -321,6 +396,8 @@ public class MesProCraftService {
         grouped.getJSONObject("configSnapshots").put("craftChangeId", change.getId());
         MesProRouteVersionSnapshotIdentityWriter.apply(saved, grouped.toJSONString());
         if (versionMapper.updateById(saved) != 1) throw invalid("关联流程候选版本保存失败");
+        if ("SHARED".equals(change.getChangeType()))
+            deviceIdentitySnapshots.captureDraft(saved.getId(), JSON.parseObject(change.getAfterJson()));
         JSONArray ids = JSON.parseArray(change.getCandidateIdsJson()); ids.add(saved.getId());
         JSONObject hashes = JSON.parseObject(change.getCandidateHashesJson());
         hashes.put(saved.getId().toString(), saved.getRouteSnapshotSha256());
@@ -333,11 +410,36 @@ public class MesProCraftService {
         if (!Boolean.TRUE.equals(blockers.getPublishable())) throw invalid("关联流程不能升级：" + blockers.getBlockers());
     }
     private void submitGroup(MesProCraftChangeDO change) {
-        List<Long> ids = JSON.parseArray(change.getCandidateIdsJson()).toJavaList(Long.class);
-        for (Long id : ids) submitService.getObject().submitAndPublishCandidate(id);
-        change.setStatus("PENDING"); saveChange(change);
-        if (ids.isEmpty()) applyCraft(change);
-        else onRouteReady(versionMapper.selectById(ids.get(0)), SecurityFrameworkUtils.getLoginUserId());
+        change.setApprovalScope("BATCH");
+        saveChange(change);
+        batchApproval.getObject().submit(change.getId());
+    }
+
+    /** 父节点与所有下属候选共用一张审批单；不复用单路线提交入口。 */
+    public MesProCraftChangeDO submitTree(Long rootCandidateId, Map<Long, JSONObject> snapshots,
+                                         String reason, List<Long> routeIds, Map<String, Object> preview) {
+        lockCatalog();
+        MesProRouteVersionDO root = versionMapper.selectById(rootCandidateId);
+        if (root == null || !STATUS_DRAFT.equals(root.getLifecycleStatus())) throw invalid("父节点草稿不存在");
+        JSONObject proposal = new JSONObject(true);
+        proposal.put("rootRouteId", root.getRouteId()); proposal.put("routeIds", routeIds);
+        proposal.put("preview", preview);
+        MesProCraftChangeDO change = newChange(null, "TREE", root.getSourceRouteVersionId().toString(),
+                proposal.toJSONString(), reason);
+        if (changeMapper.insert(change) != 1) throw invalid("树形变更单保存失败");
+        for (Map.Entry<Long, JSONObject> entry : snapshots.entrySet()) {
+            MesProRouteVersionDO candidate = Objects.equals(entry.getKey(), root.getRouteId()) ? root
+                    : newCandidate(versionMapper.selectActiveByRouteId(entry.getKey()), reason);
+            saveGroupedCandidate(change, candidate, entry.getValue());
+        }
+        submitGroup(change);
+        return changeMapper.selectById(change.getId());
+    }
+
+    public void completeEmptyBatch(MesProCraftChangeDO change) {
+        if (!"BATCH".equals(change.getApprovalScope()) || !"PENDING".equals(change.getStatus())
+                || !JSON.parseArray(change.getCandidateIdsJson()).isEmpty()) throw invalid("整批变更状态不正确");
+        applyCraft(change);
     }
 
     /** 共享资料沿用同一候选版本、审批回调和整批发布事务。 */
@@ -383,7 +485,9 @@ public class MesProCraftService {
                     || !Objects.equals(hashes.getString(v.getId() + ":source"), active.getRouteSnapshotSha256()))
                 throw invalid("关联流程的正式参数已变化，整次工艺修改不能生效");
         }
+        if ("TREE".equals(change.getChangeType())) routeTrees.getObject().verifyChange(change);
         if ("SHARED".equals(change.getChangeType())) sharedChanges.getObject().verifyBeforePublish(change);
+        if ("UPDATE".equals(change.getChangeType())) verifyCraftBeforePublish(change);
         change.setStatus("APPLYING"); saveChange(change);
         for (Long id : ids) lifecycle.getObject().publishCandidate(id, publisherId);
         applyCraft(change);
@@ -451,13 +555,25 @@ public class MesProCraftService {
         abort(change, actorId);
     }
     private void abort(MesProCraftChangeDO change, Long actorId) {
+        abort(change, actorId, true);
+    }
+    public void abortBatchFromApproval(MesProCraftChangeDO change, Long actorId) {
+        if (!"BATCH".equals(change.getApprovalScope())) throw invalid("不是整单审批变更");
+        abort(change, actorId, false);
+    }
+    private void abort(MesProCraftChangeDO change, Long actorId, boolean cancelProcess) {
         change.setStatus("CANCELLED"); saveChange(change);
+        if (cancelProcess && "BATCH".equals(change.getApprovalScope()) && change.getApprovalProcessInstanceId() != null)
+            bpmApi.cancelBusinessApprovalProcess(actorId, change.getApprovalProcessInstanceId(),
+                    MesProBatchChangeApprovalExecutor.CODE, change.getId().toString(), "工艺路线批量变更作废");
         for (Long id : JSON.parseArray(change.getCandidateIdsJson()).toJavaList(Long.class)) {
             MesProRouteVersionDO version = versionMapper.selectById(id);
             if (version == null || Boolean.TRUE.equals(version.getActive())) throw invalid("关联升级状态不一致，无法作废");
             if (STATUS_PENDING_APPROVAL.equals(version.getLifecycleStatus())) {
-                if (version.getApprovalProcessInstanceId() != null)
-                    bpmApi.cancelProcessInstance(actorId, version.getApprovalProcessInstanceId(), "工艺修改整批作废");
+                if (!"BATCH".equals(change.getApprovalScope()) && version.getApprovalProcessInstanceId() != null)
+                    bpmApi.cancelBusinessApprovalProcess(actorId, version.getApprovalProcessInstanceId(),
+                            MesProRouteVersionBusinessApprovalEffectExecutor.EXECUTOR_CODE,
+                            version.getId().toString(), "工艺修改整批作废");
                 platform.recordWithdrawn(version, actorId);
                 version.setLifecycleStatus(STATUS_DRAFT);
             }

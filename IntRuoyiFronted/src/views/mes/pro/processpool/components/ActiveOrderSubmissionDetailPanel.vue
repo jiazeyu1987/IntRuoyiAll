@@ -9,6 +9,9 @@
     }"
     :data-active-order-detail-record-scope="recordScope"
   >
+    <div v-if="(!detail || error) && $slots['summary-actions']" class="active-order-detail-actions">
+      <slot name="summary-actions"></slot>
+    </div>
     <el-alert
       v-if="error"
       :title="error"
@@ -22,44 +25,54 @@
       </template>
     </el-alert>
     <template v-else-if="detail">
-      <ActiveOrderReworkSourcePanel
-        :active-order-id="detail.activeOrderId"
-        :source="detail.reworkSource"
-      />
       <div
-        v-if="!embedded && !hideOrderSummary"
         class="team-leader-workbench__active-order-detail-summary"
+        :class="{
+          'is-status-only': embedded || hideOrderSummary,
+          'has-summary-actions': Boolean($slots['summary-actions'])
+        }"
       >
-        <div>
+        <div v-if="!embedded && !hideOrderSummary">
           <span>生产订单</span>
           <strong>{{ activeOrderWorkOrderDisplay.workOrderCode }}</strong>
         </div>
-        <div>
+        <div v-if="!embedded && !hideOrderSummary">
           <span>工艺路线</span>
           <strong>{{ detail.routeName }}</strong>
         </div>
-        <div>
+        <div
+          class="team-leader-workbench__active-order-detail-record-boundary"
+          data-active-order-detail-record-boundary
+        >
+          <strong>批记录状态</strong>
+          <div
+            v-if="detail.activeOrderStatus?.statusLabel"
+            class="team-leader-workbench__active-order-current-status"
+            data-active-order-current-status
+          >
+            <el-tag :type="activeOrderStatusTagType">
+              {{ detail.activeOrderStatus.statusLabel }}
+            </el-tag>
+          </div>
+        </div>
+        <div v-if="!embedded && !hideOrderSummary">
           <span>工序数</span>
           <strong>{{ detail.processes.length }}</strong>
         </div>
-      </div>
-
-      <div
-        class="team-leader-workbench__active-order-detail-record-boundary"
-        data-active-order-detail-record-boundary
-      >
-        <strong>批记录状态</strong>
-        <div
-          v-if="detail.activeOrderStatus?.statusLabel"
-          class="team-leader-workbench__active-order-current-status"
-          data-active-order-current-status
-        >
-          <el-tag :type="activeOrderStatusTagType">
-            {{ detail.activeOrderStatus.statusLabel }}
-          </el-tag>
+        <div v-if="$slots['summary-actions']" class="active-order-detail-actions">
+          <slot name="summary-actions"></slot>
         </div>
       </div>
 
+      <el-alert
+        v-if="conditionalTabError"
+        :title="conditionalTabError"
+        type="error"
+        :closable="false"
+        show-icon
+      >
+        <el-button link type="primary" @click="loadConditionalTabs">重新加载</el-button>
+      </el-alert>
       <el-tabs
         v-model="activeTab"
         data-team-leader-active-order-detail-main-tabs
@@ -283,123 +296,6 @@
             </table>
 
 
-          </section>
-        </el-tab-pane>
-        <el-tab-pane v-if="showSummaryTab" label="偏差" name="deviation" data-active-order-deviation-tab>
-          <DeviationTracePane v-if="props.detail?.activeOrderId && activeTab === 'deviation'" :active-order-id="props.detail.activeOrderId" />
-          <el-empty v-else-if="!props.detail?.activeOrderId" description="缺少活跃订单编号，无法查看偏差" />
-        </el-tab-pane>
-        <el-tab-pane
-          v-if="showSummaryTab"
-          label="生产过程损耗报告单"
-          name="pqcLossReport"
-          data-active-order-pqc-loss-report-tab
-        >
-          <section class="team-leader-workbench__pqc-loss-report">
-            <table
-              class="team-leader-workbench__active-order-summary-table team-leader-workbench__pqc-loss-report-table"
-              data-active-order-pqc-loss-report-table
-            >
-              <tbody>
-                <tr>
-                  <th colspan="8" class="team-leader-workbench__active-order-summary-title">
-                    生产过程损耗报告单
-                  </th>
-                </tr>
-                <tr>
-                  <th>产品名称</th>
-                  <td>{{ activeOrderWorkOrderDisplay.productName }}</td>
-                  <th>型号规格</th>
-                  <td>{{ activeOrderWorkOrderDisplay.productSpecification }}</td>
-                  <th>批号</th>
-                  <td>{{ activeOrderWorkOrderDisplay.batchCode }}</td>
-                  <th>生产数量</th>
-                  <td>{{ activeOrderWorkOrderDisplay.quantity }}</td>
-                </tr>
-                <tr>
-                  <th colspan="8" class="team-leader-workbench__pqc-loss-description">
-                    损耗描述：
-                  </th>
-                </tr>
-                <tr>
-                  <th>不合格日期</th>
-                  <th>工序名称</th>
-                  <th>不合格数量</th>
-                  <th>不合格原因</th>
-                  <th>处置方式</th>
-                  <th>生产人员/日期</th>
-                  <th>检验人员确认日期</th>
-                  <th>批准人/日期</th>
-                </tr>
-                <tr
-                  v-for="row in pqcLossReportRows"
-                  :key="row.key"
-                >
-                  <td>{{ row.unqualifiedDateText }}</td>
-                  <td>{{ row.processNameText }}</td>
-                  <td>{{ row.unqualifiedQuantityText }}</td>
-                  <td>{{ row.unqualifiedReasonText }}</td>
-                  <td>{{ row.disposalMethodText }}</td>
-                  <td>
-                    <template
-                      v-for="signature in row.productionOperatorSignatures"
-                      :key="signature.signatureId"
-                    >
-                      <button
-                        type="button"
-                        class="team-leader-workbench__signature-link"
-                        data-active-order-pqc-loss-production-signature
-                        @click="openActiveOrderSignatureRecord(signature)"
-                      >
-                        {{ formatLossReportSignatureDateText(signature) }}
-                      </button>
-                    </template>
-                    <span v-if="!row.productionOperatorSignatures.length">
-                      {{ blankSummaryField }}
-                    </span>
-                  </td>
-                  <td>
-                    <template
-                      v-for="signature in row.inspectorSignatures"
-                      :key="signature.signatureId"
-                    >
-                      <button
-                        type="button"
-                        class="team-leader-workbench__signature-link"
-                        data-active-order-pqc-loss-inspector-signature
-                        @click="openActiveOrderSignatureRecord(signature)"
-                      >
-                        {{ formatLossReportSignatureDateText(signature) }}
-                      </button>
-                    </template>
-                    <span v-if="!row.inspectorSignatures.length">
-                      {{ blankSummaryField }}
-                    </span>
-                  </td>
-                  <td>
-                    <template
-                      v-for="signature in row.approverSignatures"
-                      :key="signature.signatureId"
-                    >
-                      <button
-                        type="button"
-                        class="team-leader-workbench__signature-link"
-                        data-active-order-pqc-loss-approver-signature
-                        @click="openActiveOrderSignatureRecord(signature)"
-                      >
-                        {{ formatLossReportSignatureDateText(signature) }}
-                      </button>
-                    </template>
-                    <span v-if="!row.approverSignatures.length">
-                      {{ blankSummaryField }}
-                    </span>
-                  </td>
-                </tr>
-                <tr v-if="!pqcLossReportRows.length">
-                  <td colspan="8">暂无生产过程损耗记录</td>
-                </tr>
-              </tbody>
-            </table>
           </section>
         </el-tab-pane>
         <el-tab-pane
@@ -899,7 +795,7 @@
                   <th>检验日期</th>
                   <th colspan="4">检验项目</th>
                   <th>检验类型</th>
-                  <th>检测数量 pcs</th>
+                  <th>检测数量（件）</th>
                   <th>检测结果</th>
                   <th>检验设备</th>
                   <th>判定</th>
@@ -1050,7 +946,7 @@
                 </div>
                 <div>
                   <span>单据状态：</span>
-                  <strong>{{ document.documentStatus || '-' }}</strong>
+                  <strong>{{ pickDocumentStatusLabel(document.documentStatus) }}</strong>
                 </div>
                 <div>
                   <span>单据日期：</span>
@@ -1097,7 +993,7 @@
           <el-empty v-else :image-size="56" description="暂无领料单物料批号" />
         </el-tab-pane>
         <el-tab-pane
-          v-if="displayMode === 'full'"
+          v-if="displayMode === 'full' && replenishmentMaterials.length > 0"
           label="补料单"
           name="replenishmentMaterials"
           data-team-leader-active-order-detail-replenishment-tab
@@ -1293,7 +1189,7 @@
             </div>
             <div>
               <span>产品代码</span>
-              <strong>{{ activeOrderWorkOrderDisplay.productCode }}</strong>
+              <strong><ProductCodeLink :code="activeOrderWorkOrderDisplay.productCode" /></strong>
             </div>
             <div>
               <span>产品名称</span>
@@ -1348,7 +1244,7 @@
                 <template #default="{ row }">{{ row.productSpecification }}</template>
               </el-table-column>
               <el-table-column label="产品代码">
-                <template #default="{ row }">{{ row.productCode }}</template>
+                <template #default="{ row }"><ProductCodeLink :code="row.productCode" /></template>
               </el-table-column>
               <el-table-column label="产品名称">
                 <template #default="{ row }">{{ row.productName }}</template>
@@ -1372,17 +1268,6 @@
             :data-active-order-dossier-file-category="category.key"
           >
             <div class="team-leader-workbench__dossier-file-toolbar">
-              <div>
-                <strong>{{ category.label }}</strong>
-                <span>资料归属：当前活跃订单</span>
-              </div>
-              <DossierResponsibilityAssignment
-                v-if="auditScopeTypeValue === 'TEAM' && detail?.activeOrderId"
-                :active-order-id="detail.activeOrderId"
-                :category-key="category.key"
-                :category-label="category.label"
-                :disabled="activeOrderDossierMutationLocked"
-              />
               <el-upload
                 v-for="duty in dossierFiles?.uploadTasks?.filter(task => task.categoryKey === category.key) || []"
                 :key="duty.workTaskId"
@@ -1392,7 +1277,8 @@
                 v-hasPermi="['mes:pro-edhr-batch-execution:upload']"
                 data-active-order-release-report-upload
               >
-                <el-button type="primary" :disabled="activeOrderDossierMutationLocked"
+                <el-button
+                  type="primary" :disabled="activeOrderDossierMutationLocked"
                   :loading="dossierFileUploadingKey === duty.workTaskId">上传{{ duty.label }}</el-button>
               </el-upload>
               <el-upload
@@ -1492,6 +1378,141 @@
               description="暂无文件"
             />
           </section>
+        </el-tab-pane>
+        <el-tab-pane v-if="showSummaryTab && hasDeviations" label="偏差" name="deviation" data-active-order-deviation-tab>
+          <DeviationTracePane v-if="props.detail?.activeOrderId && activeTab === 'deviation'" :active-order-id="props.detail.activeOrderId" />
+          <el-empty v-else-if="!props.detail?.activeOrderId" description="缺少活跃订单编号，无法查看偏差" />
+        </el-tab-pane>
+        <el-tab-pane
+          v-if="detail.reworkSource"
+          label="返工"
+          name="rework"
+          data-active-order-rework-tab
+        >
+          <ActiveOrderReworkSourcePanel
+            :active-order-id="detail.activeOrderId"
+            :source="detail.reworkSource"
+          />
+        </el-tab-pane>
+        <el-tab-pane
+          v-if="showSummaryTab && pqcLossReportRows.length > 0"
+          label="生产过程损耗报告单"
+          name="pqcLossReport"
+          data-active-order-pqc-loss-report-tab
+        >
+          <section class="team-leader-workbench__pqc-loss-report">
+            <table
+              class="team-leader-workbench__active-order-summary-table team-leader-workbench__pqc-loss-report-table"
+              data-active-order-pqc-loss-report-table
+            >
+              <tbody>
+                <tr>
+                  <th colspan="8" class="team-leader-workbench__active-order-summary-title">
+                    生产过程损耗报告单
+                  </th>
+                </tr>
+                <tr>
+                  <th>产品名称</th>
+                  <td>{{ activeOrderWorkOrderDisplay.productName }}</td>
+                  <th>型号规格</th>
+                  <td>{{ activeOrderWorkOrderDisplay.productSpecification }}</td>
+                  <th>批号</th>
+                  <td>{{ activeOrderWorkOrderDisplay.batchCode }}</td>
+                  <th>生产数量</th>
+                  <td>{{ activeOrderWorkOrderDisplay.quantity }}</td>
+                </tr>
+                <tr>
+                  <th colspan="8" class="team-leader-workbench__pqc-loss-description">
+                    损耗描述：
+                  </th>
+                </tr>
+                <tr>
+                  <th>不合格日期</th>
+                  <th>工序名称</th>
+                  <th>不合格数量</th>
+                  <th>不合格原因</th>
+                  <th>处置方式</th>
+                  <th>生产人员/日期</th>
+                  <th>检验人员确认日期</th>
+                  <th>批准人/日期</th>
+                </tr>
+                <tr
+                  v-for="row in pqcLossReportRows"
+                  :key="row.key"
+                >
+                  <td>{{ row.unqualifiedDateText }}</td>
+                  <td>{{ row.processNameText }}</td>
+                  <td>{{ row.unqualifiedQuantityText }}</td>
+                  <td>{{ row.unqualifiedReasonText }}</td>
+                  <td>{{ row.disposalMethodText }}</td>
+                  <td>
+                    <template
+                      v-for="signature in row.productionOperatorSignatures"
+                      :key="signature.signatureId"
+                    >
+                      <button
+                        type="button"
+                        class="team-leader-workbench__signature-link"
+                        data-active-order-pqc-loss-production-signature
+                        @click="openActiveOrderSignatureRecord(signature)"
+                      >
+                        {{ formatLossReportSignatureDateText(signature) }}
+                      </button>
+                    </template>
+                    <span v-if="!row.productionOperatorSignatures.length">
+                      {{ blankSummaryField }}
+                    </span>
+                  </td>
+                  <td>
+                    <template
+                      v-for="signature in row.inspectorSignatures"
+                      :key="signature.signatureId"
+                    >
+                      <button
+                        type="button"
+                        class="team-leader-workbench__signature-link"
+                        data-active-order-pqc-loss-inspector-signature
+                        @click="openActiveOrderSignatureRecord(signature)"
+                      >
+                        {{ formatLossReportSignatureDateText(signature) }}
+                      </button>
+                    </template>
+                    <span v-if="!row.inspectorSignatures.length">
+                      {{ blankSummaryField }}
+                    </span>
+                  </td>
+                  <td>
+                    <template
+                      v-for="signature in row.approverSignatures"
+                      :key="signature.signatureId"
+                    >
+                      <button
+                        type="button"
+                        class="team-leader-workbench__signature-link"
+                        data-active-order-pqc-loss-approver-signature
+                        @click="openActiveOrderSignatureRecord(signature)"
+                      >
+                        {{ formatLossReportSignatureDateText(signature) }}
+                      </button>
+                    </template>
+                    <span v-if="!row.approverSignatures.length">
+                      {{ blankSummaryField }}
+                    </span>
+                  </td>
+                </tr>
+                <tr v-if="!pqcLossReportRows.length">
+                  <td colspan="8">暂无生产过程损耗记录</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+        </el-tab-pane>
+        <el-tab-pane v-if="hasCorrections" label="补正历史" name="correctionHistory" data-active-order-correction-history-tab>
+          <ActiveOrderCorrectionHistoryPanel
+            v-if="activeTab === 'correctionHistory'"
+            :context="signatureEvidenceContext"
+            @signature="signatureEvidenceViewer.open"
+          />
         </el-tab-pane>
         <el-tab-pane
           v-if="showSummaryTab"
@@ -1617,13 +1638,6 @@
               </tbody>
             </table>
           <el-empty v-else :image-size="56" description="暂无操作记录" />
-        </el-tab-pane>
-        <el-tab-pane label="补正历史" name="correctionHistory" data-active-order-correction-history-tab>
-          <ActiveOrderCorrectionHistoryPanel
-            v-if="activeTab === 'correctionHistory'"
-            :context="signatureEvidenceContext"
-            @signature="signatureEvidenceViewer.open"
-          />
         </el-tab-pane>
       </el-tabs>
       <el-dialog
@@ -1927,7 +1941,7 @@
                 <th>检验日期</th>
                 <th colspan="4">检验项目</th>
                 <th>检验类型</th>
-                <th>检测数量 pcs</th>
+                <th>检测数量（件）</th>
                 <th>检测结果</th>
                 <th>检验设备</th>
                 <th>判定</th>
@@ -2100,7 +2114,7 @@
           <details class="signature-detail__verification">
             <summary><strong>核验详情</strong><span>完整性、时间及审计关联信息</span><Icon icon="ep:arrow-right" :size="16" /></summary>
             <el-descriptions :column="1" border size="small">
-          <el-descriptions-item label="原记录完整性状态">{{ signatureEvidenceViewer.state.selected.evidence.verificationStatus || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="原记录完整性状态">{{ verificationStatusLabel(signatureEvidenceViewer.state.selected.evidence.verificationStatus) }}</el-descriptions-item>
           <el-descriptions-item label="本次完整性核验">
             <el-tag :type="signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).type">
               {{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).label }}
@@ -2124,6 +2138,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type UploadRequestOptions } from 'element-plus'
@@ -2154,7 +2169,6 @@ import {
   getActiveOrderDossierFiles,
   uploadActiveOrderDossierFile
 } from '@/api/mes/pro/processpool/teamLeader'
-import DossierResponsibilityAssignment from './DossierResponsibilityAssignment.vue'
 import { useUserStore } from '@/store/modules/user'
 import {
   type ActiveOrderAuditScope,
@@ -2174,6 +2188,7 @@ import {
   type ActiveOrderSignatureIdentity
 } from '@/api/mes/pro/edhr/activeOrderSignature'
 import { signatureVerificationDisplay } from './activeOrderSignatureVerificationDisplay'
+import { verificationStatusLabel, nonconformanceDispositionLabel, pickDocumentStatusLabel } from './activeOrderDisplayLabels'
 import { createActiveOrderSignatureEvidenceViewer, type SignatureBusinessContext } from './activeOrderSignatureEvidenceViewer'
 import ActiveOrderCorrectionHistoryPanel from './ActiveOrderCorrectionHistoryPanel.vue'
 import ActiveOrderReworkSourcePanel from './ActiveOrderReworkSourcePanel.vue'
@@ -2181,6 +2196,8 @@ import { resolveUrlPathFileName } from '@/utils/fileName'
 import { parseExactIntegerJson } from '@/utils/exactIntegerJson'
 import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
 import DeviationTracePane from '@/views/mes/pro/edhr/components/DeviationTracePane.vue'
+import { getDeviationPage } from '@/api/mes/pro/edhr/deviation'
+import { getActiveOrderCorrections } from '@/api/mes/pro/edhr/activeOrderCorrection'
 
 const props = defineProps<{
   hideOrderSummary?: boolean
@@ -2327,9 +2344,12 @@ const signatureEvidenceContext = computed<SignatureBusinessContext | undefined>(
 const signatureActionLabel = (code: string) => {
   const labels: Record<string, string> = {
     PRODUCTION_SUBMIT: '生产提交', TEAM_LEADER_REVIEW: '组长复核',
-    PQC_SUBMIT: 'PQC检验提交', PQC_RELEASE: '生产放行', MARKET_RELEASE: '上市放行'
+    PQC_SUBMIT: 'PQC检验提交', PQC_RELEASE: '生产放行', MARKET_RELEASE: '上市放行',
+    FIELD_CHANGE: '正式记录补正', PQC_PATROL_ROUND_CORRECTION: '巡检轮次补正',
+    QA_DISPOSITION: '质量保证处置'
   }
-  return labels[code] ?? code
+  if (!labels[code]) throw new Error(`签名业务动作缺少中文描述：${code}`)
+  return labels[code]
 }
 const signatureAuthenticationLabel = (method?: string) => {
   const labels: Record<string, string> = {
@@ -2339,7 +2359,9 @@ const signatureAuthenticationLabel = (method?: string) => {
     SESSION_PLUS_SELECTED_USER_PASSWORD: '指定人员密码确认',
     SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD: '员工档案密码确认'
   }
-  return method ? labels[method] ?? method : '未记录'
+  if (!method) return '未记录'
+  if (!labels[method]) throw new Error(`签名认证方式缺少中文描述：${method}`)
+  return labels[method]
 }
 
 const signatureEvidenceViewer = createActiveOrderSignatureEvidenceViewer(
@@ -2354,6 +2376,56 @@ const showPqcSubmissionTab = computed(
   () => displayMode.value === 'full' || displayMode.value === 'pqc'
 )
 const showSummaryTab = computed(() => !embedded.value)
+const hasDeviations = ref(false)
+const hasCorrections = ref(false)
+const conditionalTabError = ref('')
+let conditionalTabGeneration = 0
+const loadConditionalTabs = async () => {
+  const generation = ++conditionalTabGeneration
+  hasDeviations.value = false
+  hasCorrections.value = false
+  conditionalTabError.value = ''
+  const activeOrderId = props.detail?.activeOrderId
+  if (!activeOrderId || props.loading || props.error) return
+  const errors: string[] = []
+  await Promise.all([
+    (async () => {
+      if (!showSummaryTab.value) return
+      try {
+        const page = await getDeviationPage({ activeOrderId, pageNo: 1, pageSize: 1 })
+        if (generation !== conditionalTabGeneration) return
+        if (!page || !Array.isArray(page.list) || !Number.isFinite(Number(page.total))) {
+          throw new Error('偏差查询响应格式错误')
+        }
+        hasDeviations.value = Number(page.total) > 0
+      } catch (error) {
+        if (generation !== conditionalTabGeneration) return
+        errors.push(`偏差查询失败：${error instanceof Error ? error.message : String(error)}`)
+        conditionalTabError.value = errors.join('；')
+      }
+    })(),
+    (async () => {
+      try {
+        const timeline = await getActiveOrderCorrections('TEAM', activeOrderId)
+        if (generation !== conditionalTabGeneration) return
+        if (!timeline || String(timeline.activeOrderId) !== String(activeOrderId) || !Array.isArray(timeline.corrections)) {
+          throw new Error('补正历史响应与当前生产周期不一致')
+        }
+        hasCorrections.value = timeline.corrections.length > 0
+      } catch (error) {
+        if (generation !== conditionalTabGeneration) return
+        errors.push(`补正历史查询失败：${error instanceof Error ? error.message : String(error)}`)
+        conditionalTabError.value = errors.join('；')
+      }
+    })()
+  ])
+}
+watch(
+  () => [props.detail, props.loading, props.error, showSummaryTab.value],
+  () => { void loadConditionalTabs() },
+  { immediate: true }
+)
+onBeforeUnmount(() => { conditionalTabGeneration += 1 })
 const activeOrderStatusTagType = computed(() => {
   const status = props.detail?.activeOrderStatus?.status
   if (status === 'RELEASED') return 'success'
@@ -2537,12 +2609,7 @@ const hasNonconformanceEvidence = (fact: TeamLeaderActiveOrderOperationFactRespV
   )
 }
 
-const resolveNonconformanceDispositionLabel = (disposition?: string) => {
-  if (disposition === 'concession_release') return '让步放行'
-  if (disposition === 'rework') return '返工'
-  if (disposition === 'void') return '作废'
-  return disposition || '--'
-}
+const resolveNonconformanceDispositionLabel = nonconformanceDispositionLabel
 
 const formatIntegerQuantity = (value: number | string | undefined) => {
   if (value === undefined || value === null || value === '') return '-'
@@ -4493,22 +4560,6 @@ onBeforeUnmount(() => {
   align-items: center;
 }
 
-.team-leader-workbench__active-order-detail-record-boundary {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 32px;
-  padding: 8px 12px;
-  color: #172033;
-  background: #f8fafc;
-  border-left: 3px solid #0f9f95;
-}
-
-.team-leader-workbench__active-order-detail-record-boundary span {
-  color: #64748b;
-  font-size: 12px;
-}
-
 .team-leader-workbench__active-order-detail-tabs,
 .team-leader-workbench__active-order-detail-inner-tabs {
   min-width: 0;
@@ -4619,16 +4670,10 @@ onBeforeUnmount(() => {
   justify-self: start;
 }
 
-.team-leader-workbench__active-order-detail-record-boundary {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-}
-
 .team-leader-workbench__active-order-current-status {
   display: inline-flex;
   align-items: center;
-  justify-self: center;
+  justify-self: start;
   gap: 8px;
   color: var(--el-text-color-regular);
   font-size: 14px;
@@ -4636,12 +4681,30 @@ onBeforeUnmount(() => {
 
 .team-leader-workbench__active-order-detail-summary {
   display: grid;
-  grid-template-columns: minmax(180px, 0.9fr) minmax(280px, 1.5fr) 90px;
+  grid-template-columns: minmax(180px, 0.9fr) minmax(280px, 0.8fr) minmax(140px, 0.7fr) 90px;
   gap: 1px;
   overflow: hidden;
   border: 1px solid var(--el-border-color-light);
   border-radius: 6px;
   background: var(--el-border-color-light);
+}
+
+.team-leader-workbench__active-order-detail-summary.is-status-only {
+  grid-template-columns: 1fr;
+}
+
+.team-leader-workbench__active-order-detail-summary.has-summary-actions {
+  grid-template-columns: minmax(180px, 0.9fr) minmax(280px, 0.8fr) minmax(140px, 0.7fr) 90px auto;
+}
+
+.team-leader-workbench__active-order-detail-summary.is-status-only.has-summary-actions {
+  grid-template-columns: 1fr auto;
+}
+
+.active-order-detail-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .team-leader-workbench__active-order-detail-summary > div {
@@ -4650,6 +4713,10 @@ onBeforeUnmount(() => {
   min-width: 0;
   padding: 12px 14px;
   background: var(--el-bg-color);
+}
+
+.team-leader-workbench__active-order-detail-summary > .active-order-detail-actions {
+  display: flex;
 }
 
 .team-leader-workbench__active-order-detail-summary span,
@@ -4664,6 +4731,12 @@ onBeforeUnmount(() => {
   font-size: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.team-leader-workbench__active-order-detail-record-boundary > strong {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .team-leader-workbench__active-order-process-detail {
@@ -4953,26 +5026,8 @@ onBeforeUnmount(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 10px;
-}
-
-.team-leader-workbench__dossier-file-toolbar > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  align-items: baseline;
-  min-width: 0;
-}
-
-.team-leader-workbench__dossier-file-toolbar strong {
-  color: var(--el-text-color-primary);
-  font-size: 14px;
-}
-
-.team-leader-workbench__dossier-file-toolbar span {
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
 }
 
 .team-leader-workbench__active-order-pqc-card {
@@ -5437,7 +5492,8 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 760px) {
-  .team-leader-workbench__active-order-detail-summary {
+  .team-leader-workbench__active-order-detail-summary,
+  .team-leader-workbench__active-order-detail-summary.has-summary-actions {
     grid-template-columns: 1fr;
   }
 

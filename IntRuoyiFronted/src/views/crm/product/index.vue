@@ -65,7 +65,7 @@
           <dict-tag :type="DICT_TYPE.CRM_PRODUCT_UNIT" :value="scope.row.unit" />
         </template>
       </el-table-column>
-      <el-table-column label="产品编码" align="center" prop="no" />
+      <el-table-column label="产品编码" align="center" prop="no"><template #default="{ row }"><ProductCodeLink :code="row.no" /></template></el-table-column>
       <el-table-column
         label="价格（元）"
         align="center"
@@ -130,6 +130,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'

@@ -35,12 +35,17 @@ public class MesProRouteVersionBusinessApprovalSubmitServiceImpl
     @Resource
     private MesProRouteVersionWorkflowService workflowService;
     @Resource
+    private org.springframework.beans.factory.ObjectProvider<MesProRouteTreeService> routeTrees;
+    @Resource
     private BusinessApprovalOrchestrator businessApprovalOrchestrator;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProRouteVersionDO submitAndPublishCandidate(Long routeVersionId) {
         MesProRouteVersionDO candidate = workflowService.getVersion(routeVersionId);
+        if (routeTrees.getObject().isGroup(candidate.getRouteId())) {
+            throw cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.invalid("父节点请先预览下属流程影响，再统一提交审核");
+        }
         if (isAlreadyActive(candidate)) {
             return candidate;
         }

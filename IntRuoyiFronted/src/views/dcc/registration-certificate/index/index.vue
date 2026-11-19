@@ -46,12 +46,21 @@
               <el-button v-if="canUploadRegistrationCertificate" type="primary" @click="openUploadDialog">
                 <Icon icon="ep:upload" class="mr-5px" />上传注册证
               </el-button>
+              <el-button
+                v-hasPermi="['dcc:registration-certificate:delete']"
+                type="danger"
+                :disabled="selectedCertificates.length === 0 || loading"
+                :loading="deletingCertificate"
+                @click="handleDeleteCertificate"
+              >
+                <Icon icon="ep:delete" class="mr-5px" />删除
+              </el-button>
             </template>
 
             <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <div class="registration-certificate-current-table-scroll-region">
                 <el-table
-                  v-loading="loading"
+                  v-loading="loading || deletingCertificate"
                   class="registration-certificate-current-table"
                   data-user-table-column-explicit
                   :data-user-table-key="CURRENT_TABLE_KEY"
@@ -64,7 +73,9 @@
                   row-key="certificateId"
                   @header-dragend="handleCurrentHeaderDragend"
                   @sort-change="handleTemplateSortChange"
+                  @selection-change="handleCertificateSelectionChange"
                 >
+                <el-table-column type="selection" width="55" fixed="left" />
                 <el-table-column
                   v-if="isCurrentColumnVisible('certificateNo')"
                   label="注册证编号"
@@ -444,6 +455,7 @@ import { computed, onActivated, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import {
+  deleteRegistrationCertificate,
   getRegistrationCertificateOldIndexPage,
   getRegistrationCertificatePage,
   simulateRegistrationCertificateBusinessTimeDailyRun,
@@ -493,6 +505,12 @@ const oldRequest = useLatestListRequest()
 const loading = currentRequest.loading
 const oldLoading = oldRequest.loading
 const list = ref<DccRegistrationCertificatePageItemVO[]>([])
+const selectedCertificates = ref<DccRegistrationCertificatePageItemVO[]>([])
+const deletingCertificate = ref(false)
+const message = useMessage()
+const handleCertificateSelectionChange = (rows: DccRegistrationCertificatePageItemVO[]) => {
+  selectedCertificates.value = rows
+}
 const oldList = ref<DccRegistrationCertificateOldIndexItemVO[]>([])
 const total = ref(0)
 const oldTotal = ref(0)
@@ -855,7 +873,45 @@ const loadPage = async () => {
   await currentRequest.run(() => getRegistrationCertificatePage({ ...queryParams }), (page) => {
     list.value = page.list
     total.value = page.total
+    selectedCertificates.value = []
   })
+}
+
+const handleDeleteCertificate = async () => {
+  const rows = [...selectedCertificates.value]
+  if (rows.length === 0 || deletingCertificate.value) return
+  deletingCertificate.value = true
+  try {
+    try {
+      const target = rows.length === 1 ? `注册证“${rows[0].certificateNo}”` : `选中的 ${rows.length} 条注册证`
+      await message.delConfirm(`确认删除${target}吗？删除后从列表移除，历史版本、附件和审计证据仍保留。多选时逐条处理，失败项仍保留在列表中。`)
+    } catch (error) {
+      if (error === 'cancel' || error === 'close') return
+      throw error
+    }
+    const results = await Promise.allSettled(rows.map((row) =>
+      deleteRegistrationCertificate(row.certificateId, row.rowVersion, crypto.randomUUID())
+    ))
+    const failures = results.flatMap((result, index) => result.status === 'rejected'
+      ? [{ certificateNo: rows[index].certificateNo, reason: result.reason }]
+      : [])
+    const deletedCount = rows.length - failures.length
+    if (failures.length > 0) {
+      message.error(`已删除 ${deletedCount} 条，${failures.length} 条删除失败：${failures.map((item) => item.certificateNo).join('、')}。历史证据已保留。`)
+    }
+    if (deletedCount > 0) {
+      selectedCertificates.value = []
+      if (list.value.length === deletedCount && queryParams.pageNo > 1) queryParams.pageNo -= 1
+      await loadPage()
+      await loadOldIndexPage()
+    }
+    if (failures.length > 0) {
+      throw new AggregateError(failures.map((item) => item.reason), '部分注册证删除失败')
+    }
+    message.success(`已删除 ${deletedCount} 条注册证，历史证据已保留`)
+  } finally {
+    deletingCertificate.value = false
+  }
 }
 
 const loadOldIndexPage = async () => {

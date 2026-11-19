@@ -9,7 +9,7 @@
   >
     <el-alert :title="context?.notice" type="info" :closable="false" class="mb-12px" />
     <el-alert
-      title="待办仅在确认后转交，接收人仍须审批。eDHR、DCC及业务模块待办须到对应业务入口交接。"
+      title="此处仅查询普通 BPM 流程待办，可交接主管审批节点；接收人须符合该节点当前候选规则，仍须审批。此处不统计 eDHR、DCC 及业务模块全部待办，请到对应业务入口核对和交接。"
       type="warning"
       :closable="false"
       class="mb-12px"
@@ -18,7 +18,7 @@
       >原处理人：{{ context?.assigneeName }}（{{ context?.assigneeUserId }}）</div
     >
     <el-alert v-if="error" :title="error" type="error" :closable="false" class="mb-12px" />
-    <el-table :data="rows" v-loading="loading || saving" empty-text="该范围内没有未完成待办">
+    <el-table :data="rows" v-loading="loading || saving" empty-text="该范围内没有普通 BPM 待办；请另行核对业务模块待办">
       <el-table-column prop="name" label="待办名称" min-width="150" />
       <el-table-column
         prop="processInstanceId"

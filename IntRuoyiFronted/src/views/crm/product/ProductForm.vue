@@ -57,7 +57,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="产品编码" prop="no">
-            <el-input v-model="formData.no" placeholder="请输入产品编码" />
+            <el-input v-model="formData.no" placeholder="请输入产品编码" /><ProductCodeLink :code="formData.no" />
           </el-form-item>
         </el-col>
         <el-col :span="12">
@@ -98,6 +98,7 @@
   </Dialog>
 </template>
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import * as ProductApi from '@/api/crm/product'
 import * as ProductCategoryApi from '@/api/crm/product/category'

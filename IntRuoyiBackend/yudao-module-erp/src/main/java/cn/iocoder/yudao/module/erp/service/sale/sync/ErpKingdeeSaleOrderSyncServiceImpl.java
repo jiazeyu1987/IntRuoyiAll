@@ -71,6 +71,24 @@ public class ErpKingdeeSaleOrderSyncServiceImpl implements ErpKingdeeSaleOrderSy
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeeSaleOrderSyncResult syncAllWithUpdates() {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        properties.validateBaseConfig();
+        return syncSaleOrders(properties, saleOrderClient.fetchAllSaleOrders(properties), false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int syncByCode(String billNo) {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        properties.validateBaseConfig();
+        ErpKingdeeSaleOrderSyncResult result = syncSaleOrders(properties,
+                saleOrderClient.fetchSaleOrdersByBillNo(properties, billNo), false);
+        return result.getCreatedCount() + result.getUpdatedCount() + result.getSkippedCount();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public ErpKingdeeSaleOrderSyncResult syncSaleOrdersFullSkipExisting() {
         return syncSaleOrdersFullSkipExisting(null, null);
     }
@@ -210,7 +228,9 @@ public class ErpKingdeeSaleOrderSyncServiceImpl implements ErpKingdeeSaleOrderSy
             Long productId = resolveProductId(kingdeeProperties, line, materialDetails);
             item.setProductId(productId);
             item.setProductUnitId(ensureOrderUnit(line.getUnitName()));
-            item.setProductPrice(ErpKingdeeOrderAmounts.transactionUnitPrice(line.getPrice(), line.getQuantity(),
+            // Historical ERP rows can omit the pricing unit. Retain their price without inventing a conversion.
+            item.setProductPrice(StrUtil.isBlank(line.getPriceUnitName()) ? line.getPrice()
+                    : ErpKingdeeOrderAmounts.transactionUnitPrice(line.getPrice(), line.getQuantity(),
                     line.getPriceUnitQuantity(), line.getUnitName(), line.getPriceUnitName()));
             item.setCount(line.getQuantity());
             item.setTaxPercent(line.getTaxPercent());

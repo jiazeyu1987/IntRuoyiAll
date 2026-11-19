@@ -289,7 +289,7 @@ const assertDossierTabsReadable = async (detail, phase) => {
     await panel.waitFor({ state: 'visible', timeout: 60000 })
     const text = await panel.innerText()
     assert.ok(!text.includes('尚未执行P2生成正式批次'), `${phase} ${label} 不得提示缺少P2正式批次`)
-    assert.match(text, /资料归属：当前活跃订单/, `${phase} ${label} 必须声明当前活跃订单资料归属`)
+    assert.doesNotMatch(text, /资料归属：当前活跃订单|指派资料责任人/, `${phase} ${label} 不再展示重复归属说明和责任人指派入口`)
     assert.ok(!text.includes('来源批次：'), `${phase} ${label} 不得暴露P2批次来源字段`)
     tabs.push({ label, category, text: text.replace(/\s+/g, ' ').slice(0, 600) })
   }
@@ -350,7 +350,7 @@ const assertUploadedDossierFilesVisible = async (detail, phase, expectedUploads 
     const panel = await dossierPanel(detail, upload)
     const text = normalizeText(await panel.innerText())
     assert.match(text, new RegExp(escapeRegExp(upload.fileName)), `${phase} ${upload.label} 必须保留上传文件`)
-    assert.match(text, /资料归属：当前活跃订单/, `${phase} ${upload.label} 必须继续声明活跃订单资料归属`)
+    assert.doesNotMatch(text, /资料归属：当前活跃订单|指派资料责任人/, `${phase} ${upload.label} 不再展示重复归属说明和责任人指派入口`)
     assert.match(text, /上传人|上传时间/, `${phase} ${upload.label} 必须保留上传人和上传时间`)
     assert.ok(!text.includes('暂无文件'), `${phase} ${upload.label} 不得显示暂无文件`)
     visibleFiles.push({

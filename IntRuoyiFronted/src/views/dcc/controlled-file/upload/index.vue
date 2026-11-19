@@ -269,7 +269,7 @@
                           title="文件编号已重复：当前项目、文件类型下已存在该编号"
                         />
                         <div class="mt-4px text-[var(--el-text-color-secondary)]">
-                          产品：{{ currentVersionInfo.productName || currentVersionInfo.productCode || '-' }}；
+                          产品：<span v-if="currentVersionInfo.productName">{{ currentVersionInfo.productName }}</span><ProductCodeLink v-else :code="currentVersionInfo.productCode" empty-text="-" />；
                           修改中：{{ currentVersionInfo.modifying ? '是' : '否' }}
                         </div>
                         <el-alert
@@ -327,7 +327,7 @@
               </div>
               <el-form-item label="产品编号" prop="productCode">
                 <div class="w-full">
-                  <div class="upload-field-value">{{ formData.productCode || '选择 DCC 项目后读取正式产品编码' }}</div>
+                  <div class="upload-field-value"><ProductCodeLink :code="formData.productCode" empty-text="选择 DCC 项目后读取正式产品编码" /></div>
                   <div
                     v-if="isProductRequiredForSelectedCategory && !isRequiredProjectCodeBound"
                     data-testid="dcc-upload-product-code-binding-hint"
@@ -816,6 +816,7 @@
 </template>
 
 <script lang="ts" setup>
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { h, onActivated } from 'vue'
 import { ElMessageBox, genFileId } from 'element-plus'
 import ProjectApplicationAttributes from '../project-attributes/ProjectApplicationAttributes.vue'

@@ -65,6 +65,48 @@ class UserDingTalkImportExcelParserTest {
         }
     }
 
+    @Test
+    void rejectsDuplicateHeadersRatherThanTakingTheLastColumn() throws Exception {
+        var headers = new java.util.ArrayList<>(HEADERS);
+        headers.add("员工UserID");
+        byte[] bytes = workbook(headers, List.of("001", "员工", "公司"));
+        var error = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> parser.parse(new ByteArrayInputStream(bytes)));
+        assertTrue(error.getMessage().contains("表头重复"));
+    }
+
+    @Test
+    void rejectsMissingEmployeeIdentity() throws Exception {
+        byte[] bytes = workbook(HEADERS, List.of("", "员工", "公司"));
+        var error = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> parser.parse(new ByteArrayInputStream(bytes)));
+        assertTrue(error.getMessage().contains("第2行缺少员工UserID"));
+    }
+
+    @Test
+    void rejectsRepeatedEmployeeIdentityBeforeAnyImport() throws Exception {
+        byte[] bytes = workbook(HEADERS, List.of("001", "员工", "公司"));
+        try (var source = new XSSFWorkbook(new ByteArrayInputStream(bytes));
+             var output = new ByteArrayOutputStream()) {
+            var row = source.getSheetAt(0).createRow(2);
+            row.createCell(0).setCellValue("001");
+            row.createCell(1).setCellValue("另一个姓名");
+            row.createCell(2).setCellValue("公司");
+            source.write(output);
+            var error = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                    () -> parser.parse(new ByteArrayInputStream(output.toByteArray())));
+            assertTrue(error.getMessage().contains("员工UserID重复"));
+        }
+    }
+
+    @Test
+    void corruptWorkbookPreservesDiagnosticCause() {
+        var error = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> parser.parse(new ByteArrayInputStream(new byte[] {1, 2, 3})));
+        assertNotNull(error.getCause());
+        assertTrue(error.getMessage().contains("无法读取"));
+    }
+
     private byte[] workbook(List<String> headers, List<String> values) throws Exception {
         try (var workbook = new XSSFWorkbook(); var output = new ByteArrayOutputStream()) {
             var sheet = workbook.createSheet("员工信息");

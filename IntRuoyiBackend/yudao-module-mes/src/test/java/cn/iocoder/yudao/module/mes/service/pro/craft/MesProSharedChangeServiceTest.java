@@ -23,10 +23,13 @@ class MesProSharedChangeServiceTest {
     private final MesProCraftChangeMapper changes = mock(MesProCraftChangeMapper.class);
     private final MesProProcessMapper processes = mock(MesProProcessMapper.class);
     private final MesProRouteVersionMapper versions = mock(MesProRouteVersionMapper.class);
+    private final cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessContentService contents =
+            mock(cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessContentService.class);
     private final MesProProcessDO source = MesProProcessDO.builder().id(10L).name("热合").code("GX-10").status(0).build();
     @BeforeEach void setup() {
         ReflectionTestUtils.setField(service,"crafts",crafts); ReflectionTestUtils.setField(service,"changeMapper",changes);
         ReflectionTestUtils.setField(service,"processMapper",processes); ReflectionTestUtils.setField(service,"versionMapper",versions);
+        ReflectionTestUtils.setField(service,"processContents",contents);
         when(processes.selectById(10L)).thenReturn(source);
         when(versions.selectMaxVersionNoByRouteId(anyLong())).thenReturn("V2");
     }
@@ -114,7 +117,7 @@ class MesProSharedChangeServiceTest {
     }
 
     @Test void newDraftReferenceDuringApprovalBlocksPublicationButOwnCandidateDoesNot() {
-        var change = pendingChange(request(), source, source);
+        var change = pendingChange(request(), service.source("PROCESS", 10L).get("data"), source);
         var own = version(1, 10); own.setId(101L);
         when(versions.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(own));
         assertDoesNotThrow(() -> service.verifyBeforePublish(change));
@@ -123,6 +126,72 @@ class MesProSharedChangeServiceTest {
         var failure = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
                 () -> service.verifyBeforePublish(change));
         assertTrue(failure.getMessage().contains("新增了引用"));
+    }
+
+    @Test void contentsArePreviewedWithoutWritesAndConcurrentStepEditsBlockPublication() {
+        var old = cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessContentDO.builder()
+                .id(1L).processId(10L).sort(1).content("旧步骤").build();
+        when(contents.getProcessContentListByProcessId(10L)).thenReturn(List.of(old));
+        var req = request();
+        var step = new cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.content.MesProProcessContentSaveReqVO();
+        step.setId(1L); step.setProcessId(10L); step.setSort(1); step.setContent("新步骤");
+        req.setProcessContents(List.of(step));
+        var preview = service.preview(req);
+        assertEquals("旧步骤", ((JSONObject) preview.get("before")).getJSONArray("processContents").getJSONObject(0).getString("content"));
+        assertEquals("新步骤", ((JSONObject) preview.get("after")).getJSONArray("processContents").getJSONObject(0).getString("content"));
+        verify(contents, never()).updateProcessContent(any());
+        var change = pendingChange(req, preview.get("before"), preview.get("after"));
+        old.setContent("他人修改");
+        assertThrows(RuntimeException.class, () -> service.verifyBeforePublish(change));
+    }
+
+    @Test void contentsRejectForeignIdsAndDuplicateSorts() {
+        var req = request();
+        var step = new cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.content.MesProProcessContentSaveReqVO();
+        step.setId(99L); step.setProcessId(10L); step.setSort(1);
+        req.setProcessContents(List.of(step));
+        assertThrows(RuntimeException.class, () -> service.preview(req));
+        step.setId(null); req.setProcessContents(List.of(step, step));
+        assertThrows(RuntimeException.class, () -> service.preview(req));
+        req.setProcessContents(List.of(step)); step.setProcessId(20L);
+        assertThrows(RuntimeException.class, () -> service.preview(req));
+    }
+
+    @Test void confirmedContentsApplyTogetherWithProcessAndRetainExistingIds() {
+        var old = cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessContentDO.builder()
+                .id(1L).processId(10L).sort(1).content("删除步骤").build();
+        var kept = cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessContentDO.builder()
+                .id(2L).processId(10L).sort(2).content("保留步骤").build();
+        when(contents.getProcessContentListByProcessId(10L)).thenReturn(List.of(old, kept));
+        var req = request();
+        var updated = new cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.content.MesProProcessContentSaveReqVO();
+        updated.setId(2L); updated.setProcessId(10L); updated.setSort(1); updated.setContent("修改步骤");
+        var created = new cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.content.MesProProcessContentSaveReqVO();
+        created.setProcessId(10L); created.setSort(2); created.setContent("新增步骤");
+        req.setProcessContents(List.of(updated, created));
+        var provider = mock(org.springframework.beans.factory.ObjectProvider.class);
+        var processService = mock(cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService.class);
+        when(provider.getObject()).thenReturn(processService);
+        ReflectionTestUtils.setField(service,"processes",provider);
+        service.apply(pendingChange(req, source, source));
+        verify(processService).updateProcess(any());
+        verify(contents).deleteProcessContent(1L);
+        verify(contents).updateProcessContent(argThat(value -> Long.valueOf(2).equals(value.getId()) && "修改步骤".equals(value.getContent())));
+        verify(contents).createProcessContent(argThat(value -> value.getId() == null && "新增步骤".equals(value.getContent())));
+        verify(contents, never()).deleteProcessContent(2L);
+    }
+
+    @Test void persistedSourceSnapshotWithAuditTimesRemainsUnchanged() {
+        source.setCreateTime(java.time.LocalDateTime.of(2026, 11, 17, 23, 30, 47));
+        source.setUpdateTime(java.time.LocalDateTime.of(2026, 11, 17, 23, 30, 47));
+        source.setCreator("1"); source.setUpdater("1"); source.setDeleted(false);
+        JSONObject before = (JSONObject) service.source("PROCESS", 10L).get("data");
+        var change = pendingChange(request(), before, before);
+        change.setBeforeJson(before.toJSONString());
+        assertDoesNotThrow(() -> service.verifyBeforePublish(change));
+        source.setUpdateTime(source.getUpdateTime().plusSeconds(1));
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.verifyBeforePublish(change));
     }
 
     @Test void replacementDeviceMustKeepItsConfirmedIdentityAndRemainEnabledUntilPublication() {

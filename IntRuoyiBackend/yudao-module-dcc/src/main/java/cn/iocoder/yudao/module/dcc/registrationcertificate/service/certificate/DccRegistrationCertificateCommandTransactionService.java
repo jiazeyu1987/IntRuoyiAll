@@ -16,6 +16,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_REVISION_CONFLICT;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_PENDING_CONFLICT;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_RENEWAL_PENDING_CONFLICT;
 
 @Service
 public class DccRegistrationCertificateCommandTransactionService {
@@ -133,6 +137,35 @@ public class DccRegistrationCertificateCommandTransactionService {
                 metadata.actorId(), state.certificate().getOwnerCompanyId());
         draftRepository.deleteDraft(state, metadata.tenantId(), expectedRowVersion, expectedSnapshotRevision);
         auditService.recordSuccess(metadata, context, state.version().getId(), state.snapshot().getId(), null);
+        return certificateId;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long deleteCertificate(DccRegistrationCertificateCommandMetadata metadata,
+                                  DccRegistrationCertificateCommandContext context,
+                                  Long certificateId, Integer expectedRowVersion) {
+        DccRegistrationCertificateDO certificate = certificateMapper.selectByIdForUpdate(certificateId);
+        if (certificate == null || !java.util.Objects.equals(certificate.getTenantId(), metadata.tenantId())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_NOT_EXISTS);
+        }
+        context.resolveTrustedIdentity(certificate.getOwnerCompanyId(), certificateId);
+        prerequisiteValidator.validateCompanyScope(metadata.actorId(), certificate.getOwnerCompanyId());
+        if (expectedRowVersion == null || expectedRowVersion <= 0
+                || !java.util.Objects.equals(certificate.getRowVersion(), expectedRowVersion)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_REVISION_CONFLICT);
+        }
+        if (certificateMapper.countPendingChanges(metadata.tenantId(), certificateId) > 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_PENDING_CONFLICT);
+        }
+        if (certificateMapper.countPendingUploads(metadata.tenantId(), certificateId) > 0
+                || (certificate.getCurrentVersionId() != null && certificate.getPendingVersionId() != null)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_PENDING_CONFLICT);
+        }
+        // Only the certificate is soft deleted. Versions, snapshots, files and audit evidence stay intact.
+        requireSingle(certificateMapper.deletePreservingEvidence(
+                metadata.tenantId(), certificateId, expectedRowVersion, metadata.actorId()));
+        auditService.recordSuccess(metadata, context, certificate.getCurrentVersionId(),
+                certificate.getCurrentSnapshotId(), null);
         return certificateId;
     }
 

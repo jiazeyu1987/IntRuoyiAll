@@ -2,7 +2,7 @@
   <section
     class="frontline-operator-panel pqc-trial"
     :class="{ 'is-pqc-fullscreen': maximized }"
-    aria-label="一线PQC试填预览"
+    aria-label="检验填报试填预览"
   >
     <p v-if="!maximized" class="trial-note">试填内容仅用于预览，不会修改规程或生成检验记录。</p>
     <div class="frontline-operator-screen is-pqc">

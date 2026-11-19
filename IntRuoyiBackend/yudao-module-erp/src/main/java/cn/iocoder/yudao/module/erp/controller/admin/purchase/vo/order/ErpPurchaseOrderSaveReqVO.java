@@ -16,7 +16,6 @@ public class ErpPurchaseOrderSaveReqVO {
     private Long id;
 
     @Schema(description = "供应商编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "1724")
-    @NotNull(message = "供应商编号不能为空")
     private Long supplierId;
 
     @Schema(description = "结算账户编号", example = "31189")
@@ -44,6 +43,13 @@ public class ErpPurchaseOrderSaveReqVO {
     @com.fasterxml.jackson.annotation.JsonIgnore
     @Schema(hidden = true)
     private cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeOrderAmounts kingdeeAmounts;
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Schema(hidden = true)
+    @jakarta.validation.constraints.AssertTrue(message = "供应商编号不能为空")
+    public boolean isSupplierSpecifiedOrTrustedSource() {
+        return supplierId != null || kingdeeAmounts != null;
+    }
 
     @Data
     public static class Item {

@@ -95,7 +95,11 @@ public class KingdeeProductItemSyncJob implements JobHandler, ErpKingdeeFullSync
             // MES even when the previous run failed after the ERP commit.
             LinkedHashSet<String> fullProductCodes = new LinkedHashSet<>(changedProductCodes(productResult));
             fullProductCodes.addAll(productResult.getSkippedProductCodes());
-            MesKingdeeItemSyncResult itemResult = itemSyncService.syncItemsByProductCodes(fullProductCodes);
+            // Orders and targeted imports can add ERP masters outside the approved-material
+            // source query. A complete refresh must propagate those existing masters too.
+            MesKingdeeItemSyncResult itemResult = windowStart == null
+                    ? itemSyncService.syncCurrentErpProducts()
+                    : itemSyncService.syncItemsByProductCodes(fullProductCodes);
             log.info("[material-full] stage=mes-committed created={} updated={} skipped={}", itemResult.getCreatedCount(), itemResult.getUpdatedCount(), itemResult.getSkippedCount());
             productResultReference.set(productResult);
             itemResultReference.set(itemResult);

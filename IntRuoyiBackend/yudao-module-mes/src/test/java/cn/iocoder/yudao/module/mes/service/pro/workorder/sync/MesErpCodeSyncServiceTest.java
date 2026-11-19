@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.workorder.sync;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.erp.service.product.sync.ErpKingdeeProductSyncResult;
 import cn.iocoder.yudao.module.erp.service.product.sync.ErpKingdeeProductSyncService;
+import cn.iocoder.yudao.module.erp.service.sale.sync.ErpKingdeeSaleOrderSyncService;
 import cn.iocoder.yudao.module.erp.service.production.kingdee.ErpKingdeeProductionPickListService;
 import cn.iocoder.yudao.module.erp.service.production.kingdee.ErpKingdeeProductionReplenishmentListService;
 import cn.iocoder.yudao.module.erp.service.stock.kingdee.ErpKingdeeInventoryListService;
@@ -31,12 +32,21 @@ class MesErpCodeSyncServiceTest {
     @Mock private ErpKingdeeProductionReplenishmentListService replenishments;
     @Mock private MesKingdeeProductionOrderSyncService orders;
     @Mock private MesKingdeeItemSyncService items;
+    @Mock private ErpKingdeeSaleOrderSyncService sales;
     private MesErpCodeSyncService service;
 
     @BeforeEach
     void setUp() {
         service = new MesErpCodeSyncService(products, stocks, inventory, bom, materials,
-                picks, replenishments, orders, items);
+                picks, replenishments, orders, items, sales);
+    }
+
+    @Test
+    void targetedSaleRefreshUsesOnlySaleService() {
+        when(sales.syncByCode("XSDD-001")).thenReturn(1);
+        assertEquals(1, service.sync("SALE_ORDER", " XSDD-001 ").syncedCount());
+        verify(sales).syncByCode("XSDD-001");
+        verifyNoInteractions(products, stocks, inventory, bom, materials, picks, replenishments, orders, items);
     }
 
     @Test

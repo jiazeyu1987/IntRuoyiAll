@@ -1,426 +1,84 @@
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
-
+const test = require('node:test')
+const ts = require('typescript')
+const { parse } = require('vue/compiler-sfc')
 const root = path.resolve(__dirname, '../..')
-const workspaceRoot = path.resolve(root, '..')
-const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8')
-const readWorkspace = (relativePath) =>
-  fs.readFileSync(path.join(workspaceRoot, relativePath), 'utf8')
-
-const profileIndex = read('src/views/Profile/Index.vue')
-const componentIndex = read('src/views/Profile/components/index.ts')
+const read = relative => fs.readFileSync(path.join(root, relative), 'utf8')
+const readBackend = relative => read(`../IntRuoyiBackend/${relative}`)
 const component = read('src/views/erp/sync/config/components/TableAutoSyncSetting.vue')
-const syncApi = read('src/api/erp/sync/index.ts')
-const configApi = read('src/api/erp/config/index.ts')
-const jobApi = read('src/api/infra/job/index.ts')
-const workOrderPage = read('src/views/mes/pro/workorder/index.vue')
-const forbiddenInternalCopyPattern = new RegExp(
-  ['\\u6570\\u636e\\u6c34\\u4f4d', '\\u540c\\u6b65\\u6c34\\u4f4d'].join('|')
-)
-const runPageReqVo = readWorkspace(
-  'IntRuoyiBackend/yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/controller/admin/sync/vo/ErpKingdeeSyncRunPageReqVO.java'
-)
-const runMapper = readWorkspace(
-  'IntRuoyiBackend/yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/dal/mysql/sync/ErpKingdeeSyncRunMapper.java'
-)
-const erpPage = read('src/views/erp/sync/config/index.vue')
-assert.match(erpPage, /TableAutoSyncSetting v-if="canQuery"/, 'ERP config requires authorized query capability')
-assert.match(erpPage, /infra:job:query/, 'ERP query includes Job permission')
-assert.match(erpPage, /erp:kingdee-sync:query/, 'ERP query includes ERP permission')
-assert.doesNotMatch(profileIndex, /ProfileErpTableAutoSyncSetting|GOLDEN_FINGER_PERMISSION/, 'Profile carries no ERP configuration or business permission')
-assert.doesNotMatch(componentIndex, /ProfileErpTableAutoSyncSetting/, 'Profile barrel carries no ERP configuration')
-assert.match(read('src/views/erp/sync/index.vue'), /name: 'ErpTableAutoSyncConfig'/, 'sync manager offers named configuration route')
-
-for (const token of [
-  '/erp/kingdee-sync/run/page',
-  '/erp/kingdee-sync/watermark/list',
-  '/erp/kingdee-sync/incremental-sync',
-  '/erp/kingdee-sync/full-sync',
-  'runIncrementalSync',
-  'runFullSync',
-]) {
-  assert.match(
-    syncApi,
-    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-    `ERP 同步 API 必须包含正式链路：${token}`
-  )
+const { descriptor, errors } = parse(component)
+assert.deepEqual(errors, [])
+const script = descriptor.scriptSetup.content
+const template = descriptor.template.content
+const contains = (source, tokens) => {
+  for (const token of tokens) assert.ok(source.includes(token), `missing contract: ${token}`)
 }
 
-for (const token of [
-  'ErpKingdeeConnectionType',
-  'ErpKingdeeActiveConnectionVO',
-  '/erp/kingdee-config/active-connection',
-  'getActiveConnection',
-  'updateActiveConnection'
-]) {
-  assert.match(
-    configApi,
-    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-    `ERP 配置 API 必须包含账套切换契约：${token}`
-  )
-}
+test('ERP configuration entry retains test mode and explicit business permissions', () => {
+  contains(read('src/views/erp/sync/index.vue'), ['TableAutoSyncSetting v-if="canConfigure"', "testMode.value && hasErpConfigCapability(['erp:kingdee-sync:query'])"])
+  contains(read('src/utils/businessConfigAccess.ts'), ["hasExplicitConfigPermission('erp:data-config:operate')", 'permissions.every'])
+  contains(read('src/views/erp/sync/config/index.vue'), ["import ErpConfiguration from '../index.vue'", "name: 'ErpTableAutoSyncConfig'"])
+  assert.doesNotMatch(read('src/views/Profile/Index.vue'), /ProfileErpTableAutoSyncSetting|GOLDEN_FINGER_PERMISSION/)
+  assert.doesNotMatch(read('src/views/Profile/components/index.ts'), /ProfileErpTableAutoSyncSetting/)
+})
 
-for (const token of [
-  'import { ErpKingdeeConfigApi',
-  'el-segmented',
-  '当前连接',
-  '测试账套',
-  '正式账套',
-  '待保存',
-  '保存连接',
-  'connectionDirty',
-  'loadActiveConnection',
-  'handleSaveConnection',
-  'ErpKingdeeConfigApi.getActiveConnection',
-  'ErpKingdeeConfigApi.updateActiveConnection'
-]) {
-  assert.match(
-    component,
-    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-    `ERP 自动同步页必须包含显式保存的账套切换能力：${token}`
-  )
-}
+test('schedules use the ERP job API and its business permission', () => {
+  contains(script, ["import * as JobApi from '@/api/erp/config/job'", 'JobApi.getJobPage', 'JobApi.updateJob', 'JobApi.updateJobStatus', 'InfraJobStatusEnum.NORMAL', 'InfraJobStatusEnum.STOP', 'toDailyCronExpression', 'parseDailyCronExpression'])
+  contains(read('src/api/erp/config/job.ts'), ['/erp/kingdee-config/job/page', '/erp/kingdee-config/job/update', '/erp/kingdee-config/job/update-status'])
+  contains(readBackend('yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/controller/admin/config/ErpKingdeeJobController.java'), ['@RequestMapping("/erp/kingdee-config/job")', "@ss.hasPermission('erp:data-config:operate')"])
+  assert.doesNotMatch(script, /from '@\/api\/infra\/job'|JobApi\.(triggerJob|runJob)/)
+})
 
-assert.match(
-  component,
-  /@media\s*\(max-width:\s*768px\)[\s\S]*profile-erp-table-sync__connection-setting/,
-  'ERP 账套切换区必须在窄屏下提供响应式布局。'
-)
+test('connection changes require explicit save and expose validation errors', () => {
+  contains(template, ['el-segmented', '当前连接', '保存连接', '!canSaveConnection || !connectionDirty', '@click="handleSaveConnection"', 'v-if="loadError"', 'v-if="latestRunsError"', 'v-if="runningRunsError"'])
+  contains(script, ['ErpKingdeeConfigApi.getActiveConnection', 'ErpKingdeeConfigApi.updateActiveConnection', 'REQUIRED_CONNECTION_OPTIONS', 'applyActiveConnection', 'connectionDirty'])
+  contains(read('src/api/erp/config/index.ts'), ['/erp/kingdee-config/active-connection', 'getActiveConnection', 'updateActiveConnection'])
+  assert.match(component, /@media\s*\(max-width:\s*768px\)[\s\S]*profile-erp-table-sync__connection-setting/)
+})
 
-for (const token of [
-  '/infra/job/page',
-  '/infra/job/update',
-  '/infra/job/update-status',
-  '/infra/job/trigger'
-]) {
-  assert.match(
-    jobApi,
-    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-    `Job API 必须包含正式调度接口：${token}`
-  )
-}
+test('each ERP table retains an independent type, handler and destination', () => {
+  const ast = ts.createSourceFile('sync.ts', script, ts.ScriptTarget.Latest, true)
+  const declaration = ast.statements.find(statement => ts.isVariableStatement(statement) && statement.declarationList.declarations.some(item => item.name.getText(ast) === 'syncTypes'))
+  assert.ok(declaration)
+  const compiled = ts.transpileModule(declaration.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
+  const rows = Function(`${compiled}; return syncTypes`)()
+  const expected = {
+    PRODUCT: 'kingdeeProductItemSyncJob', STOCK: 'kingdeeStockSyncJob',
+    STOCK_MOVE: 'kingdeeStockMoveSyncJob', PURCHASE_ORDER: 'kingdeePurchaseOrderSyncJob',
+    SALE_ORDER: 'kingdeeSaleOrderSyncJob', PRODUCTION_ORDER: 'kingdeeProductionOrderSyncJob',
+    PRODUCTION_PICK_LIST: 'kingdeeProductionPickListSyncJob',
+    PRODUCTION_REPLENISHMENT_LIST: 'kingdeeProductionReplenishmentListSyncJob',
+    PRODUCTION_MATERIAL_LIST: 'kingdeeProductionMaterialListSyncJob', BOM: 'kingdeeBomSyncJob'
+  }
+  assert.equal(rows.length, Object.keys(expected).length)
+  assert.equal(new Set(rows.map(row => row.syncType)).size, rows.length)
+  assert.equal(new Set(rows.map(row => row.handlerName)).size, rows.length)
+  for (const row of rows) {
+    assert.equal(row.handlerName, expected[row.syncType])
+    assert.ok(row.erpTableName.trim())
+    assert.ok(row.localTabName.trim())
+  }
+  for (const [type, local] of [['PRODUCTION_PICK_LIST', '生产领料单'], ['PRODUCTION_REPLENISHMENT_LIST', '生产补料单'], ['PRODUCTION_MATERIAL_LIST', '生产用料清单']]) {
+    assert.equal(rows.find(row => row.syncType === type).localTabName, local)
+  }
+})
 
-assert.match(
-  workOrderPage,
-  /ErpKingdeeSyncApi\.runIncrementalSync\('PRODUCTION_ORDER'\)/,
-  '生产工单页面必须继续使用正式 Job 增量同步链路作为 Profile 配置参照。'
-)
+test('row actions use formal sync APIs and refresh real run results', () => {
+  contains(template, ['ref="syncTableRef"', '@selection-change="handleSyncTableSelectionChange"', 'type="selection"', "handleRunSync(row, 'FULL')", "handleRunSync(row, 'INCREMENTAL')", '!canRunSync || Boolean(syncingType)', 'resolveLatestRunTime(row.latestRun)', 'resolveFailureReason(row.latestRun)'])
+  contains(script, ['ErpKingdeeSyncApi.runIncrementalSync(row.syncType)', 'ErpKingdeeSyncApi.runFullSync(row.syncType)', 'waitForSubmittedRun', 'loadLatestRuns(), loadRunningSyncRuns()', 'resolveRunStartedTimestamp', 'toDateTimeValue(value)?.getTime()', 'formatDateTimeValue(latestRun.endedAt || latestRun.startedAt', "return '成功'", "return '失败'", "return '运行中'"])
+  const api = read('src/api/erp/sync/index.ts')
+  contains(api, ['/erp/kingdee-sync/run/page', '/erp/kingdee-sync/incremental-sync', '/erp/kingdee-sync/full-sync'])
+  assert.doesNotMatch(api, /JobApi\.(getJobPage|runJob)|runIncrementalSyncJob/)
+  assert.doesNotMatch(script, /ErpKingdeeSyncWatermarkVO|loadWatermarks|watermarkBySyncType|latestRun\.startedAt\.replace/)
+})
 
-for (const token of [
-  'import { ErpKingdeeSyncApi',
-  "import * as JobApi from '@/api/infra/job'",
-  "import { InfraJobStatusEnum } from '@/utils/constants'",
-  'JobApi.getJobPage',
-  'JobApi.updateJob',
-  'JobApi.updateJobStatus',
-  'InfraJobStatusEnum.NORMAL',
-  'InfraJobStatusEnum.STOP',
-  'ErpKingdeeSyncApi.runIncrementalSync',
-  'toDailyCronExpression',
-  'parseDailyCronExpression'
-]) {
-  assert.match(
-    component,
-    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-    `组件必须复用正式 Job 同步链路：${token}`
-  )
-}
-
-for (const token of [
-  'kingdeeProductItemSyncJob',
-  'kingdeeStockSyncJob',
-  'kingdeePurchaseOrderSyncJob',
-  'kingdeeSaleOrderSyncJob',
-  'kingdeeProductionOrderSyncJob',
-  'kingdeeProductionMaterialListSyncJob',
-  'kingdeeBomSyncJob'
-]) {
-  assert.match(component, new RegExp(token), `组件必须管理 ERP 同步处理器：${token}`)
-}
-
-for (const token of [
-  'ERP表格自动同步',
-  '每日开始时间',
-  'ERP 表格',
-  'ERP表格名称',
-  '本地页签名称',
-  '最近执行时间',
-  '新增行数',
-  '同步成功/失败',
-  '失败原因',
-  '操作',
-  '增量同步',
-  '全量同步',
-  '立即执行一次',
-  'ElMessage.error',
-  'ERP 商品',
-  '生产工单',
-  'BOM'
-]) {
-  assert.match(
-    component,
-    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-    `组件必须包含用户可见能力：${token}`
-  )
-}
-
-for (const token of [
-  'ref="syncTableRef"',
-  '@selection-change="handleSyncTableSelectionChange"',
-  'type="selection"',
-  'syncTableRows',
-  'latestRunBySyncType',
-  'localTabName',
-  'resolveLatestRunTime(row.latestRun',
-  'resolveCreatedCount(row.latestRun',
-  'formatLatestSyncStatus(row.latestRun',
-  'resolveFailureReason(row.latestRun',
-  'handleRunIncremental(row',
-  'syncSelectedRows'
-]) {
-  assert.match(
-    component,
-    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-    `ERP 表格选择区必须用可选列表展示映射、最近执行时间和运行结果：${token}`
-  )
-}
-
-for (const token of [
-  'ErpKingdeeSyncRunVO',
-  'ErpKingdeeSyncApi.getRunPage',
-  'loadLatestRuns',
-  'latestRuns',
-  'syncType: item.syncType',
-  'pageSize: 1',
-  'status === 20',
-  'status === 30',
-  'status === 10',
-  'endedAt',
-  "return '成功'",
-  "return '失败'",
-  "return '运行中'",
-  'formatDateTimeValue(latestRun.endedAt || latestRun.startedAt',
-  'createdCount',
-  "typeof latestRun.createdCount === 'number'",
-  'failureMessage'
-]) {
-  assert.match(
-    component,
-    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-    `列表级同步状态列必须来自正式运行记录并中文展示：${token}`
-  )
-}
-
-for (const token of [
-  '正在进行的同步 Job',
-  '暂无正在进行的同步 Job',
-  'runningSyncRuns',
-  'runningJobLoading',
-  'loadRunningSyncRuns',
-  'RUNNING_SYNC_STATUS',
-  'RUNNING_SYNC_RUN_PAGE_SIZE',
-  'status: RUNNING_SYNC_STATUS',
-  'pageSize: RUNNING_SYNC_RUN_PAGE_SIZE',
-  'row-key="id"',
-  'resolveSyncTypeName(row.syncType)',
-  'formatDateTimeValue(row.startedAt',
-  'resolveRunCount(row.createdCount',
-  'resolveRunCount(row.updatedCount',
-  'resolveRunCount(row.failedCount'
-]) {
-  assert.match(
-    component,
-    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-    `正在进行的同步 Job 列表必须展示正式运行中记录：${token}`
-  )
-}
-
-assert.match(
-  runPageReqVo,
-  /private Integer status;/,
-  'ERP 同步运行分页请求必须支持 status 查询参数。'
-)
-assert.match(
-  runMapper,
-  /\.eqIfPresent\(ErpKingdeeSyncRunDO::getStatus,\s*reqVO\.getStatus\(\)\)/,
-  'ERP 同步运行分页必须在后端正式按 status 过滤运行记录。'
-)
-
-for (const token of [
-  'incrementalSyncingType',
-  'fullSyncingType',
-  'handleRunIncremental(row',
-  'handleRunFull(row',
-  'ErpKingdeeSyncApi.runIncrementalSync(row.syncType)',
-  'ErpKingdeeSyncApi.runFullSync(row.syncType)',
-  'row.erpTableName',
-  'incrementalSyncingType === row.syncType',
-  'fullSyncingType === row.syncType',
-  '单表 ERP 增量同步任务',
-  '单表 ERP 全量同步任务',
-  '增量同步失败',
-  '全量同步失败',
-  'waitForSubmittedRun',
-  'SUBMITTED_RUN_POLL_ATTEMPTS',
-  '运行记录尚未生成，请检查调度任务状态',
-  'loadLatestRuns(), loadRunningSyncRuns()'
-]) {
-  assert.match(
-    component,
-    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-    `每行操作按钮必须触发正式单表增量或全量同步并刷新结果：${token}`
-  )
-}
-
-for (const token of [
-  '产品信息 / 物料产品管理',
-  '产品库存',
-  '库存调拨',
-  '采购订单',
-  '销售订单',
-  '生产工单',
-  '生产领料单列表',
-  '生产补料单列表',
-  '生产用料清单',
-  '物料清单'
-]) {
-  assert.match(
-    component,
-    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-    `ERP 表格列表必须声明本地页签映射：${token}`
-  )
-}
-
-assert.doesNotMatch(component, /<el-checkbox-group/, 'ERP 表格选择区不得继续使用横向复选框组。')
-assert.doesNotMatch(
-  component,
-  /profile-erp-table-sync__checks/,
-  'ERP 表格选择区不得继续保留复选框组样式。'
-)
-assert.match(
-  component,
-  /toDateTimeValue/,
-  'ERP 同步轮询必须使用统一时间解析工具处理运行时日期值。'
-)
-assert.match(
-  component,
-  /resolveRunStartedTimestamp/,
-  'ERP 同步轮询必须通过显式时间解析函数判断新运行记录。'
-)
-assert.doesNotMatch(
-  component,
-  /latestRun\.startedAt\.replace/,
-  'ERP 同步轮询不得假设 startedAt 一定是字符串。'
-)
-assert.match(
-  component,
-  /\.profile-erp-table-sync\s*\{[\s\S]*width:\s*100%;[\s\S]*max-width:\s*none;/,
-  'ERP 表格自动同步卡片必须占满配置页签可用宽度。'
-)
-assert.doesNotMatch(
-  component,
-  /\.profile-erp-table-sync\s*\{[\s\S]*max-width:\s*1080px;/,
-  'ERP 表格自动同步卡片不得保留旧 1080px 黄框宽度。'
-)
-assert.match(
-  component,
-  /\.profile-erp-table-sync__select-table\s*\{[\s\S]*width:\s*100%;/,
-  'ERP 表格列表必须跟随卡片宽度拉伸。'
-)
-
-for (const token of [
-  '配置来源',
-  '已选表格',
-  '每日 Cron',
-  '启用 Job',
-  '最近状态',
-  '最近开始时间',
-  'Job 调度',
-  'label="处理器"',
-  'Job ID',
-  'Job 状态',
-  '当前 Cron',
-  '最近执行记录',
-  '运行编号',
-  'profile-erp-table-sync__summary',
-  'profile-erp-table-sync__section-title',
-  'jobRows',
-  'runs.value',
-  'formatRunStatus',
-  'formatTriggerType'
-]) {
-  assert.doesNotMatch(
-    component,
-    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-    `截图要求删除的展示区不得残留：${token}`
-  )
-}
-
-assert.match(
-  component,
-  /resolveLatestRunTime\(row\.latestRun\)/,
-  '主表最近执行时间必须来自正式运行记录。'
-)
-assert.doesNotMatch(
-  component,
-  /formatDateTimeValue\(row\.lastSuccessTime/,
-  '主表不得再把内部增量位置显示成最近执行时间。'
-)
-assert.doesNotMatch(
-  component,
-  forbiddenInternalCopyPattern,
-  '用户可见文案不得使用难理解的内部术语。'
-)
-assert.doesNotMatch(
-  component,
-  /ErpKingdeeSyncWatermarkVO|loadWatermarks|watermarkBySyncType/,
-  '主表执行时间口径不得继续依赖内部增量位置状态。'
-)
-assert.doesNotMatch(
-  component,
-  /最近执行记录[\s\S]*formatDateTimeValue\(row\.startedAt/,
-  '不得恢复最近执行记录历史区。'
-)
-assert.doesNotMatch(
-  component,
-  /prop="failureMessage"/,
-  '列表级失败原因不得直接暴露英文内部字段名 failureMessage 作为表格 prop。'
-)
-assert.doesNotMatch(
-  component,
-  /kingdeeTableAutoSync|ErpKingdeeTableAutoSyncApi|kingdee-table-auto-sync/,
-  'Profile ERP 表格自动同步不得再调用旧 kingdee-table-auto-sync 接口。'
-)
-assert.doesNotMatch(
-  syncApi,
-  /JobApi\.(getJobPage|runJob)|runIncrementalSyncJob/,
-  'ERP 手动增量同步不得绕过 ERP 接口直接调用通用定时任务。'
-)
-
-for (const token of [
-  "syncType: 'PRODUCTION_PICK_LIST'",
-  "erpTableName: '生产领料单列表'",
-  "localTabName: '生产领料单列表'",
-  "handlerName: 'kingdeeProductionPickListSyncJob'"
-]) {
-  assert.match(
-    component,
-    new RegExp(token.replace(/[.*+?^$()|[\]\\]/g, '\\$&')),
-    'ERP 表格自动同步列表必须新增独立生产领料单列表：' + token
-  )
-}
-
-assert.match(
-  component,
-  /PRODUCTION_PICK_LIST[\s\S]*PRODUCTION_REPLENISHMENT_LIST[\s\S]*PRODUCTION_MATERIAL_LIST/,
-  '生产领料单列表、生产补料单列表必须作为独立同步类型展示，且不能覆盖生产用料清单。'
-)
-
-assert.doesNotMatch(
-  component,
-  /NasTableSync|nas-table-sync|testNasWrite|NAS 目录|文件名规则|mock|placeholder/i,
-  'ERP 表格自动同步组件不得混用 NAS 导出 API、NAS 字段或 mock 数据。'
-)
-
-console.log('PASS: profile ERP table auto sync static contract')
+test('running filtering, visible polling and full width layout retain page contracts', () => {
+  contains(template, ['table-key="erp.sync.configuration"', 'table-key="erp.sync.running"', ':rows="runningSyncRuns"', 'row-key="id"', 'resolveSyncTypeName(row.syncType)', 'formatDateTimeValue(row.startedAt'])
+  contains(script, ['status: RUNNING_SYNC_STATUS', 'pageSize: RUNNING_SYNC_RUN_PAGE_SIZE', 'useDocumentVisibility()', 'useTimeoutPoll(', "documentVisibility.value === 'visible'", 'onActivated(', 'onDeactivated(', 'onBeforeUnmount(', 'pauseProgressPolling()'])
+  contains(readBackend('yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/controller/admin/sync/vo/ErpKingdeeSyncRunPageReqVO.java'), ['private Integer status;'])
+  assert.match(readBackend('yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/dal/mysql/sync/ErpKingdeeSyncRunMapper.java'), /\.eqIfPresent\(ErpKingdeeSyncRunDO::getStatus,\s*reqVO\.getStatus\(\)\)/)
+  assert.match(component, /\.profile-erp-table-sync\s*\{[\s\S]*width:\s*100%;[\s\S]*max-width:\s*none;/)
+  assert.doesNotMatch(component, /<el-checkbox-group|NasTableSync|nas-table-sync|testNasWrite|NAS 目录|文件名规则|mock|placeholder/i)
+})

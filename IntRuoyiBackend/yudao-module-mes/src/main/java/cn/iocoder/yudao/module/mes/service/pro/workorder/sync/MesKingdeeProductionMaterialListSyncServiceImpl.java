@@ -41,6 +41,15 @@ public class MesKingdeeProductionMaterialListSyncServiceImpl implements MesKingd
     private final MesKingdeeProductionMaterialListBatchWriter batchWriter;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int refreshWorkOrderLinks() {
+        Long tenantId = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        int updated = materialListMapper.refreshWorkOrderLinks(tenantId);
+        log.info("生产用料清单工单关联已更新: tenantId={}, updated={}", tenantId, updated);
+        return updated;
+    }
+
+    @Override
     public ErpKingdeeSyncRunResult syncAllSkipExisting(Long runId) {
         return syncAllSkipExisting(runId, null, null);
     }

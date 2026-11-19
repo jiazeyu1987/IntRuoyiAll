@@ -151,12 +151,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         validatePostIds(createReqVO.getPostIds(), false);
         var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
         // 1.1 校验账户配合
-        tenantService.handleTenantInfo(tenant -> {
-            long count = userMapper.selectCount();
-            if (count >= tenant.getAccountCount()) {
-                throw exception(USER_COUNT_MAX, tenant.getAccountCount());
-            }
-        });
+        validateAccountQuota();
         // 1.2 校验正确性
         validateUserForCreateOrUpdate(null, createReqVO.getUsername(),
                 createReqVO.getMobile(), createReqVO.getEmail(), createReqVO.getDeptId(), createReqVO.getPostIds());
@@ -1116,6 +1111,23 @@ public class AdminUserServiceImpl implements AdminUserService {
                 .map(AdminUserDO::getId).distinct().sorted().forEach(this::lockSignatureIdentity);
         var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
         approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
+        // 在租户组织锁内解析名称，避免并发导入重复创建；只查当前租户，不沿用源部门编号。
+        Map<String, List<DeptDO>> importDepartments = importUsers.stream()
+                .anyMatch(row -> StrUtil.isNotBlank(row.getDeptName()))
+                ? DataPermissionUtils.executeIgnore(() -> deptService.getDeptList(
+                        new cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptListReqVO()))
+                    .stream().collect(java.util.stream.Collectors.groupingBy(DeptDO::getName))
+                : new HashMap<>();
+        for (UserImportExcelVO row : importUsers) {
+            if (StrUtil.isBlank(row.getDeptName())) continue;
+            List<DeptDO> matches = importDepartments.getOrDefault(row.getDeptName(), List.of());
+            if (matches.size() > 1) {
+                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
+                        "用户[" + row.getUsername() + "]的部门[" + row.getDeptName()
+                                + "]在目标租户中存在重名，请使用导入模板明确填写目标部门编号");
+            }
+            row.setDeptId(matches.isEmpty() ? null : matches.get(0).getId());
+        }
         UserImportRespVO respVO = UserImportRespVO.builder().createUsernames(new ArrayList<>())
                 .updateUsernames(new ArrayList<>()).failureUsernames(new LinkedHashMap<>()).build();
         AtomicInteger index = new AtomicInteger(1);
@@ -1149,6 +1161,8 @@ public class AdminUserServiceImpl implements AdminUserService {
                 return;
             }
             if (existUser == null) {
+                validateAccountQuota();
+                createMissingImportDepartment(importUser, importDepartments);
                 userMapper.insert(BeanUtils.toBean(importUser, AdminUserDO.class)
                         .setCanonicalUsername(canonicalizeUsername(importUser.getUsername()))
                         .setPassword(encodePassword(initPassword))
@@ -1163,6 +1177,7 @@ public class AdminUserServiceImpl implements AdminUserService {
                 respVO.getFailureUsernames().put(importUser.getUsername(), USER_USERNAME_EXISTS.getMsg());
                 return;
             }
+            createMissingImportDepartment(importUser, importDepartments);
             AdminUserDO updateUser = BeanUtils.toBean(importUser, AdminUserDO.class);
             updateUser.setId(existUser.getId());
             updateUser.setCanonicalUsername(canonicalizeUsername(importUser.getUsername()));
@@ -1174,6 +1189,25 @@ public class AdminUserServiceImpl implements AdminUserService {
             respVO.getUpdateUsernames().add(importUser.getUsername());
         });
         return respVO;
+    }
+
+    private void createMissingImportDepartment(UserImportExcelVO row, Map<String, List<DeptDO>> departments) {
+        if (StrUtil.isBlank(row.getDeptName()) || row.getDeptId() != null) return;
+        List<DeptDO> existing = departments.get(row.getDeptName());
+        if (CollUtil.isNotEmpty(existing)) {
+            row.setDeptId(existing.get(0).getId());
+            return;
+        }
+        // 用户导出文件只有部门名称，没有层级信息，缺失部门统一建在根级。
+        var request = new cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptSaveReqVO();
+        request.setName(row.getDeptName());
+        request.setParentId(DeptDO.PARENT_ID_ROOT);
+        request.setSort(0);
+        request.setStatus(CommonStatusEnum.ENABLE.getStatus());
+        ValidationUtils.validate(request);
+        Long deptId = deptService.createDept(request);
+        row.setDeptId(deptId);
+        departments.put(row.getDeptName(), List.of(new DeptDO().setId(deptId).setName(row.getDeptName())));
     }
 
     @Override
@@ -1273,6 +1307,10 @@ public class AdminUserServiceImpl implements AdminUserService {
                     respVO.getFailureUsernames().put(username, "账号已存在，但姓名、部门或邮箱不匹配，无法自动授予电子签名授权");
                     continue;
                 }
+                if (!CommonStatusEnum.isEnable(existingUser.getStatus())) {
+                    respVO.getFailureUsernames().put(username, "已有账号已停用，请管理员核对离职/转岗状态后单独维护");
+                    continue;
+                }
                 validateGenericAccountUsername(username);
                 signatureAuthorization.authorizeProvisionedUser(existingUser.getId(), "钉钉重复导入自动授予电子签名授权");
                 respVO.getExistingUsernames().add(existingUser.getUsername());
@@ -1287,6 +1325,7 @@ public class AdminUserServiceImpl implements AdminUserService {
                 continue;
             }
 
+            validateAccountQuota();
             AdminUserDO user = AdminUserDO.builder()
                     .username(username)
                     .canonicalUsername(canonicalizeUsername(username))
@@ -1367,7 +1406,7 @@ public class AdminUserServiceImpl implements AdminUserService {
                 DeptDO updateObj = new DeptDO();
                 updateObj.setId(existingDept.getId());
                 updateObj.setStatus(CommonStatusEnum.ENABLE.getStatus());
-                deptMapper.updateById(updateObj);
+                if (deptMapper.updateById(updateObj) != 1) throw new IllegalStateException("DINGTALK_DEPT_ENABLE_ROW_COUNT");
                 respVO.getEnabledDeptPaths().add(pathName);
                 existingDept.setStatus(CommonStatusEnum.ENABLE.getStatus());
             }
@@ -1378,9 +1417,17 @@ public class AdminUserServiceImpl implements AdminUserService {
         dept.setName(deptName);
         dept.setSort(Math.toIntExact(deptMapper.selectCountByParentId(parentId)));
         dept.setStatus(CommonStatusEnum.ENABLE.getStatus());
-        deptMapper.insert(dept);
+        if (deptMapper.insert(dept) != 1 || dept.getId() == null) throw new IllegalStateException("DINGTALK_DEPT_CREATE_ROW_COUNT");
         respVO.getCreatedDeptPaths().add(pathName);
         return dept;
+    }
+
+    private void validateAccountQuota() {
+        tenantService.handleTenantInfo(tenant -> {
+            if (userMapper.selectCount() >= tenant.getAccountCount()) {
+                throw exception(USER_COUNT_MAX, tenant.getAccountCount());
+            }
+        });
     }
 
     private String resolveFailureKey(String username, UserDingTalkImportExcelVO importUser, int rowIndex) {

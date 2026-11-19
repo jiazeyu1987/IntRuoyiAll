@@ -1,6 +1,78 @@
 {
   "changes": [
     {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "2e213c6adb693fd3fe21b4c3db9c114c52c50273b7bc39e137b9ceed14a881c8",
+      "reason": "仅对既有隐藏路由的显示标题去重并缩短为四字；不新增菜单、页面或权限，不改变路径、组件、重定向、可见性、角色和租户套餐授权。数据库菜单已无同名项，本次仅修改静态路由标题，无需数据库迁移。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/businessConfig.ts",
+      "kind": "router",
+      "value": "496a6d97e00a5c4488e937d7976ad88acaafc15b6e021ecc3e0a927775c4c026",
+      "reason": "仅对既有隐藏路由的显示标题去重并缩短为四字；不新增菜单、页面或权限，不改变路径、组件、重定向、可见性、角色和租户套餐授权。数据库菜单已无同名项，本次仅修改静态路由标题，无需数据库迁移。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "ac8d355e8efe2379422e3ce15183a1bbd78765b464ae04069fc9d4969b08bddf",
+      "reason": "既有页签名称去重，仅同步检验填报、展品管理和展厅审批等展示名称；沿用原菜单ID、路径、组件、权限、角色及租户套餐。名称迁移见 IntRuoyiBackend/sql/mysql/20261119_unique_navigation_names.sql，不新增或撤销授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/showroom.ts",
+      "kind": "router",
+      "value": "d5adeb03ef5ac7a951a7b0d360c1c939607c30797f2140949ab66cb0f6012d1f",
+      "reason": "既有页签名称去重，仅同步检验填报、展品管理和展厅审批等展示名称；沿用原菜单ID、路径、组件、权限、角色及租户套餐。名称迁移见 IntRuoyiBackend/sql/mysql/20261119_unique_navigation_names.sql，不新增或撤销授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261119_unique_navigation_names.sql",
+      "kind": "menu-label",
+      "value": "全系统菜单名称去重",
+      "reason": "调整28个既有目录或页面名称，使全系统有效目录、页面名称唯一；含隐藏菜单，不改变ID、层级、路由、组件、可见性、权限、角色和租户套餐授权，不合格评审保持原名。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "6363944a520c480b2ba05dd83664e140c1db258a63a7f2c3f471d9535a8ce740",
+      "reason": "eDHR既有内部路由仅统一生产班长、生产作业、过程检验、检验组长、检验规程、通用规程、记录测试及历史追溯的显示名称；沿用原路径、组件、权限、角色和租户套餐，不合格评审保持原名。数据库名称迁移见 IntRuoyiBackend/sql/mysql/20261119_edhr_navigation_names.sql，不新增授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261119_edhr_navigation_names.sql",
+      "kind": "menu-label",
+      "value": "eDHR导航术语统一",
+      "reason": "仅统一既有菜单显示名称并保持原菜单ID、路由、角色、租户套餐和可见性；不合格评审作为五字名称特例保留，不新增授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "10dd86eb311006090fc2a46c22e97402d5a2edfe03606f23dd2e609e1ce3e15f",
+      "reason": "基础数据内部路由仅将 DCC产品目录、DCC项目代码更名为产品目录、项目代码；沿用原菜单ID、路由、权限、角色和租户套餐授权。数据库菜单同步脚本为 IntRuoyiBackend/sql/mysql/20261119_mdm_dcc_menu_names.sql，无需新增授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261119_mdm_dcc_menu_names.sql",
+      "kind": "menu-label",
+      "value": "基础数据去除DCC前缀",
+      "reason": "仅更名项目代码、产品目录、文件分类三个既有菜单，保留菜单ID、权限、角色及租户套餐授权，不新增或撤销授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/registration-certificate/index/index.vue",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:delete",
+      "migrations": ["IntRuoyiBackend/sql/mysql/20261118_registration_certificate_delete_menu.sql"]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/certificate/DccRegistrationCertificateCommandController.java",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:delete",
+      "migrations": ["IntRuoyiBackend/sql/mysql/20261118_registration_certificate_delete_menu.sql"]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sale/order/index.vue",
+      "kind": "page",
+      "value": "erp/sale/order/index",
+      "reason": "既有销售订单页增加按金蝶单据编号同步入口，用于修复实际分页重叠产生的明细重复；复用 SyncByCodeButton、现有 SALE_ORDER 对应 erp:data-config:operate 权限及当前租户 ERP upsert，不新增菜单、路由、权限、角色或租户套餐授权。"
+    },
+    {
       "source": "IntRuoyiFronted/src/views/mes/pro/route/components/RouteDeviceGroups.vue",
       "kind": "permission",
       "value": "mes:pro-route:version-update",
@@ -1084,7 +1156,7 @@
       "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryWorkbookService.java",
       "kind": "permission",
       "value": "mes:md-workshop:export",
-      "reason": "设备与车间双表导入导出复用现有车间权限，按实际新增、更新和导出操作校验，不新增菜单、权限标识或角色租户授权。"
+      "migrations": ["IntRuoyiBackend/sql/mysql/20261118_mes_workshop_export_permission.sql"]
     },
     {
       "source": "IntRuoyiFronted/src/views/mes/dv/machinery/index.vue",
@@ -1493,6 +1565,12 @@
       "reason": "工作台来源适配器/投影导出复用业务模块已有 mes:pro-work-order:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
     },
     {
+      "source": "IntRuoyiFronted/src/views/erp/production/material-list/index.vue",
+      "kind": "permission",
+      "value": "erp:data-material:operate",
+      "reason": "生产用料清单的更新工单关联按钮复用既有 ERP 物料数据操作权限和既有页面，仅更新当前租户本地关联字段；不新增权限标识、菜单、路由、角色或租户套餐授权。"
+    },
+    {
       "source": "IntRuoyiFronted/src/utils/businessConfigAccess.ts",
       "kind": "permission",
       "value": "mes:pro-batch-record-execution:golden-finger",
@@ -1526,7 +1604,7 @@
       "source": "IntRuoyiFronted/src/views/erp/sync/config/components/TableAutoSyncSetting.vue",
       "kind": "permission",
       "value": "erp:kingdee-sync:query",
-      "reason": "配置组件迁移或显式跳转复用既有 erp:kingdee-sync:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+      "reason": "配置组件迁移、显式跳转及现有同步对象表增加增量同步按钮，复用既有 erp:kingdee-sync:query 可见性与单表同步接口；后端沿用 erp:data-config:operate 或对应表操作权限。不新增页面、路由或权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
     },
     {
       "source": "IntRuoyiFronted/src/views/erp/sync/config/components/TableAutoSyncSetting.vue",
@@ -1759,7 +1837,8 @@
       "kind": "page",
       "value": "mes/pro/craft/index",
       "migrations": [
-        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql",
+        "IntRuoyiBackend/sql/mysql/20261118_mes_route_batch_change_approval_read_permissions.sql"
       ]
     },
     {
@@ -4477,6 +4556,108 @@
       "kind": "permission",
       "value": "mes:pro-route:version-submit",
       "reason": "共享资料统一变更复用工序、工艺、设备现有修改权限，并按原有路线版本创建、编辑、提交权限控制整批升版；沿用现有菜单、角色和租户套餐授权，无新增权限及菜单。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesProcessPoolTeamLeaderController.java",
+      "kind": "permission",
+      "value": "mes:pro-in-process-order:query",
+      "reason": "在制工单详情复用既有在制工单查询权限，允许当前登录用户只读查看当前租户活跃工单及关联用料、审计、签名、资料；不增加维护权限、独立菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesTeamLeaderActiveOrderProductionMaterialController.java",
+      "kind": "permission",
+      "value": "mes:pro-in-process-order:query",
+      "reason": "在制工单详情复用既有在制工单查询权限，允许当前登录用户只读查看当前租户活跃工单及关联用料、审计、签名、资料；不增加维护权限、独立菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesActiveOrderSignatureEvidenceController.java",
+      "kind": "permission",
+      "value": "mes:pro-in-process-order:query",
+      "reason": "在制工单详情复用既有在制工单查询权限，允许当前登录用户只读查看当前租户活跃工单及关联用料、审计、签名、资料；不增加维护权限、独立菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesActiveOrderDossierFileController.java",
+      "kind": "permission",
+      "value": "mes:pro-in-process-order:query",
+      "reason": "在制工单详情复用既有在制工单查询权限，允许当前登录用户只读查看当前租户活跃工单及关联用料、审计、签名、资料；不增加维护权限、独立菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/inprocess/MesInProcessOrderReadScope.java",
+      "kind": "permission",
+      "value": "mes:pro-in-process-order:query",
+      "reason": "在制工单详情复用既有在制工单查询权限，允许当前登录用户只读查看当前租户活跃工单及关联用料、审计、签名、资料；不增加维护权限、独立菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "permission",
+      "value": "mes:pro-in-process-order:query",
+      "reason": "在制工单列表新增内部活跃工单只读详情路由，复用详情组件及现有 mes:pro-in-process-order:query 权限与列表菜单，不新增独立菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "49d2e56ff81f0e266aaae710c3cf7a13cff056ad7cf06d9807c6c7805f106224",
+      "reason": "在制工单列表新增内部活跃工单只读详情路由，复用详情组件及现有 mes:pro-in-process-order:query 权限与列表菜单，不新增独立菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteTreeController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:create",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteTreeController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:query",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteTreeController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:update",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteTreeController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:version-create",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteTreeController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:version-submit",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteTreeController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:version-update",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteTreePanel.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:create",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteTreePanel.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:update",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteTreePanel.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:version-create",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteTreePanel.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:version-query",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
     }
   ]
 }

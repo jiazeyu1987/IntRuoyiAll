@@ -97,4 +97,26 @@ class KingdeeSaleOrderSyncJobTest {
         Assertions.assertThrows(IllegalStateException.class, () -> job.execute(""));
     }
 
+
+    @Test
+    void unboundedFullSync_updatesExistingAcrossFullHistory() {
+        var service = mock(ErpKingdeeSaleOrderSyncService.class);
+        var runtime = mock(ErpKingdeeSyncRuntimeService.class);
+        var result = new ErpKingdeeSaleOrderSyncResult();
+        result.addUpdated(501L);
+        when(service.syncAllWithUpdates()).thenReturn(result);
+        when(runtime.executeSync(any(), any())).thenAnswer(invocation -> {
+            ErpKingdeeSyncCommand command = invocation.getArgument(0);
+            assertEquals(ErpKingdeeSyncTriggerTypeEnum.FULL, command.getTriggerType());
+            Assertions.assertNull(command.getInitialWindowStart());
+            ErpKingdeeSyncTask task = invocation.getArgument(1);
+            var completed = task.run(ErpKingdeeSyncContext.builder().windowEnd(command.getWindowEnd()).build());
+            assertEquals(1, completed.getUpdatedCount());
+            return completed;
+        });
+        new KingdeeSaleOrderSyncJob(service, runtime).executeFullSync();
+        verify(service).syncAllWithUpdates();
+        verify(service, never()).syncSaleOrdersFullSkipExisting(any(), any());
+        verify(service, never()).syncSaleOrders();
+    }
 }

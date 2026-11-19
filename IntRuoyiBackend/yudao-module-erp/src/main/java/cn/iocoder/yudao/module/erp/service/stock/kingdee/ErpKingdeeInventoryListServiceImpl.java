@@ -101,6 +101,26 @@ public class ErpKingdeeInventoryListServiceImpl implements ErpKingdeeInventoryLi
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         properties.validateBaseConfig();
         List<ErpKingdeeInventoryRow> rows = inventoryClient.fetchInventoryRows(properties);
+        // The local list represents org/warehouse/material/lot, while ERP may split
+        // that group across stock locations or owners. Sum the complete snapshot.
+        java.util.Map<String, ErpKingdeeInventoryRow> grouped = new java.util.LinkedHashMap<>();
+        for (ErpKingdeeInventoryRow row : rows) {
+            String key = sourceLineKey(row);
+            ErpKingdeeInventoryRow aggregate = grouped.get(key);
+            if (aggregate == null) {
+                grouped.put(key, BeanUtils.toBean(row, ErpKingdeeInventoryRow.class));
+                continue;
+            }
+            if (!java.util.Objects.equals(aggregate.getUnitName(), row.getUnitName())) {
+                throw new IllegalStateException("同一库存分组的基本单位不一致: " + key);
+            }
+            aggregate.setQuantity(aggregate.getQuantity().add(row.getQuantity()));
+            if (row.getSourceModifyTime() != null && (aggregate.getSourceModifyTime() == null
+                    || row.getSourceModifyTime().isAfter(aggregate.getSourceModifyTime()))) {
+                aggregate.setSourceModifyTime(row.getSourceModifyTime());
+            }
+        }
+        rows = new java.util.ArrayList<>(grouped.values());
         ErpKingdeeInventoryListSyncResult result = new ErpKingdeeInventoryListSyncResult();
         LocalDateTime now = LocalDateTime.now();
         for (ErpKingdeeInventoryRow row : rows) {

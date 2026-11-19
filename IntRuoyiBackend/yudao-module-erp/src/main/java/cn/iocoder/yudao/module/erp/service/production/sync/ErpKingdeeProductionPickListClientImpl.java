@@ -100,9 +100,29 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
         LocalDate endDateExclusive = windowEnd.toLocalDate().plusDays(1);
         Map<String, ErpKingdeeProductionPickList> result = new LinkedHashMap<>();
         LocalDate chunkStart = windowStart.toLocalDate();
+        if (windowStart.getYear() == 1970) {
+            // Locate the actual first bill before reading bounded monthly pages.
+            // A single whole-history offset query became slower than the read timeout.
+            Map<String, Object> firstQuery = new LinkedHashMap<>();
+            firstQuery.put("FormId", FORM_ID);
+            firstQuery.put("FieldKeys", FIELD_KEYS);
+            firstQuery.put("FilterString", "(FBillNo <> '') and (FDate >= '" + chunkStart
+                    + "' and FDate < '" + endDateExclusive + "')");
+            firstQuery.put("OrderString", "FDate ASC,FID ASC,FEntity_FEntryID ASC");
+            firstQuery.put("StartRow", 0);
+            firstQuery.put("Limit", 1);
+            JsonNode firstRows = postQuery(properties, cookieHeader, firstQuery,
+                    "PRD_PickMtrl first bill query response");
+            validateRows(firstRows);
+            if (firstRows.isEmpty()) return new ArrayList<>();
+            chunkStart = parseDateTime(requiredText(firstRows.get(0), 2, "FDate"), "FDate").toLocalDate();
+            if (chunkStart.isBefore(windowStart.toLocalDate()) || !chunkStart.isBefore(endDateExclusive)) {
+                throw exception(KINGDEE_PRODUCTION_PICK_LIST_RESPONSE_INVALID, "first bill date outside requested window");
+            }
+        }
         while (chunkStart.isBefore(endDateExclusive)) {
             if (Thread.currentThread().isInterrupted()) throw new java.util.concurrent.CancellationException("同步任务已停止");
-            LocalDate chunkEndExclusive = windowStart.getYear() == 1970 ? endDateExclusive
+            LocalDate chunkEndExclusive = windowStart.getYear() == 1970 ? chunkStart.withDayOfMonth(1).plusMonths(1)
                     : chunkStart.plusDays(FULL_QUERY_CHUNK_DAYS);
             if (chunkEndExclusive.isAfter(endDateExclusive)) {
                 chunkEndExclusive = endDateExclusive;
@@ -130,17 +150,19 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
                                 LocalDate chunkStart, LocalDate chunkEndExclusive,
                                 Map<String, ErpKingdeeProductionPickList> result) {
         int startRow = 0;
+        int pageLimit = chunkEndExclusive.isAfter(chunkStart.plusDays(FULL_QUERY_CHUNK_DAYS))
+                ? INCREMENTAL_QUERY_PAGE_LIMIT : FULL_QUERY_PAGE_LIMIT;
         while (true) {
             if (Thread.currentThread().isInterrupted()) throw new java.util.concurrent.CancellationException("同步任务已停止");
             JsonNode rows = executeBillQuery(
                     properties, cookieHeader, chunkStart, chunkEndExclusive,
-                    startRow, FULL_QUERY_PAGE_LIMIT);
+                    startRow, pageLimit);
             validateRows(rows);
             if (rows.isEmpty()) {
                 return;
             }
             addRows(rows, result, false);
-            if (rows.size() < FULL_QUERY_PAGE_LIMIT) {
+            if (rows.size() < pageLimit) {
                 return;
             }
             startRow += rows.size();
@@ -215,7 +237,7 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
         query.put("FieldKeys", FIELD_KEYS);
         query.put("FilterString",
                 "(FBillNo <> '') and (FDate >= '" + startDate + "' and FDate < '" + endDateExclusive + "')");
-        query.put("OrderString", "FModifyDate DESC,FID DESC");
+        query.put("OrderString", "FDate ASC,FID ASC,FEntity_FEntryID ASC");
         query.put("StartRow", startRow);
         query.put("Limit", limit);
         return postQuery(properties, cookieHeader, query, "PRD_PickMtrl ExecuteBillQuery response");
@@ -240,13 +262,33 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
                                Map<String, Object> query, String label) {
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("data", JsonUtils.toJsonString(query));
-        ResponseEntity<String> response = restTemplate.postForEntity(
-                buildServiceUrl(properties.getBaseUrl(), QUERY_SERVICE),
-                new HttpEntity<>(body, buildFormHeaders(cookieHeader)), String.class);
+        ResponseEntity<String> response;
+        for (int attempt = 1; ; attempt++) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw new java.util.concurrent.CancellationException("同步任务已停止");
+            }
+            try {
+                response = restTemplate.postForEntity(
+                        buildServiceUrl(properties.getBaseUrl(), QUERY_SERVICE),
+                        new HttpEntity<>(body, buildFormHeaders(cookieHeader)), String.class);
+                break;
+            } catch (org.springframework.web.client.ResourceAccessException failure) {
+                // 同一只读分页请求最多尝试3次；权限、格式及其他错误直接失败。
+                if (!(failure.getMostSpecificCause() instanceof java.net.SocketTimeoutException)
+                        || attempt >= 3 || Thread.currentThread().isInterrupted()) {
+                    throw failure;
+                }
+                org.slf4j.LoggerFactory.getLogger(getClass()).warn(
+                        "PRD_PickMtrl page timed out: startRow={}, attempt={}/3; retrying same query",
+                        query.get("StartRow"), attempt);
+            }
+        }
         JsonNode responseJson = parseJson(response.getBody(), label);
         if (responseJson.isObject()) {
             throw exception(KINGDEE_PRODUCTION_PICK_LIST_REQUEST_FAIL, responseJson.toString());
         }
+        org.slf4j.LoggerFactory.getLogger(getClass()).info(
+                "PRD_PickMtrl page received: startRow={}, rows={}", query.get("StartRow"), responseJson.size());
         return responseJson;
     }
 

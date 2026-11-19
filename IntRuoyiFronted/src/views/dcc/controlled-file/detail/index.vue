@@ -331,7 +331,7 @@
           <el-descriptions-item label="项目">{{ currentDccProjectCodeText }}</el-descriptions-item>
           <el-descriptions-item label="存储文件夹">{{ fileDetail?.projectFolderName || '未记录' }}</el-descriptions-item>
           <el-descriptions-item label="文件分类">{{ categoryNameMap.get(fileDetail?.categoryId || 0) || '未记录' }}</el-descriptions-item>
-          <el-descriptions-item label="产品编号">{{ fileDetail?.productCode || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="产品编号"><ProductCodeLink :code="fileDetail?.productCode" empty-text="未记录" /></el-descriptions-item>
           <el-descriptions-item label="产品名称">{{ fileDetail?.productName || '未记录' }}</el-descriptions-item>
           <el-descriptions-item label="编制人">{{ fileDetail?.fileOwnerNicknameSnapshot || fileDetail?.fileOwnerUsernameSnapshot || '未记录' }}</el-descriptions-item>
           <el-descriptions-item label="提交备注"><span class="whitespace-pre-wrap">{{ fileDetail?.remark || '无' }}</span></el-descriptions-item>

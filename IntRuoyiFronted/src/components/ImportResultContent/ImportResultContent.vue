@@ -24,7 +24,7 @@
           </thead>
           <tbody>
             <tr v-for="(row, index) in section.rows" :key="index">
-              <td v-for="(cell, cellIndex) in row" :key="cellIndex">{{ cell }}</td>
+              <td v-for="(cell, cellIndex) in row" :key="cellIndex"><ProductCodeLink v-if="['产品编码', '产品编号', '产品条码'].includes(section.columns[cellIndex]) && cell !== '未填编码'" :code="cell" /><span v-else>{{ cell }}</span></td>
             </tr>
           </tbody>
         </table>
@@ -34,6 +34,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { computed } from 'vue'
 import type { ImportResultOptions } from '@/utils/importResult'
 

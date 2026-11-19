@@ -73,7 +73,7 @@
         {{ categoryName || '-' }}
       </el-descriptions-item>
       <el-descriptions-item label="产品编号">
-        {{ file?.productCode || '-' }}
+        <ProductCodeLink :code="file?.productCode" empty-text="-" />
       </el-descriptions-item>
       <el-descriptions-item label="产品名称">
         <span class="project-code-recognition-row">

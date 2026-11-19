@@ -64,8 +64,7 @@
           <el-table-column
             v-if="isColumnVisible('productBarCode')"
             column-key="productBarCode" label="物料编码" prop="productBarCode" fixed="left"
-            :min-width="getColumnWidthString('productBarCode', 160)"
-          />
+            :min-width="getColumnWidthString('productBarCode', 160)"><template #default="{ row }"><ProductCodeLink :code="row.productBarCode" /></template></el-table-column>
           <el-table-column
             v-if="isColumnVisible('productName')"
             column-key="productName"
@@ -113,6 +112,7 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
 import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'

@@ -32,10 +32,21 @@
           <Icon icon="ep:plus" class="mr-5px" />
           新增
         </el-button>
+        <el-button
+          class="scheme-d-btn scheme-d-btn--danger"
+          type="danger"
+          :disabled="selectedEnterprises.length !== 1 || loading"
+          :loading="deleting"
+          @click="handleDelete(selectedEnterprises[0])"
+          v-hasPermi="['mdm:enterprise:delete']"
+        >
+          <Icon icon="ep:delete" class="mr-5px" />
+          删除
+        </el-button>
       </template>
       <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
-          v-loading="loading"
+          v-loading="loading || deleting"
           class="mdm-enterprise-resizable-table"
           data-user-table-column-explicit
           data-user-table-key="mdm.enterprise.main"
@@ -45,7 +56,9 @@
           :show-overflow-tooltip="true"
           @header-dragend="handleEnterpriseHeaderDragend"
           @sort-change="handleTemplateSortChange"
+          @selection-change="handleSelectionChange"
         >
+          <el-table-column type="selection" width="55" fixed="left" />
           <el-table-column
             v-if="isEnterpriseColumnVisible('enterpriseCode')"
             label="公司编码"
@@ -133,6 +146,7 @@
                 link
                 class="scheme-d-row-action scheme-d-row-action--danger"
                 type="danger"
+                :disabled="deleting"
                 @click="handleDelete(row)"
                 v-hasPermi="['mdm:enterprise:delete']"
               >
@@ -270,6 +284,11 @@ const listRequest = useLatestListRequest()
 const loading = listRequest.loading
 const total = ref(0)
 const list = ref<MdmEnterpriseRespVO[]>([])
+const selectedEnterprises = ref<MdmEnterpriseRespVO[]>([])
+const deleting = ref(false)
+const handleSelectionChange = (rows: MdmEnterpriseRespVO[]) => {
+  selectedEnterprises.value = rows
+}
 type MdmEnterprisePageQuery = MdmEnterpriseApi.MdmEnterprisePageReqVO & {
   pageNo: number
   pageSize: number
@@ -316,6 +335,7 @@ const getList = async () => {
   return await listRequest.run(() => MdmEnterpriseApi.getEnterprisePage({ ...queryParams }), (data) => {
     list.value = data.list
     total.value = data.total
+    selectedEnterprises.value = []
   })
 }
 
@@ -398,18 +418,24 @@ const handleStatusChange = async (row: MdmEnterpriseRespVO) => {
 }
 
 const handleDelete = async (row: MdmEnterpriseRespVO) => {
+  if (!row || deleting.value) return
+  deleting.value = true
   try {
-    await message.delConfirm(`确认删除关联公司“${row.name || row.enterpriseCode}”吗？`)
-  } catch {
-    return
-  }
-  loading.value = true
-  try {
+    try {
+      await message.delConfirm(`确认删除关联公司“${row.name || row.enterpriseCode}”吗？`)
+    } catch (error) {
+      if (error === 'cancel' || error === 'close') return
+      throw error
+    }
     await MdmEnterpriseApi.deleteEnterprise(row.id)
     message.success('关联公司已删除')
+    selectedEnterprises.value = []
+    if (list.value.length === 1 && queryParams.pageNo > 1) {
+      queryParams.pageNo -= 1
+    }
     await getList()
   } finally {
-    loading.value = false
+    deleting.value = false
   }
 }
 

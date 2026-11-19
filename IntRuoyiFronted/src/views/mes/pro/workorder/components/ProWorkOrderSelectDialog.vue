@@ -113,7 +113,7 @@
             />
           </template>
         </el-table-column>
-        <el-table-column label="产品编号" align="center" prop="productCode" width="120" />
+        <el-table-column label="产品编号" align="center" prop="productCode" width="120"><template #default="{ row }"><ProductCodeLink :code="row.productCode" /></template></el-table-column>
         <el-table-column label="产品名称" align="center" prop="productName" min-width="200" />
         <el-table-column label="规格型号" align="center" prop="productSpecification" min-width="120" />
         <el-table-column label="单位" align="center" prop="unitMeasureName" width="80" />
@@ -148,6 +148,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { dateFormatter2 } from '@/utils/formatTime'
 import { DICT_TYPE, getDictLabel, getIntDictOptions } from '@/utils/dict'
 import { ProWorkOrderApi, ProWorkOrderVO } from '@/api/mes/pro/workorder'

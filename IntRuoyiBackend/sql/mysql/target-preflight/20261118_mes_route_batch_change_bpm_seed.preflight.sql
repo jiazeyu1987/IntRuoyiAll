@@ -1,0 +1,6 @@
+-- release-target-preflight: migrationId=20261118_mes_route_batch_change_bpm_seed; allowedEnvironments=test,backup,prod
+SELECT CASE
+ WHEN NOT EXISTS(SELECT 1 FROM system_tenant WHERE id=1 AND deleted=b'0' AND status=0) THEN 'TARGET_PREFLIGHT_BLOCKED:20261118_mes_route_batch_change_bpm_seed:TENANT_BASELINE_MISSING'
+ WHEN EXISTS(SELECT 1 FROM system_tenant t WHERE t.id IN (SELECT id FROM system_tenant WHERE id IN (1,122) AND deleted=b'0' AND status=0) AND ((SELECT COUNT(*) FROM system_role r WHERE r.tenant_id=t.id AND r.code='mes_route_version_admin' AND r.deleted=b'0' AND r.status=0)<>1 OR (SELECT COUNT(*) FROM system_users u WHERE u.tenant_id=t.id AND u.username=IF(t.id=1,'admin','aoteman') AND u.deleted=b'0' AND u.status=0)<>1)) THEN 'TARGET_PREFLIGHT_BLOCKED:20261118_mes_route_batch_change_bpm_seed:ROLE_OR_USER_CONFLICT'
+ WHEN EXISTS(SELECT 1 FROM act_re_deployment WHERE ID_ LIKE 'rbc-approval-deploy-tenant-%') OR EXISTS(SELECT 1 FROM act_re_model WHERE ID_ LIKE 'rbc-approval-model-tenant-%') OR EXISTS(SELECT 1 FROM act_ge_bytearray WHERE ID_ LIKE 'rbc-approval-%') OR EXISTS(SELECT 1 FROM act_re_procdef WHERE KEY_='mes-route-batch-change-approval-v1') THEN 'TARGET_PREFLIGHT_BLOCKED:20261118_mes_route_batch_change_bpm_seed:FLOWABLE_ID_OCCUPIED'
+ ELSE 'TARGET_PREFLIGHT_PASS:20261118_mes_route_batch_change_bpm_seed' END;

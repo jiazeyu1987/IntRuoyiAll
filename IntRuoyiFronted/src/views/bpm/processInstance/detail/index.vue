@@ -36,7 +36,7 @@
             </el-avatar>
             {{ processInstance?.startUser?.nickname }}
           </div>
-          <div class="text-#878c93"> {{ formatDate(processInstance.startTime) }} 提交 </div>
+          <div class="text-#878c93"> {{ formatBusinessDateTime(processInstance.startTime) }} 提交（北京时间） </div>
         </div>
 
         <div class="form-scroll-area">
@@ -107,8 +107,8 @@
                         <el-descriptions-item label="提交人">
                           {{ processInstance?.startUser?.nickname || '-' }}
                         </el-descriptions-item>
-                        <el-descriptions-item label="提交时间">
-                          {{ formatDate(processInstance.startTime) || '-' }}
+                        <el-descriptions-item label="提交时间（北京时间）">
+                          {{ formatBusinessDateTime(processInstance.startTime) }}
                         </el-descriptions-item>
                         <el-descriptions-item label="当前步骤">
                           {{ currentApprovalStepLabel }}
@@ -162,7 +162,7 @@
   <PrintDialog ref="printRef" />
 </template>
 <script lang="ts" setup>
-import { formatDate } from '@/utils/formatTime'
+import { formatBusinessDateTime } from '@/utils/businessTime'
 import { DICT_TYPE } from '@/utils/dict'
 import { BpmModelFormType } from '@/utils/constants'
 import { setConfAndFields2 } from '@/utils/formCreate'

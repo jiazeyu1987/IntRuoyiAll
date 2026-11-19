@@ -77,6 +77,29 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void missingChangeConfirmationRecipientsRejectSubmissionBeforeAnyWrite() {
+        seedCurrentCertificate();
+        var required = cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants
+                .REGISTRATION_CERTIFICATE_REMINDER_RECIPIENT_REQUIRED;
+        var configJdbc = org.mockito.Mockito.mock(JdbcTemplate.class);
+        when(configJdbc.queryForList(anyString(), eq(String.class), eq(1L)))
+                .thenReturn(java.util.List.of("{\"CHANGE_CONFIRMATION\":[]}"));
+        var notificationConfig = new cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event
+                .DccRegistrationCertificateBusinessEventNotificationConfigService(configJdbc);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            notificationConfig.resolveChangeConfirmationRecipientUserIds(1L);
+            return null;
+        }).when(businessEventNotifier).validateChangeConfirmationRecipients(1L);
+        assertCode(required.getCode(), () -> service.submitChangeForApproval(command(
+                "missing-confirmation", 3, Map.of("PRODUCT_NAME", "Product B"), null, null, null, null)));
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_change"));
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event"));
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request"));
+        assertEquals(3001L, longValue("SELECT current_snapshot_id FROM dcc_registration_certificate WHERE id=1001"));
+        org.mockito.Mockito.verifyNoInteractions(fileService, projectCodeFileAssociationService);
+    }
+
+    @Test
     void structuredChangeUpdatesOnlySelectedFieldsAndKeepsHistoryImmutable() {
         seedCurrentCertificate();
 
@@ -94,6 +117,16 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
                 eq(1L), eq(10L), eq(1001L), eq(2001L), eq(99L),
                 eq("change-product"), eq("Product B"), eq("CERT-001"),
                 eq(LocalDate.of(2021, 3, 1)), eq(LocalDate.of(2026, 8, 20)));
+    }
+
+    @Test
+    void deletedCertificateCannotStartAnotherChange() {
+        seedCurrentCertificate();
+        jdbcTemplate.update("UPDATE dcc_registration_certificate SET deleted=1 WHERE id=1001");
+        assertCode(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_NOT_EXISTS.getCode(),
+                () -> service.applyChange(command("deleted-change", 3, Map.of("PRODUCT_NAME", "Product B"),
+                        null, null, null, null)));
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_change WHERE certificate_id=1001"));
     }
 
     @Test

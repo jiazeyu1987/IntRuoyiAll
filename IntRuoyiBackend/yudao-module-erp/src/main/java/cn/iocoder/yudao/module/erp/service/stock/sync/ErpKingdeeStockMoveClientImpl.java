@@ -43,7 +43,6 @@ public class ErpKingdeeStockMoveClientImpl implements ErpKingdeeStockMoveClient 
     private static final String QUERY_SERVICE =
             "Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc";
     private static final int PAGE_LIMIT = 1000;
-    private static final int INITIAL_QUERY_DAYS = 365;
     private static final String MODIFY_TIME_FIELD = "FModifyDate";
     private static final String FIELD_KEYS = String.join(",",
             "FID",
@@ -150,12 +149,10 @@ public class ErpKingdeeStockMoveClientImpl implements ErpKingdeeStockMoveClient 
                                       String cookieHeader,
                                       int startRow,
                                       int limit) {
-        LocalDate startDate = LocalDate.now().minusDays(INITIAL_QUERY_DAYS);
-        LocalDate nextDay = LocalDate.now().plusDays(1);
         Map<String, Object> query = new LinkedHashMap<>();
         query.put("FormId", FORM_ID);
         query.put("FieldKeys", FIELD_KEYS);
-        query.put("FilterString", "(FBillNo <> '') and (FDate >= '" + startDate + "' and FDate < '" + nextDay + "')");
+        query.put("FilterString", "(FBillNo <> '')");
         query.put("OrderString", "FModifyDate DESC,FID DESC,FBillEntry_FEntryID ASC");
         query.put("StartRow", startRow);
         query.put("Limit", limit);
@@ -187,6 +184,7 @@ public class ErpKingdeeStockMoveClientImpl implements ErpKingdeeStockMoveClient 
                                String label) {
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("data", JsonUtils.toJsonString(query));
+        long started = System.nanoTime();
         ResponseEntity<String> response = restTemplate.postForEntity(
                 buildServiceUrl(properties.getBaseUrl(), QUERY_SERVICE),
                 new HttpEntity<>(body, buildFormHeaders(cookieHeader)),
@@ -195,6 +193,10 @@ public class ErpKingdeeStockMoveClientImpl implements ErpKingdeeStockMoveClient 
         if (responseJson.isObject()) {
             throw exception(KINGDEE_PURCHASE_ORDER_REQUEST_FAIL, responseJson.toString());
         }
+        org.slf4j.LoggerFactory.getLogger(ErpKingdeeStockMoveClientImpl.class).info(
+                "STK_TransferDirect page received: startRow={}, limit={}, rows={}, elapsedMs={}",
+                query.get("StartRow"), query.get("Limit"), responseJson.size(),
+                (System.nanoTime() - started) / 1_000_000);
         return responseJson;
     }
 

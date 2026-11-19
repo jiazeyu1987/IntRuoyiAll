@@ -216,7 +216,7 @@ const graphNodes: PageNode[] = [
   {
     id: 'production-fill',
     order: '05',
-    title: '一线生产',
+    title: '生产作业',
     description: '一线员工从报工入口提交数量、设备参数和正式批记录或补充槽位填写动作。',
     kind: '报工页',
     route: '/mes/pro/feedback/edhr-batch-production-fill',
@@ -228,7 +228,7 @@ const graphNodes: PageNode[] = [
   {
     id: 'pqc-fill',
     order: '06',
-    title: '一线PQC',
+    title: '检验填报',
     description: '一线 PQC 录入检验结果、检验数量和损耗数量。',
     kind: '质检页',
     route: '/mes/pro/feedback/edhr-batch-pqc-fill',
@@ -262,7 +262,7 @@ const graphNodes: PageNode[] = [
   {
     id: 'production-lead-review',
     order: '09',
-    title: '生产组长',
+    title: '生产班长',
     description: '独立主导航页签，查看生产一线原始数据、员工切换、FIFO 分配和异常记录。',
     kind: '生产复核页',
     route: '/mes/pro/process-pool/production-leader',
@@ -274,7 +274,7 @@ const graphNodes: PageNode[] = [
   {
     id: 'pqc-lead-review',
     order: '10',
-    title: 'PQC组长',
+    title: '检验组长',
     description: '独立主导航页签，查看和复核 PQC 检验员提交、项目明细与过程检验汇集状态。',
     kind: '质检复核页',
     route: '/mes/pro/process-pool/pqc-leader',

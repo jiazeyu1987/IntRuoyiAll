@@ -40,13 +40,13 @@ for (const field of [
 
 for (const [label, expression] of [
   ['上传人', 'detail.uploadOperatorName'],
-  ['上传时间', 'formatDateTimeValue(detail.uploadedAt'],
+  ['上传时间', 'formatRegistrationCertificateDateTime(detail.uploadedAt'],
   ['上传审批人', 'detail.uploadApproverName'],
-  ['上传审批时间', 'formatDateTimeValue(detail.uploadApprovedAt'],
+  ['上传审批时间', 'formatRegistrationCertificateDateTime(detail.uploadApprovedAt'],
   ['延续操作人', 'item.renewalOperatorName'],
-  ['延续操作时间', 'formatDateTimeValue(item.renewalOperatedAt'],
+  ['延续操作时间', 'formatRegistrationCertificateDateTime(item.renewalOperatedAt'],
   ['延续审批人', 'item.renewalApproverName'],
-  ['延续审批时间', 'formatDateTimeValue(item.renewalApprovedAt']
+  ['延续审批时间', 'formatRegistrationCertificateDateTime(item.renewalApprovedAt']
 ]) {
   assert.match(detail, new RegExp(label), `detail page must display ${label}`)
   assert.match(

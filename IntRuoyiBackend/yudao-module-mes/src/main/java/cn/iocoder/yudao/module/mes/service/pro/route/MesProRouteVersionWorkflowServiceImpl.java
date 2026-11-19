@@ -60,6 +60,8 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
     @Resource
     private MesProRouteVersionMapper routeVersionMapper;
     @Resource
+    private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
+    @Resource
     private BpmProcessInstanceApi bpmProcessInstanceApi;
     @Resource
     private MesProRouteService routeService;
@@ -139,6 +141,7 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
         }
         MesProRouteVersionSnapshotIdentityWriter.apply(candidate, routeSnapshotJson);
         routeVersionMapper.insert(candidate);
+        deviceIdentitySnapshots.captureCreated(candidate);
         platformAdapter.recordCandidateCreated(active, candidate, SecurityFrameworkUtils.getLoginUserId(),
                 reqVO.getChangeReason());
         versionOperateLogService.route("升版", active, candidate, SecurityFrameworkUtils.getLoginUserId());
@@ -361,6 +364,7 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
             throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidate.getId());
         }
         Long submitterUserId = requireLoginUserId();
+        deviceIdentitySnapshots.require(candidate.getId(), MesProRouteDeviceIdentitySnapshotService.deviceIds(candidate));
         LocalDateTime submittedTime = LocalDateTime.now();
         platformAdapter.recordSubmitted(candidate, submitterUserId, null);
         candidate.setLifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL);

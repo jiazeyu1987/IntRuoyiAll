@@ -1,7 +1,6 @@
 <template>
   <ContentWrap>
     <ActiveOrderDetailLayout data-team-leader-active-order-detail-page>
-      <el-button data-team-leader-active-order-detail-back @click="goBack">返回</el-button>
       <ReplenishmentProcessBinding
         v-if="detail && !handoffReadOnly"
         :active-order-id="requireActiveOrderId()"
@@ -18,7 +17,11 @@
         :loading="loading"
         :error="error"
         @retry="loadDetail"
-      />
+      >
+        <template #summary-actions>
+          <el-button data-team-leader-active-order-detail-back @click="goBack">返回</el-button>
+        </template>
+      </ActiveOrderSubmissionDetailPanel>
     </ActiveOrderDetailLayout>
   </ContentWrap>
 </template>
@@ -42,7 +45,8 @@ import type { ErpProductionMaterialListVO } from '@/api/erp/production/material-
 defineOptions({ name: 'MesProcessPoolActiveOrderSubmissionDetail' })
 
 const route = useRoute()
-const handoffReadOnly = computed(() => route.query.handoffReadOnly === '1')
+const inProcessReadOnly = computed(() => route.name === 'MesInProcessOrderDetail')
+const handoffReadOnly = computed(() => inProcessReadOnly.value || route.query.handoffReadOnly === '1')
 const router = useRouter()
 
 const detail = ref<TeamLeaderActiveOrderDetailRespVO>()
@@ -85,7 +89,7 @@ const loadSourceWorkOrder = async (sourceWorkOrderCode: string) => {
   const rows = (data?.list ?? []).filter((row: ProWorkOrderVO) => row.code === sourceWorkOrderCode)
   if (rows.length !== 1) {
     throw new Error(
-      `Stage1 来源生产工单 ${sourceWorkOrderCode} 未找到或不唯一，无法显示真实生产工单资料`
+      `第一阶段来源生产工单 ${sourceWorkOrderCode} 未找到或不唯一，无法显示真实生产工单资料`
     )
   }
   return rows[0]
@@ -142,6 +146,7 @@ const loadDetail = async () => {
 }
 
 const goBack = () => {
+  if (inProcessReadOnly.value) return router.push('/mes/pro/in-process-order')
   router.back()
 }
 

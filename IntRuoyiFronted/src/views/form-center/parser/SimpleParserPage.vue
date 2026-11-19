@@ -6,7 +6,7 @@
   >
     <SimpleParserHeader
       v-model:project-id="projectId"
-      title="简易解析"
+      title="生产编制"
       import-accept=".doc,.docx"
       :projects="projects"
       :project-loading="projectLoading"
@@ -67,9 +67,6 @@
                 aria-label="工作站所属车间"
                 :disabled="busy || !!published"
               />
-              <div class="text-12px text-gray-500 mt-6px">
-                每道工序分别创建工作站，所选设备同时绑定到工作站。
-              </div>
             </div>
           </el-form-item>
         </el-form>
@@ -83,11 +80,11 @@
       <section v-if="published" class="published-result">
         <el-result
           icon="success"
-          title="发布完成"
+          :title="published.routeCandidateVersionId ? '流程草稿已创建' : '发布完成'"
           :sub-title="`${published.routeCode} · ${published.routeCandidateVersionNo || published.routeVersionNo}`"
         >
           <template #extra
-            ><el-button type="primary" @click="openRoute">查看结果</el-button
+            ><el-button type="primary" @click="openRoute">{{ published.routeCandidateVersionId ? '配置并发布' : '查看结果' }}</el-button
             ><el-button @click="showPublished">查看创建清单</el-button
             ><el-upload
               v-hasPermi="['form:parser:production-batch-record']"
@@ -100,7 +97,6 @@
             ></template
           >
         </el-result>
-        <p>流程已保存为禁用路线及草稿候选，可在工艺流程中继续完成启用所需配置。</p>
       </section>
       <div v-show="mode === 'edit'" ref="workspaceEditor" class="workbench parser-workspace">
         <aside class="process-list parser-sidebar">
@@ -968,7 +964,7 @@ async function exportWord() {
     const href = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = href
-    link.download = `${(content.routeName.trim() || '简易解析').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')}.docx`
+    link.download = `${(content.routeName.trim() || '生产编制').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')}.docx`
     document.body.appendChild(link)
     link.click()
     link.remove()

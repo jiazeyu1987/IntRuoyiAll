@@ -94,7 +94,7 @@
               :min-width="getEdhrBatchExecutionColumnMinWidthString('product', 170)"
               v-bind="sortColumnAttrs('product')"
             >
-              <template #default="{ row }">{{ row.productName || row.productCode || '--' }}</template>
+              <template #default="{ row }"><span v-if="row.productName">{{ row.productName }}</span><ProductCodeLink v-else :code="row.productCode" empty-text="--" /></template>
             </el-table-column>
             <el-table-column
               v-if="isEdhrBatchExecutionColumnVisible('route')"
@@ -824,6 +824,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import WorkflowInteractionLog from '@/views/mes/pro/processpool/components/WorkflowInteractionLog.vue'
 import {useWorkflowInteractionLog} from '@/views/mes/pro/processpool/workflowInteractionLog'

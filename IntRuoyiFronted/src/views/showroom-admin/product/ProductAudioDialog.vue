@@ -10,7 +10,7 @@
       <div class="showroom-product-audio-dialog__summary">
         <div>
           <span class="showroom-product-audio-dialog__summary-label">产品编码</span>
-          <strong>{{ productCode || '未提供' }}</strong>
+          <strong><ProductCodeLink :code="productCode" empty-text="未提供" /></strong>
         </div>
         <div>
           <span class="showroom-product-audio-dialog__summary-label">中文名称</span>

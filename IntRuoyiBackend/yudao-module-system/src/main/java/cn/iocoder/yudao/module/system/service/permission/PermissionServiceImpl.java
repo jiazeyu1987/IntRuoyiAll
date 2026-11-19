@@ -156,10 +156,7 @@ public class PermissionServiceImpl implements PermissionService {
         }
         permissions = filterPlatformPermissions(SecurityFrameworkUtils.getLoginUserId(), permissions);
         if (permissions.length == 0) return false;
-        List<RoleDO> roles = roleService.getRoleListFromCache(roleIds);
-        if (CollUtil.isEmpty(roles)) {
-            return false;
-        }
+        List<RoleDO> roles = new ArrayList<>(roleService.getRoleListFromCache(roleIds));
         roles.removeIf(role -> !CommonStatusEnum.ENABLE.getStatus().equals(role.getStatus()));
         if (CollUtil.isEmpty(roles)) {
             return false;
@@ -337,10 +334,12 @@ public class PermissionServiceImpl implements PermissionService {
         }
 
         List<MenuDO> allMenus = menuService.getMenuList();
-        List<RoleDO> roles = roleService.getRoleListFromCache(roleIds);
+        List<RoleDO> roles = new ArrayList<>(roleService.getRoleListFromCache(roleIds));
+        roles.removeIf(role -> !CommonStatusEnum.ENABLE.getStatus().equals(role.getStatus()));
+        if (roles.isEmpty()) return Collections.emptySet();
         Set<Long> scopedIds = getErpScopedMenuIds(allMenus);
         Set<Long> menuIds = getExplicitRoleMenuIds(roles, scopedIds);
-        boolean superAdmin = roleService.hasAnySuperAdmin(roleIds);
+        boolean superAdmin = roleService.hasAnySuperAdmin(convertSet(roles, RoleDO::getId));
         boolean tenantAdmin = TenantAdminBusinessPolicy.isTenantAdmin(roles);
         allMenus.stream().filter(menu -> !scopedIds.contains(menu.getId()))
                 .filter(menu -> superAdmin || (tenantAdmin && TenantAdminBusinessPolicy.isBusinessMenu(menu)))
@@ -493,7 +492,8 @@ public class PermissionServiceImpl implements PermissionService {
         if (CollectionUtil.isEmpty(roleIds)) {
             return false;
         }
-        List<RoleDO> roles = roleService.getRoleListFromCache(roleIds);
+        List<RoleDO> roles = new ArrayList<>(roleService.getRoleListFromCache(roleIds));
+        roles.removeIf(role -> !CommonStatusEnum.ENABLE.getStatus().equals(role.getStatus()));
         if (CollUtil.isEmpty(roles)) {
             return false;
         }
@@ -645,9 +645,7 @@ public class PermissionServiceImpl implements PermissionService {
             // 情况二，DEPT_CUSTOM
             if (Objects.equals(role.getDataScope(), DataScopeEnum.DEPT_CUSTOM.getScope())) {
                 CollUtil.addAll(result.getDeptIds(), role.getDataScopeDeptIds());
-                // 自定义可见部门时，保证可以看到自己所在的部门。否则，一些场景下可能会有问题。
-                // 例如说，登录时，基于 t_user 的 username 查询会可能被 dept_id 过滤掉
-                CollectionUtils.addIfNotNull(result.getDeptIds(), userDeptId.get());
+                // 自定义范围严格使用角色配置；查看本人须通过 SELF 角色组合明确授权。
                 continue;
             }
             // 情况三，DEPT_ONLY

@@ -1136,6 +1136,54 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
         });
     }
 
+    @Test
+    void deleteFormalCertificatePreservesEvidenceAndReplaysAudit() {
+        TenantContextHolder.setTenantId(1L);
+        DraftFixture fixture = seedDraft(LocalDate.of(2026, 8, 1));
+        jdbcTemplate.update("UPDATE dcc_registration_certificate SET status='ACTIVE', current_version_id=?, current_snapshot_id=? WHERE id=?",
+                fixture.versionId(), fixture.snapshotId(), fixture.certificateId());
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_version SET status='CURRENT' WHERE id=?", fixture.versionId());
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_file SET status='BOUND' WHERE id=?", fixture.fileId());
+        assertEquals(fixture.certificateId(), dbCommandService.deleteCertificate(
+                1L, 99L, "formal-delete", "trace-delete", fixture.certificateId(), 1));
+        assertEquals(fixture.certificateId(), dbCommandService.deleteCertificate(
+                1L, 99L, "formal-delete", "trace-replay", fixture.certificateId(), 1));
+        assertNull(dbCertificateMapper.selectById(fixture.certificateId()));
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate WHERE id=? AND deleted=1 AND status='ACTIVE' AND row_version=2", fixture.certificateId()));
+        assertEquals("CURRENT", dbVersionMapper.selectById(fixture.versionId()).getStatus());
+        assertNotNull(dbSnapshotMapper.selectById(fixture.snapshotId()));
+        assertEquals("BOUND", dbFileMapper.selectById(fixture.fileId()).getStatus());
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_snapshot_entrusted WHERE snapshot_id=?", fixture.snapshotId()));
+        assertEquals("CERTIFICATE_DELETE_SUCCEEDED", dbAuditMapper.selectByTenantIdAndEventKey(1L, "formal-delete").getEventType());
+    }
+
+    @Test
+    void deleteCertificateRejectsStaleRevisionAndWrongTenantWithoutChangingEvidence() {
+        TenantContextHolder.setTenantId(1L);
+        DraftFixture fixture = seedDraft(LocalDate.of(2026, 8, 1));
+        assertThrows(ServiceException.class, () -> dbCommandService.deleteCertificate(
+                1L, 99L, "stale-delete", "trace-delete", fixture.certificateId(), 2));
+        assertThrows(ServiceException.class, () -> dbCommandService.deleteCertificate(
+                2L, 99L, "tenant-delete", "trace-delete", fixture.certificateId(), 1));
+        assertDraftBusinessFacts(fixture);
+    }
+
+    @Test
+    void deleteCertificateRejectsAnUnfinishedRenewalWithoutRemovingAnyEvidence() {
+        TenantContextHolder.setTenantId(1L);
+        DraftFixture fixture = seedDraft(LocalDate.of(2026, 8, 1));
+        jdbcTemplate.update("UPDATE dcc_registration_certificate SET status='ACTIVE', current_version_id=?, pending_version_id=999 WHERE id=?",
+                fixture.versionId(), fixture.certificateId());
+        ServiceException failure = assertThrows(ServiceException.class, () -> dbCommandService.deleteCertificate(
+                1L, 99L, "pending-delete", "trace-delete", fixture.certificateId(), 1));
+        assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_RENEWAL_PENDING_CONFLICT.getCode(), failure.getCode());
+        assertNotNull(dbCertificateMapper.selectById(fixture.certificateId()));
+        assertNotNull(dbVersionMapper.selectById(fixture.versionId()));
+        assertNotNull(dbSnapshotMapper.selectById(fixture.snapshotId()));
+        assertNotNull(dbFileMapper.selectById(fixture.fileId()));
+        assertEquals("FAILURE", dbAuditMapper.selectByTenantIdAndEventKey(1L, "pending-delete").getResult());
+    }
+
     private DraftFixture seedDraft(LocalDate effectiveDate) {
         DccRegistrationCertificateDO certificate = DccRegistrationCertificateDO.builder()
                 .ownerCompanyId(10L)

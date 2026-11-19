@@ -23,7 +23,7 @@
     <el-tooltip :disabled="!selectedItem" placement="top" :show-after="500">
       <template #content>
         <div v-if="selectedItem" class="leading-6">
-          <div>编码：{{ selectedItem.code }}</div>
+          <div>编码：<ProductCodeLink :code="selectedItem.code" /></div>
           <div>名称：{{ selectedItem.name }}</div>
           <div>规格：{{ selectedItem.specification || '-' }}</div>
           <div>单位：{{ selectedItem.unitMeasureName || '-' }}</div>
@@ -44,6 +44,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { MdItemApi, MdItemVO } from '@/api/mes/md/item'
 import { Search, CircleClose } from '@element-plus/icons-vue'
 import MdItemSelectDialog from './MdItemSelectDialog.vue'

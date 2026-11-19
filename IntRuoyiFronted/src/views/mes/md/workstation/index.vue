@@ -1,7 +1,18 @@
 <template>
-  <doc-alert title="【基础】车间设置、工作站设置" url="https://doc.iocoder.cn/mes/md/workshop/" />
+  <doc-alert title="【基础】车间设置、工作站" url="https://doc.iocoder.cn/mes/md/workshop/" />
 
   <ContentWrap>
+    <el-alert v-if="listLoadError" :title="listLoadError" type="error" :closable="false" show-icon>
+      <el-button
+        v-if="failedWorkstationId"
+        v-hasPermi="['mes:md-workstation:update']"
+        type="primary"
+        link
+        @click="openForm('update', failedWorkstationId)"
+      >
+        编辑工作站
+      </el-button>
+    </el-alert>
     <UnifiedListTemplate
       single-line-toolbar
       table-key="mes.md.workstation.main"
@@ -54,6 +65,7 @@
           data-user-table-column-explicit
           data-user-table-key="mes.md.workstation.main"
           :data="resolveRows(list)"
+          :empty-text="listLoadError ? '查询失败，请查看上方错误提示' : '暂无数据'"
           :height="workstationMainTableHeight"
           border
           :stripe="true"
@@ -364,6 +376,8 @@ const {
 } = useUserTableColumns('mes.md.workstation.main', workstationDefaultColumns)
 
 const loading = ref(true) // 列表的加载中
+const listLoadError = ref('')
+const failedWorkstationId = ref<string>()
 const list = ref<MdWorkstationVO[]>([]) // 列表的数据
 const total = ref(0) // 列表的总页数
 const openedWorkstationDetailId = ref('')
@@ -382,14 +396,18 @@ const queryParams = reactive({
   code: undefined as string | undefined,
   name: undefined as string | undefined,
   workshopId: undefined as number | undefined,
-  processId: undefined as number | undefined,
+  processId: undefined as number | string | undefined,
   status: undefined as number | undefined,
   quickFilter: undefined as TableQuickFilterValue | undefined
 })
 
 const normalizePositiveProcessId = (value?: number | string | null) => {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+  // Long 编号必须保留字符串，转为 Number 会丢失精度并查询不到工作站。
+  if (typeof value === 'string') {
+    const text = value.trim()
+    return /^[1-9]\d*$/.test(text) ? text : undefined
+  }
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : undefined
 }
 
 const formatWorkstationIntegerCapacity = (value?: number | string | null, emptyText = '0') => {
@@ -469,10 +487,20 @@ const buildWorkstationPageParams = () => {
 /** 查询列表 */
 async function getList() {
   loading.value = true
+  listLoadError.value = ''
+  failedWorkstationId.value = undefined
   try {
     const data = await MdWorkstationApi.getWorkstationPage(buildWorkstationPageParams())
     list.value = data.list
     total.value = data.total
+  } catch (error) {
+    list.value = []
+    total.value = 0
+    listLoadError.value = error instanceof Error ? error.message : String(error)
+    if ((error as { code?: number })?.code === 1040106006) {
+      failedWorkstationId.value = listLoadError.value.match(/workstationId=([1-9]\d*)/)?.[1]
+    }
+    throw error
   } finally {
     loading.value = false
   }
@@ -480,7 +508,7 @@ async function getList() {
 
 /** 添加/修改操作 */
 const formRef = ref()
-const openForm = (type: string, id?: number) => {
+const openForm = (type: string, id?: number | string) => {
   formRef.value.open(type, id)
 }
 

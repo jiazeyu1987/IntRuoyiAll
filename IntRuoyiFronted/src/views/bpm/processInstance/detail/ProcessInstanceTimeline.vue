@@ -201,7 +201,7 @@
 </template>
 
 <script lang="ts" setup>
-import { formatDate } from '@/utils/formatTime'
+import { formatBusinessDateTime } from '@/utils/businessTime'
 import * as ProcessInstanceApi from '@/api/bpm/processInstance'
 import { TaskStatusEnum } from '@/api/bpm/task'
 import { NodeType, CandidateStrategy } from '@/components/SimpleProcessDesignerV2/src/consts'
@@ -336,13 +336,13 @@ const getApprovalNodeColor = (taskStatus: number) => {
 
 const getApprovalNodeTime = (node: ProcessInstanceApi.ApprovalNodeInfo) => {
   if (node.nodeType === NodeType.START_USER_NODE && node.startTime) {
-    return `${formatDate(node.startTime)}`
+    return `${formatBusinessDateTime(node.startTime)}（北京时间）`
   }
   if (node.endTime) {
-    return `${formatDate(node.endTime)}`
+    return `${formatBusinessDateTime(node.endTime)}（北京时间）`
   }
   if (node.startTime) {
-    return `${formatDate(node.startTime)}`
+    return `${formatBusinessDateTime(node.startTime)}（北京时间）`
   }
 }
 

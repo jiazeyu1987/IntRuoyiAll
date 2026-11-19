@@ -38,14 +38,14 @@
         <el-descriptions-item label="上传人">
           {{ displayOperationName(detail.uploadOperatorName) }}
         </el-descriptions-item>
-        <el-descriptions-item label="上传时间">
-          {{ formatDateTimeValue(detail.uploadedAt, '缺少正式记录') }}
+        <el-descriptions-item label="上传时间（北京时间）">
+          {{ formatRegistrationCertificateDateTime(detail.uploadedAt, '缺少正式记录') }}
         </el-descriptions-item>
         <el-descriptions-item label="上传审批人">
           {{ displayOperationName(detail.uploadApproverName) }}
         </el-descriptions-item>
-        <el-descriptions-item label="上传审批时间">
-          {{ formatDateTimeValue(detail.uploadApprovedAt, '缺少正式记录') }}
+        <el-descriptions-item label="上传审批时间（北京时间）">
+          {{ formatRegistrationCertificateDateTime(detail.uploadApprovedAt, '缺少正式记录') }}
         </el-descriptions-item>
         <el-descriptions-item label="注册证文件">
           <div
@@ -160,7 +160,7 @@
               <div class="renewal-history__version">
                 <strong v-if="item.versionNo">第 {{ item.versionNo }} 版</strong>
                 <strong v-else class="renewal-history__missing">版本信息缺失</strong>
-                <span>记录时间 {{ formatDateTimeValue(item.occurredAt) }}</span>
+                <span>记录时间 {{ formatRegistrationCertificateDateTime(item.occurredAt) }}</span>
               </div>
               <el-tag :type="getCategoryChangedTagType(item.categoryChanged)">
                 {{ formatCategoryChangedStatus(item.categoryChanged) }}
@@ -175,7 +175,7 @@
               </div>
               <div>
                 <dt>延续操作时间</dt>
-                <dd>{{ formatDateTimeValue(item.renewalOperatedAt, '缺少正式记录') }}</dd>
+                <dd>{{ formatRegistrationCertificateDateTime(item.renewalOperatedAt, '缺少正式记录') }}</dd>
               </div>
               <div>
                 <dt>延续审批人</dt>
@@ -183,7 +183,7 @@
               </div>
               <div>
                 <dt>延续审批时间</dt>
-                <dd>{{ formatDateTimeValue(item.renewalApprovedAt, '缺少正式记录') }}</dd>
+                <dd>{{ formatRegistrationCertificateDateTime(item.renewalApprovedAt, '缺少正式记录') }}</dd>
               </div>
             </dl>
 
@@ -279,7 +279,7 @@
               <div>
                 <strong>{{ formatChangeStatus(item.changeStatus, item.eventType) }}</strong>
                 <span class="change-history__muted">
-                  提交时间：{{ formatDateTimeValue(item.submittedAt || item.occurredAt) }}
+                  提交时间（北京时间）：{{ formatRegistrationCertificateDateTime(item.submittedAt || item.occurredAt) }}
                 </span>
               </div>
               <el-tag :type="getChangeStatusTagType(item.changeStatus, item.eventType)">
@@ -289,17 +289,23 @@
             <dl class="change-history__facts">
               <div><dt>批件批准日期</dt><dd>{{ formatRegistrationCertificateDate(item.approvalDate) }}</dd></div>
               <div><dt>填写人</dt><dd>{{ displayOperationName(item.submittedByName) }}</dd></div>
-              <div><dt>填写时间</dt><dd>{{ formatDateTimeValue(item.submittedAt || item.occurredAt) }}</dd></div>
+              <div><dt>填写时间（北京时间）</dt><dd>{{ formatRegistrationCertificateDateTime(item.submittedAt || item.occurredAt) }}</dd></div>
               <div><dt>审批人</dt><dd>{{ displayOperationName(item.reviewedByName) }}</dd></div>
-              <div><dt>审批时间</dt><dd>{{ formatDateTimeValue(item.reviewedAt) }}</dd></div>
+              <div><dt>审批时间（北京时间）</dt><dd>{{ formatRegistrationCertificateDateTime(item.reviewedAt) }}</dd></div>
               <div><dt>审批结果</dt><dd>{{ formatChangeStatus(item.changeStatus, item.eventType) }}</dd></div>
             </dl>
             <div class="change-history__section-label">变更内容</div>
             <div class="change-history__items">
               <div v-for="changeItem in item.items" :key="changeItem.itemType" class="change-history__value">
-                <strong>{{ formatChangeItemType(changeItem.itemType) }}</strong>
-                <span>变更前：{{ formatChangeValue(changeItem.itemType, changeItem.beforeValueJson) }}</span>
-                <span>变更后：{{ formatChangeValue(changeItem.itemType, changeItem.afterValueJson) }}</span>
+                <strong>{{ formatRegistrationCertificateChangeType(changeItem.itemType) }}</strong>
+                <div class="change-history__snapshot">
+                  <strong>变更前</strong>
+                  <div>{{ formatRegistrationCertificateChangeValue(changeItem.itemType, changeItem.beforeValueJson) }}</div>
+                </div>
+                <div class="change-history__snapshot">
+                  <strong>变更后</strong>
+                  <div>{{ formatRegistrationCertificateChangeValue(changeItem.itemType, changeItem.afterValueJson) }}</div>
+                </div>
               </div>
             </div>
             <div class="change-history__file">
@@ -367,11 +373,12 @@
 import FactsFields from '../shared/FactsFields.vue'
 import EvidencePanel from '../history/EvidencePanel.vue'
 import { parseFacts } from '../shared/facts'
+import { formatRegistrationCertificateChangeType, formatRegistrationCertificateChangeValue } from '../shared/changeDisplay'
 import ChangeConfirmationsPanel from '../components/ChangeConfirmationsPanel.vue'
 import RequestDetailPanel from '../approval/RequestDetailPanel.vue'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { formatDateTimeValue } from '@/utils/formatTime'
+import { formatRegistrationCertificateDateTime } from '../shared/dateTimeDisplay'
 import {
   downloadRegistrationCertificateFile,
   getRegistrationCertificateFileDownloadGrantStatuses,
@@ -409,6 +416,8 @@ const props = defineProps<{
 }>()
 
 const route = useRoute()
+// Keep-alive instances must only load for the route that owns this instance.
+const detailPagePath = route.path
 const message = useMessage()
 const REGISTRATION_CERTIFICATE_ACCESS_BUSINESS_KEY_PREFIX = 'DCC_REG_CERT_ACCESS:'
 const approvalRequestId=computed(()=>parsePositiveRouteQueryId(route.query.requestId))
@@ -519,36 +528,6 @@ const getChangeStatusTagType = (status?: string, eventType?: string) => {
   if (normalized === '已驳回') return 'danger'
   if (normalized === '待审批') return 'warning'
   return 'info'
-}
-
-const changeItemLabels: Record<string, string> = {
-  PRODUCT_NAME: '产品名称',
-  MODEL_SPECIFICATION: '型号规格',
-  STRUCTURE_COMPOSITION: '结构组成',
-  INTENDED_USE: '适用范围',
-  TECHNICAL_REQUIREMENTS: '产品技术要求',
-  REGISTRANT_NAME: '注册人名称',
-  RESIDENCE_ADDRESS: '住所',
-  PRODUCTION_ADDRESS: '生产地址',
-  OTHER_CONTENT: '其他内容'
-}
-
-const formatChangeItemType = (value?: string) => value ? changeItemLabels[value] || value : '记录缺失'
-
-const formatChangeValue = (itemType: string, raw?: string) => {
-  if (!raw) return '记录缺失'
-  try {
-    const parsed = JSON.parse(raw) as Record<string, unknown> | string | number | boolean | null
-    if (!parsed || typeof parsed !== 'object') {
-      return parsed == null ? '记录缺失' : String(parsed)
-    }
-    if (itemType === 'PRODUCTION_ADDRESS' && parsed.entrustedProduction !== undefined) {
-      return `委托生产：${parsed.entrustedProduction ? '是' : '否'}；自行生产：${parsed.selfProduction ? '是' : '否'}；受托企业：${parsed.entrustedEnterprisesJson || '无'}`
-    }
-    return parsed.value == null ? '记录缺失' : String(parsed.value)
-  } catch {
-    return '记录解析失败'
-  }
 }
 
 const openAttachmentPreview = (businessFileId: number | string, fileName: string) => {
@@ -715,7 +694,7 @@ const downloadableFiles = computed<DownloadableFileOption[]>(() => {
   })
 })
 
-const loadDownloadGrantStatuses = async () => {
+const loadDownloadGrantStatuses = async (isCurrent: () => boolean) => {
   downloadAuthorizedFileIds.value = new Set()
   requestPendingFileIds.value = new Set()
   const businessFileIds = downloadableFiles.value.map((file) => file.businessFileId)
@@ -723,6 +702,7 @@ const loadDownloadGrantStatuses = async () => {
     return
   }
   const statuses = await getRegistrationCertificateFileDownloadGrantStatuses(businessFileIds)
+  if (!isCurrent()) return
   downloadAuthorizedFileIds.value = new Set(
     statuses
       .filter((status) => status.canDownload)
@@ -735,7 +715,7 @@ const loadDownloadGrantStatuses = async () => {
   )
 }
 
-const resolveCertificateIdForDetail = async () => {
+const resolveCertificateIdForDetail = async (isCurrent: () => boolean) => {
   if (routeCertificateId.value) {
     return routeCertificateId.value
   }
@@ -743,6 +723,7 @@ const resolveCertificateIdForDetail = async () => {
     return ''
   }
   const status = await getRegistrationCertificateAccessRequestStatus(accessRequestId.value)
+  if (!isCurrent()) return ''
   const resolvedCertificateId = parsePositiveRouteQueryId(status.certificateId)
   if (!resolvedCertificateId) {
     routeIdentityError.value = '注册证访问申请缺少正式注册证身份，无法加载详情'
@@ -752,22 +733,48 @@ const resolveCertificateIdForDetail = async () => {
   return resolvedCertificateId
 }
 
-const loadDetail = async () => {
-  if(approvalRequestId.value && approvalProcessInstanceId.value)return
+const loadDetail = async (isCurrent: () => boolean) => {
   routeIdentityError.value = ''
   accessRequestCertificateId.value = ''
+  detail.value = undefined
+  history.value = []
+  downloadAuthorizedFileIds.value = new Set()
+  requestPendingFileIds.value = new Set()
+  loading.value = false
+  if (approvalRequestId.value && approvalProcessInstanceId.value) return
   if (invalidRoute.value) return
+  const versionId = detailVersionId.value
   loading.value = true
   try {
-    const resolvedCertificateId = await resolveCertificateIdForDetail()
-    if (!resolvedCertificateId) return
-    detail.value = await getRegistrationCertificateDetail(resolvedCertificateId, detailVersionId.value)
-    history.value = await getRegistrationCertificateHistory(resolvedCertificateId, detail.value.versionId)
-    await loadDownloadGrantStatuses()
+    const resolvedCertificateId = await resolveCertificateIdForDetail(isCurrent)
+    if (!resolvedCertificateId || !isCurrent()) return
+    const loadedDetail = await getRegistrationCertificateDetail(resolvedCertificateId, versionId)
+    if (!isCurrent()) return
+    detail.value = loadedDetail
+    const loadedHistory = await getRegistrationCertificateHistory(resolvedCertificateId, loadedDetail.versionId)
+    if (!isCurrent()) return
+    history.value = loadedHistory
+    await loadDownloadGrantStatuses(isCurrent)
+  } catch (error) {
+    if (isCurrent()) {
+      routeIdentityError.value = `注册证详情加载失败：${error instanceof Error ? error.message : String(error)}`
+    }
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
+
+// Approval material and formal detail share a path; query changes do not remount it.
+watch(
+  [() => route.fullPath, () => props.id],
+  (_value, _oldValue, onCleanup) => {
+    let current = true
+    onCleanup(() => { current = false })
+    if (route.path !== detailPagePath) return
+    void loadDetail(() => current)
+  },
+  { immediate: true }
+)
 
 const updateViewportWidth = () => {
   viewportWidth.value = window.innerWidth
@@ -775,7 +782,6 @@ const updateViewportWidth = () => {
 
 onMounted(() => {
   window.addEventListener('resize', updateViewportWidth)
-  void loadDetail()
 })
 
 onBeforeUnmount(() => {
@@ -1082,9 +1088,13 @@ onBeforeUnmount(() => {
   border-radius: 4px;
 }
 
-.change-history__value span,
+.change-history__snapshot,
 .change-history__file-name {
   overflow-wrap: anywhere;
+}
+
+.change-history__snapshot > div {
+  white-space: pre-wrap;
 }
 
 .change-history__file {

@@ -274,16 +274,16 @@
 }
 
 .frontline-production-order-summary {
-  --frontline-production-order-summary-line-height: 30px;
+  --frontline-production-order-summary-line-height: 26px;
   display: grid;
   width: 100%;
   min-width: 0;
   grid-template-columns: minmax(0, 1fr) minmax(92px, 0.35fr);
   align-items: center;
-  max-height: calc(var(--frontline-production-order-summary-line-height) * 3 + 4px);
+  max-height: 100%;
   gap: 12px;
   align-content: center;
-  overflow: hidden;
+  overflow: auto;
   text-overflow: clip;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -341,6 +341,15 @@
   .frontline-production-order-summary__code {
     font-size: 16px;
     font-weight: 400;
+  }
+
+  .frontline-production-order-summary__batch {
+    display: block;
+    color: inherit;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 22px;
+    overflow-wrap: anywhere;
   }
 
   .frontline-production-order-summary__product {
@@ -3076,7 +3085,7 @@
 
 .frontline-order-picker-option {
   display: grid;
-  grid-template-rows: repeat(3, auto);
+  grid-template-rows: repeat(4, auto);
   gap: 5px;
   align-content: center;
   width: 100%;
@@ -3085,7 +3094,7 @@
 
 .frontline-order-picker-option__row {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-columns: 78px minmax(0, 1fr);
   gap: 6px;
   align-items: center;
   min-width: 0;

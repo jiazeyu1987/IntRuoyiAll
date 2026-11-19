@@ -8,9 +8,13 @@ const transpile=source=>ts.transpileModule(source,{compilerOptions:{module:ts.Mo
 function moduleFrom(path,imports=()=>({})){const out={};new Function('exports','require',transpile(fs.readFileSync(path,'utf8')))(out,imports);return out}
 const facts=moduleFrom('src/views/dcc/registration-certificate/shared/facts.ts')
 const previewApi=moduleFrom('src/api/common/filePreview.ts')
+const businessTime=moduleFrom('src/utils/businessTime.ts')
+const dateTime=moduleFrom('src/views/dcc/registration-certificate/shared/dateTimeDisplay.ts',id=>{assert.equal(id,'@/utils/businessTime');return businessTime})
+const registrationState=moduleFrom('src/views/dcc/registration-certificate/shared/state.ts')
+const changes=moduleFrom('src/views/dcc/registration-certificate/shared/changeDisplay.ts',id=>{if(id==='./facts')return facts;throw Error('unexpected display import '+id)})
 const drain=async()=>{for(let i=0;i<20;i++)await Promise.resolve();await vue.nextTick()}
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b});return {promise,resolve,reject}}
-const snapshot=(name='本次冻结产品')=>({status:'BPM_BOUND',requestedAt:'2026-10-30 10:00:00',purpose:'本次说明',submission:{ownerCompanyName:'冻结公司',factsJson:JSON.stringify({certificateType:'DOMESTIC',certificateNo:'旧顶层数据',ceCertificates:[]}),draft:{productName:name,registrantName:'冻结注册人',factsJson:JSON.stringify({certificateType:'FDA',submissionType:'EXEMPT',registrationNumber:'FDA-冻结号',ceCertificates:[]})}},changes:[{itemType:'PRODUCT_NAME',beforeValueJson:'"变更前产品"',afterValueJson:'"变更后产品"'}],files:[{id:'71',fileKind:'REGISTRATION_CERTIFICATE',originalName:'批准信函.pdf'},{id:'72',fileKind:'CERTIFICATE_ATTACHMENT',originalName:'本次附件.pdf'},{id:'73',fileKind:'FDA_PRODUCT_DESCRIPTION',originalName:'产品描述.pdf'}]})
+const snapshot=(name='本次冻结产品')=>({status:'BPM_BOUND',requestedAt:1794933475000,purpose:'本次说明',submission:{ownerCompanyName:'冻结公司',factsJson:JSON.stringify({certificateType:'DOMESTIC',certificateNo:'旧顶层数据',ceCertificates:[]}),draft:{productName:name,registrantName:'冻结注册人',factsJson:JSON.stringify({certificateType:'FDA',submissionType:'EXEMPT',registrationNumber:'FDA-冻结号',ceCertificates:[]})}},changes:[{itemType:'PRODUCT_NAME',beforeValueJson:JSON.stringify({value:'变更前产品'}),afterValueJson:JSON.stringify({value:'变更后产品'})}],files:[{id:'71',fileKind:'REGISTRATION_CERTIFICATE',originalName:'批准信函.pdf'},{id:'72',fileKind:'CERTIFICATE_ATTACHMENT',originalName:'本次附件.pdf'},{id:'73',fileKind:'FDA_PRODUCT_DESCRIPTION',originalName:'产品描述.pdf'}]})
 function mount(get){
  const path='src/views/dcc/registration-certificate/approval/RequestDetailPanel.vue',descriptor=parse(fs.readFileSync(path,'utf8')).descriptor
  const script=compileScript(descriptor,{id:path}),compiled=compileTemplate({id:path,source:descriptor.template.content,compilerOptions:{bindingMetadata:script.bindings}});assert.deepEqual(compiled.errors,[])
@@ -22,7 +26,9 @@ function mount(get){
   if(id==='@/config/axios')return {default:{get}}
   if(id.endsWith('/facts'))return facts
   if(id==='@/api/common/filePreview')return previewApi
-  if(id==='@/utils/formatTime')return {formatDateTimeValue:v=>v}
+  if(id.endsWith('/dateTimeDisplay'))return dateTime
+  if(id.endsWith('/state'))return registrationState
+  if(id.endsWith('/changeDisplay'))return changes
   if(id.includes('FactsFields'))return {default:field}
   if(id.includes('controlled-file/view'))return {default:viewer}
   throw Error('unexpected import '+id)
@@ -46,7 +52,20 @@ function mount(get){
 
 test('actual approval render uses current frozen draft facts, all file kinds and change before/after',async()=>{
  const c=mount(async()=>snapshot())
- try{await drain();const text=c.text();for(const expected of ['本次冻结产品','冻结注册人','FDA-冻结号','批准信函.pdf','本次附件.pdf','产品描述.pdf','变更前产品','变更后产品'])assert.ok(text.includes(expected),expected);assert.ok(!text.includes('旧顶层数据'));assert.equal(c.nodes('facts')[0].props.facts.certificateType,'FDA');assert.equal(c.nodes('el-button').length,3);assert.ok(!text.includes('下载'))}finally{c.app.unmount()}
+ try{await drain();const text=c.text();for(const expected of ['本次冻结产品','冻结注册人','FDA-冻结号','批准信函.pdf','本次附件.pdf','产品描述.pdf','变更前产品','变更后产品','2026-11-18 00:37:55'])assert.ok(text.includes(expected),expected);assert.ok(!text.includes('旧顶层数据'));assert.equal(c.nodes('facts')[0].props.facts.certificateType,'FDA');assert.equal(c.nodes('el-button').length,3);assert.ok(!text.includes('下载'))}finally{c.app.unmount()}
+})
+
+test('approval materials show entrusted enterprise names and an explicit empty or invalid value',async()=>{
+ const data=snapshot();data.submission.draft.entrustedEnterprisesJson='[]'
+ const c=mount(async()=>data)
+ try{await drain();assert.equal(c.state.display('[]','entrustedEnterprisesJson'),'无')
+  const names=JSON.stringify([{enterpriseId:7,enterpriseName:'模拟受托企业甲'},{enterpriseName:'模拟受托企业乙'}])
+  assert.equal(c.state.display(names,'entrustedEnterprisesJson'),'模拟受托企业甲、模拟受托企业乙')
+  assert.equal(c.state.display('{bad','entrustedEnterprisesJson'),'受托企业数据格式异常')
+  assert.equal(c.state.display('[{"enterpriseId":7}]','entrustedEnterprisesJson'),'受托企业数据格式异常')
+  const items=c.nodes('el-descriptions-item');const item=items.find(n=>n.props.label==='受托企业')
+  assert.ok(item);assert.equal(c.text(item).trim(),'无')
+ }finally{c.app.unmount()}
 })
 
 test('switching request and process drops late old response and clears old exact preview',async()=>{
@@ -70,7 +89,7 @@ test('authorization denial is explicit and removes another submission and its pr
 
 test('actual change rendering decodes nested facts JSON and localized CE revisions enums and booleans',async()=>{
  const data=snapshot(),before={certificateType:'CE',certificateStatus:'SUSPENDED',ownProduct:true,ceCertificates:[{revision:'1',certificateNo:'CE-OLD',issueDate:''}]},after={certificateType:'CE',certificateStatus:'VALID',ownProduct:false,ceCertificates:[{revision:'2',certificateNo:'',issueDate:'2026-10-30'}]}
- data.changes=[{itemType:'CERTIFICATE_INFORMATION',beforeValueJson:JSON.stringify({value:JSON.stringify(before)}),afterValueJson:JSON.stringify({draft:{factsJson:JSON.stringify(after)}})}]
+ data.changes=[{itemType:'CERTIFICATE_INFORMATION',beforeValueJson:JSON.stringify({value:JSON.stringify(before)}),afterValueJson:JSON.stringify({value:JSON.stringify(after)})}]
  const c=mount(async()=>data)
- try{await drain();const rendered=c.nodes('table')[0];const text=n=>n.text+n.children.map(text).join(' '),content=text(rendered);for(const expected of ['证件状态：暂停','证件状态：有效','是否瑛泰产品：是','是否瑛泰产品：否','证书Rev.记录','Rev.：1','Rev.：2','注册证号：CE-OLD','签发日期：未填写','签发日期：2026-10-30'])assert.ok(content.includes(expected),expected);assert.ok(!content.includes('factsJson'));assert.ok(!content.includes('SUSPENDED'));assert.ok(!content.includes('certificateStatus'));assert.ok(!content.includes('{"'))}finally{c.app.unmount()}
+ try{await drain();const rendered=c.nodes('table')[0];const text=n=>n.text+n.children.map(text).join(' '),content=text(rendered);for(const expected of ['证件状态：暂停','证件状态：有效','是否瑛泰产品：是','是否瑛泰产品：否','证书Rev.记录','Rev. 1','Rev. 2','证书编号：CE-OLD','签发日期：未填写','签发日期：2026-10-30'])assert.ok(content.includes(expected),expected);assert.ok(!content.includes('factsJson'));assert.ok(!content.includes('SUSPENDED'));assert.ok(!content.includes('certificateStatus'));assert.ok(!content.includes('{"'))}finally{c.app.unmount()}
 })

@@ -36,6 +36,7 @@ class MesPqcPackagingLeaderOrderServiceTest {
         var result = service.listOrders(20L);
         assertEquals(List.of(30L, 40L), result.stream().map(MesPqcPackagingLeaderOrderService.OrderRow::productionLeaderUserId).toList());
         assertEquals(List.of("WO-1", "WO-2"), result.stream().map(MesPqcPackagingLeaderOrderService.OrderRow::workOrderCode).toList());
+        assertEquals(List.of("BATCH-1", "BATCH-2"), result.stream().map(MesPqcPackagingLeaderOrderService.OrderRow::batchCode).toList());
         verify(orders).selectActiveList();
         verify(workOrders).selectBatchIds(List.of(1L, 2L));
         verifyNoMoreInteractions(orders, workOrders);
@@ -68,6 +69,6 @@ class MesPqcPackagingLeaderOrderServiceTest {
         var row=MesProcessPoolActiveOrderDO.builder().id(id).workOrderId(id).leaderUserId(leader).build(); row.setTenantId(1L); return row;
     }
     private MesProWorkOrderDO workOrder(Long id) {
-        var row=new MesProWorkOrderDO(); row.setId(id); row.setCode("WO-"+id); row.setTenantId(1L); return row;
+        var row=new MesProWorkOrderDO(); row.setId(id); row.setCode("WO-"+id); row.setBatchCode("BATCH-"+id); row.setTenantId(1L); return row;
     }
 }

@@ -23,6 +23,31 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class ErpKingdeeMaterialClientImplTest {
 
     @Test
+    void fetchMaterials_preservesDistinctSourceNumbersWithLeadingWhitespace() {
+        RestTemplate template = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(template).build();
+        server.expect(requestTo(containsString("ValidateUser")))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.SET_COOKIE, "kdservice-sessionid=abc; Path=/"));
+        server.expect(requestTo(containsString("ExecuteBillQuery")))
+                .andRespond(withSuccess("""
+                        [[" PR6004005","Raw source material","","CAT","Category","PCS","A","C"],
+                         ["PR6004005","Different source material","","CAT","Category","PCS","B","C"]]
+                        """, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(containsString("ExecuteBillQuery")))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+
+        var rows = new ErpKingdeeMaterialClientImpl(template)
+                .fetchMaterials(buildProperties("https://k3.example.com", 500));
+
+        assertEquals(List.of(" PR6004005", "PR6004005"),
+                rows.stream().map(ErpKingdeeMaterial::getMaterialNumber).toList());
+        assertEquals(List.of("Raw source material", "Different source material"),
+                rows.stream().map(ErpKingdeeMaterial::getMaterialName).toList());
+        server.verify();
+    }
+
+    @Test
     void fetchMaterials_filtersApprovedRowsAndParsesFields() {
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();

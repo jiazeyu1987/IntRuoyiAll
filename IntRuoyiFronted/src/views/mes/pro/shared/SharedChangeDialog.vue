@@ -4,7 +4,7 @@
       <el-form label-width="92px" :disabled="loading">
         <el-form-item v-if="draft.action === 'REPLACE'" label="替换为" required>
           <el-select v-model="draft.targetId" filterable class="w-full" @change="targetChanged">
-            <el-option v-for="option in targets" :key="option.id" :value="option.id" :label="[option.code, option.name, option.productName].filter(Boolean).join(' / ')" />
+            <el-option v-for="option in targets" :key="option.id" :value="option.id" :label="targetLabel(option)" />
           </el-select>
         </el-form-item>
         <el-form-item label="变更原因" required><el-input v-model="draft.reason" maxlength="1000" show-word-limit /></el-form-item>
@@ -47,19 +47,22 @@
 <script setup lang="ts">
 import { SharedChangeApi, type SharedChangeRequest, type SharedImpact, type SharedSubject } from '@/api/mes/pro/sharedChange'
 import type { Craft } from '@/api/mes/pro/craft'
+import { changeDifferences } from './changeDifferences'
 const message = useMessage()
 const visible = ref(false), loading = ref(false), error = ref(''), page = ref(1), needsPreview = ref(false)
 const impact = ref<SharedImpact>(), draft = ref<SharedChangeRequest>()
-const targets = ref<Array<{ id: number; code: string; name: string; productName?: string }>>([])
+type Target = { id: number; code: string; name: string; productName?: string; workshops?: Array<{ id: number; name: string }> }
+const targets = ref<Target[]>([])
+const targetLabel = (option: Target) => [option.code, option.name, option.productName,
+  draft.value?.subjectType === 'PROCESS' ? (option.workshops?.map(workshop => workshop.name).join('、') || '未关联车间') : undefined
+].filter(Boolean).join(' / ')
 type Group = { key: string; processName: string; summary: string; selected?: number; options: Craft[]; members: Array<{ routeId: number; routeProcessId: number; deviceIds: number[] }> }
 const parameterGroups = ref<Group[]>([])
 const emit = defineEmits<{ submitted: [] }>()
 const selectionsComplete = computed(() => !!draft.value && (draft.value.action !== 'REPLACE' || !!draft.value.targetId) && parameterGroups.value.every(g => g.selected !== undefined))
 const canSubmit = computed(() => !!draft.value?.reason.trim() && !!impact.value && !impact.value.blockers.length && !impact.value.pendingSelectionCount && !needsPreview.value && selectionsComplete.value)
 const pagedRoutes = computed(() => impact.value?.routes.slice((page.value - 1) * 20, page.value * 20) || [])
-const labels: Record<string, string> = { code: '编码', name: '名称', attention: '工序说明', sopFileUrl: 'SOP文件', productName: '产品名称', status: '状态', remark: '备注', brand: '品牌', specification: '规格型号', workshopId: '车间编号', machineryTypeId: '设备类型编号', processName: '工序名称', manualShiftCapacity: '人工班产能', standardHourlyCapacity: '小时产能', parametersJson: '工艺参数' }
-const display = (value: unknown) => value === null || value === undefined || value === '' ? '—' : String(value)
-const differences = computed(() => !impact.value ? [] : Object.entries(labels).filter(([key]) => display(impact.value!.before[key]) !== display(impact.value!.after[key])).map(([key, label]) => ({ label, before: key === 'parametersJson' ? parameterSummary(String(impact.value!.before[key])) : display(impact.value!.before[key]), after: key === 'parametersJson' ? parameterSummary(String(impact.value!.after[key])) : display(impact.value!.after[key]) })))
+const differences = computed(() => impact.value ? changeDifferences(impact.value.before, impact.value.after) : [])
 function parameterSummary(json: string) {
   return (JSON.parse(json) as Array<{ parameterName: string; standardText: string }>).map(p => `${p.parameterName}：${p.standardText}`).join('；')
 }

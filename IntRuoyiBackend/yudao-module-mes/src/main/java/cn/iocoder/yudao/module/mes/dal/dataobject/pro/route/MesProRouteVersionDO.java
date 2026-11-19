@@ -37,6 +37,10 @@ public class MesProRouteVersionDO extends BaseDO {
 
     private String lifecycleStatus;
 
+    /** 数据库生成列，跟随 active/deleted 计算，禁止作为普通列写入。 */
+    @com.baomidou.mybatisplus.annotation.TableField(
+            insertStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.NEVER,
+            updateStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.NEVER)
     private Integer activeUniqueFlag;
 
     private Long sourceRouteVersionId;

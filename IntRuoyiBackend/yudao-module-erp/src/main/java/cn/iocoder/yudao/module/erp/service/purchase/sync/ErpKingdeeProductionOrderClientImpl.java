@@ -302,14 +302,20 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         String cookieHeader = login(properties);
         int startRow = 0;
         int remaining = properties.getProductionOrder().getQueryLimit();
+        boolean fullHistory = fromDate == null && toDate == null;
         List<ErpKingdeeProductionOrder> orders = new ArrayList<>();
-        while (remaining > 0) {
-            int pageLimit = Math.min(PAGE_LIMIT, remaining);
+        // The full-refresh entry point must read through the last source page.
+        // Keep the configured cap for the separate dated initial-sync path.
+        while (fullHistory || remaining > 0) {
+            int pageLimit = fullHistory ? PAGE_LIMIT : Math.min(PAGE_LIMIT, remaining);
+            long started = System.nanoTime();
             JsonNode rows = executeBillQuery(properties, cookieHeader,
                     buildFilterString(fromDate, toDate), startRow, pageLimit);
             if (!rows.isArray()) {
                 throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "PRD_MO response is not an array");
             }
+            log.info("PRD_MO query completed: fullHistory={}, offset={}, limit={}, rows={}, elapsedMs={}",
+                    fullHistory, startRow, pageLimit, rows.size(), (System.nanoTime() - started) / 1_000_000);
             if (rows.isEmpty()) {
                 break;
             }
@@ -320,7 +326,9 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
                 break;
             }
             startRow += rows.size();
-            remaining -= rows.size();
+            if (!fullHistory) {
+                remaining -= rows.size();
+            }
         }
         return orders;
     }
@@ -366,7 +374,7 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         query.put("FormId", ErpKingdeeProductionOrder.FORM_ID);
         query.put("FieldKeys", fieldKeys);
         query.put("FilterString", filterString);
-        query.put("OrderString", "FID DESC");
+        query.put("OrderString", "FID DESC,FTreeEntity_FEntryID ASC");
         query.put("StartRow", startRow);
         query.put("Limit", limit);
 

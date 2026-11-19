@@ -5,7 +5,7 @@
       <Icon icon="ep:plus" class="mr-5px" /> 添加明细
     </el-button>
     <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true" border>
-      <el-table-column label="产品物料编码" align="center" prop="itemCode" min-width="120" />
+      <el-table-column label="产品物料编码" align="center" prop="itemCode" min-width="120"><template #default="{ row }"><ProductCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="产品物料名称" align="center" prop="itemName" min-width="140" />
       <el-table-column label="规格型号" align="center" prop="specification" min-width="120" />
       <el-table-column label="单位" align="center" prop="unitMeasureName" width="80" />
@@ -100,6 +100,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { dateFormatter2 } from '@/utils/formatTime'
 import { WmPackageLineApi, WmPackageLineVO } from '@/api/mes/wm/packages/line'
 import ProWorkOrderSelect from '@/views/mes/pro/workorder/components/ProWorkOrderSelect.vue'

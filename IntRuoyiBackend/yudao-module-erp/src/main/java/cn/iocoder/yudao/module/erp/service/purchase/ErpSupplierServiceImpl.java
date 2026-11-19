@@ -78,6 +78,9 @@ public class ErpSupplierServiceImpl implements ErpSupplierService {
 
     @Override
     public List<ErpSupplierDO> getSupplierList(Collection<Long> ids) {
+        if (ids.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
         return supplierMapper.selectByIds(ids);
     }
 

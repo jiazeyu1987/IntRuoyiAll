@@ -202,7 +202,7 @@
                         'schedule-order-pool__main-table-text'
                       ]"
                     >
-                      {{ row.productCode || '--' }}
+                      <ProductCodeLink :code="row.productCode" empty-text="--" />
                     </span>
                   </template>
                 </el-table-column>
@@ -623,7 +623,7 @@
                             'schedule-order-pool__admission-cell-text'
                           ]"
                         >
-                          {{ row.productCode || '--' }}
+                          <ProductCodeLink :code="row.productCode" empty-text="--" />
                         </span>
                       </template>
                     </el-table-column>
@@ -847,9 +847,7 @@
     <Dialog v-model="routeBindingDialogVisible" title="为产品绑定工艺路线" width="620px">
       <el-form label-width="96px">
         <el-form-item label="产品编号">
-          <span>{{
-            routeBindingTarget?.productCode || routeBindingTarget?.productId || '--'
-          }}</span>
+          <span><ProductCodeLink v-if="routeBindingTarget?.productCode" :code="routeBindingTarget.productCode" /><span v-else>{{ routeBindingTarget?.productId || '--' }}</span></span>
         </el-form-item>
         <el-form-item label="产品名称">
           <span>{{ routeBindingTarget?.productName || '--' }}</span>
@@ -1720,7 +1718,7 @@
                 <template #default="{ row }">
                   <div class="schedule-order-pool__issue-product">
                     <span>{{ getPreflightIssueProductName(row) }}</span>
-                    <small>{{ getPreflightIssueProductCode(row) }}</small>
+                    <small><ProductCodeLink :code="row.productCode || findScheduleOrderByPreflightIssue(row)?.productCode" /><span v-if="!row.productCode && !findScheduleOrderByPreflightIssue(row)?.productCode">{{ getPreflightIssueProductCode(row) }}</span></small>
                   </div>
                 </template>
               </el-table-column>
@@ -2019,6 +2017,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import dayjs from 'dayjs'

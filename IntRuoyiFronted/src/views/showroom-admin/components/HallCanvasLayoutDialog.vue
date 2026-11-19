@@ -69,8 +69,7 @@
               v-for="option in availableProductOptions"
               :key="option.itemKey"
               :label="`${option.itemType === 'AWARD' ? '奖项' : '产品'} · ${option.productCode} · ${option.nameCn}`"
-              :value="option.itemKey"
-            />
+              :value="option.itemKey">{{ `${option.itemType === 'AWARD' ? '奖项' : '产品'} · ` }}<span v-if="option.itemType === 'AWARD'">{{ option.productCode }}</span><ProductCodeLink v-else :code="option.productCode" />{{ ` · ${option.nameCn}` }}</el-option>
           </el-select>
           <el-button
             :disabled="!selectedProductId || loadingOptions || Boolean(loadError)"
@@ -112,7 +111,9 @@
             alt=""
             draggable="false"
           />
-          <button
+          <div
+            role="button"
+            tabindex="0"
             v-for="block in blocks"
             :key="block.blockId"
             class="showroom-hall-canvas-dialog__block"
@@ -121,9 +122,10 @@
               { 'is-selected': selectedBlockId === block.blockId, 'is-missing-cover': previewMode === 'website' && !block.previewImageUrl }
             ]"
             draggable="true"
-            type="button"
             :style="blockStyle(block)"
             @click="selectedBlockId = block.blockId"
+            @keydown.enter.self="selectedBlockId = block.blockId"
+            @keydown.space.self.prevent="selectedBlockId = block.blockId"
             @dragstart="handleBlockDragStart(block.blockId)"
             @drop.prevent="handleBlockDrop(block.blockId)"
           >
@@ -139,7 +141,7 @@
                 />
                 <div v-else class="showroom-hall-canvas-dialog__block-placeholder">
                   <strong>缺封面</strong>
-                  <span>{{ block.productCode }}</span>
+                  <span><span v-if="block.itemType === 'AWARD'">{{ block.productCode }}</span><ProductCodeLink v-else :code="block.productCode" /></span>
                 </div>
               </div>
               <span class="showroom-hall-canvas-dialog__block-label" data-preview-mode="website">
@@ -148,9 +150,9 @@
             </template>
             <template v-else>
               <span>{{ block.productName }}</span>
-              <small>{{ block.productCode }}</small>
+              <small><span v-if="block.itemType === 'AWARD'">{{ block.productCode }}</span><ProductCodeLink v-else :code="block.productCode" /></small>
             </template>
-          </button>
+          </div>
 
           <div
             v-for="boundary in canvasBoundaries"
@@ -179,6 +181,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { ShowroomAdminApi } from '@/api/showroom-admin'
 import { useUpload } from '@/components/UploadFile/src/useUpload'
 import {

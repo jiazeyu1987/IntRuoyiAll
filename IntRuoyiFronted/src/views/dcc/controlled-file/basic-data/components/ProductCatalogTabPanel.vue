@@ -134,8 +134,7 @@
                 prop="productCode"
                 :width="getProductCatalogColumnWidthString('productCode')"
                 :min-width="getProductCatalogColumnMinWidthString('productCode', 120)"
-                v-bind="sortColumnAttrs('productCode')"
-              />
+                v-bind="sortColumnAttrs('productCode')"><template #default="{ row }"><ProductCodeLink :code="row.productCode" /></template></el-table-column>
               <el-table-column
                 v-if="isProductCatalogColumnVisible('projectName')"
                 label="项目名称"
@@ -391,7 +390,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="产品编码" prop="productCode">
-            <el-input v-model="projectProductForm.productCode" />
+            <el-input v-model="projectProductForm.productCode" /><ProductCodeLink :code="projectProductForm.productCode" />
           </el-form-item>
         </el-col>
         <el-col :span="12">
@@ -471,7 +470,7 @@
         </template>
       </el-table-column>
       <el-table-column prop="projectCode" label="项目代码" min-width="120" />
-      <el-table-column prop="productCode" label="产品编码" min-width="120" />
+      <el-table-column prop="productCode" label="产品编码" min-width="120"><template #default="{ row }"><ProductCodeLink :code="row.productCode" /></template></el-table-column>
       <el-table-column prop="productName" label="产品名称" min-width="150" />
       <el-table-column prop="status" label="状态" width="120">
         <template #default="{ row }">{{ projectRequestStatusLabel(row.status) }}</template>
@@ -541,7 +540,7 @@
         <el-input v-model="formData.product" placeholder="请输入产品" />
       </el-form-item>
       <el-form-item label="产品编码" prop="productCode">
-        <el-input v-model="formData.productCode" placeholder="请输入产品编码" />
+        <el-input v-model="formData.productCode" placeholder="请输入产品编码" /><ProductCodeLink :code="formData.productCode" />
       </el-form-item>
       <el-form-item label="项目名称" prop="projectName">
         <el-input v-model="formData.projectName" placeholder="请输入项目名称" />
@@ -607,15 +606,15 @@
       <el-form-item label="产品目录">
         <el-input :model-value="bindingRow?.product || bindingRow?.productCode || '-'" disabled />
       </el-form-item>
-      <el-form-item label="DCC项目代码" prop="projectCodeId">
+      <el-form-item label="项目代码" prop="projectCodeId">
         <el-input v-if="bindingRow?.projectCodeId" :model-value="[bindingRow.projectCode, bindingRow.projectName].filter(Boolean).join(' - ')" disabled />
-        <el-select v-else :disabled="!canMaintainBindings" v-model="bindingFormData.projectCodeId" class="!w-100%" filterable remote :remote-method="searchBindingProjectCodes" :loading="bindingProjectCodeLoading" placeholder="输入DCC项目代码搜索" @change="handleBindingProjectCodeChange">
+        <el-select v-else :disabled="!canMaintainBindings" v-model="bindingFormData.projectCodeId" class="!w-100%" filterable remote :remote-method="searchBindingProjectCodes" :loading="bindingProjectCodeLoading" placeholder="输入项目代码搜索" @change="handleBindingProjectCodeChange">
           <el-option v-for="item in bindingProjectCodeOptions" :key="item.id" :label="`${item.projectCode} / ${item.projectName}`" :value="item.id" />
         </el-select>
       </el-form-item>
       <el-form-item label="注册证" prop="registrationCertificateId">
         <el-input v-if="bindingRow?.registrationCertificateId" :model-value="[bindingRow.registrationCertificateNumber, bindingRow.registrationCertificateName].filter(Boolean).join(' / ')" disabled />
-        <el-select v-else-if="canQueryBindingCertificates && canMaintainBindings" v-model="bindingFormData.registrationCertificateId" class="!w-100%" filterable clearable :disabled="!!bindingRow?.registrationCertificateId || !bindingFormData.projectCodeId || bindingCertificateLoading" :placeholder="bindingFormData.projectCodeId ? '选择已建立的注册证' : '请先选择DCC项目代码'">
+        <el-select v-else-if="canQueryBindingCertificates && canMaintainBindings" v-model="bindingFormData.registrationCertificateId" class="!w-100%" filterable clearable :disabled="!!bindingRow?.registrationCertificateId || !bindingFormData.projectCodeId || bindingCertificateLoading" :placeholder="bindingFormData.projectCodeId ? '选择已建立的注册证' : '请先选择项目代码'">
           <el-option v-for="item in bindingCertificateOptions" :key="item.certificateId" :label="`${item.certificateNo} / ${item.productName}`" :value="item.certificateId" />
         </el-select>
       </el-form-item>
@@ -723,7 +722,7 @@ const bindingFormData = reactive({
   relationRemark: ''
 })
 const bindingFormRules: FormRules = {
-  projectCodeId: [{ required: true, message: '请选择DCC项目代码', trigger: 'change' }]
+  projectCodeId: [{ required: true, message: '请选择项目代码', trigger: 'change' }]
 }
 const projectProductDialogVisible = ref(false)
 const projectProductMode = ref<'create' | 'records'>('create')
@@ -1664,7 +1663,7 @@ const submitBinding = async () => {
 
 const openLinkedProjectCode = (row: DccProductCatalogRespVO) => {
   if (!row.projectCodeId) {
-    message.error('当前产品目录缺少绑定的 DCC 项目代码，无法跳转')
+    message.error('当前产品目录缺少绑定的项目代码，无法跳转')
     return
   }
   router.push({

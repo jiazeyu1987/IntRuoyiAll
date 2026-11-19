@@ -37,15 +37,11 @@
           />
         </el-select>
         <div class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
-          当前快照：{{ props.file?.productCode || '-' }} / {{ props.file?.productName || '-' }}
+          当前快照：<ProductCodeLink :code="props.file?.productCode" empty-text="-" /> / {{ props.file?.productName || '-' }}
         </div>
       </el-form-item>
       <el-form-item label="产品编号" :error="metadataDialog.fieldErrors.dccProjectCodeId">
-        <el-input
-          v-model="metadataForm.productCode"
-          disabled
-          placeholder="选择 DCC 项目后自动生成"
-        />
+        <ProductCodeLink :code="metadataForm.productCode" />
       </el-form-item>
       <el-form-item label="产品名称">
         <el-input

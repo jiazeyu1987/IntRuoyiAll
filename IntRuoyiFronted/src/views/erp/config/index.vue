@@ -12,7 +12,7 @@
       <el-card shadow="never">
         <template #header>
           <div class="flex items-center justify-between">
-            <CardTitle title="ERP 配置管理" />
+            <CardTitle title="金蝶配置" />
             <el-button type="primary" @click="onSubmit" v-hasPermi="['erp:kingdee-config:save']">
               保存
             </el-button>

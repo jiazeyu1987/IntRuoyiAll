@@ -41,8 +41,7 @@
               v-for="option in productOptions"
               :key="option.itemKey"
               :label="`${option.itemType === 'AWARD' ? '奖项' : '产品'} · ${option.productCode} · ${option.nameCn} · V${option.revisionNo}`"
-              :value="option.itemKey"
-            />
+              :value="option.itemKey">{{ `${option.itemType === 'AWARD' ? '奖项' : '产品'} · ` }}<span v-if="option.itemType === 'AWARD'">{{ option.productCode }}</span><ProductCodeLink v-else :code="option.productCode" />{{ ` · ${option.nameCn} · V${option.revisionNo}` }}</el-option>
           </el-select>
         </el-form-item>
       </el-form>
@@ -61,7 +60,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="编码" min-width="160" prop="productCode" show-overflow-tooltip />
+        <el-table-column label="编码" min-width="160" prop="productCode" show-overflow-tooltip><template #default="{ row }"><span v-if="row.itemType === 'AWARD'">{{ row.productCode }}</span><ProductCodeLink v-else :code="row.productCode" /></template></el-table-column>
         <el-table-column label="中文名称" min-width="240" prop="nameCn" show-overflow-tooltip />
         <el-table-column label="版本" width="100">
           <template #default="{ row }">V{{ row.revisionNo }}</template>
@@ -103,6 +102,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { ShowroomAdminApi } from '@/api/showroom-admin'
 import {
   buildHallMappingPayload,

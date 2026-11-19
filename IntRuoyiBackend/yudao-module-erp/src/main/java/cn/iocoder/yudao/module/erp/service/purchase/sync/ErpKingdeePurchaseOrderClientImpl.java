@@ -96,14 +96,27 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
 
     @Override
     public List<ErpKingdeePurchaseOrder> fetchPurchaseOrders(ErpKingdeeProperties properties) {
+        return fetchPurchaseOrders(properties, false);
+    }
+
+    @Override
+    public List<ErpKingdeePurchaseOrder> fetchAllPurchaseOrders(ErpKingdeeProperties properties) {
+        return fetchPurchaseOrders(properties, true);
+    }
+
+    private List<ErpKingdeePurchaseOrder> fetchPurchaseOrders(ErpKingdeeProperties properties, boolean fullHistory) {
         properties.validatePurchaseOrderSyncConfig();
         String cookieHeader = login(properties);
         com.fasterxml.jackson.databind.node.ArrayNode queryResponse = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.arrayNode();
         int offset = 0;
         int pageLimit = Math.min(PAGE_LIMIT, properties.getPurchaseOrder().getQueryLimit());
         while (true) {
-            JsonNode page = executeBillQuery(properties, cookieHeader, offset);
+            long started = System.nanoTime();
+            JsonNode page = executeBillQuery(properties, cookieHeader, offset, fullHistory);
             if (!page.isArray()) { throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "purchase query is not an array"); }
+            org.slf4j.LoggerFactory.getLogger(ErpKingdeePurchaseOrderClientImpl.class).info(
+                    "PUR_PurchaseOrder query completed: fullHistory={}, offset={}, limit={}, rows={}, elapsedMs={}",
+                    fullHistory, offset, pageLimit, page.size(), (System.nanoTime() - started) / 1_000_000);
             if (page.isEmpty()) { break; }
             page.forEach(queryResponse::add);
             offset += page.size();
@@ -185,8 +198,8 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
         return CollUtil.join(CollUtil.map(cookies, cookie -> StrUtil.subBefore(cookie, ";", false), true), "; ");
     }
 
-    private JsonNode executeBillQuery(ErpKingdeeProperties properties, String cookieHeader, int offset) {
-        Map<String, Object> query = buildPurchaseOrderQuery(properties);
+    private JsonNode executeBillQuery(ErpKingdeeProperties properties, String cookieHeader, int offset, boolean fullHistory) {
+        Map<String, Object> query = buildPurchaseOrderQuery(properties, fullHistory);
         query.put("StartRow", offset);
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("data", JsonUtils.toJsonString(query));
@@ -260,15 +273,17 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
         return parseMaterialDetail(material, materialNumber);
     }
 
-    private Map<String, Object> buildPurchaseOrderQuery(ErpKingdeeProperties properties) {
+    private Map<String, Object> buildPurchaseOrderQuery(ErpKingdeeProperties properties, boolean fullHistory) {
         ErpKingdeeProperties.PurchaseOrderProperties purchaseOrder = properties.getPurchaseOrder();
         LocalDate today = LocalDate.now();
         LocalDate startDate = today.minusDays(purchaseOrder.getQueryDays());
         LocalDate nextDay = today.plusDays(1);
 
-        String filterString = "FPurchaseOrgId.FNumber = '" + purchaseOrder.getPurchaseOrgNumber() + "'"
-                + " and ((FCreateDate >= '" + startDate + " 00:00:00' and FCreateDate < '" + nextDay + " 00:00:00')"
-                + " or (FDate >= '" + startDate + "' and FDate < '" + nextDay + "'))";
+        String filterString = "FPurchaseOrgId.FNumber = '" + purchaseOrder.getPurchaseOrgNumber() + "'";
+        if (!fullHistory) {
+            filterString += " and ((FCreateDate >= '" + startDate + " 00:00:00' and FCreateDate < '" + nextDay + " 00:00:00')"
+                    + " or (FDate >= '" + startDate + "' and FDate < '" + nextDay + "'))";
+        }
 
         Map<String, Object> query = new LinkedHashMap<>();
         query.put("FormId", ErpKingdeePurchaseOrder.FORM_ID);
@@ -310,7 +325,7 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
         order.setDocumentStatus(requiredText(row, INDEX_DOCUMENT_STATUS, "FDocumentStatus"));
         order.setCloseStatus(optionalText(row, INDEX_CLOSE_STATUS));
         order.setCancelStatus(optionalText(row, INDEX_CANCEL_STATUS));
-        order.setSupplierNumber(requiredText(row, INDEX_SUPPLIER_NUMBER, "FSupplierId.FNumber"));
+        order.setSupplierNumber(nullableText(row, INDEX_SUPPLIER_NUMBER));
         order.setSupplierName(optionalText(row, INDEX_SUPPLIER_NAME));
         order.setDiscountAmount(parseDecimal(requiredText(row, 19, "FAllDisCount"), "FAllDisCount"));
         order.setDepositAmount(parseDecimal(requiredText(row, 20, "FDeposit"), "FDeposit"));
@@ -322,14 +337,14 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
 
     private ErpKingdeePurchaseOrder.Line buildLine(JsonNode row) {
         ErpKingdeePurchaseOrder.Line line = new ErpKingdeePurchaseOrder.Line();
-        line.setMaterialNumber(requiredText(row, INDEX_MATERIAL_NUMBER, "FMaterialId.FNumber"));
+        line.setMaterialNumber(nullableText(row, INDEX_MATERIAL_NUMBER));
         line.setMaterialName(optionalText(row, INDEX_MATERIAL_NAME));
         line.setQuantity(parseDecimal(requiredText(row, INDEX_QTY, "FQty"), "FQty"));
         line.setPrice(parseDecimal(requiredText(row, INDEX_PRICE, "FPrice"), "FPrice"));
         line.setTaxPercent(parseDecimal(requiredText(row, INDEX_TAX_RATE, "FEntryTaxRate"), "FEntryTaxRate"));
         line.setRemark(optionalText(row, INDEX_LINE_REMARK));
-        line.setUnitName(requiredText(row, 15, "FUnitId.FName"));
-        line.setPriceUnitName(requiredText(row, 25, "FPriceUnitId.FName"));
+        line.setUnitName(nullableText(row, 15));
+        line.setPriceUnitName(nullableText(row, 25));
         line.setPriceUnitQuantity(parseDecimal(requiredText(row, 26, "FPriceUnitQty"), "FPriceUnitQty"));
         line.setTaxAmount(parseDecimal(requiredText(row, 16, "FEntryTaxAmount"), "FEntryTaxAmount"));
         line.setNetAmount(parseDecimal(requiredText(row, 17, "FEntryAmount"), "FEntryAmount"));
@@ -443,6 +458,11 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
             throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, fieldName + " is blank");
         }
         return value;
+    }
+
+    private String nullableText(JsonNode row, int index) {
+        JsonNode value = row.get(index);
+        return value == null || value.isNull() ? null : value.asText();
     }
 
     private String optionalText(JsonNode row, int index) {

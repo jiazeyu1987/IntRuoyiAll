@@ -1,7 +1,7 @@
 <template>
-  <section v-if="source" data-active-order-rework-source>
+  <section v-if="source" class="active-order-rework-source" data-active-order-rework-source>
     <el-alert v-if="location.error" :title="location.error" type="error" :closable="false" show-icon />
-    <el-descriptions v-else title="返工来源" :column="2" border size="small">
+    <el-descriptions v-else :column="2" :label-width="112" border size="small">
       <el-descriptions-item label="当前生产周期"><span data-active-order-rework-current-cycle>{{ source.currentActiveOrderId }}</span></el-descriptions-item>
       <el-descriptions-item label="原生产周期">
         <router-link v-if="location.target" :to="location.target" data-active-order-rework-source-link>{{ source.sourceActiveOrderId }}</router-link>
@@ -15,7 +15,7 @@
       <el-descriptions-item label="QA签署人">{{ source.qaSignature.signerName }}（账号 {{ source.qaUserId }}）</el-descriptions-item>
       <el-descriptions-item label="QA签名编号"><span data-active-order-rework-qa-signature>{{ source.qaSignature.signatureId }}</span></el-descriptions-item>
       <el-descriptions-item label="QA签署时间">{{ formatDateTimeValue(source.qaSignature.signedAt) }}</el-descriptions-item>
-      <el-descriptions-item label="证据核验">{{ source.qaSignatureVerification.verificationStatus }}</el-descriptions-item>
+      <el-descriptions-item label="证据核验">{{ verificationStatusLabel(source.qaSignatureVerification.verificationStatus) }}</el-descriptions-item>
     </el-descriptions>
   </section>
 </template>
@@ -26,6 +26,7 @@ import { useUserStore } from '@/store/modules/user'
 import type { TeamLeaderActiveOrderReworkSourceRespVO } from '@/api/mes/pro/processpool/teamLeader'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import { buildReworkSourceDetailLocation } from './activeOrderReworkSourceLocation'
+import { verificationStatusLabel } from './activeOrderDisplayLabels'
 
 const props = defineProps<{ activeOrderId: number | string; source?: TeamLeaderActiveOrderReworkSourceRespVO }>()
 const userStore = useUserStore()
@@ -38,3 +39,18 @@ const location = computed(() => {
   }
 })
 </script>
+
+<style scoped>
+.active-order-rework-source :deep(.el-descriptions__table) {
+  table-layout: fixed;
+}
+
+.active-order-rework-source :deep(.el-descriptions__label) {
+  width: 112px;
+  white-space: nowrap;
+}
+
+.active-order-rework-source :deep(.el-descriptions__content) {
+  overflow-wrap: anywhere;
+}
+</style>

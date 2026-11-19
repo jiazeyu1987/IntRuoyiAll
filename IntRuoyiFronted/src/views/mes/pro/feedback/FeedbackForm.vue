@@ -94,7 +94,7 @@
       <el-row :gutter="20" v-if="productInfo.itemCode">
         <el-col :span="8">
           <el-form-item label="产品编码">
-            <el-input :model-value="productInfo.itemCode" disabled />
+            <ProductCodeLink :code="productInfo.itemCode" />
           </el-form-item>
         </el-col>
         <el-col :span="8">
@@ -305,6 +305,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import {
   ProFeedbackApi,

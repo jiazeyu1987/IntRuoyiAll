@@ -19,7 +19,7 @@
       data-team-leader-type-tabs
       @tab-change="handleLeaderTypeChange"
     >
-      <el-tab-pane label="生产组长" name="PRODUCTION" />
+      <el-tab-pane label="生产班长" name="PRODUCTION" />
       <el-tab-pane label="PQC 组长" name="PQC" />
     </el-tabs>
     <div
@@ -1013,7 +1013,7 @@
           >
             <template #default="{ row }">
               <span data-pqc-leader-submission-product>
-                {{ row.productCode || row.productName || '--' }}
+                <ProductCodeLink v-if="row.productCode" :code="row.productCode" /><span v-else>{{ row.productName || '--' }}</span>
               </span>
             </template>
           </el-table-column>
@@ -1691,7 +1691,7 @@
           v-model="activeOrderWorkOrderKeyword"
           class="team-leader-workbench__active-order-filter"
           clearable
-          placeholder="筛选生产订单号"
+          placeholder="筛选生产订单号或批次号"
           data-team-leader-active-order-work-order-filter
           @input="handleActiveOrderWorkOrderKeywordChange"
           @clear="handleActiveOrderWorkOrderKeywordChange"
@@ -1775,8 +1775,8 @@
               <div class="team-leader-workbench__active-order-code-cell">
                 <span
                   data-team-leader-active-order-work-order-code
+                  :title="row.abnormal ? `${row.workOrderCode}\n${row.abnormalReason}` : row.workOrderCode"
                   :class="{ 'team-leader-workbench__abnormal-work-order-id': row.abnormal }"
-                  :title="row.abnormal ? row.abnormalReason : undefined"
                 >
                   {{ row.workOrderCode }}
                 </span>
@@ -1806,6 +1806,9 @@
                 </el-tag>
               </div>
             </template>
+          </el-table-column>
+          <el-table-column label="批次号" prop="batchCode" min-width="180">
+            <template #default="{ row }">{{ row.batchCode || '批次号缺失' }}</template>
           </el-table-column>
           <el-table-column label="产品名称" prop="productName" min-width="200" />
           <el-table-column label="路线名称" prop="routeName" min-width="200" />
@@ -3666,7 +3669,7 @@
                   </div>
                   <div>
                     <span>产品</span>
-                    <strong>{{ formatActiveOrderProduct(order) }}</strong>
+                    <strong><span>{{ order.productName }}</span><span v-if="order.productName && order.productCode"> / </span><ProductCodeLink :code="order.productCode" /><span v-if="!order.productName && !order.productCode">未返回产品</span></strong>
                   </div>
                   <div>
                     <span>数量</span>
@@ -4118,6 +4121,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import LossReasonCatalog from './components/LossReasonCatalog.vue'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import ProductionQuantityDrafts from './components/ProductionQuantityDrafts.vue'
@@ -4705,6 +4709,7 @@ const activeOrderOperatorOptions: any[] = []
 const activeOrderWorkOrderKeyword = ref('')
 const activeOrderColumns: any[] = [
   { key: 'workOrderCode', label: '生产订单号', visible: true },
+  { key: 'batchCode', label: '批次号', visible: true },
   { key: 'productName', label: '产品名称', visible: true },
   { key: 'routeName', label: '路线名称', visible: true },
   { key: 'erpFixedQuantitySnapshot', label: 'ERP生产数量', visible: true },
@@ -5006,7 +5011,8 @@ const filteredActiveOrderRows = computed(() => {
   const keyword = normalizedActiveOrderWorkOrderKeyword.value
   if (!keyword) return anchored
   return anchored.filter((order) =>
-    String(order.workOrderCode || '').toLowerCase().includes(keyword)
+    String(order.workOrderCode || '').toLowerCase().includes(keyword) ||
+    String(order.batchCode || '').toLowerCase().includes(keyword)
   )
 })
 const activeOrderTotal = computed(() => filteredActiveOrderRows.value.length)
@@ -12046,16 +12052,31 @@ const allColumnDisplayFilters1: ListColumnFilterDefinition[] = [
 
 .team-leader-workbench__active-order-code-cell {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
   min-width: 0;
 }
 
 .team-leader-workbench__active-order-code-cell > span:first-child {
+  width: 100%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.team-leader-workbench__active-order-code-cell :deep(.el-tag) {
+  flex-shrink: 0;
+  max-width: 100%;
+  height: auto;
+  min-height: 24px;
+  white-space: normal;
+}
+
+.team-leader-workbench__active-order-code-cell :deep(.el-tag__content) {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .team-leader-workbench__active-order-process-detail.is-quantity-conflict {

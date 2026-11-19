@@ -50,10 +50,10 @@ public class MesPqcPackagingLeaderOrderService {
                 throw exception(PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED, "活跃订单正式租户或工单来源");
             }
             return new OrderRow(order.getId(), workOrder.getId(), workOrder.getCode(), workOrder.getName(),
-                    workOrder.getQuantity(), order.getLeaderUserId(), order.getRouteId(), order.getBusinessStatus());
+                    workOrder.getBatchCode(), workOrder.getQuantity(), order.getLeaderUserId(), order.getRouteId(), order.getBusinessStatus());
         }).toList();
     }
 
     public record OrderRow(Long activeOrderId, Long workOrderId, String workOrderCode, String workOrderName,
-                           BigDecimal quantity, Long productionLeaderUserId, Long routeId, String businessStatus) {}
+                           String batchCode, BigDecimal quantity, Long productionLeaderUserId, Long routeId, String businessStatus) {}
 }

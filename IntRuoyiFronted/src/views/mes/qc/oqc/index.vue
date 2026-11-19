@@ -97,7 +97,7 @@
       <el-table-column label="检验单名称" align="center" prop="name" min-width="180" />
       <el-table-column label="客户名称" align="center" prop="clientNickname" width="120" />
       <el-table-column label="批次号" align="center" prop="batchCode" width="130" />
-      <el-table-column label="产品物料编码" align="center" prop="itemCode" width="130" />
+      <el-table-column label="产品物料编码" align="center" prop="itemCode" width="130"><template #default="{ row }"><ProductCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="产品物料名称" align="center" prop="itemName" min-width="150" />
       <el-table-column label="规格型号" align="center" prop="itemSpecification" min-width="150" />
       <el-table-column label="单位" align="center" prop="unitName" width="80" />
@@ -166,6 +166,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { dateFormatter2 } from '@/utils/formatTime'
 import download from '@/utils/download'
