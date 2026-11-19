@@ -1016,10 +1016,39 @@ class BpmNativeApprovalTaskProviderTest {
         assertEquals("流程申请", summary.getBusinessTitle());
         assertEquals("/bpm/process-instance/detail", summary.getDetailRoute());
         assertEquals("pi-100", summary.getDetailQuery().get("id"));
+        assertNull(summary.getDecisionDetailRoute());
 
         ArgumentCaptor<ApprovalTaskQueryContext> captor=ArgumentCaptor.forClass(ApprovalTaskQueryContext.class);
         verify(centerQuery).initiated(captor.capture());
         assertEquals("流程",captor.getValue().getKeyword());
+    }
+
+    @Test
+    void pageMyInitiatedOpensRegistrationCertificateRequestAsReadOnlyDetail() {
+        HistoricProcessInstance instance = mock(HistoricProcessInstance.class);
+        when(instance.getId()).thenReturn("pi-regcert-initiated");
+        when(instance.getStartUserId()).thenReturn("100");
+        when(instance.getProcessVariables()).thenReturn(Map.of(
+                "registrationCertificateAccessRequestId", 8801L,
+                "requestId", 8801L,
+                "certificateId", 7701L,
+                "requestType", "UPLOAD_CERTIFICATE",
+                "requestOperation", "UPLOAD_CERTIFICATE"));
+        when(centerQuery.initiated(any()))
+                .thenReturn(new PageResult<>(List.of(instance), 1L));
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.MY_INITIATED, ApprovalModuleCode.BPM, null, 1, 10)).getList().get(0);
+
+        assertEquals("/mdm/registration-certificate/detail/7701", summary.getDecisionDetailRoute());
+        assertEquals(Map.of("requestId", "8801", "processInstanceId", "pi-regcert-initiated"),
+                summary.getDecisionDetailQuery());
+        assertEquals(100L, summary.getInitiatorUserId());
+        assertEquals(Set.of("OPEN_DETAIL"), summary.getAvailableActions());
+        assertEquals(Boolean.FALSE, summary.getRequiresSignature());
+        assertEquals("/bpm/process-instance/detail", summary.getDetailRoute());
+        assertEquals(Map.of("id", "pi-regcert-initiated"), summary.getDetailQuery());
+        verify(roleApi, never()).getRoleByCode(any());
     }
 
     @Test

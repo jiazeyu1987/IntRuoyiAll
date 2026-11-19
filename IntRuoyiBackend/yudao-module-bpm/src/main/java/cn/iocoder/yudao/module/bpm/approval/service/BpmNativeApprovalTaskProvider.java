@@ -488,6 +488,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
         Map<String, String> detailQuery = new LinkedHashMap<>();
         detailQuery.put("id", instance.getId());
         Map<String, Object> variables = instance.getProcessVariables();
+        boolean registrationCertificateApproval = isRegistrationCertificateAccessApproval(variables);
         return enrichSummary(ApprovalTaskSummary.builder()
                 .id("BPM:" + PROCESS_INSTANCE_SOURCE + ":" + instance.getId())
                 .moduleCode(ApprovalModuleCode.BPM)
@@ -509,6 +510,9 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
                 .requiresSignature(Boolean.FALSE)
                 .detailRoute("/bpm/process-instance/detail")
                 .detailQuery(detailQuery)
+                .decisionDetailRoute(registrationCertificateApproval ? resolveDecisionDetailRoute(variables) : null)
+                .decisionDetailQuery(registrationCertificateApproval
+                        ? buildDecisionDetailQuery(variables, instance.getId()) : Map.of())
                 .availableActions(DETAIL_ACTIONS)
                 .capabilities(CAPABILITIES)
                 .build(), instance.getProcessDefinitionKey());
