@@ -11,6 +11,34 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MesProRouteResourceTransferServiceTest {
     private final MesProRouteResourceTransferService service = new MesProRouteResourceTransferService();
+    @Test void importedProcessKeyedConfigurationsRemapBothKeysAndValues() {
+        for (String collection : List.of("scheduleConfigs", "batchUseConfigs", "scheduleUseConfigs", "productionProcessConfigs")) {
+            String source = "{\"configSnapshots\":{\"" + collection + "\":{\"11\":{\"routeProcessId\":11,\"capacityMode\":\"RESOURCE_CALCULATED\",\"remark\":null}}}}";
+            JSONObject result = JSON.parseObject(MesProRouteResourceImportService.rewriteJson(source,
+                Map.of("mes_pro_route_process:11", 111L)));
+            JSONObject configs = result.getJSONObject("configSnapshots").getJSONObject(collection);
+            assertEquals(Set.of("111"), configs.keySet(), collection);
+            assertEquals(111L, configs.getJSONObject("111").getLong("routeProcessId"));
+            assertTrue(configs.getJSONObject("111").containsKey("remark"));
+        }
+    }
+    @Test void inconsistentOrUnmappedProcessKeysFailRatherThanFreezeAnInvalidSnapshot() {
+        assertThrows(ServiceException.class, () -> MesProRouteResourceImportService.rewriteJson(
+            "{\"scheduleConfigs\":{\"11\":{\"routeProcessId\":12}}}",
+            Map.of("mes_pro_route_process:11",111L,"mes_pro_route_process:12",112L)));
+        assertThrows(ServiceException.class, () -> MesProRouteResourceImportService.rewriteJson(
+            "{\"scheduleConfigs\":{\"12\":{\"routeProcessId\":12}}}", Map.of("mes_pro_route_process:11",111L)));
+        assertThrows(ServiceException.class, () -> MesProRouteResourceImportService.rewriteJson(
+            "{\"scheduleConfigs\":{\"11\":{\"routeProcessId\":11},\"12\":{\"routeProcessId\":12}}}",
+            Map.of("mes_pro_route_process:11",111L,"mes_pro_route_process:12",111L)));
+    }
+    @Test void arrayConfigurationsAndBusinessCodeObjectKeysKeepTheirDeclaredMeaning() {
+        JSONObject result = JSON.parseObject(MesProRouteResourceImportService.rewriteJson(
+            "{\"scheduleConfigs\":[{\"routeProcessId\":11}],\"labels\":{\"11\":\"business label\"}}",
+            Map.of("mes_pro_route_process:11",111L)));
+        assertEquals(111L, result.getJSONArray("scheduleConfigs").getJSONObject(0).getLong("routeProcessId"));
+        assertEquals("business label", result.getJSONObject("labels").getString("11"));
+    }
     @Test void existingJsonResourcesCompareByContentWhileRetainingExplicitNulls() {
         assertTrue(MesProRouteResourceImportService.equalValue("parameters_json", "{\"a\":1,\"b\":null}", "{\"b\":null,\"a\":1}"));
         assertFalse(MesProRouteResourceImportService.equalValue("parameters_json", "{\"a\":1}", "{\"a\":1,\"b\":null}"));

@@ -65,7 +65,7 @@ public class MesProRouteResourceImportService {
                     row.put(column, rewriteJson(row.getString(column), ids));
             }
             if (table.equals("mes_pro_craft")) row.put("fingerprint", cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.fingerprint(row.getLong("process_id"), JSON.parseArray(row.getString("parameters_json"))));
-            if (table.equals("mes_pro_route_version")) row.put("route_snapshot_sha256", new MesProRouteSnapshotCanonicalizer().sha256(row.getString("route_snapshot_json")));
+            if (table.equals("mes_pro_route_version")) freezeSnapshot(row);
             rewritten.put(entry.getKey(), row);
             if (existing.contains(entry.getKey())) {
                 Map<String, Object> values = jdbc.queryForMap("SELECT " + String.join(",", requireTable(table).columns())
@@ -126,6 +126,12 @@ public class MesProRouteResourceImportService {
             var versions = resources.entrySet().stream().filter(e -> table(e.getKey()).equals("mes_pro_route_version") && Objects.equals(e.getValue().getLong("route_id"), id)).map(Map.Entry::getValue).toList();
             if (versions.size() != 1 || !Boolean.TRUE.equals(versions.get(0).getBoolean("active")) || !"ACTIVE".equals(versions.get(0).getString("lifecycle_status")))
                 throw invalidParamException("每条流程必须包含且仅包含一个生效版本：" + route.getValue().getString("code"));
+            JSONObject version = versions.get(0);
+            var canonicalizer = new MesProRouteSnapshotCanonicalizer();
+            if (!canonicalizer.validate(id, version.getString("route_snapshot_json")).ready()
+                || !MesProRouteSnapshotCanonicalizer.FORMAT_VERSION.equals(version.getString("route_snapshot_format_version"))
+                || !canonicalizer.sha256(version.getString("route_snapshot_json")).equals(version.getString("route_snapshot_sha256")))
+                throw invalidParamException("导入源快照身份或内容无效：" + route.getValue().getString("code"));
             var bindings = resources.entrySet().stream().filter(e -> table(e.getKey()).equals("mes_pro_route_dcc_project_binding") && Objects.equals(e.getValue().getLong("route_id"), id)).map(Map.Entry::getValue).toList();
             if (bindings.size() != 1 || !projects.add(bindings.get(0).getString("dcc_project_code_id")))
                 throw invalidParamException("流程项目绑定缺失或同一项目关联多条流程");
@@ -161,13 +167,38 @@ public class MesProRouteResourceImportService {
     static String rewriteJson(String value, Map<String, Long> ids) {
         return JSON.toJSONString(rewrite(JSON.parse(value), ids), com.alibaba.fastjson.serializer.SerializerFeature.WriteMapNullValue);
     }
+    static void freezeSnapshot(JSONObject row) {
+        MesProRouteSnapshotCanonicalizer canonicalizer = new MesProRouteSnapshotCanonicalizer();
+        var validation = canonicalizer.validate(row.getLong("route_id"), row.getString("route_snapshot_json"));
+        if (!validation.ready()) throw invalidParamException("导入快照校验失败：" + validation.blockers());
+        if (!MesProRouteSnapshotCanonicalizer.FORMAT_VERSION.equals(row.getString("route_snapshot_format_version")))
+            throw invalidParamException("导入快照格式版本不受支持");
+        row.put("route_snapshot_sha256", canonicalizer.sha256(row.getString("route_snapshot_json")));
+    }
+    private static final Set<String> PROCESS_KEYED_CONFIGURATIONS = Set.of(
+        "scheduleConfigs", "batchUseConfigs", "scheduleUseConfigs", "productionProcessConfigs");
+
+    private static JSONObject rewriteProcessKeys(JSONObject configs, Map<String, Long> ids) {
+        JSONObject result = new JSONObject(true);
+        for (String key : configs.keySet()) {
+            JSONObject config = configs.getJSONObject(key);
+            if (config == null || !key.equals(config.getString("routeProcessId")))
+                throw invalidParamException("快照工序索引与内容不一致：" + key);
+            String mapped = String.valueOf(remap("mes_pro_route_process", config.get("routeProcessId"), ids));
+            if (result.containsKey(mapped)) throw invalidParamException("快照工序索引映射冲突：" + key);
+            result.put(mapped, rewrite(config, ids));
+        }
+        return result;
+    }
     static Object rewrite(Object value, Map<String, Long> ids) {
         if (value instanceof JSONObject object) {
             for (String key : new ArrayList<>(object.keySet())) {
                 String target = JSON_REFERENCES.get(key);
                 if (key.equals("candidateSourceIds")) target = candidateTable(object.getString("candidateSourceType"));
                 Object current = object.get(key);
-                if (target != null) {
+                if (PROCESS_KEYED_CONFIGURATIONS.contains(key) && current instanceof JSONObject configs) {
+                    object.put(key, rewriteProcessKeys(configs, ids));
+                } else if (target != null) {
                     if (current instanceof JSONArray array) for (int i = 0; i < array.size(); i++) array.set(i, remap(target, array.get(i), ids));
                     else object.put(key, remap(target, current, ids));
                 } else if (key.equals("id") && positive(current)) {

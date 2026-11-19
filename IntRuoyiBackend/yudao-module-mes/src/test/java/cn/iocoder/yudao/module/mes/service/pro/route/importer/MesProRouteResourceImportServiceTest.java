@@ -17,6 +17,12 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class MesProRouteResourceImportServiceTest {
+    @Test void invalidSnapshotCannotBeFrozenEvenWhenItsJsonIsWellFormed() {
+        JSONObject row = JSON.parseObject("{\"route_id\":11,\"route_snapshot_json\":\"{}\",\"route_snapshot_format_version\":\"MES_ROUTE_SNAPSHOT_CANONICAL_V1\"}");
+        ServiceException failure = assertThrows(ServiceException.class, () -> MesProRouteResourceImportService.freezeSnapshot(row));
+        assertTrue(failure.getMessage().contains("导入快照校验失败"));
+        assertNull(row.getString("route_snapshot_sha256"));
+    }
     private final MesProRouteResourceImportService service = new MesProRouteResourceImportService();
     private final MesProRouteResourceTransferService reader = mock(MesProRouteResourceTransferService.class);
     private final Workbook workbook = mock(Workbook.class);
@@ -26,13 +32,26 @@ class MesProRouteResourceImportServiceTest {
         ReflectionTestUtils.setField(service, "reader", reader);
         var resources = new LinkedHashMap<String, JSONObject>();
         resources.put("mes_pro_route:11", JSON.parseObject("{\"id\":11,\"code\":\"ROUTE-001\"}"));
-        resources.put("mes_pro_route_version:12", JSON.parseObject("{\"id\":12,\"route_id\":11,\"active\":true,\"lifecycle_status\":\"ACTIVE\"}"));
+        JSONObject version = JSON.parseObject("{\"id\":12,\"route_id\":11,\"active\":true,\"lifecycle_status\":\"ACTIVE\"}");
+        String snapshot = "{\"routeId\":11,\"configSnapshots\":{\"flowGraph\":{\"nodes\":[{\"routeProcessId\":1,\"processId\":501,\"sort\":1}]}}}";
+        version.put("route_snapshot_json",snapshot);
+        version.put("route_snapshot_sha256",new cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteSnapshotCanonicalizer().sha256(snapshot));
+        version.put("route_snapshot_format_version","MES_ROUTE_SNAPSHOT_CANONICAL_V1");
+        resources.put("mes_pro_route_version:12", version);
         resources.put("mes_pro_route_dcc_project_binding:13", JSON.parseObject("{\"id\":13,\"route_id\":11,\"dcc_project_code_id\":14}"));
         resources.put("dcc_project_code:14", JSON.parseObject("{\"id\":14,\"project_code\":\"PROJECT-001\"}"));
         when(reader.readResources(workbook)).thenReturn(resources);
     }
 
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
+
+    @Test void invalidSourceIdentityFailsBeforeAnyDatabaseWork() {
+        var resources = reader.readResources(workbook);
+        resources.get("mes_pro_route_version:12").put("route_snapshot_sha256","0".repeat(64));
+        JdbcTemplate jdbc = jdbcWithConflict("mes_pro_route",false);
+        assertTrue(assertThrows(ServiceException.class, () -> service.importWorkbook(workbook)).getMessage().contains("导入源快照身份或内容无效"));
+        verifyNoInteractions(jdbc);
+    }
 
     private JdbcTemplate jdbcWithConflict(String table, boolean deleted) {
         JdbcTemplate jdbc = mock(JdbcTemplate.class, call -> {
