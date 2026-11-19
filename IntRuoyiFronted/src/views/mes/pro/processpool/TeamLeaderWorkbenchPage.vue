@@ -1013,7 +1013,7 @@
           >
             <template #default="{ row }">
               <span data-pqc-leader-submission-product>
-                {{ row.productCode || row.productName || '--' }}
+                <ProductCodeLink v-if="row.productCode" :code="row.productCode" /><span v-else>{{ row.productName || '--' }}</span>
               </span>
             </template>
           </el-table-column>
@@ -3669,7 +3669,7 @@
                   </div>
                   <div>
                     <span>产品</span>
-                    <strong>{{ formatActiveOrderProduct(order) }}</strong>
+                    <strong><span>{{ order.productName }}</span><span v-if="order.productName && order.productCode"> / </span><ProductCodeLink :code="order.productCode" /><span v-if="!order.productName && !order.productCode">未返回产品</span></strong>
                   </div>
                   <div>
                     <span>数量</span>
@@ -4121,6 +4121,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import LossReasonCatalog from './components/LossReasonCatalog.vue'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import ProductionQuantityDrafts from './components/ProductionQuantityDrafts.vue'

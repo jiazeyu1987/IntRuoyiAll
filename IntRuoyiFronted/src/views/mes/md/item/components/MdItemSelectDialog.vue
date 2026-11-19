@@ -83,7 +83,7 @@
                 />
               </template>
             </el-table-column>
-            <el-table-column label="物料编码" align="center" prop="code" width="200" />
+            <el-table-column label="物料编码" align="center" prop="code" width="200"><template #default="{ row }"><ProductCodeLink :code="row.code" /></template></el-table-column>
             <el-table-column label="物料名称" align="left" prop="name" min-width="150" />
             <el-table-column label="规格型号" align="left" prop="specification" min-width="120" />
             <el-table-column label="单位" align="center" prop="unitMeasureName" width="80" />
@@ -122,6 +122,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { DICT_TYPE } from '@/utils/dict'
 import { CommonStatusEnum } from '@/utils/constants'
 import { dateFormatter } from '@/utils/formatTime'

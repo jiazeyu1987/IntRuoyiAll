@@ -569,8 +569,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
                 :key="product.id"
                 :value="product.id"
                 :label="`${product.productCode} / ${product.nameCn}${product.modelSpecification ? ' / ' + product.modelSpecification : ''}${product.status !== MDM_PRODUCT_STATUS_ENABLE ? '（已停用）' : ''}`"
-                :disabled="product.status !== MDM_PRODUCT_STATUS_ENABLE"
-              />
+                :disabled="product.status !== MDM_PRODUCT_STATUS_ENABLE"><ProductCodeLink :code="product.productCode" />{{ ` / ${product.nameCn}${product.modelSpecification ? ' / ' + product.modelSpecification : ''}${product.status !== MDM_PRODUCT_STATUS_ENABLE ? '（已停用）' : ''}` }}</el-option>
             </el-select>
             <el-button
               :disabled="!canQueryBindingProducts || bindingProductsLoading"
@@ -669,7 +668,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
       <el-table-column prop="projectName" label="项目名称" min-width="180" show-overflow-tooltip />
       <el-table-column prop="projectCode" label="项目代码" min-width="140" show-overflow-tooltip />
       <el-table-column prop="productNameCn" label="产品中文名" min-width="160" show-overflow-tooltip />
-      <el-table-column prop="dccProductCode" label="产品编号" min-width="150" show-overflow-tooltip />
+      <el-table-column prop="dccProductCode" label="产品编号" min-width="150" show-overflow-tooltip><template #default="{ row }"><ProductCodeLink :code="row.dccProductCode" /></template></el-table-column>
       <el-table-column label="操作" width="110" fixed="right">
         <template #default="{ row }">
           <el-button
@@ -706,15 +705,14 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
             v-for="product in productOnboardingProducts"
             :key="product.id"
             :label="`${product.nameCn} / ${product.dccProductCode || product.productCode}`"
-            :value="product.id"
-          />
+            :value="product.id">{{ `${product.nameCn} / ` }}<ProductCodeLink :code="product.dccProductCode || product.productCode" /></el-option>
         </el-select>
       </el-form-item>
       <el-form-item label="产品编码" prop="productCode">
-        <el-input v-model="productOnboardingFormData.productCode" placeholder="请输入 MDM 产品编码" />
+        <el-input v-model="productOnboardingFormData.productCode" placeholder="请输入 MDM 产品编码" /><ProductCodeLink :code="productOnboardingFormData.productCode" />
       </el-form-item>
       <el-form-item label="产品编号" prop="dccProductCode">
-        <el-input v-model="productOnboardingFormData.dccProductCode" placeholder="14 位字母或数字" />
+        <el-input v-model="productOnboardingFormData.dccProductCode" placeholder="14 位字母或数字" /><ProductCodeLink :code="productOnboardingFormData.dccProductCode" />
       </el-form-item>
       <el-form-item label="产品中文名" prop="productNameCn">
         <el-input v-model="productOnboardingFormData.productNameCn" placeholder="请输入产品中文名" />
@@ -1229,7 +1227,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
         <template #default="{ row }">{{ row.projectName || '-' }}</template>
       </el-table-column>
       <el-table-column label="产品编号" prop="projectCode" min-width="140">
-        <template #default="{ row }">{{ row.projectCode || '-' }}</template>
+        <template #default="{ row }"><ProductCodeLink :code="row.projectCode" empty-text="-" /></template>
       </el-table-column>
       <el-table-column label="被分配人" prop="assigneeNickname" min-width="120">
         <template #default="{ row }">{{ row.assigneeNickname || row.assigneeUserId }}</template>
@@ -1422,6 +1420,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
 </template>
 
 <script lang="ts" setup>
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'

@@ -291,12 +291,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="产品编号">
-          <el-input
-            :model-value="selectedTransferProjectCode?.projectCode || ''"
-            class="!w-420px"
-            readonly
-            placeholder="选择 DCC 项目后自动生成"
-          />
+          <ProductCodeLink :code="selectedTransferProjectCode?.projectCode" />
         </el-form-item>
         <el-form-item label="生效日期" prop="effectiveDate">
           <el-date-picker
@@ -640,6 +635,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { useTestMode } from '@/store/modules/testMode'
 
 import { ElMessageBox, type ElTree } from 'element-plus'

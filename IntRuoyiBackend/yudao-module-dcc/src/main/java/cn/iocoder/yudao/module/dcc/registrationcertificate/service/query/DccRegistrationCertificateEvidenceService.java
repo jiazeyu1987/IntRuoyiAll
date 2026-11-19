@@ -61,11 +61,16 @@ public class DccRegistrationCertificateEvidenceService {
                 for (var task : tasks) {
                     var variables = task.getTaskLocalVariables();
                     Object status = variables.get("TASK_STATUS");
-                    if (!Integer.valueOf(2).equals(status) && !Integer.valueOf(3).equals(status)) continue;
+                    if (!cn.iocoder.yudao.module.bpm.enums.task.BpmTaskStatusEnum.APPROVE.getStatus().equals(status) && !cn.iocoder.yudao.module.bpm.enums.task.BpmTaskStatusEnum.REJECT.getStatus().equals(status)) continue;
                     var review = new java.util.LinkedHashMap<String, Object>();
                     review.put("taskId", task.getId());
                     review.put("taskName", task.getName());
                     review.put("reviewerUserId", task.getAssignee());
+                    if (task.getAssignee() != null) {
+                        var reviewerNames = jdbc.queryForList("SELECT nickname FROM system_users WHERE tenant_id=? AND id=? AND deleted=0",
+                                String.class, tenantId, task.getAssignee());
+                        if (reviewerNames.size() == 1) review.put("reviewerName", reviewerNames.get(0));
+                    }
                     review.put("completedAt", task.getEndTime());
                     review.put("status", status);
                     review.put("reason", variables.get("TASK_REASON"));

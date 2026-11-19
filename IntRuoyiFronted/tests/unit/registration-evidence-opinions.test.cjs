@@ -1,0 +1,11 @@
+const { test } = require('node:test')
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+test('evidence displays authoritative ordered task reviews with names and explicit blank opinions', () => {
+ const source = fs.readFileSync(path.join(__dirname, '../../src/views/dcc/registration-certificate/history/EvidencePanel.vue'), 'utf8')
+ assert.ok(source.includes(':data="selected?.reviews || []"'))
+ assert.ok(source.includes('row.reviewerName'))
+ assert.ok(source.includes('row.reason===null || row.reason===undefined'))
+ assert.ok(!source.includes('selected?.rejectReason || approval.reviewComment'))
+})

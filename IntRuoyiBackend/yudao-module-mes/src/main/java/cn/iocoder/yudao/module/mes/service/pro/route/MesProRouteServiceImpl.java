@@ -1645,6 +1645,11 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         return result;
     }
 
+    @Override
+    public Map<Long, String> getProductCodesByRouteIds(Collection<Long> routeIds) {
+        return buildProductCodesByRouteId(routeProductMapper.selectListByRouteIds(routeIds));
+    }
+
     private Map<Long, String> buildProductCodesByRouteId(List<MesProRouteProductDO> routeProducts) {
         if (CollUtil.isEmpty(routeProducts)) {
             return Collections.emptyMap();

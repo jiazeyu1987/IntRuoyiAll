@@ -52,7 +52,7 @@
         class="resource-table"
         height="620"
       >
-        <el-table-column label="产品编码" prop="productCode" min-width="150" fixed="left" />
+        <el-table-column label="产品编码" prop="productCode" min-width="150" fixed="left"><template #default="{ row }"><ProductCodeLink :code="row.productCode" /></template></el-table-column>
         <el-table-column label="产品名称" prop="productName" min-width="180" />
         <el-table-column label="路线" min-width="190">
           <template #default="{ row }">
@@ -140,6 +140,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { ProRouteResourceApi, ProRouteResourceVO } from '@/api/mes/pro/route/resource'
 

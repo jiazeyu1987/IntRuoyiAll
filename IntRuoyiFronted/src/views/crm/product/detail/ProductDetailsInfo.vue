@@ -7,7 +7,7 @@
         </template>
         <el-descriptions :column="4">
           <el-descriptions-item label="产品名称">{{ product.name }}</el-descriptions-item>
-          <el-descriptions-item label="产品编码">{{ product.no }}</el-descriptions-item>
+          <el-descriptions-item label="产品编码"><ProductCodeLink :code="product.no" /></el-descriptions-item>
           <el-descriptions-item label="价格">
             {{ erpPriceInputFormatter(product.price) }} 元
           </el-descriptions-item>
@@ -25,6 +25,7 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { DICT_TYPE } from '@/utils/dict'
 import * as ProductApi from '@/api/crm/product'
 import { erpPriceInputFormatter } from '@/utils'

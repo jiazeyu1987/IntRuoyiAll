@@ -81,7 +81,7 @@
       <el-table-column label="条码" min-width="150">
         <template #default="{ row }">
           <el-form-item class="mb-0px!">
-            <el-input disabled v-model="row.productBarCode" />
+            <ProductCodeLink :code="row.productBarCode" />
           </el-form-item>
         </template>
       </el-table-column>
@@ -144,6 +144,7 @@
   </el-row>
 </template>
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import RemoteProductSelect from '@/views/erp/components/RemoteProductSelect.vue'
 import type { ProductVO } from '@/api/erp/product/product'
 import { WarehouseApi, WarehouseVO } from '@/api/erp/stock/warehouse'

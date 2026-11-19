@@ -194,6 +194,21 @@ class MesProRouteTreePatchTest {
         assertTrue(assertThrows(RuntimeException.class,
                 () -> MesProRouteTreePatch.apply(before, after, route(20, 1))).getMessage().contains("工序标识无效"));
     }
+    @Test void regeneratedBindingRecordAndDecimalScaleAreNotBusinessChanges() {
+        JSONObject before = route(10, 1), after = copy(before), child = route(20, 2);
+        before.getJSONObject("configSnapshots").put("batchUseConfigs", JSON.parseArray(
+                "[{routeProcessId:101,routeFlowConfigId:9001,productionQuantityFactor:1,enabled:false}]"));
+        after.getJSONObject("configSnapshots").put("batchUseConfigs", JSON.parseArray(
+                "[{routeProcessId:101,routeFlowConfigId:9002,productionQuantityFactor:1.0,enabled:false}]"));
+        child.getJSONObject("configSnapshots").put("batchUseConfigs", JSON.parseArray(
+                "[{routeProcessId:202,routeFlowConfigId:9003,productionQuantityFactor:2,enabled:false}]"));
+        JSONObject result = MesProRouteTreePatch.apply(before, after, child);
+        assertEquals(copy(child), copy(result));
+        after.getJSONObject("configSnapshots").getJSONArray("batchUseConfigs").getJSONObject(0)
+                .put("productionQuantityFactor", 2);
+        assertThrows(RuntimeException.class, () -> MesProRouteTreePatch.apply(before, after, child),
+                "实际生产系数改变时仍需存在对应工序绑定");
+    }
     private static JSONObject route(long routeId, long... processes) {
         JSONObject root = new JSONObject(true), configs = new JSONObject(true), graph = new JSONObject(true);
         root.put("routeId", routeId); root.put("routeCode", "R" + routeId); root.put("configSnapshots", configs);

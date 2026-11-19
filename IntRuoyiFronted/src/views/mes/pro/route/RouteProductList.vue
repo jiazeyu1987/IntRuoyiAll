@@ -35,13 +35,7 @@
       </p>
       <ul v-else class="route-product-list__codes" aria-label="关联产品编码">
         <li v-for="product in list" :key="product.itemId" class="route-product-list__row">
-          <button
-            type="button"
-            class="route-product-list__code"
-            @click="handleOpenItemDetail(product)"
-          >
-            {{ product.itemCode }}
-          </button>
+          <ProductCodeLink :code="product.itemCode" class="route-product-list__code" />
           <div class="route-product-list__row-actions">
             <el-button link type="primary" size="small" :disabled="productionConfigActionDisabled"
               @click="handleProductCommand('edit', product)">编辑</el-button>
@@ -93,7 +87,7 @@
                     : 'route-product-suggestion--unlinked'
                 "
               >
-                <span class="route-product-suggestion__code">{{ item.code }}</span>
+                <span class="route-product-suggestion__code"><ProductCodeLink :code="item.code" /></span>
                 <span class="route-product-suggestion__name">{{ item.name }}</span>
                 <span class="route-product-suggestion__status">
                   {{ item.isLinked ? '已添加' : '未添加' }}
@@ -101,6 +95,7 @@
               </div>
             </template>
           </el-autocomplete>
+          <ProductCodeLink :code="formData.productCode" />
         </el-form-item>
       </el-form>
       <!-- 编辑时展示产品 BOM 配置 -->
@@ -149,7 +144,7 @@
                         : 'route-product-suggestion--unlinked'
                     "
                   >
-                    <span class="route-product-suggestion__code">{{ item.code }}</span>
+                    <span class="route-product-suggestion__code"><ProductCodeLink :code="item.code" /></span>
                     <span class="route-product-suggestion__name">{{ item.name }}</span>
                     <span class="route-product-suggestion__status">
                       {{ item.isLinked ? '已添加' : '未添加' }}
@@ -157,6 +152,7 @@
                   </div>
                 </template>
               </el-autocomplete>
+              <ProductCodeLink :code="copyFormData.targetProductCode" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -172,6 +168,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { CommonStatusEnum } from '@/utils/constants'
 import { ProRouteProductApi, type ProRouteProductVO } from '@/api/mes/pro/route/product'
 import { ProRouteApi, type MesRouteId, type RouteVersionEditContext } from '@/api/mes/pro/route'
@@ -193,7 +190,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n() // 国际化
 const message = useMessage() // 消息弹窗
-const { push } = useRouter()
+
 
 const isEditable = computed(() => ['create', 'update'].includes(props.formType)) // 是否为编辑模式
 const CANDIDATE_EDIT_REQUIRED_MESSAGE = '请先创建候选版本，在候选版本中编辑生产配置。'
@@ -468,15 +465,6 @@ const handleProductCommand = (command: string, row: ProRouteProductVO) => {
   }
 }
 
-const handleOpenItemDetail = async (row: ProRouteProductVO) => {
-  await push({
-    name: 'MesMdItem',
-    query: {
-      code: row.itemCode,
-      openDetailId: String(row.itemId)
-    }
-  })
-}
 
 /** 提交表单 */
 const submitForm = async () => {

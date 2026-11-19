@@ -12,7 +12,7 @@
           {{ scope.row.productName }}
         </template>
       </el-table-column>
-      <el-table-column label="产品条码" align="center" prop="productNo" min-width="120" />
+      <el-table-column label="产品条码" align="center" prop="productNo" min-width="120"><template #default="{ row }"><ProductCodeLink :code="row.productNo" /></template></el-table-column>
       <el-table-column align="center" label="产品单位" prop="productUnit" min-width="160">
         <template #default="{ row }">
           <dict-tag :type="DICT_TYPE.CRM_PRODUCT_UNIT" :value="row.productUnit" />
@@ -56,6 +56,7 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import * as BusinessApi from '@/api/crm/business'
 import { erpPriceInputFormatter, erpPriceTableColumnFormatter } from '@/utils'
 import { DICT_TYPE } from '@/utils/dict'

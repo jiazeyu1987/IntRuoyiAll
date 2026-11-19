@@ -170,7 +170,7 @@
           <el-row :gutter="16">
             <el-col :span="8">
               <el-form-item label="产品编码" required>
-                <el-input v-model="productForm.productCode" disabled />
+                <ProductCodeLink :code="productForm.productCode" />
               </el-form-item>
             </el-col>
             <el-col :span="8">
@@ -180,7 +180,7 @@
                   clearable
                   placeholder="例如 product_012"
                   :disabled="!productDialogEditable"
-                />
+                /><ProductCodeLink :code="productForm.legacyProductCode" />
               </el-form-item>
             </el-col>
             <el-col :span="8">
@@ -775,7 +775,7 @@
         />
         <el-table :data="batchMediaSummaryResult.failures" border class="showroom-admin-batch-summary__table">
           <el-table-column label="产品ID" prop="productId" width="100" />
-          <el-table-column label="产品编码" prop="productCode" min-width="160" show-overflow-tooltip />
+          <el-table-column label="产品编码" prop="productCode" min-width="160" show-overflow-tooltip><template #default="{ row }"><ProductCodeLink :code="row.productCode" /></template></el-table-column>
           <el-table-column label="中文名称" prop="nameCn" min-width="180" show-overflow-tooltip />
           <el-table-column label="失败原因" prop="reason" min-width="260" show-overflow-tooltip />
         </el-table>

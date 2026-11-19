@@ -92,6 +92,9 @@ public interface MesProRouteService {
      */
     MesProRouteRespVO getRouteRespVO(Long id);
 
+    /** 获得流程正式绑定产品的编码，与流程详情展示使用同一数据来源。 */
+    Map<Long, String> getProductCodesByRouteIds(Collection<Long> routeIds);
+
     /**
      * 获得工艺路线分页
      */

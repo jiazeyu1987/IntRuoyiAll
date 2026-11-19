@@ -25,13 +25,14 @@
       <el-descriptions-item label="产品价格">
         {{ erpPriceInputFormatter(product.price) }} 元
       </el-descriptions-item>
-      <el-descriptions-item label="产品编码">{{ product.no }}</el-descriptions-item>
+      <el-descriptions-item label="产品编码"><ProductCodeLink :code="product.no" /></el-descriptions-item>
     </el-descriptions>
   </ContentWrap>
   <!-- 表单弹窗：添加/修改 -->
   <ProductForm ref="formRef" @success="handleRefresh" />
 </template>
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import ProductForm from '@/views/crm/product/ProductForm.vue'
 import { DICT_TYPE } from '@/utils/dict'
 import { erpPriceInputFormatter } from '@/utils'

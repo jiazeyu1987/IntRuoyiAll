@@ -32,7 +32,7 @@
             </div>
             <div>
               <span class="showroom-product-detail-dialog__meta-label">旧产品编号</span>
-              <strong>{{ detail.legacyProductCode || '未配置' }}</strong>
+              <strong><ProductCodeLink :code="detail.legacyProductCode" empty-text="未配置" /></strong>
             </div>
             <div>
               <span class="showroom-product-detail-dialog__meta-label">资料状态</span>
@@ -104,7 +104,7 @@
           <el-row :gutter="16">
             <el-col :span="12">
               <el-form-item label="当前产品编号">
-                <el-input v-model="form.productCode" disabled />
+                <ProductCodeLink :code="form.productCode" />
               </el-form-item>
             </el-col>
             <el-col :span="12">
@@ -113,7 +113,7 @@
                   v-model="form.legacyProductCode"
                   :disabled="readonly"
                   placeholder="例如 product_012"
-                />
+                /><ProductCodeLink :code="form.legacyProductCode" />
               </el-form-item>
             </el-col>
           </el-row>
@@ -251,6 +251,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { ShowroomAdminApi } from '@/api/showroom-admin'
 import { useUserStore } from '@/store/modules/user'
 import { dateTimeValueFormatter } from '@/utils/formatTime'

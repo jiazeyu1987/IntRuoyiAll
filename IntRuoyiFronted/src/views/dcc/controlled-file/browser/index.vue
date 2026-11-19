@@ -650,7 +650,7 @@
           {{ formatRecognitionStatus(row.recognitionStatus) }}
         </template>
       </el-table-column>
-      <el-table-column label="产品编码" prop="productCode" min-width="150" />
+      <el-table-column label="产品编码" prop="productCode" min-width="150"><template #default="{ row }"><ProductCodeLink :code="row.productCode" /></template></el-table-column>
       <el-table-column label="产品名称" prop="productName" min-width="150" />
       <el-table-column label="项目编码" prop="projectCode" min-width="130" />
       <el-table-column label="项目名称" prop="projectName" min-width="150" />

@@ -40,6 +40,7 @@ class BpmTaskServiceImplOpinionTest {
         Fixture f = new Fixture(false);
         assertTrue(BpmnModelUtils.parseReasonRequire(f.model, "CURRENT"));
         BpmTaskApproveReqVO request = approval(reason);
+        request.setVariables(Map.of(PROCESS_INSTANCE_VARIABLE_REASON, "forged"));
 
         f.service.approveTask(1L, request);
 

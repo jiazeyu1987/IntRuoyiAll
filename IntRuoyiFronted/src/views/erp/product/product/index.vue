@@ -60,8 +60,7 @@
             label="条码"
             align="center"
             prop="barCode"
-            :min-width="getColumnWidthString('barCode', 140)"
-          />
+            :min-width="getColumnWidthString('barCode', 140)"><template #default="{ row }"><ProductCodeLink :code="row.barCode" /></template></el-table-column>
           <el-table-column
             v-if="isColumnVisible('name')"
             column-key="name"
@@ -185,6 +184,7 @@
   <ProductForm ref="formRef" @success="getList" />
 </template>
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
 import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'
@@ -216,6 +216,7 @@ defineOptions({ name: 'ErpProduct' })
 
 const message = useMessage()
 const { t } = useI18n()
+const route = useRoute()
 
 const listRequest = useLatestListRequest()
 const loading = listRequest.loading
@@ -227,7 +228,7 @@ const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
   name: undefined,
-  barCode: undefined,
+  barCode: undefined as string | undefined,
   categoryId: undefined
 })
 
@@ -389,8 +390,30 @@ const quickFilter = useTableQuickFilter(
   getList
 )
 
+const loadListFromRoute = async () => {
+  const barCode = typeof route.query.barCode === 'string' ? route.query.barCode : undefined
+  if (!barCode) {
+    await getList()
+    return
+  }
+  codeSyncListTemplate.value!.resetColumnFilters()
+  queryParams.syncCode = undefined
+  quickFilter.updateState({
+    conditions: [{ id: 'route-bar-code', key: 'barCode', operator: 'contains', value: barCode }],
+    activeConditionId: 'route-bar-code'
+  })
+  await quickFilter.applyQuickFilter()
+}
+
+watch(
+  () => [route.path, route.query.barCode],
+  async () => {
+    if (route.path === '/mes/md/erp-product') await loadListFromRoute()
+  }
+)
+
 onMounted(async () => {
-  await getList()
+  await loadListFromRoute()
   await loadCategoryList()
 })
 

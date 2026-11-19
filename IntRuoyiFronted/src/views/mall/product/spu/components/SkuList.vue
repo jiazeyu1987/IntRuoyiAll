@@ -31,7 +31,7 @@
     </template>
     <el-table-column align="center" label="商品条码" min-width="168">
       <template #default="{ row }">
-        <el-input v-model="row.barCode" class="w-100%" />
+        <el-input v-model="row.barCode" class="w-100%" /><ProductCodeLink :code="row.barCode" />
       </template>
     </el-table-column>
     <el-table-column align="center" label="销售价" min-width="168">
@@ -175,7 +175,7 @@
     </template>
     <el-table-column align="center" label="商品条码" min-width="100">
       <template #default="{ row }">
-        {{ row.barCode }}
+        <ProductCodeLink :code="row.barCode" />
       </template>
     </el-table-column>
     <el-table-column align="center" label="销售价(元)" min-width="80">
@@ -255,7 +255,7 @@
     </template>
     <el-table-column align="center" label="商品条码" min-width="100">
       <template #default="{ row }">
-        {{ row.barCode }}
+        <ProductCodeLink :code="row.barCode" />
       </template>
     </el-table-column>
     <el-table-column align="center" label="销售价(元)" min-width="80">
@@ -283,6 +283,7 @@
   </el-table>
 </template>
 <script lang="ts" setup>
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { PropType, Ref } from 'vue'
 import { copyValueToTarget, formatToFraction } from '@/utils'
 import { propTypes } from '@/utils/propTypes'

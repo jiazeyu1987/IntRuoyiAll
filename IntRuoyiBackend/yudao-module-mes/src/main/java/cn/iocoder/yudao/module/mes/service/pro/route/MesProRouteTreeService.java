@@ -32,12 +32,16 @@ public class MesProRouteTreeService {
     public boolean isGroup(Long id) { return "GROUP".equals(requireRoute(id).getNodeType()); }
     public List<Map<String, Object>> tree() {
         List<Map<String, Object>> result = new ArrayList<>();
-        for (MesProRouteDO route : routes.selectList()) {
+        List<MesProRouteDO> routeList = routes.selectList();
+        Map<Long, String> productCodes = routeService.getObject().getProductCodesByRouteIds(routeList.stream()
+                .filter(route -> "FLOW".equals(route.getNodeType())).map(MesProRouteDO::getId).toList());
+        for (MesProRouteDO route : routeList) {
             MesProRouteVersionDO active = versions.selectActiveByRouteId(route.getId());
             MesProRouteVersionDO candidate = versions.selectOpenCandidateByRouteId(route.getId());
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("id", route.getId()); row.put("parentId", route.getParentId());
             row.put("nodeType", route.getNodeType()); row.put("name", route.getName()); row.put("code", route.getCode());
+            row.put("productCodes", "FLOW".equals(route.getNodeType()) ? productCodes.get(route.getId()) : null);
             row.put("status", route.getStatus()); row.put("activeRouteVersionId", active == null ? null : active.getId());
             row.put("activeRouteVersionNo", active == null ? null : active.getVersionNo());
             row.put("pendingStatus", candidate == null ? null : candidate.getLifecycleStatus());

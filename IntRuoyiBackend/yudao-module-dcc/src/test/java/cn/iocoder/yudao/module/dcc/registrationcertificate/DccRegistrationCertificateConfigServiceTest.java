@@ -58,6 +58,24 @@ class DccRegistrationCertificateConfigServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void missingChangeConfirmationRecipientsCannotBeSaved() {
+        var current = service.getOrCreate(1L);
+        for (int variant = 0; variant < 3; variant++) {
+            var configured = new java.util.LinkedHashMap<>(recipients());
+            if (variant == 0) configured.remove("CHANGE_CONFIRMATION");
+            if (variant == 1) configured.put("CHANGE_CONFIRMATION", null);
+            if (variant == 2) configured.put("CHANGE_CONFIRMATION", List.of());
+            var error = assertThrows(ServiceException.class, () -> service.update(1L, 99L,
+                    new DccRegistrationCertificateReminderConfigUpdateCommand(
+                            true, "09:00", configured, current.rowVersion())));
+            assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants
+                    .REGISTRATION_CERTIFICATE_REMINDER_RECIPIENT_REQUIRED.getCode(), error.getCode());
+            assertEquals(current.rowVersion(), service.getOrCreate(1L).rowVersion());
+            assertEquals("{}", service.getOrCreate(1L).thresholdRecipientUserIdsJson());
+        }
+    }
+
+    @Test
     void changeConfirmationRecipientsPersistWithoutReceivingReminderVisibilityEntitlements() {
         var current=service.getOrCreate(1L);
         var configured=new java.util.LinkedHashMap<>(recipients());

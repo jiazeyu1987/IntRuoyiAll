@@ -53,9 +53,9 @@
           <el-table-column label="产品与路线" min-width="230" :show-overflow-tooltip="false">
             <template #default="{ row }">
               <div class="edhr-release-page__strong release-text-summary">{{ row.productName || '未记录产品名称' }}</div>
-              <div class="edhr-release-page__muted release-text-summary">产品编码：{{ row.productCode || '未记录' }}</div>
+              <div class="edhr-release-page__muted release-text-summary">产品编码：<ProductCodeLink :code="row.productCode" empty-text="未记录" /></div>
               <details class="release-technical"><summary>完整产品与路线</summary>
-                <p>产品名称：{{ row.productName || '未记录' }}</p><p>产品编码：{{ row.productCode || '未记录' }}</p>
+                <p>产品名称：{{ row.productName || '未记录' }}</p><p>产品编码：<ProductCodeLink :code="row.productCode" empty-text="未记录" /></p>
                 <p>路线名称：{{ row.routeName || '未记录' }}</p><p>路线编码：{{ row.routeCode || '未记录' }}</p>
               </details>
             </template>
@@ -209,6 +209,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import MarketReleaseNegativeDecision from '../production-release/components/MarketReleaseNegativeDecision.vue'
 import {
   getEdhrRelease,

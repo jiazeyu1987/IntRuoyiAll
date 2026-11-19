@@ -89,7 +89,7 @@
         </el-table-column>
         <el-table-column label="流转卡编号" align="center" prop="code" width="160" />
         <el-table-column label="生产工单编号" align="center" prop="workOrderCode" width="160" />
-        <el-table-column label="产品物料编码" align="center" prop="itemCode" width="140" />
+        <el-table-column label="产品物料编码" align="center" prop="itemCode" width="140"><template #default="{ row }"><ProductCodeLink :code="row.itemCode" /></template></el-table-column>
         <el-table-column label="批次号" align="center" prop="batchCode" width="120" />
         <el-table-column label="产品物料名称" align="left" prop="itemName" min-width="150" />
         <el-table-column label="规格型号" align="center" prop="specification" width="120" />
@@ -111,6 +111,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { ProCardApi, ProCardVO } from '@/api/mes/pro/card'
 import ProWorkOrderSelect from '@/views/mes/pro/workorder/components/ProWorkOrderSelect.vue'
 import MdItemSelect from '@/views/mes/md/item/components/MdItemSelect.vue'

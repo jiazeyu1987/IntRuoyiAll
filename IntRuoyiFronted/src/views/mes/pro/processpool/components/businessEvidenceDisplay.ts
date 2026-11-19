@@ -526,6 +526,7 @@ export interface EvidenceRow {
   key: string
   label: string
   value: string
+  productCode?: string
 }
 
 export const readBusinessEvidence = (source?: string, rootField = '') => {
@@ -575,7 +576,10 @@ export const readBusinessEvidence = (source?: string, rootField = '') => {
     else if (typeof item === 'string' && /^[a-f0-9]{64}$/i.test(item))
       text = '校验信息（见技术详情）'
     else text = businessValueLabel(field, item)
-    rows.push({ key: JSON.stringify(path), label: names.join(' / ') || '记录内容', value: text })
+    rows.push({
+      key: JSON.stringify(path), label: names.join(' / ') || '记录内容', value: text,
+      ...(field === 'productCode' && typeof item === 'string' && item.trim() ? { productCode: item } : {})
+    })
   }
   visit(value, [], [], rootField)
   return { rows, error }

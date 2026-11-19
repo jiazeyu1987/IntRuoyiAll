@@ -1189,7 +1189,7 @@
             </div>
             <div>
               <span>产品代码</span>
-              <strong>{{ activeOrderWorkOrderDisplay.productCode }}</strong>
+              <strong><ProductCodeLink :code="activeOrderWorkOrderDisplay.productCode" /></strong>
             </div>
             <div>
               <span>产品名称</span>
@@ -1244,7 +1244,7 @@
                 <template #default="{ row }">{{ row.productSpecification }}</template>
               </el-table-column>
               <el-table-column label="产品代码">
-                <template #default="{ row }">{{ row.productCode }}</template>
+                <template #default="{ row }"><ProductCodeLink :code="row.productCode" /></template>
               </el-table-column>
               <el-table-column label="产品名称">
                 <template #default="{ row }">{{ row.productName }}</template>
@@ -2138,6 +2138,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type UploadRequestOptions } from 'element-plus'

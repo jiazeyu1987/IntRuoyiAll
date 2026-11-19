@@ -7,10 +7,23 @@
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <div class="route-tree__layout">
       <aside>
-        <el-input v-model="filter" placeholder="搜索分组或流程" clearable aria-label="搜索工艺流程树" />
+        <div class="route-tree__search">
+          <el-select v-model="searchType" aria-label="搜索类型" class="route-tree__search-type">
+            <el-option label="综合搜索" value="keyword" />
+            <el-option label="生产订单" value="order" />
+          </el-select>
+          <el-input v-model="filter" :placeholder="searchType === 'order' ? '输入生产订单号' : '搜索分组、流程或产品编码'"
+            clearable :aria-label="searchType === 'order' ? '搜索生产订单' : '搜索分组、流程或产品编码'" />
+        </div>
+        <el-alert v-if="orderSearchError" :title="orderSearchError" type="error" :closable="false" />
+        <p v-else-if="searchType === 'order' && filter.trim()" class="route-tree__search-hint">
+          {{ orderSearchLoading ? '正在查询订单对应产品…' : orderSearchResult?.orderCount
+            ? `匹配 ${orderSearchResult.orderCount} 个生产订单，按对应产品编码筛选流程`
+            : '未找到匹配的生产订单' }}
+        </p>
         <el-tree ref="treeRef" :data="tree" node-key="id" :props="{ label: 'name' }"
           :filter-node-method="filterNode" highlight-current default-expand-all :expand-on-click-node="false"
-          @node-click="selected = $event" empty-text="暂无流程，请先在列表中新增流程">
+          @node-click="selected = $event" :empty-text="searchEmptyText">
           <template #default="{ data }">
             <span class="route-tree__node" :data-tree-node="data.name">
               <Icon :icon="data.nodeType === 'GROUP' ? 'ep:folder' : 'ep:document'" />
@@ -44,7 +57,7 @@
           <el-alert v-if="bindingsError" :title="bindingsError" type="error" :closable="false" />
           <el-descriptions v-else-if="bindings" :column="1" border>
             <el-descriptions-item label="项目代码">{{ bindings.dccProjectCode || '未绑定项目' }}</el-descriptions-item>
-            <el-descriptions-item label="产品编码"><span class="route-tree__product-codes">{{ bindings.productCodes || '未绑定产品' }}</span></el-descriptions-item>
+            <el-descriptions-item label="产品编码"><span class="route-tree__product-codes"><template v-if="bindings.productCodes"><ProductCodeLink v-for="code in bindings.productCodes.split('、')" :key="code" :code="code" /></template><span v-else>未绑定产品</span></span></el-descriptions-item>
           </el-descriptions>
         </div>
         <template v-else>
@@ -103,6 +116,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { ElMessageBox } from 'element-plus'
 import { RouteTreeApi, type RouteTreeNode } from '@/api/mes/pro/route/tree'
 import { ProRouteApi, type MesRouteId, type ProRouteVO } from '@/api/mes/pro/route'
@@ -110,10 +124,40 @@ import RouteProjectSelect from './RouteProjectSelect.vue'
 import RouteTreeDifference from './RouteTreeDifference.vue'
 import MdWorkshopSelect from '@/views/mes/md/workstation/components/MdWorkshopSelect.vue'
 import { isRouteConfirmCancel, resolveRouteOperationErrorMessage } from './routeError'
+import { findOrderProductCodes } from './routeTreeOrderSearch'
 const emit = defineEmits<{ edit: [row: ProRouteVO]; view: [id?: number]; versions: [row: ProRouteVO]; changed: [] }>()
 const message = useMessage()
 const rows = ref<RouteTreeNode[]>([]), selected = ref<RouteTreeNode>(), loading = ref(false), saving = ref(false), error = ref('')
 const filter = ref(''), treeRef = ref()
+const searchType = ref<'keyword' | 'order'>('keyword')
+const orderSearchResult = ref<{ productCodes: string[]; orderCount: number }>()
+const orderSearchLoading = ref(false), orderSearchError = ref('')
+watch([filter, searchType, rows], ([value, type], _previous, onCleanup) => {
+  let cancelled = false
+  let timer: ReturnType<typeof setTimeout> | undefined
+  onCleanup(() => { cancelled = true; clearTimeout(timer) })
+  orderSearchResult.value = undefined
+  orderSearchError.value = ''
+  orderSearchLoading.value = type === 'order' && Boolean(value.trim())
+  if (!orderSearchLoading.value) return
+  timer = setTimeout(async () => {
+    try {
+      const result = await findOrderProductCodes(value, () => !cancelled)
+      if (!cancelled) orderSearchResult.value = result
+    } catch (failure) {
+      if (!cancelled) orderSearchError.value = resolveRouteOperationErrorMessage(failure, '查询生产订单失败，请重试')
+    } finally {
+      if (!cancelled) orderSearchLoading.value = false
+    }
+  }, 300)
+}, { flush: 'sync' })
+const searchEmptyText = computed(() => {
+  if (!filter.value.trim()) return '暂无流程，请先在列表中新增流程'
+  if (searchType.value !== 'order') return '未找到匹配的分组、流程或产品编码'
+  if (orderSearchLoading.value) return '正在查询订单对应产品…'
+  if (orderSearchError.value) return '生产订单查询失败'
+  return orderSearchResult.value?.orderCount ? '未找到绑定订单对应产品的工艺流程' : '未找到匹配的生产订单'
+})
 const differenceVisible = ref(false)
 const comparison = shallowRef<{ node: RouteTreeNode; parent: RouteTreeNode }>()
 watch(selected, () => { differenceVisible.value = false })
@@ -165,8 +209,17 @@ watch(tree, roots => {
   }
   selected.value = find(roots)
 })
-const filterNode = (value: string, data: RouteTreeNode) => !value || data.name.includes(value) || data.code.includes(value)
-watch(filter, value => treeRef.value?.filter(value))
+const filterNode = (value: string, data: RouteTreeNode) => {
+  const keyword = value.trim().toLowerCase()
+  if (keyword && searchType.value === 'order') {
+    if (orderSearchLoading.value || orderSearchError.value || data.nodeType !== 'FLOW') return false
+    return Boolean(data.productCodes?.split('、').some(code => orderSearchResult.value?.productCodes.includes(code.trim().toLowerCase())))
+  }
+  return !keyword || [data.name, data.code, data.nodeType === 'FLOW' ? data.productCodes : undefined]
+    .some(text => text?.toLowerCase().includes(keyword))
+}
+watch([filter, tree, searchType, orderSearchResult, orderSearchLoading, orderSearchError],
+  () => treeRef.value?.filter(filter.value), { flush: 'post' })
 const statusLabels: Record<string, string> = { DRAFT: '有草稿', PENDING_APPROVAL: '审核中', READY_TO_PUBLISH: '待发布' }
 const statusLabel = (value: string) => statusLabels[value] || value
 const load = async () => {
@@ -225,6 +278,9 @@ defineExpose({ load })
 <style scoped>
 .route-tree__toolbar, .route-tree__heading, .route-tree__actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .route-tree__toolbar { justify-content: flex-end; }
+.route-tree__search { display: flex; gap: 8px; }
+.route-tree__search-type { width: 120px; flex-shrink: 0; }
+.route-tree__search-hint { color: var(--el-text-color-secondary); font-size: 12px; margin: 8px 0; }
 .route-tree__layout { display: grid; grid-template-columns: minmax(260px, 32%) 1fr; min-height: 480px; margin-top: 20px; }
 .route-tree aside { border-right: 1px solid var(--el-border-color-lighter); padding-right: 20px; overflow: auto; max-height: 70vh; }
 .route-tree section { padding-left: 24px; min-width: 0; }
@@ -232,7 +288,7 @@ defineExpose({ load })
 .route-tree__heading h2 { font-size: 20px; margin: 0; }
 .route-tree__actions { margin: 24px 0; }
 .route-tree__bindings { min-height: 150px; }
-.route-tree__product-codes { overflow-wrap: anywhere; }
+.route-tree__product-codes { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; overflow-wrap: anywhere; }
 :deep(.el-tree) { margin-top: 12px; }
 :deep(.el-tree-node__content) { min-height: 36px; }
 @media (max-width: 800px) { .route-tree__layout { grid-template-columns: 1fr; } .route-tree section { padding: 20px 0 0; } }

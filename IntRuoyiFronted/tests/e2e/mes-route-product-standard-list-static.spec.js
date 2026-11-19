@@ -16,12 +16,11 @@ for (const removed of ['UnifiedListTemplate', 'useUserTableColumns', 'useTableQu
 }
 assert.match(listView, /v-for="product in list"/, '全部编码直接显示，不受分页或历史过滤影响')
 assert.match(listView, /:key="product\.itemId"/, '行身份沿用正式物料编号')
-assert.match(listView, /\{\{ product\.itemCode \}\}/, '行内展示产品编码')
+assert.match(listView, /<ProductCodeLink :code="product\.itemCode"/, '行内展示可跳转的产品编码')
 for (const field of ['itemName', 'specification', 'unitName', 'quantity', 'productionTime', 'remark']) {
   assert.ok(!listView.includes(field), `编码列表不得显示 ${field}`)
 }
-assert.match(listView, /@click="handleOpenItemDetail\(product\)"/, '编码保留详情跳转')
-assert.match(product, /name: 'MesMdItem',[\s\S]*code: row\.itemCode,[\s\S]*openDetailId: String\(row\.itemId\)/)
+assert.match(read('src/components/ProductCodeLink.vue'), /path: '\/mes\/md\/erp-product'/, '编码统一跳转物料列表')
 assert.match(listView, /<div class="route-product-list__actions">/, '只读版本仍展示添加入口')
 assert.ok(!listView.includes('v-if="isEditable" class="route-product-list__actions"'))
 assert.match(listView, /openForm\('create'\)/)

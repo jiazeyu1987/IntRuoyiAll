@@ -70,7 +70,7 @@
                 {{ selectedDirectWorkOrder?.workOrderCode }}
               </div>
               <div class="direct-import-result__sub-text">
-                {{ selectedDirectWorkOrder?.productCode }} / {{ selectedDirectWorkOrder?.productName }}
+                <ProductCodeLink :code="selectedDirectWorkOrder?.productCode" /> / {{ selectedDirectWorkOrder?.productName }}
               </div>
             </div>
             <el-tag type="primary" effect="light">
@@ -95,7 +95,7 @@
             </el-table-column>
             <el-table-column label="产品" min-width="210">
               <template #default="{ row }">
-                <div class="direct-import-result__main-text">{{ row.productCode }}</div>
+                <div class="direct-import-result__main-text"><ProductCodeLink :code="row.productCode" /></div>
                 <div class="direct-import-result__sub-text" :title="row.productName">
                   {{ row.productName }}
                 </div>
@@ -160,6 +160,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { showImportResult } from '@/utils/importResult'
 import { ProFeedbackApi, type ThirdPartyFeedbackImportResultVO } from '@/api/mes/pro/feedback'
 import type { UploadFile, UploadFiles, UploadUserFile } from 'element-plus'

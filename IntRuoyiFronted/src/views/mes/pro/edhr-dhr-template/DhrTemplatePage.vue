@@ -301,7 +301,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="绑定产品" prop="productCode">
-              <el-input v-model="templateForm.productCode" maxlength="64" />
+              <el-input v-model="templateForm.productCode" maxlength="64" /><ProductCodeLink :code="templateForm.productCode" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -453,6 +453,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import BusinessJsonInput from '@/components/BusinessData/BusinessJsonInput.vue'
 import {

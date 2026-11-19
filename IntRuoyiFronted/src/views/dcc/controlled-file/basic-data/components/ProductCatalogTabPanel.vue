@@ -134,8 +134,7 @@
                 prop="productCode"
                 :width="getProductCatalogColumnWidthString('productCode')"
                 :min-width="getProductCatalogColumnMinWidthString('productCode', 120)"
-                v-bind="sortColumnAttrs('productCode')"
-              />
+                v-bind="sortColumnAttrs('productCode')"><template #default="{ row }"><ProductCodeLink :code="row.productCode" /></template></el-table-column>
               <el-table-column
                 v-if="isProductCatalogColumnVisible('projectName')"
                 label="项目名称"
@@ -391,7 +390,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="产品编码" prop="productCode">
-            <el-input v-model="projectProductForm.productCode" />
+            <el-input v-model="projectProductForm.productCode" /><ProductCodeLink :code="projectProductForm.productCode" />
           </el-form-item>
         </el-col>
         <el-col :span="12">
@@ -471,7 +470,7 @@
         </template>
       </el-table-column>
       <el-table-column prop="projectCode" label="项目代码" min-width="120" />
-      <el-table-column prop="productCode" label="产品编码" min-width="120" />
+      <el-table-column prop="productCode" label="产品编码" min-width="120"><template #default="{ row }"><ProductCodeLink :code="row.productCode" /></template></el-table-column>
       <el-table-column prop="productName" label="产品名称" min-width="150" />
       <el-table-column prop="status" label="状态" width="120">
         <template #default="{ row }">{{ projectRequestStatusLabel(row.status) }}</template>
@@ -541,7 +540,7 @@
         <el-input v-model="formData.product" placeholder="请输入产品" />
       </el-form-item>
       <el-form-item label="产品编码" prop="productCode">
-        <el-input v-model="formData.productCode" placeholder="请输入产品编码" />
+        <el-input v-model="formData.productCode" placeholder="请输入产品编码" /><ProductCodeLink :code="formData.productCode" />
       </el-form-item>
       <el-form-item label="项目名称" prop="projectName">
         <el-input v-model="formData.projectName" placeholder="请输入项目名称" />

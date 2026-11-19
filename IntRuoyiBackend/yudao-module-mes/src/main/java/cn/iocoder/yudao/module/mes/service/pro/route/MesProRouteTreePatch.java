@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.route;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import java.math.BigDecimal;
 import java.util.*;
 import static cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.invalid;
 
@@ -16,7 +17,7 @@ public final class MesProRouteTreePatch {
             "sharedSourceSnapshots");
     private static final Set<String> REFERENCES = Set.of("routeProcessId", "sourceRouteProcessId",
             "targetRouteProcessId", "predecessorRouteProcessId", "nextRouteProcessId", "clientRouteProcessId");
-    private static final Set<String> SYSTEM_FIELDS = Set.of("id", "routeId", "routeVersionId",
+    private static final Set<String> SYSTEM_FIELDS = Set.of("id", "routeId", "routeVersionId", "routeFlowConfigId",
             "graphVersion", "configVersion", "creator", "updater", "createBy", "updateBy",
             "createTime", "updateTime", "tenantId", "deleted");
     private MesProRouteTreePatch() {}
@@ -172,6 +173,8 @@ public final class MesProRouteTreePatch {
     /** 保存时补充的展示信息和审计字段不构成父级同步项。画布坐标由各流程保留。 */
     private static boolean sameBusinessValue(Object before, Object after, String path) {
         if (Objects.equals(before, after) || "flowGraph.layouts".equals(path)) return true;
+        if (before instanceof Number old && after instanceof Number next)
+            return new BigDecimal(old.toString()).compareTo(new BigDecimal(next.toString())) == 0;
         if (before instanceof JSONObject old && after instanceof JSONObject next) {
             Set<String> keys = new HashSet<>(old.keySet()); keys.addAll(next.keySet());
             for (String key : keys) {

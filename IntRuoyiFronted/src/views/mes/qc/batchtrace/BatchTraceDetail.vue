@@ -5,7 +5,7 @@
         {{ detailData.code }}
       </el-descriptions-item>
       <el-descriptions-item label="物资编码">
-        {{ detailData.itemCode }}
+        <ProductCodeLink :code="detailData.itemCode" />
       </el-descriptions-item>
       <el-descriptions-item label="物资名称">
         {{ detailData.itemName }}
@@ -61,6 +61,7 @@
 </template>
 
 <script lang="ts" setup>
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { BatchVO } from '@/api/mes/wm/batch'
 import BatchTraceDetailList from './BatchTraceDetailList.vue'
 

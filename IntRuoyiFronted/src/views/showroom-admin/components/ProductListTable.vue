@@ -257,8 +257,7 @@
             label="旧产品编号"
             min-width="130"
             prop="legacyProductCode"
-            show-overflow-tooltip
-          />
+            show-overflow-tooltip><template #default="{ row }"><ProductCodeLink :code="row.legacyProductCode" /></template></el-table-column>
           <el-table-column label="当前版本" width="96">
             <template #default="{ row }">
               {{ row.revisionNo }}
