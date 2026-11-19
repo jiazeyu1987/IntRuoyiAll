@@ -1,0 +1,20 @@
+.controlled-detail-section { min-width: 0; padding: 20px; border: 1px solid var(--el-border-color-light); border-radius: 5px; background: var(--el-bg-color); font-size: 14px; line-height: 22px; color: var(--el-text-color-primary); }
+.controlled-detail-section h3 { margin: 0 0 14px; font-size: 18px; line-height: 26px; font-weight: 600; }
+.controlled-detail-section__heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.controlled-detail-section__heading h3 { margin: 0; }
+.controlled-detail-facts { margin: 0 0 12px; }
+.controlled-detail-facts > div { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--el-border-color-lighter); }
+.controlled-detail-facts--labels > div { grid-template-columns: 104px minmax(0, 1fr); }
+.controlled-detail-facts dt { color: var(--el-text-color-regular); }
+.controlled-detail-facts--events dt { color: var(--el-text-color-primary); }
+.controlled-detail-facts dd { margin: 0; overflow-wrap: anywhere; }
+.controlled-detail-muted { color: var(--el-text-color-secondary); font-size: 13px; line-height: 20px; }
+.controlled-detail-note { padding: 10px 12px; margin: 12px 0 0; background: var(--el-color-success-light-9); border-left: 2px solid var(--el-color-success); font-size: 13px; line-height: 20px; }
+.controlled-detail-note--pending { background: var(--el-color-warning-light-9); border-color: var(--el-color-warning); }
+.controlled-detail-section :deep(.el-table) { font-size: 14px; line-height: 22px; color: var(--el-text-color-primary); }
+.controlled-detail-section :deep(.el-table th.el-table__cell) { background: var(--el-fill-color-light); color: var(--el-text-color-primary); font-weight: 500; }
+.controlled-detail-section :deep(.el-table .cell) { padding-left: 12px; padding-right: 12px; line-height: 22px; overflow-wrap: anywhere; }
+.controlled-detail-section :deep(.el-button), .controlled-detail-section :deep(.el-collapse-item__header) { font-size: 14px; line-height: 22px; }
+.controlled-detail-section :deep(.el-tag) { font-size: 13px; line-height: 20px; }
+.controlled-detail-facts, .controlled-detail-section :deep(.el-table), .controlled-detail-distribution__time { font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) { .controlled-detail-section { padding: 16px; } .controlled-detail-facts > div { grid-template-columns: 104px minmax(0, 1fr); gap: 12px; } }

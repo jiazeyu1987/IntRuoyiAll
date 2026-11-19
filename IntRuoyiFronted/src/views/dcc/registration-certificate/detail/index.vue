@@ -10,6 +10,7 @@
       :title="routeIdentityError"
     />
     <el-skeleton v-else-if="loading" :rows="8" animated />
+    <el-alert v-else-if="loadError" type="error" show-icon :closable="false" :title="loadError" />
     <el-empty v-else-if="!detail" description="未加载到注册证详情" />
     <div v-else class="registration-certificate-detail">
       <div class="detail-title">
@@ -369,7 +370,7 @@ import EvidencePanel from '../history/EvidencePanel.vue'
 import { parseFacts } from '../shared/facts'
 import ChangeConfirmationsPanel from '../components/ChangeConfirmationsPanel.vue'
 import RequestDetailPanel from '../approval/RequestDetailPanel.vue'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import {
@@ -433,6 +434,8 @@ const viewMode = computed(() => {
 })
 const invalidRoute = computed(() => !routeCertificateId.value && !accessRequestId.value)
 const loading = ref(false)
+const loadError = ref('')
+let detailLoadVersion = 0
 const detail = ref<DccRegistrationCertificateDetailVO>()
 const history = ref<DccRegistrationCertificateHistoryItemVO[]>([])
 const routeIdentityError = ref('')
@@ -727,7 +730,7 @@ const downloadableFiles = computed<DownloadableFileOption[]>(() => {
   })
 })
 
-const loadDownloadGrantStatuses = async () => {
+const loadDownloadGrantStatuses = async (version: number) => {
   downloadAuthorizedFileIds.value = new Set()
   requestPendingFileIds.value = new Set()
   const businessFileIds = downloadableFiles.value.map((file) => file.businessFileId)
@@ -735,6 +738,7 @@ const loadDownloadGrantStatuses = async () => {
     return
   }
   const statuses = await getRegistrationCertificateFileDownloadGrantStatuses(businessFileIds)
+  if (version !== detailLoadVersion) return
   downloadAuthorizedFileIds.value = new Set(
     statuses
       .filter((status) => status.canDownload)
@@ -748,6 +752,7 @@ const loadDownloadGrantStatuses = async () => {
 }
 
 const resolveCertificateIdForDetail = async () => {
+  const version = detailLoadVersion
   if (routeCertificateId.value) {
     return routeCertificateId.value
   }
@@ -755,6 +760,7 @@ const resolveCertificateIdForDetail = async () => {
     return ''
   }
   const status = await getRegistrationCertificateAccessRequestStatus(accessRequestId.value)
+  if (version !== detailLoadVersion) return ''
   const resolvedCertificateId = parsePositiveRouteQueryId(status.certificateId)
   if (!resolvedCertificateId) {
     routeIdentityError.value = '注册证访问申请缺少正式注册证身份，无法加载详情'
@@ -765,6 +771,15 @@ const resolveCertificateIdForDetail = async () => {
 }
 
 const loadDetail = async () => {
+  const version = ++detailLoadVersion
+  detail.value = undefined
+  history.value = []
+  loadError.value = ''
+  loading.value = false
+  previewDialogVisible.value = false
+  selectedPreviewSource.value = null
+  downloadAuthorizedFileIds.value = new Set()
+  requestPendingFileIds.value = new Set()
   if(approvalRequestId.value && approvalProcessInstanceId.value)return
   routeIdentityError.value = ''
   accessRequestCertificateId.value = ''
@@ -772,14 +787,29 @@ const loadDetail = async () => {
   loading.value = true
   try {
     const resolvedCertificateId = await resolveCertificateIdForDetail()
-    if (!resolvedCertificateId) return
-    detail.value = await getRegistrationCertificateDetail(resolvedCertificateId, detailVersionId.value)
-    history.value = await getRegistrationCertificateHistory(resolvedCertificateId, detail.value.versionId)
-    await loadDownloadGrantStatuses()
+    if (!resolvedCertificateId || version !== detailLoadVersion) return
+    const loadedDetail = await getRegistrationCertificateDetail(resolvedCertificateId, detailVersionId.value)
+    if (version !== detailLoadVersion) return
+    if (!loadedDetail) throw new Error('注册证详情查询未返回数据，请重新打开详情')
+    detail.value = loadedDetail
+    const loadedHistory = await getRegistrationCertificateHistory(resolvedCertificateId, loadedDetail.versionId)
+    if (version !== detailLoadVersion) return
+    history.value = loadedHistory
+    await loadDownloadGrantStatuses(version)
+  } catch (error) {
+    if (version !== detailLoadVersion) return
+    detail.value = undefined
+    history.value = []
+    loadError.value = error instanceof Error ? error.message : String(error)
   } finally {
-    loading.value = false
+    if (version === detailLoadVersion) loading.value = false
   }
 }
+
+watch([routeCertificateId, accessRequestId, detailVersionId, approvalRequestId, approvalProcessInstanceId], loadDetail)
+onActivated(() => {
+  if (!loading.value) void loadDetail()
+})
 
 const updateViewportWidth = () => {
   viewportWidth.value = window.innerWidth
@@ -791,6 +821,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  ++detailLoadVersion
   window.removeEventListener('resize', updateViewportWidth)
 })
 </script>

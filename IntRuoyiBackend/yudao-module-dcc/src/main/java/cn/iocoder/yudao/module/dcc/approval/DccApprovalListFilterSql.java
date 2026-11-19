@@ -58,7 +58,7 @@ public final class DccApprovalListFilterSql {
         Map<String,String> f=base("'文控上传线下培训记录'",t+"title",t+"file_number",t+"status",node,userLabel(t+"requester_id",t+"tenant_id"),userLabel(actor.toString(),t+"tenant_id"),"NULL","NULL",t+"approved_time","NULL",t+"submitted_time");
         String version=contextValue(t+"version_no");
         f.put("extraSummary",joinVisible(visibleField("文件编号",t+"file_number"),visibleField("版本",version),visibleField("当前审批节点",node),visibleTag("版本",t+"version_no")));
-        f.put("capabilities","NULL");
+        f.put("capabilities","'TIMELINE'");
         return ApprovalListFilterSql.fields(f,false);
     }
     public static String joinVisible(String... values) {

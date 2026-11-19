@@ -76,7 +76,10 @@ class DccControlledFileDetailAuthorizationGuard {
         if ((context.intent() == DccControlledFileBodyReadContext.Intent.VERSION_HISTORY
                 || context.intent() == DccControlledFileBodyReadContext.Intent.DAILY && "ACTIVE".equals(file.getStatus()))
                 && canReadProjectReference(userId, file)) return;
-        if (!permissionSupport.isLibrary(file.getDccProjectCodeId()) && !assignmentScopeService.isWithinAssignedFileScope(userId, file.getId())) bodyDenied();
+        if (context.intent() != DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY
+                && context.intent() != DccControlledFileBodyReadContext.Intent.TRAINING_APPLICATION
+                && !permissionSupport.isLibrary(file.getDccProjectCodeId())
+                && !assignmentScopeService.isWithinAssignedFileScope(userId, file.getId())) bodyDenied();
         switch (context.intent()) {
             case DAILY -> {
                 if (!"ACTIVE".equals(file.getStatus()) || file.getActivatedTime() == null) bodyDenied();
@@ -131,8 +134,6 @@ class DccControlledFileDetailAuthorizationGuard {
                 || !hasAuthenticatedActor(userId, file)
                 || context.intent() != DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY) bodyDenied();
         context.requireFile(file.getId(), file.getVersionNo());
-        if (!permissionSupport.isLibrary(file.getDccProjectCodeId())
-                && !assignmentScopeService.isWithinAssignedFileScope(userId, file.getId())) bodyDenied();
         requireReadableProject(userId, file);
         var round = requireExactBodyRound(file, context);
         if (context.taskId() == null) {
@@ -145,6 +146,10 @@ class DccControlledFileDetailAuthorizationGuard {
                     || !Objects.equals(task.getProcessDefinitionId(), round.definitionId())
                     || !Objects.equals(task.getAssignee(), userId.toString())) bodyDenied();
         }
+        // Exact application ownership survives workflow completion; archived body access stays separate.
+        boolean applicationStarter = context.taskId() == null && Objects.equals(file.getRequesterId(), userId);
+        if (!applicationStarter && !permissionSupport.isLibrary(file.getDccProjectCodeId())
+                && !assignmentScopeService.isWithinAssignedFileScope(userId, file.getId())) bodyDenied();
     }
 
     private void requireReadableProject(Long actor, DccControlledFileDO file) {
@@ -250,6 +255,11 @@ class DccControlledFileDetailAuthorizationGuard {
         if (file != null && DccControlledFileStatusEnum.PENDING_SUPERVISOR_REVIEW.getStatus().equals(file.getStatus()))
             return hasCurrentSupervisorTask(userId, file) || hasCurrentCompilerAccess(userId, file);
         if (hasCurrentRunningApprovalTask(userId, file)) {
+            return true;
+        }
+        // Live training responsibility grants metadata even before the file becomes assignable.
+        if (DccOfflineTrainingRecordService.isNativeWaitingFile(file)
+                && hasAuthenticatedActor(userId, file) && offlineTraining.canReadProgress(userId, file)) {
             return true;
         }
         if (!(file != null && permissionSupport.isLibrary(file.getDccProjectCodeId()))

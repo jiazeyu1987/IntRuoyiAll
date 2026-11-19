@@ -84,6 +84,11 @@
         </div>
         <div class="controlled-detail-header__actions">
           <el-button @click="closeViewerMode"><Icon icon="ep:back" class="mr-5px" />返回</el-button>
+          <el-button v-if="canUploadApplicantTrainingRecord" data-testid="dcc-detail-upload-training-record"
+            type="primary" :loading="applicantTrainingRecordDialog.submitting"
+            @click="openApplicantTrainingRecordDialog">
+            <Icon icon="ep:upload" class="mr-5px" />上传培训记录
+          </el-button>
           <el-dropdown trigger="click" :disabled="!fileDetail || !isWorkingBrowserDetailCurrent || !!viewerIdentityError">
             <el-button>更多<Icon icon="ep:arrow-down" class="ml-4px" /></el-button>
             <template #dropdown><el-dropdown-menu>
@@ -3749,7 +3754,8 @@ const showDetailManagementActions = computed(
     (showFullDetailSections.value || fileDetail.value?.status === 'FINALIZATION_FAILED')
 )
 const useControlledDetailLayout = computed(() => isBrowserTraceabilityPage.value
-  || (!isApprovalUploadHandlingPage.value && route.query.management !== '1'))
+  || (!isApprovalUploadHandlingPage.value
+    && (route.query.management !== '1' || fileDetail.value?.status === 'PENDING_APPLICANT_TRAINING_RECORD')))
 const controlledDetailTab = ref('overview')
 const controlledBrowseRecordsRef = ref<InstanceType<typeof ControlledFileBrowseRecords>>()
 const locateControlledTrainingAttachment = async (id: number | string) => {
