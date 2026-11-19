@@ -29,7 +29,7 @@
         <el-alert v-if="impact.blockers.length" type="error" :closable="false" :title="impact.blockers.join('；')" />
         <div class="shared-change__count">受影响路线 {{ impact.routes.length }} 条</div>
         <el-table :data="pagedRoutes" border stripe max-height="330px">
-          <el-table-column prop="routeCode" label="路线编码" min-width="120" />
+          <el-table-column prop="routeCode" label="路线编码" min-width="120" ><template #default="{ row }"><RouteCodeLink :code="row.routeCode" /></template></el-table-column>
           <el-table-column prop="routeName" label="路线名称" min-width="160" />
           <el-table-column label="版本" width="130"><template #default="{ row }">{{ row.versionNo }} → {{ row.nextVersionNo }}</template></el-table-column>
           <el-table-column label="车间 / 工序" min-width="240"><template #default="{ row }"><div v-for="node in row.nodes" :key="node.routeProcessId">{{ node.workshopName || '未关联车间' }} / {{ node.processName || node.processId }}</div></template></el-table-column>
@@ -45,6 +45,8 @@
   </Dialog>
 </template>
 <script setup lang="ts">
+import { createSecureUuid } from '@/utils/uuid'
+import RouteCodeLink from '@/components/RouteCodeLink.vue'
 import { SharedChangeApi, type SharedChangeRequest, type SharedImpact, type SharedSubject } from '@/api/mes/pro/sharedChange'
 import type { Craft } from '@/api/mes/pro/craft'
 import { changeDifferences } from './changeDifferences'
@@ -77,7 +79,7 @@ const open = async (request: SharedChangeRequest) => {
 }
 const openReplacement = async (type: SharedSubject, id: number) => {
   const source = await SharedChangeApi.source(type, id)
-  await open({ subjectType: type, action: 'REPLACE', sourceId: id, expectedFingerprint: source.fingerprint, requestId: crypto.randomUUID(), reason: '', nodes: [] })
+  await open({ subjectType: type, action: 'REPLACE', sourceId: id, expectedFingerprint: source.fingerprint, requestId: createSecureUuid(), reason: '', nodes: [] })
 }
 const targetChanged = async () => {
   if (!draft.value?.targetId) return

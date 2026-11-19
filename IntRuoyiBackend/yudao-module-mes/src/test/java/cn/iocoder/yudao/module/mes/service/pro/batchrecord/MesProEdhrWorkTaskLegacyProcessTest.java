@@ -89,7 +89,6 @@ class MesProEdhrWorkTaskLegacyProcessTest {
         ReflectionTestUtils.setField(service, "assignmentRuleMapper", assignmentRuleMapper);
         ReflectionTestUtils.setField(service, "batchTaskMapper", batchTaskMapper);
         ReflectionTestUtils.setField(service, "processFormPermissionRuleMapper", processFormPermissionRuleMapper);
-        ReflectionTestUtils.setField(service, "notifyMessageSendApi", notifyMessageSendApi);
         ReflectionTestUtils.setField(service, "routeMapper", routeMapper);
         ReflectionTestUtils.setField(service, "adminUserApi", adminUserApi);
         ReflectionTestUtils.setField(service, "roleApi", roleApi);

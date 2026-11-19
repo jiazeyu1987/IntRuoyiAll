@@ -4,6 +4,7 @@ const fs = require('node:fs')
 const ts = require('typescript')
 const vue = require('vue')
 const { parse, compileScript, compileTemplate } = require('vue/compiler-sfc')
+const audit = require('../helpers/load-permission-audit.cjs')()
 
 function component() {
   const filename = 'src/views/system/role/RoleAssignMenuForm.vue'
@@ -24,6 +25,7 @@ function component() {
     exports,
     id => {
       if (id === 'vue') return vue
+      if (id === '@/utils/permissionAudit') return audit
       if (id === '@/utils/tree') return { defaultProps: {}, handleTree: x => x }
       if (id === '@/api/system/permission') return { assignRoleMenu: async data => requests.push(data) }
       if (id === '@/api/system/role' || id === '@/api/system/menu') return {}

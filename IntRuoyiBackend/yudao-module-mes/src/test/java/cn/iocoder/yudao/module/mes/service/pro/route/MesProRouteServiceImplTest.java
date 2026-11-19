@@ -87,6 +87,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteServiceImplTest {
+    @Mock private org.springframework.beans.factory.ObjectProvider<MesProRouteTreeService> routeTrees;
+    @Mock private MesProRouteTreeService routeTreeService;
     @org.mockito.Mock private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
 
 
@@ -164,6 +166,7 @@ class MesProRouteServiceImplTest {
 
     @Test
     void unfinishedBusinessPreventsAllDeletionSideEffects() {
+        when(routeTrees.getObject()).thenReturn(routeTreeService);
         when(routeMapper.selectByIdForUpdate(12L)).thenReturn(MesProRouteDO.builder()
                 .id(12L).status(CommonStatusEnum.DISABLE.getStatus()).build());
         when(routeMapper.existsUnfinishedBusinessByRouteId(12L)).thenReturn(true);
@@ -178,6 +181,7 @@ class MesProRouteServiceImplTest {
 
     @Test
     void unusedDisabledRouteCanBeDeleted() {
+        when(routeTrees.getObject()).thenReturn(routeTreeService);
         when(routeMapper.selectByIdForUpdate(12L)).thenReturn(MesProRouteDO.builder()
                 .id(12L).status(CommonStatusEnum.DISABLE.getStatus()).build());
         routeService.deleteRoute(12L);
@@ -185,6 +189,19 @@ class MesProRouteServiceImplTest {
         verify(routeProcessService).deleteRouteProcessByRouteId(12L);
         verify(routeProductService).deleteRouteProductByRouteId(12L);
         verify(routeProductBomService).deleteRouteProductBomByRouteId(12L);
+        verify(routeMapper).deleteById(12L);
+    }
+
+    @Test
+    void deletingUnassignedDirectoryReleasesItsUniqueCodeForNextImport() {
+        when(routeTrees.getObject()).thenReturn(routeTreeService);
+        when(routeMapper.selectByIdForUpdate(12L)).thenReturn(MesProRouteDO.builder().id(12L)
+                .nodeType("GROUP").code(MesProRouteTreeService.UNASSIGNED_CODE).status(1).build());
+        when(routeMapper.updateById(any(MesProRouteDO.class))).thenReturn(1);
+        routeService.deleteRoute(12L);
+        var update = ArgumentCaptor.forClass(MesProRouteDO.class);
+        verify(routeMapper).updateById(update.capture());
+        assertEquals("GROUP-UNASSIGNED-DELETED-12", update.getValue().getCode());
         verify(routeMapper).deleteById(12L);
     }
 

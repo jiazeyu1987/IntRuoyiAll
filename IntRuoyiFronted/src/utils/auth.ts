@@ -1,8 +1,8 @@
 import { useCache, CACHE_KEY } from '@/hooks/web/useCache'
 import { TokenType } from '@/api/login/types'
 import { decrypt } from '@/utils/jsencrypt'
+import { createSecureUuid } from '@/utils/uuid'
 import { readonly, ref } from 'vue'
-import { createUuid } from '@/utils/secureUuid'
 
 const { wsCache } = useCache()
 const contextRevision = ref(0)
@@ -39,7 +39,7 @@ export const getAuthSessionId = (): string | undefined => {
   if (!getAccessToken()) return undefined
   let sessionId = wsCache.get(AuthSessionIdKey) as string | undefined
   if (!sessionId) {
-    sessionId = createUuid()
+    sessionId = createSecureUuid()
     wsCache.set(AuthSessionIdKey, sessionId)
   }
   return sessionId
@@ -49,7 +49,7 @@ export const getAuthSessionId = (): string | undefined => {
 export const setToken = (token: TokenType) => {
   clearAuthenticatedUserCache()
   setRefreshedToken(token)
-  wsCache.set(AuthSessionIdKey, createUuid())
+  wsCache.set(AuthSessionIdKey, createSecureUuid())
   contextRevision.value += 1
 }
 

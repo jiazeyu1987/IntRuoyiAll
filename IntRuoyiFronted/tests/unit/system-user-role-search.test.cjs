@@ -18,13 +18,15 @@ test('role search matches name, ID and code without changing selected roles', ()
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
   }).outputText
   const exports = {}
-  new Function('exports', 'require', 'ref', 'computed', 'useI18n', 'useMessage', source)(
+  new Function('exports', 'require', 'ref', 'computed', 'watch', 'useI18n', 'useMessage', source)(
     exports, id => {
       if (id === 'vue') return vue
+      if (id === '@/utils/permissionAudit') return require('../helpers/load-permission-audit.cjs')()
+      if (id === './user-change-confirmation') return {}
       if (id.startsWith('@/api/system/')) return {}
       if (id === './role-option-label') return { roleOptionLabel: role => role.name }
       throw Error('Unexpected import: ' + id)
-    }, vue.ref, vue.computed, () => ({ t: value => value }), () => ({}))
+    }, vue.ref, vue.computed, vue.watch, () => ({ t: value => value }), () => ({}))
   const state = exports.default.setup({}, { expose() {} })
   state.roleList.value = [
     { id: 910233, name: '文控', code: 'doc_control' },

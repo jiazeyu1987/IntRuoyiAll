@@ -67,8 +67,8 @@
         </template>
       </el-table-column>
       <el-table-column label="入库单名称" align="center" prop="name" min-width="150" />
-      <el-table-column label="生产工单" align="center" prop="workOrderCode" min-width="140" />
-      <el-table-column label="产品物料编码" align="center" prop="itemCode" min-width="120"><template #default="{ row }"><ProductCodeLink :code="row.itemCode" /></template></el-table-column>
+      <el-table-column label="生产工单" align="center" prop="workOrderCode" min-width="140" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
+      <el-table-column label="产品物料编码" align="center" prop="itemCode" min-width="120"><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="产品物料名称" align="center" prop="itemName" min-width="150" />
       <el-table-column label="规格型号" align="center" prop="specification" min-width="120" />
       <el-table-column label="计量单位" align="center" prop="unitMeasureName" min-width="100" />
@@ -154,7 +154,8 @@
 </template>
 
 <script setup lang="ts">
-import ProductCodeLink from '@/components/ProductCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { dateFormatter2 } from '@/utils/formatTime'
 import { DICT_TYPE } from '@/utils/dict'

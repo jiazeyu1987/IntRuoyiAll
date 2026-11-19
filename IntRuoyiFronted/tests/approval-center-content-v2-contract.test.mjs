@@ -8,7 +8,7 @@ test('formal eDHR dialog requests immutable preview and binds all command facts'
   for (const field of ['prepareId', 'idempotencyKey', 'expectedSubjectVersion', 'expectedContentHash', 'contentPolicyVersion']) assert.match(page, new RegExp(`${field}:`))
   assert.match(page, /canonicalBusinessContentJson/)
   assert.match(page, /allowedActions\.includes\(reviewForm\.result\)/)
-  assert.match(page, /crypto\.randomUUID\(\)/)
+  assert.match(page, /createSecureUuid\(\)/)
 })
 test('formal success requires a receipt matching prepare and stable request', () => {
   assert.match(page, /result\.idempotencyKey !== payload\.idempotencyKey/)

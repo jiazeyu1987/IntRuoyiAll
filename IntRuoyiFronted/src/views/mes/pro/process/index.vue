@@ -3,7 +3,7 @@
   <doc-alert title="【生产】工序设置、工艺流程" url="https://doc.iocoder.cn/mes/pro/process-route/" />
 
   <ContentWrap class="process-list-page">
-    <UnifiedListTemplate
+    <UnifiedListTemplate ref="codeLinkListTemplate"
       table-key="mes.pro.process.main"
       single-line-toolbar
       :query-model="queryParams"
@@ -188,7 +188,7 @@
       :stripe="true"
       :show-overflow-tooltip="true"
     >
-      <el-table-column label="设备编码" align="center" prop="machineryCode" width="130" />
+      <el-table-column label="设备编码" align="center" prop="machineryCode" width="130" ><template #default="{ row }"><MachineryCodeLink :code="row.machineryCode" /></template></el-table-column>
       <el-table-column label="设备名称" align="center" prop="machineryName" min-width="220" />
       <el-table-column label="设备状态" align="center" prop="machineryStatus" width="100" />
       <el-table-column label="维修状态" align="center" prop="availabilityStatus" width="130">
@@ -219,6 +219,8 @@
 </template>
 
 <script setup lang="ts">
+import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+import MachineryCodeLink from '@/components/MachineryCodeLink.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
@@ -271,6 +273,7 @@ const {
   resetConfig: resetProcessColumnConfig
 } = useUserTableColumns('mes.pro.process.main', processDefaultColumns)
 
+const codeLinkListTemplate = ref()
 const loading = ref(true) // 列表的加载中
 const list = ref<ProProcessVO[]>([]) // 列表的数据
 const total = ref(0) // 列表的总页数
@@ -413,7 +416,7 @@ const processQuickFilter = useTableQuickFilter(
 )
 
 /** 添加/修改操作 */
-const openForm = (type: string, id?: number, row?: ProProcessVO) => {
+const openForm = (type: string, id?: number | string, row?: ProProcessVO) => {
   formRef.value.open(type, id, {
     row,
     routeId: queryParams.routeId
@@ -421,6 +424,12 @@ const openForm = (type: string, id?: number, row?: ProProcessVO) => {
 }
 
 const syncQueryParamsFromRoute = () => {
+  codeLinkListTemplate.value?.resetColumnFilters()
+  Object.assign(processQuickFilter.state, { conditions: [], appliedConditions: [], value: undefined, valueEnd: undefined })
+  queryParams.pageNo = 1
+  queryParams.listFilters = undefined
+  if (route.query.codeLinkVisit) openedProcessDetailId.value = ''
+  Object.assign(queryParams, resetProcessQueryState())
   const code = typeof route.query.code === 'string' ? route.query.code : undefined
   const name = typeof route.query.name === 'string' ? route.query.name : undefined
   if (code) {
@@ -450,20 +459,20 @@ const buildProcessRouteQuerySignature = () =>
   JSON.stringify({
     code: typeof route.query.code === 'string' ? route.query.code : '',
     name: typeof route.query.name === 'string' ? route.query.name : '',
-    openId: typeof route.query.openId === 'string' ? route.query.openId : ''
+    openId: typeof route.query.openId === 'string' ? route.query.openId : '',
+    visit: route.query.codeLinkVisit
   })
 
 const tryOpenDetailFromRoute = () => {
-  const openId = typeof route.query.openId === 'string' ? route.query.openId : ''
+  const openId = parsePositiveRouteQueryId(route.query.openId)
+  if (route.query.openId !== undefined && !openId) throw new Error('无效的详情编号')
   if (!openId) {
     openedProcessDetailId.value = ''
     return
   }
-  if (openedProcessDetailId.value === openId) {
-    return
-  }
+
   openedProcessDetailId.value = openId
-  openForm('detail', Number(openId))
+  openForm('detail', openId)
 }
 
 const formatCapacity = (value?: number | string | null) => {
@@ -506,28 +515,32 @@ const handleDelete = async (id: number) => {
 }
 
 /** 初始化 **/
-onMounted(async () => {
-  await loadRouteOptions()
-  lastAppliedProcessRouteQuerySignature.value = buildProcessRouteQuerySignature()
+let processCodeLinkGeneration = 0
+const loadProcessFromRoute = async () => {
+  if (route.path !== PROCESS_ROUTE_PATH) return
+  const generation = ++processCodeLinkGeneration
+  const signature = buildProcessRouteQuerySignature()
+  lastAppliedProcessRouteQuerySignature.value = signature
   syncQueryParamsFromRoute()
   await getList()
+  if (generation !== processCodeLinkGeneration || route.path !== PROCESS_ROUTE_PATH || signature !== buildProcessRouteQuerySignature()) return
   tryOpenDetailFromRoute()
+}
+onMounted(async () => {
+  if (route.path !== PROCESS_ROUTE_PATH) return
+  await loadRouteOptions()
+  await loadProcessFromRoute()
 })
-
 watch(
   () => route.fullPath,
   async () => {
     if (route.path !== PROCESS_ROUTE_PATH) {
+      ++processCodeLinkGeneration
+      lastAppliedProcessRouteQuerySignature.value = ''
       return
     }
-    const nextSignature = buildProcessRouteQuerySignature()
-    if (nextSignature === lastAppliedProcessRouteQuerySignature.value) {
-      return
-    }
-    lastAppliedProcessRouteQuerySignature.value = nextSignature
-    syncQueryParamsFromRoute()
-    await getList()
-    tryOpenDetailFromRoute()
+    if (buildProcessRouteQuerySignature() === lastAppliedProcessRouteQuerySignature.value) return
+    await loadProcessFromRoute()
   }
 )
 

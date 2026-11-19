@@ -8,7 +8,7 @@
     <div class="attribution-summary">
       <div class="summary-item">
         <span class="summary-label">导入行工单</span>
-        <span class="summary-value">{{ currentRecord?.workOrderCode || '-' }}</span>
+        <span class="summary-value"><WorkOrderCodeLink :code="currentRecord?.workOrderCode" /></span>
       </div>
       <div class="summary-item">
         <span class="summary-label">导入行工序</span>
@@ -91,19 +91,19 @@
         <el-table-column label="订单" min-width="220" show-overflow-tooltip>
           <template #default="scope">
             <div class="primary-cell">{{ scope.row.scheduleOrderCode || scope.row.targetOrderLabel || '-' }}</div>
-            <div class="secondary-cell">{{ scope.row.workOrderCode || '-' }}</div>
+            <div class="secondary-cell"><WorkOrderCodeLink :code="scope.row.workOrderCode" :work-order-id="scope.row.workOrderId" /></div>
           </template>
         </el-table-column>
         <el-table-column label="工序" min-width="190" show-overflow-tooltip>
           <template #default="scope">
-            <div class="primary-cell">{{ scope.row.processCode || '-' }}</div>
+            <div class="primary-cell"><ProcessCodeLink :code="scope.row.processCode" empty-text="-" /></div>
             <div class="secondary-cell">{{ scope.row.processName || '-' }}</div>
           </template>
         </el-table-column>
         <el-table-column label="产品" min-width="240" show-overflow-tooltip>
           <template #default="scope">
             <div class="primary-cell">{{ scope.row.targetProductLabel || scope.row.itemName || '-' }}</div>
-            <div class="secondary-cell">{{ scope.row.itemCode || '-' }} / {{ scope.row.specification || '-' }}</div>
+            <div class="secondary-cell"><MaterialCodeLink :code="scope.row.itemCode" empty-text="-" /> / {{ scope.row.specification || '-' }}</div>
           </template>
         </el-table-column>
         <el-table-column label="数量" min-width="300">
@@ -171,6 +171,9 @@
 </template>
 
 <script setup lang="ts">
+import ProcessCodeLink from '@/components/ProcessCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import {
   ProFeedbackApi,
   type ProFeedbackImportCandidateVO,

@@ -54,6 +54,38 @@ class MesDeviationWorkbenchCategoryTest {
         assertTrue(s.contains("未关联批次（按生产订单办理）"));
         assertTrue(s.contains("task_type IN ('DEVIATION_RECEIVE','DEVIATION_CORRECT','DEVIATION_VERIFY'"));
     }
+    @Test void frontlineSubmissionReviewsNeverEnterWorkbenchCountListIdentityOrExport() throws Exception {
+        var c = sql();
+        var p = new HashMap<String, Object>();
+        p.put("q", query()); p.put("id", 13L); p.put("after", null); p.put("fetchLimit", 101);
+        var ns = "cn.iocoder.yudao.module.mes.dal.mysql.pro.MesWorkbenchTodoMapper.";
+        var statements = List.of(ns + "countEdhr", ns + "chunkEdhr", ns + "identityHandoff",
+                "cn.iocoder.yudao.module.mes.workbench.MesProjectionExportMapper.exportHandoff");
+        try (var db = java.sql.DriverManager.getConnection("jdbc:h2:mem:handoff_workbench_"
+                + UUID.randomUUID() + ";MODE=MySQL", "sa", "")) {
+            try (var st = db.createStatement()) {
+                st.execute("CREATE TABLE duties(task_type VARCHAR(64))");
+                for (String type : List.of("PRODUCTION_REVIEW", "PQC_REVIEW", "PRODUCTION_RETURN",
+                        "PQC_RETURN", "QA_REVIEW", "QA_DECISION_HANDOFF")) {
+                    st.execute("INSERT INTO duties VALUES ('" + type + "')");
+                }
+                for (String statement : statements) {
+                    String sql = c.getMappedStatement(statement).getBoundSql(p).getSql();
+                    int where = sql.indexOf("WHERE h.tenant_id");
+                    assertTrue(where >= 0, statement);
+                    var eligibility = java.util.regex.Pattern.compile("h\\.task_type IN \\([^)]*\\)").matcher(sql);
+                    eligibility.region(where, sql.length());
+                    assertTrue(eligibility.find(), statement);
+                    var visible = new HashSet<String>();
+                    try (var rows = st.executeQuery("SELECT task_type FROM duties h WHERE " + eligibility.group())) {
+                        while (rows.next()) visible.add(rows.getString(1));
+                    }
+                    assertEquals(Set.of("PRODUCTION_RETURN", "PQC_RETURN", "QA_REVIEW", "QA_DECISION_HANDOFF"),
+                            visible, statement);
+                }
+            }
+        }
+    }
     @Test void deviationSourceKeepsIdentityLocksPermissionBlockAndItsOwnActionKind() {
         var source=new MesDeviationWorkbenchSource(); var mapper=mock(MesWorkbenchTodoMapper.class);
         var permissions=mock(MesDeviationTaskPermissionService.class); var q=query();

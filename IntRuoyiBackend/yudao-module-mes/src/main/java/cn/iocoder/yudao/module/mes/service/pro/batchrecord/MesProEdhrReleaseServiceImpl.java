@@ -210,8 +210,6 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     @Resource
     private MesProEdhrWorkTaskService workTaskService;
     @Resource
-    private cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseOutcomeNotificationService outcomeNotifications;
-    @Resource
     private MesProEdhrOperationAuditService operationAuditService;
     @Resource
     private FormActionInstanceMapper formActionInstanceMapper;
@@ -336,8 +334,6 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             if (correctionTask == null || correctionTask <= 0)
                 throw new IllegalStateException("上市撤回未取得原申请人的正式补正任务回执");
         }
-        outcomeNotifications.scheduleMarketNegative(prepared.getApplication(), transaction,
-                prepared.getWorkTask(), command.getActorUserId(), rejected, command.getDecisionReason());
     }
 
     private MesProEdhrReleaseRespVO finalizeReject(MesReleaseFinalizationCommand command) {
@@ -1071,9 +1067,6 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             closeUpstreamAfterRelease(command, released, decision);
             reportManagementSummaryService.refreshByReleaseTransactionId(command.getReleaseTransactionId());
             appendMarketReleaseGxpAudit(command, released, decision, auditBefore);
-            MesProcessPoolActiveOrderReleaseApplicationDO application = resolveReleaseApplication(released);
-            outcomeNotifications.scheduleMarketApproved(application, released,
-                    workTaskMapper.selectById(command.getWorkTaskId()), command.getActorUserId(), command.getApprovalOpinion());
             return toResp(result.getBatchExecution(), released);
         }
         String finalizationPayloadHash = finalizationPayloadHash(command, evidence);

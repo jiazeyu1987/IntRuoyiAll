@@ -24,7 +24,9 @@ function load(name) {
     TextDecoder,
     atob,
     btoa,
-    require: (id) => (id === './simpleRecognition' ? load('simpleRecognition') : require(id))
+    require: (id) => id === '@/utils/uuid' ? require('../helpers/load-secure-uuid.cjs')({
+      getRandomValues: bytes => require('node:crypto').webcrypto.getRandomValues(bytes)
+    }) : (id === './simpleRecognition' ? load('simpleRecognition') : require(id))
   }
   vm.runInNewContext(code, context)
   return (modules[name] = context.exports)

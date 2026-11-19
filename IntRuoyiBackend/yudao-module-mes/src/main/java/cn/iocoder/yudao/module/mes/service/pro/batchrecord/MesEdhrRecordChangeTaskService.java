@@ -7,8 +7,6 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecor
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrRecordChangeEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
-import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
-import cn.iocoder.yudao.module.system.api.notify.dto.NotifySendSingleToUserIdempotentReqDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -19,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /** Assignment is the explicitly selected, authorized reviewer; never inferred from a role. */
@@ -31,7 +28,6 @@ public class MesEdhrRecordChangeTaskService {
     @Resource private MesProEdhrWorkTaskMapper taskMapper;
     @Resource private AdminUserApi userApi;
     @Resource private PermissionApi permissionApi;
-    @Resource private NotifyMessageSendApi notifyApi;
     @Resource private MesEdhrTaskDeadlineService deadlineService;
 
     public List<EdhrRecordChangeApproverRespVO> approvers(String nickname) {
@@ -125,7 +121,6 @@ public class MesEdhrRecordChangeTaskService {
                 throw new IllegalStateException("记录变更补正待办保存失败");
             }
         }
-        notify(event.getRequestedBy(), "MES_EDHR_RECORD_CHANGE_" + event.getChangeStatus(), event, approval.getActionUrl());
     }
 
     public MesProEdhrWorkTaskDO findOwnRevision(Long eventId) {
@@ -162,7 +157,6 @@ public class MesEdhrRecordChangeTaskService {
         if (taskMapper.insert(task) != 1 || task.getId() == null) {
             throw new IllegalStateException("记录变更审批待办保存失败");
         }
-        notify(approver, "MES_EDHR_RECORD_CHANGE_ASSIGNED", event, task.getActionUrl());
         return task;
     }
 
@@ -190,19 +184,7 @@ public class MesEdhrRecordChangeTaskService {
                 .setStatus("DONE").setCompletedAt(event.getApprovedAt()).setRemark("变更已批准")) != 1) {
             throw new IllegalStateException("记录变更审批待办完成失败");
         }
-        notify(event.getRequestedBy(), "MES_EDHR_RECORD_CHANGE_APPROVED", event, task.getActionUrl());
     }
 
-    private void notify(Long userId, String template, MesProEdhrRecordChangeEventDO event, String url) {
-        NotifySendSingleToUserIdempotentReqDTO request = new NotifySendSingleToUserIdempotentReqDTO();
-        request.setUserId(userId);
-        request.setTemplateCode(template);
-        request.setBusinessKey(template + ":EVENT:" + event.getId() + ":USER:" + userId);
-        request.setTemplateParams(Map.of("changeCode", event.getChangeCode(), "reason", event.getDecisionReason() == null ? event.getReasonText() : event.getDecisionReason(),
-                "actionUrl", url));
-        Long messageId = notifyApi.sendSingleMessageIdempotentlyToAdmin(request);
-        if (messageId == null || messageId <= 0) {
-            throw new IllegalStateException("记录变更站内通知未生成，请检查通知模板配置");
-        }
-    }
+
 }

@@ -5,12 +5,12 @@
       <Icon icon="ep:plus" class="mr-5px" /> 添加物料
     </el-button>
     <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true" border>
-      <el-table-column label="物料编码" align="center" prop="itemCode" min-width="120" />
+      <el-table-column label="物料编码" align="center" prop="itemCode" min-width="120" ><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="物料名称" align="center" prop="itemName" min-width="140" />
       <el-table-column label="规格型号" align="center" prop="specification" min-width="120" />
       <el-table-column label="单位" align="center" prop="unitMeasureName" width="80" />
       <el-table-column label="入库数量" align="center" prop="quantity" width="100" />
-      <el-table-column label="批次号" align="center" prop="batchCode" min-width="120" />
+      <el-table-column label="批次号" align="center" prop="batchCode" min-width="120"><template #default="{ row }"><BatchCodeLink :code="row.batchCode" :batch-id="row.batchId" /></template></el-table-column>
       <el-table-column label="仓库" align="center" prop="warehouseName" min-width="100" />
       <el-table-column label="库区" align="center" prop="locationName" min-width="100" />
       <el-table-column label="库位" align="center" prop="areaName" min-width="100" />
@@ -106,6 +106,8 @@
 </template>
 
 <script setup lang="ts">
+import BatchCodeLink from '@/components/BatchCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import type { FormRules } from 'element-plus'
 import { WmMiscReceiptLineApi, WmMiscReceiptLineVO } from '@/api/mes/wm/miscreceipt/line/index'
 import MdItemSelect from '@/views/mes/md/item/components/MdItemSelect.vue'

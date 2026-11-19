@@ -167,6 +167,7 @@
 </template>
 
 <script setup lang="ts">
+import { useRoute } from 'vue-router'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'
@@ -186,7 +187,7 @@ const total = ref(0) // 列表的总页数
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
-  code: undefined,
+  code: undefined as string | undefined,
   name: undefined,
   nickname: undefined,
   englishName: undefined,
@@ -197,14 +198,20 @@ const queryFormRef = ref() // 搜索的表单
 const exportLoading = ref(false) // 导出的加载中
 
 /** 查询列表 */
+let listRequest = 0
 const getList = async () => {
+  const request = ++listRequest
+  const signature = JSON.stringify([route.path, route.query.code, route.query.codeLinkVisit])
+  const isCurrent = () => request === listRequest && signature === JSON.stringify([route.path, route.query.code, route.query.codeLinkVisit])
   loading.value = true
   try {
     const data = await MdClientApi.getClientPage(queryParams)
-    list.value = data.list
-    total.value = data.total
+    if (isCurrent()) {
+      list.value = data.list
+      total.value = data.total
+    }
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 
@@ -265,7 +272,17 @@ const handleExport = async () => {
 }
 
 /** 初始化 **/
-onMounted(() => {
+const route = useRoute()
+const receivePartnerCode = () => {
+  if (route.path !== '/mes/md/client') return
+  queryFormRef.value?.resetFields()
+  Object.keys(queryParams).forEach((key) => {
+    if (key !== 'pageNo' && key !== 'pageSize') Object.assign(queryParams, { [key]: undefined })
+  })
+  queryParams.pageNo = 1
+  queryParams.code = typeof route.query.code === 'string' ? route.query.code.trim() || undefined : undefined
   getList()
-})
+}
+watch(() => [route.path, route.query.code, route.query.codeLinkVisit], receivePartnerCode)
+onMounted(receivePartnerCode)
 </script>

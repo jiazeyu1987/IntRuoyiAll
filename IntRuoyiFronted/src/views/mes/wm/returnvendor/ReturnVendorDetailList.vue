@@ -2,7 +2,7 @@
 <template>
   <div class="pl-60px pr-20px py-10px">
     <el-table v-loading="loading" :data="list" border size="small">
-      <el-table-column label="批次号" align="center" prop="batchCode" min-width="120" />
+      <el-table-column label="批次号" align="center" prop="batchCode" min-width="120"><template #default="{ row }"><BatchCodeLink :code="row.batchCode" :batch-id="row.batchId" /></template></el-table-column>
       <el-table-column label="仓库名称" align="center" prop="warehouseName" min-width="100" />
       <el-table-column label="库区名称" align="center" prop="locationName" min-width="100" />
       <el-table-column label="库位名称" align="center" prop="areaName" min-width="100" />
@@ -20,6 +20,7 @@
 </template>
 
 <script setup lang="ts">
+import BatchCodeLink from '@/components/BatchCodeLink.vue'
 import { WmReturnVendorDetailApi, WmReturnVendorDetailVO } from '@/api/mes/wm/returnvendor/detail'
 
 defineOptions({ name: 'ReturnVendorDetailList' })

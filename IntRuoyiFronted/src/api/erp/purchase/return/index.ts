@@ -20,7 +20,7 @@ export const PurchaseReturnApi = {
   },
 
   // 查询采购退货详情
-  getPurchaseReturn: async (id: number) => {
+  getPurchaseReturn: async (id: number | string) => {
     return await request.get({ url: `/erp/purchase-return/get?id=` + id })
   },
 

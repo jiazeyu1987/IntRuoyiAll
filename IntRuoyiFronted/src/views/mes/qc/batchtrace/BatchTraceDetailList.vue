@@ -1,9 +1,9 @@
 <template>
   <div class="app-container">
     <el-table v-loading="loading" :data="batchList">
-      <el-table-column label="生产工单号" width="150px" align="center" prop="workOrderCode" />
+      <el-table-column label="生产工单号" width="150px" align="center" prop="workOrderCode" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
       <el-table-column label="批次编号" align="center" prop="code" />
-      <el-table-column label="产品物料编码" align="center" prop="itemCode"><template #default="{ row }"><ProductCodeLink :code="row.itemCode" /></template></el-table-column>
+      <el-table-column label="产品物料编码" align="center" prop="itemCode"><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="产品物料名称" align="center" prop="itemName" />
       <el-table-column label="规格型号" align="center" prop="itemSpecification" />
       <el-table-column label="单位" align="center" prop="unitName" />
@@ -12,6 +12,7 @@
 </template>
 
 <script lang="ts" setup>
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { BatchApi, BatchVO } from '@/api/mes/wm/batch'
 
 defineOptions({ name: 'BatchTraceDetailList' })

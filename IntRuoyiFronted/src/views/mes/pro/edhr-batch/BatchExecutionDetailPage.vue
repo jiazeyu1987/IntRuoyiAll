@@ -1670,6 +1670,7 @@ import {
 import { submitTransferIntervention } from '@/api/mes/pro/edhr/flowIntervention'
 import { getEdhrRecordbookGlobalSetting } from '@/api/mes/pro/edhr/recordbookGlobalSetting'
 import { generateUUID } from '@/utils'
+import { createSecureUuid } from '@/utils/uuid'
 import { stringifyEdhrExecutionPageQuery } from '@/utils/edhrWorkTaskNavigation'
 import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
 import { useUserStore } from '@/store/modules/user'
@@ -5567,10 +5568,7 @@ const createProductionReleaseReportIdempotencyKey = (
   action: 'attachment' | 'complete',
   workTaskId: string
 ) => {
-  if (!globalThis.crypto || typeof globalThis.crypto.randomUUID !== 'function') {
-    throw new Error('当前浏览器不支持安全请求标识，无法提交生产放行报告。')
-  }
-  return `report-${action}-${workTaskId}-${globalThis.crypto.randomUUID()}`
+  return `report-${action}-${workTaskId}-${createSecureUuid()}`
 }
 
 const resolveProductionReleaseReportAttachmentRequestKey = (
@@ -5940,7 +5938,7 @@ onBeforeUnmount(deactivateFullHeightLayout)
 onBeforeUnmount(cleanupDeferredBatchDetailLoads)
 onBeforeUnmount(clearReleaseActionErrorAutoHideTimer)
 watch(
-  () => [route.name, route.query.id] as const,
+  () => [route.name, route.query.id, route.query.codeLinkVisit] as const,
   ([routeName, routeId]) => {
     if (
       routeName !== 'MesProEdhrBatchExecutionDetail' &&
@@ -5949,7 +5947,7 @@ watch(
       return
     }
     const nextBatchExecutionId = parsePositiveRouteQueryId(routeId)
-    if (!nextBatchExecutionId || sameRouteQueryId(nextBatchExecutionId, detail.value?.id)) {
+    if (!nextBatchExecutionId || (sameRouteQueryId(nextBatchExecutionId, detail.value?.id) && !route.query.codeLinkVisit)) {
       return
     }
     selectedFillCarrier.value = undefined

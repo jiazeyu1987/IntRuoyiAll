@@ -9,19 +9,15 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskM
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrTaskDeadlineService;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesWorkTaskAuxiliaryAudit;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCandidates;
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
-import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
-import cn.iocoder.yudao.module.system.api.notify.dto.NotifySendSingleToUserReqDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.Collection;
@@ -45,8 +41,6 @@ public class MesReleaseAttachmentUploadService {
     private final PermissionApi permissions;
     private final AdminUserApi users;
     private final MesEdhrTaskDeadlineService deadlines;
-    private final NotifyMessageSendApi notices;
-    private final MesWorkTaskAuxiliaryAudit auxiliaryAudit;
 
     @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void initialize(MesProcessPoolActiveOrderReleaseApplicationDO application, Long actor) {
@@ -81,14 +75,6 @@ public class MesReleaseAttachmentUploadService {
                     + application.getBatchExecutionId() + "&from=execution&tab=" + definition.category() + "&workTaskId=" + task.getId());
             if (tasks.updateById(new MesProEdhrWorkTaskDO().setId(task.getId()).setActionUrl(task.getActionUrl())) != 1)
                 throw new IllegalStateException("放行资料上传待办入口保存失败");
-            auxiliaryAudit.notifications(task, () -> resolved.candidateUserIds().stream().map(user -> {
-                var notice = new NotifySendSingleToUserReqDTO();
-                notice.setUserId(user);
-                notice.setTemplateCode("MES_EDHR_DOSSIER_COMPLETE_ASSIGNED");
-                notice.setTemplateParams(Map.of("workOrderCode", task.getWorkOrderCode(), "processName", definition.label(),
-                        "actionUrl", task.getActionUrl(), "reason", task.getReason(), "workTaskId", task.getId()));
-                return notices.sendSingleMessageToAdmin(notice);
-            }).toList());
         }
     }
 

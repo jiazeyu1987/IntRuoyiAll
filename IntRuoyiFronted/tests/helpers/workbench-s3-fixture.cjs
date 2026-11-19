@@ -43,14 +43,13 @@ function fixture(options = {}) {
  const loaded={},files={'@/workbench/queryContract':'src/workbench/queryContract.ts','@/workbench/queryContext':'src/workbench/queryContext.ts','@/workbench/registry':'src/workbench/registry.ts','@/api/system/profileWorkbenchTodo':'src/api/system/profileWorkbenchTodo/index.ts'}
  function evaluate(source){
   const m={exports:{}}
-  Function('require','module','exports','crypto','window','document',compile(source))(id=>{
-   if(id==='@/utils/secureUuid')return evaluate(read('src/utils/secureUuid.ts'))
+  Function('require','module','exports','crypto','window','document','globalThis',compile(source))(id=>{
    if(id==='./queryContext')return load('@/workbench/queryContext')
    if(id==='./registryContract')return evaluate(read('src/workbench/registryContract.ts'))
    if(id==='./manifest.json')return {default:activeManifest}
    if(files[id])return load(id)
    assert.ok(deps[id],'unexpected dependency '+id);return deps[id]
-  },m,m.exports,options.httpCrypto ? {getRandomValues: bytes=>require('node:crypto').webcrypto.getRandomValues(bytes)} : require('node:crypto').webcrypto,dom,dom)
+  },m,m.exports,options.crypto || require('node:crypto').webcrypto,dom,dom,{crypto:options.crypto || require('node:crypto').webcrypto})
   return m.exports
  }
  function load(id){
@@ -75,6 +74,7 @@ function fixture(options = {}) {
   const d=unit.sources[0].descriptor
   activeRow={...row,sourceId:d.sourceId,taskKey:d.sourceId+':'+options.item.id,businessId:options.item.id,taskType:d.taskType,source:d.label,action:{actionKind:d.actionKind,payloadVersion:1,payload:options.item}}
  }
+ deps['@/utils/uuid']=evaluate(read('src/utils/uuid.ts'))
  const auth=evaluate(read('src/utils/auth.ts'));deps['@/utils/auth']=auth
  if(!options.cache){auth.setTenantId(1);auth.setToken({accessToken:'session-A',refreshToken:'refresh-A'})}
  const context=load('@/workbench/queryContext'),registry=load('@/workbench/registry'),api=load('@/api/system/profileWorkbenchTodo')

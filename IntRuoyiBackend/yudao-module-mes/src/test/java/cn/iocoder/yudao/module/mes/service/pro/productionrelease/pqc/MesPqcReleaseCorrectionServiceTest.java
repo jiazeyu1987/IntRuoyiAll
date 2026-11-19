@@ -73,12 +73,6 @@ class MesPqcReleaseCorrectionServiceTest {
         var formalWorkOrder = new MesProWorkOrderDO().setId(30L); formalWorkOrder.setTenantId(1L);
         when(workOrders.selectById(30L)).thenReturn(formalWorkOrder);
         notifyApi = mock(NotifyMessageSendApi.class);
-        when(notifyApi.sendSingleMessageIdempotentlyToAdmin(any())).thenReturn(99L);
-        org.springframework.test.util.ReflectionTestUtils.setField(service, "notifyApi", notifyApi);
-        var auxiliary = mock(MesWorkTaskAuxiliaryAudit.class);
-        doAnswer(call -> { call.<java.util.function.Supplier<List<Long>>>getArgument(1).get(); return null; })
-                .when(auxiliary).notifications(any(), any());
-        org.springframework.test.util.ReflectionTestUtils.setField(service, "auxiliaryAudit", auxiliary);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "reviewMapper", db.mapper(MesProEdhrNonconformanceReviewMapper.class));
         org.springframework.test.util.ReflectionTestUtils.setField(service, "changeMapper", db.mapper(MesProEdhrRecordChangeEventMapper.class));
         var order = new MesProcessPoolActiveOrderDO().setId(20L).setLeaderUserId(10L)
@@ -206,17 +200,16 @@ class MesPqcReleaseCorrectionServiceTest {
     @Test void originalApplicantExplicitlyReceivesMissingHistoricalCorrectionOnlyOnce() {
         Long id = db.transaction.execute(status -> service.receive(10L, 50L));
         assertEquals(id, db.transaction.execute(status -> service.receive(10L, 50L)));
-        verify(notifyApi, times(1)).sendSingleMessageIdempotentlyToAdmin(argThat(notice ->
-                notice.getUserId().equals(10L) && notice.getTemplateCode().equals("MES_EDHR_PQC_CORRECTION_ASSIGNED")
-                        && notice.getTemplateParams().get("reason").equals("补齐成品检文件")));
+        verifyNoInteractions(notifyApi);
         assertThrows(RuntimeException.class, () -> db.transaction.execute(status -> service.receive(12L, 50L)));
     }
 
-    @Test void notificationFailureRollsBackCreationAndLeavesHistoricalRejectionIntact() {
-        when(notifyApi.sendSingleMessageIdempotentlyToAdmin(any())).thenThrow(new IllegalStateException("template missing"));
-        assertThrows(RuntimeException.class, () -> db.transaction.execute(status -> service.receive(10L, 50L)));
-        assertEquals(0L, db.jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_edhr_work_task", Long.class));
+    @Test void correctionCreationDoesNotRequireAnInboxReceipt() {
+        Long id = db.transaction.execute(status -> service.receive(10L, 50L));
+        assertNotNull(tasks.selectById(id));
+        assertEquals("TODO", tasks.selectById(id).getStatus());
         assertEquals("PQC_RELEASE_REJECTED", applications.selectById(50L).getApplicationStatus());
+        verifyNoInteractions(notifyApi);
     }
     private void withdraw() throws Exception {
         applications.updateById(new MesProcessPoolActiveOrderReleaseApplicationDO().setId(50L)
@@ -235,10 +228,7 @@ class MesPqcReleaseCorrectionServiceTest {
         assertEquals("MARKET_WITHDRAWAL", task.getReviewSourceType());
         assertEquals(90L, task.getReviewSourceId());
         assertEquals("上市放行补正", task.getProcessName());
-        verify(notifyApi).sendSingleMessageIdempotentlyToAdmin(argThat(notice ->
-                notice.getTemplateCode().equals("MES_EDHR_MARKET_WITHDRAW_CORRECTION_ASSIGNED")
-                        && notice.getUserId().equals(10L)
-                        && notice.getTemplateParams().get("reason").equals("补齐成品检文件")));
+        verifyNoInteractions(notifyApi);
         assertEquals("APPROVE", applications.selectById(50L).getPqcDecision());
         assertEquals(70L, applications.selectById(50L).getPqcReleaseWorkTaskId());
         assertTrue(service.get(10L, id).writable());
@@ -287,10 +277,7 @@ class MesPqcReleaseCorrectionServiceTest {
         db.mapper(MesProEdhrNonconformanceReviewMapper.class).insert(review);
         Long id = db.transaction.execute(status -> service.receive(10L, 50L));
         assertEquals("MARKET_REJECTION", tasks.selectById(id).getReviewSourceType());
-        verify(notifyApi).sendSingleMessageIdempotentlyToAdmin(argThat(notice ->
-                notice.getTemplateCode().equals("MES_EDHR_MARKET_REJECT_CORRECTION_ASSIGNED")
-                        && notice.getUserId().equals(10L)
-                        && notice.getTemplateParams().get("reason").equals("补齐成品检文件")));
+        verifyNoInteractions(notifyApi);
         upload();
         var result = db.transaction.execute(status -> service.resubmit(10L, command(id)));
         assertEquals(51L, result.applicationId());

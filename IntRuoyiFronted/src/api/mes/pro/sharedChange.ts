@@ -28,7 +28,7 @@ export interface SharedImpact {
 export const SharedChangeApi = {
   options: (subjectType: SharedSubject, sourceId: number) => request.get({ url: `/mes/pro/shared-change/${subjectType}/options`, params: { sourceId } }),
   crafts: (subjectType: SharedSubject, processId: number) => request.get({ url: `/mes/pro/shared-change/${subjectType}/crafts`, params: { processId } }),
-  source: (subjectType: SharedSubject, id: number) => request.get({ url: `/mes/pro/shared-change/${subjectType}/source`, params: { id } }),
+  source: (subjectType: SharedSubject, id: number | string) => request.get({ url: `/mes/pro/shared-change/${subjectType}/source`, params: { id } }),
   preview: (subjectType: SharedSubject, data: SharedChangeRequest): Promise<SharedImpact> => request.post({ url: `/mes/pro/shared-change/${subjectType}/preview`, data }),
   submit: (subjectType: SharedSubject, data: SharedChangeRequest) => request.post({ url: `/mes/pro/shared-change/${subjectType}/submit`, data })
 }

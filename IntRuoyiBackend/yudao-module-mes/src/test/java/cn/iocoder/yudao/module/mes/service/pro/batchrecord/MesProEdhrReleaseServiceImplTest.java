@@ -112,7 +112,6 @@ import static org.mockito.Mockito.when;
         cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class})
 @org.mybatis.spring.annotation.MapperScan(basePackageClasses = cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper.class)
 class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
-    @org.springframework.boot.test.mock.mockito.MockBean private cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseOutcomeNotificationService outcomeNotifications;
     @org.springframework.boot.test.mock.mockito.MockBean private cn.iocoder.yudao.module.mes.approval.MesActiveOrderHandoffApprovalProjection handoffProjection;
 
 
@@ -2681,7 +2680,6 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
             assertEquals(5, actualApplications.selectById(application.getId()).getVersion());
             assertEquals("TODO", actualWorkTasks.selectById(task.getId()).getStatus());
             assertEquals(null, releaseDecisionMapper.selectByTransactionIdForUpdate(transaction.getId()));
-            verify(outcomeNotifications, never()).scheduleMarketNegative(any(), any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean(), any());
             return;
         }
         var persisted = releaseTransactionMapper.selectById(transaction.getId());
@@ -2705,8 +2703,6 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
             assertEquals(99671L, JSON.parseObject(decision.getAuditSnapshotJson()).getLong("signatureId"));
             assertEquals(decision.getPayloadHash(), decision.getSignoffEvidenceHash());
         }
-        verify(outcomeNotifications).scheduleMarketNegative(any(), any(), any(), org.mockito.ArgumentMatchers.eq(10001L),
-                org.mockito.ArgumentMatchers.eq(!withdraw), any());
     }
 
     private MesProEdhrReleaseRespVO insertPendingApprovalRelease(MesProEdhrBatchExecutionDO batch) {

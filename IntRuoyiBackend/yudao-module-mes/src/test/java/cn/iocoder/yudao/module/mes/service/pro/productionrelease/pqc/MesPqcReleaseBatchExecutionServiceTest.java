@@ -94,7 +94,6 @@ class MesPqcReleaseBatchExecutionServiceTest {
     @Mock private GxpAuditService gxpAuditService;
     @Mock private cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector affectedStates;
 
-    @Mock private cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseOutcomeNotificationService outcomeNotifications;
     @Mock private MesReleaseAttachmentUploadService attachmentUploads;
     @Mock private cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRequiredCandidateResolver candidateResolver;
     private MesPqcProductionReleaseService service;
@@ -114,7 +113,6 @@ class MesPqcReleaseBatchExecutionServiceTest {
         ReflectionTestUtils.setField(service, "candidateResolver", candidateResolver);
         configureAuthenticationBoundary();
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
-        ReflectionTestUtils.setField(service, "outcomeNotifications", outcomeNotifications);
         ReflectionTestUtils.setField(service, "attachmentUploads", attachmentUploads);
         ReflectionTestUtils.setField(service, "correctionService", mock(MesPqcReleaseCorrectionService.class));
 
@@ -301,7 +299,6 @@ class MesPqcReleaseBatchExecutionServiceTest {
         ReflectionTestUtils.setField(service, "candidateResolver", candidateResolver);
         configureAuthenticationBoundary();
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
-        ReflectionTestUtils.setField(service, "outcomeNotifications", outcomeNotifications);
         ReflectionTestUtils.setField(service, "attachmentUploads", attachmentUploads);
         ReflectionTestUtils.setField(service, "approvalAuthority", org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class));
         var batches = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper.class);
@@ -328,7 +325,6 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 .setApplicationStatus(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING).setVersion(VERSION + 2)
                 .setDossierSummaryJson(persisted.getValue()));
         var replay = service.approve(PQC_USER_ID, command);
-        verify(outcomeNotifications).schedulePqc(any(), any(), eq(PQC_USER_ID), eq(true), eq("正式来源核对通过"));
         assertEquals(result.getLossReportFormCenterInstanceIds(), replay.getLossReportFormCenterInstanceIds());
         assertEquals(result.getLossReportFieldAuditHeadHashes(), replay.getLossReportFieldAuditHeadHashes());
         verify(lossWriter, never()).write(any(), any());
@@ -456,7 +452,6 @@ class MesPqcReleaseBatchExecutionServiceTest {
         verify(gxpAuditService).append(rejectAuditCaptor.capture());
         assertEquals("mes.pqc.production-release.reject", rejectAuditCaptor.getValue().getOperationId());
         assertEquals("PQC_RELEASE_REJECTED", rejectAuditCaptor.getValue().getAfterState().getState());
-        verify(outcomeNotifications, never()).schedulePqc(any(), any(), eq(PQC_USER_ID), eq(false), any());
         verify((MesPqcReleaseCorrectionService) ReflectionTestUtils.getField(service, "correctionService"))
                 .create(any(), eq(PQC_USER_ID), eq("检验结论不通过"));
         assertDecisionTimeMatchesClockInstant(result, "REJECT");

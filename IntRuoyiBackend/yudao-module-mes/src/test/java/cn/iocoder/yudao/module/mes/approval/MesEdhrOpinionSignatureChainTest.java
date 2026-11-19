@@ -133,8 +133,6 @@ class MesEdhrOpinionSignatureChainTest {
                 mock(MesProEdhrNonconformanceReviewMapper.class), Clock.fixed(AT.toInstant(ZoneOffset.UTC), ZoneOffset.UTC));
         configureAuthenticatedPqcWriter(authorization);
         ReflectionTestUtils.setField(pqc, "gxpAuditService", audit);
-        ReflectionTestUtils.setField(pqc, "outcomeNotifications", mock(
-                cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseOutcomeNotificationService.class));
         ReflectionTestUtils.setField(pqc, "approvalAuthority", mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class));
         var batches = mock(MesProEdhrBatchExecutionMapper.class);
         var batch = new MesProEdhrBatchExecutionDO().setId(92L).setWorkOrderId(93L);

@@ -17,8 +17,8 @@
           <h3>评审信息</h3>
           <dl class="ncr-workspace__facts">
             <div><dt>来源</dt><dd>{{ sourceLabel }}</dd></div>
-            <div><dt>生产工单</dt><dd>{{ review.workOrderCode || '--' }}</dd></div>
-            <div><dt>批号</dt><dd>{{ review.batchCode || '--' }}</dd></div>
+            <div><dt>生产工单</dt><dd><WorkOrderCodeLink :code="review.workOrderCode" :work-order-id="review.workOrderId" /></dd></div>
+            <div><dt>批号</dt><dd><ProductionBatchCodeLink :code="review.batchCode" /></dd></div>
             <div><dt>冻结时间</dt><dd>{{ frozenAt }}</dd></div>
           </dl>
         </section>
@@ -127,6 +127,8 @@
 </template>
 
 <script setup lang="ts">
+import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { computed } from 'vue'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import QaReviewerSelect from './QaReviewerSelect.vue'

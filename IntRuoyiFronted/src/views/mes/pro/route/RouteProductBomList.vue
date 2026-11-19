@@ -23,7 +23,7 @@
     </el-row>
     <!-- 列表 -->
     <el-table v-loading="loading" :data="bomList" :stripe="true" :show-overflow-tooltip="true">
-      <el-table-column label="BOM 物料编码" align="center" prop="itemCode" width="150" />
+      <el-table-column label="BOM 物料编码" align="center" prop="itemCode" width="150" ><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="BOM 物料名称" align="center" prop="itemName" width="150" />
       <el-table-column label="规格型号" align="center" prop="specification" width="150" />
       <el-table-column label="单位" align="center" prop="unitName" width="80" />
@@ -83,6 +83,7 @@
 </template>
 
 <script setup lang="ts">
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { ProRouteProductBomApi, ProRouteProductBomVO } from '@/api/mes/pro/route/productbom'
 import { ProRouteProcessApi, type ProRouteBaseProcessVO } from '@/api/mes/pro/route/process'
 import type { RouteVersionEditContext } from '@/api/mes/pro/route'

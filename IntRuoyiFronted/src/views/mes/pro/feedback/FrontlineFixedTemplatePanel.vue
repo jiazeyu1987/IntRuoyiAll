@@ -1617,6 +1617,7 @@ v-model="pqcRoundOperation.sourceTaskId" aria-label="更正源工序" :disabled=
 </template>
 
 <script setup lang="ts">
+import { createSecureUuid } from '@/utils/uuid'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import WorkflowInteractionLog from '@/views/mes/pro/processpool/components/WorkflowInteractionLog.vue'
 import { useWorkflowInteractionLog } from '@/views/mes/pro/processpool/workflowInteractionLog'
@@ -6958,7 +6959,7 @@ function buildPqcInspectionSubmitPayloads(): FrontlinePqcInspectionSubmitReqVO[]
   ) {
     payloads[0] = buildPqcInspectionSubmitPayload()
   }
-  const pqcSubmissionGroupId = `PQC-${crypto.randomUUID()}`
+  const pqcSubmissionGroupId = `PQC-${createSecureUuid()}`
   payloads = payloads.map((payload) => ({
     ...payload,
     rawPayload: {

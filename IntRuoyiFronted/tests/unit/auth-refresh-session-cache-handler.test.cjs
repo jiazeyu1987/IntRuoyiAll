@@ -30,7 +30,8 @@ const provideViteEnv = (context) => {
   return (source) => ts.visitNode(source, visit)
 }
 
-function session({ visitTenant = true, authenticatedCache = true, refreshPayload, holdRefresh = false, httpCrypto = false } = {}) {
+function session({ visitTenant = true, authenticatedCache = true, refreshPayload, holdRefresh = false,
+  randomSource = { getRandomValues: values => require('node:crypto').webcrypto.getRandomValues(values) } } = {}) {
   const values = new Map()
   const mutations = []
   const businessCalls = []
@@ -87,7 +88,7 @@ function session({ visitTenant = true, authenticatedCache = true, refreshPayload
   const sourceFiles = {
     '@/hooks/web/useCache': 'src/hooks/web/useCache.ts',
     '@/utils/auth': 'src/utils/auth.ts',
-    '@/utils/secureUuid': 'src/utils/secureUuid.ts',
+    '@/utils/uuid': 'src/utils/uuid.ts',
     '@/config/axios/config': 'src/config/axios/config.ts',
     './errorCode': 'src/config/axios/errorCode.ts'
   }
@@ -135,9 +136,7 @@ function session({ visitTenant = true, authenticatedCache = true, refreshPayload
       window: { location },
       console,
       Response,
-      crypto: httpCrypto
-        ? { getRandomValues: (bytes) => require('node:crypto').webcrypto.getRandomValues(bytes) }
-        : require('node:crypto').webcrypto
+      crypto: randomSource
     }, { filename: relativePath })
     return module.exports
   }
@@ -238,6 +237,31 @@ test('actual login setToken clears all three old identity caches before storing 
     assert.strictEqual(h.cache.get(key), h.before.get(key))
   }
   assert.equal(h.refreshCalls.length, 0)
+})
+
+test('HTTP login creates and reuses UUID v4 session identity; refresh preserves it and login renews it', () => {
+  const h = session()
+  const uuidV4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+  const initial = h.auth.getAuthSessionId()
+  assert.match(initial, uuidV4)
+  assert.equal(h.auth.getAuthSessionId(), initial)
+  h.auth.setRefreshedToken(newTokens)
+  assert.equal(h.auth.getAuthSessionId(), initial)
+  h.auth.setToken(newTokens)
+  const next = h.auth.getAuthSessionId()
+  assert.match(next, uuidV4)
+  assert.notEqual(next, initial)
+  h.auth.removeToken()
+  assert.equal(h.auth.getAuthSessionId(), undefined)
+})
+
+test('session identity creation propagates unavailable or failing secure random sources without storing an ID', () => {
+  const failure = new Error('unit secure random failure')
+  for (const randomSource of [{}, { getRandomValues: () => { throw failure } }]) {
+    const h = session({ randomSource })
+    assert.throws(() => h.auth.getAuthSessionId(), randomSource.getRandomValues ? failure : /不支持安全随机数/)
+    assert.equal(h.cache.get('AUTH_SESSION_ID'), undefined)
+  }
 })
 
 test('two actual 401 handlers share one refresh and replay both requests without losing identity', { timeout: 10000 }, async () => {

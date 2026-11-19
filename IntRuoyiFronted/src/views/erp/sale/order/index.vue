@@ -162,7 +162,11 @@
       @selection-change="handleSelectionChange"
     >
       <el-table-column width="30" label="选择" type="selection" />
-      <el-table-column min-width="180" label="订单单号" align="center" prop="no" />
+      <el-table-column min-width="180" label="订单单号" align="center" prop="no">
+        <template #default="{ row }">
+          <BusinessDocumentCodeLink :code="row.no" :document-id="row.id" document-type="erp-sale-order" />
+        </template>
+      </el-table-column>
       <el-table-column label="产品信息" align="center" prop="productNames" min-width="200" />
       <el-table-column label="客户" align="center" prop="customerName" />
       <el-table-column
@@ -275,6 +279,9 @@
 </template>
 
 <script setup lang="ts">
+import BusinessDocumentCodeLink from '@/components/BusinessDocumentCodeLink.vue'
+import { useRoute } from 'vue-router'
+import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
@@ -311,6 +318,8 @@ const queryParams = reactive({
   outStatus: undefined,
   returnStatus: undefined
 })
+const codeLinkDefaults = structuredClone(toRaw(queryParams))
+const codeLinkRoute = useRoute()
 const queryFormRef = ref() // 搜索的表单
 const exportLoading = ref(false) // 导出的加载中
 const customerList = ref<CustomerVO[]>([]) // 客户列表
@@ -318,14 +327,18 @@ const userList = ref<UserVO[]>([]) // 用户列表
 
 /** 查询列表 */
 
+let documentRequestSequence = 0
 const getList = async () => {
+  const sequence = ++documentRequestSequence
+  const path = codeLinkRoute.path
   loading.value = true
   try {
-    const data = await SaleOrderApi.getSaleOrderPage(queryParams)
+    const data = await SaleOrderApi.getSaleOrderPage({ ...queryParams })
+    if (sequence !== documentRequestSequence || codeLinkRoute.path !== path) return
     list.value = data.list
     total.value = data.total
   } finally {
-    loading.value = false
+    if (sequence === documentRequestSequence) loading.value = false
   }
 }
 
@@ -347,7 +360,7 @@ const resetQuery = () => {
 
 /** 添加/修改操作 */
 const formRef = ref()
-const openForm = (type: string, id?: number) => {
+const openForm = (type: string, id?: number | string) => {
   formRef.value.open(type, id)
 }
 
@@ -399,10 +412,27 @@ const handleSelectionChange = (rows: SaleOrderVO[]) => {
   selectionList.value = rows
 }
 
+let documentGeneration = 0
+const receiveDocumentCodeLink = async () => {
+  const generation = ++documentGeneration
+  ++documentRequestSequence
+  if (codeLinkRoute.path !== '/erp/sale/order') return false
+  const code = typeof codeLinkRoute.query.code === 'string' ? codeLinkRoute.query.code.trim() : ''
+  if (!code) return false
+  queryFormRef.value?.resetFields()
+  Object.assign(queryParams, structuredClone(codeLinkDefaults), { no: code })
+  const id = parsePositiveRouteQueryId(codeLinkRoute.query.openId)
+  await getList()
+  if (generation !== documentGeneration) return true
+  if (id) openForm('detail', id)
+  return true
+}
+watch(() => [codeLinkRoute.path, codeLinkRoute.query.code, codeLinkRoute.query.openId, codeLinkRoute.query.codeLinkVisit], () => { void receiveDocumentCodeLink() })
+
 /** 初始化 **/
 
 onMounted(async () => {
-  await getList()
+  if (!(await receiveDocumentCodeLink())) await getList()
   // 加载产品、仓库列表、客户
   customerList.value = await CustomerApi.getCustomerSimpleList()
   userList.value = await UserApi.getSimpleUserList()

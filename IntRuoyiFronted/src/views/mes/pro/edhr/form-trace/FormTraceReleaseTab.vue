@@ -65,8 +65,8 @@
           >
             <template #default="{ row }">
               <div class="edhr-form-trace-release__strong">{{ row.batchExecutionCode || '--' }}</div>
-              <div class="edhr-form-trace-release__muted">工单：{{ row.workOrderCode || '--' }}</div>
-              <div class="edhr-form-trace-release__muted">批次：{{ row.batchCode || '--' }}</div>
+              <div class="edhr-form-trace-release__muted">工单：<WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></div>
+              <div class="edhr-form-trace-release__muted">批次：<ProductionBatchCodeLink :code="row.batchCode" :batch-execution-id="row.batchExecutionId" /></div>
             </template>
           </el-table-column>
           <el-table-column
@@ -248,6 +248,8 @@
 </template>
 
 <script setup lang="ts">
+import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 

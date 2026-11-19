@@ -12,7 +12,7 @@
   <RouteTreePanel v-if="routeViewMode === 'tree'" @edit="handleEditRouteProductionConfig"
     @view="openEditPage" @versions="openRouteVersionWorkspace" @changed="getList" />
   <ContentWrap v-show="routeViewMode === 'list'" class="route-list-page">
-    <UnifiedListTemplate
+    <UnifiedListTemplate ref="codeLinkListTemplate"
       single-line-toolbar
       :table-key="ROUTE_LIST_TABLE_KEY"
       :query-model="queryParams"
@@ -426,6 +426,7 @@
 </template>
 
 <script setup lang="ts">
+import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import RouteProjectSelect from './RouteProjectSelect.vue'
 import RouteTreePanel from './RouteTreePanel.vue'
 import { submitRouteVersionWithTreeReview } from './routeTreePublish'
@@ -479,9 +480,11 @@ const buildMesProRouteListStateKey = () =>
   JSON.stringify({
     code: typeof route.query.code === 'string' ? route.query.code : '',
     name: typeof route.query.name === 'string' ? route.query.name : '',
-    openId: typeof route.query.openId === 'string' ? route.query.openId : ''
+    openId: typeof route.query.openId === 'string' ? route.query.openId : '',
+    visit: route.query.codeLinkVisit
   })
 
+const codeLinkListTemplate = ref()
 const loading = ref(true) // 列表的加载中
 const list = ref<ProRouteVO[]>([]) // 列表的数据
 const total = ref(0) // 列表的总页数
@@ -577,15 +580,26 @@ const routeQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   }
 ]
 
+let routeCodeLinkGeneration = 0
 const loadListFromRoute = async () => {
+  if (!isMesProRouteListPath()) return
+  codeLinkListTemplate.value?.resetColumnFilters()
+  Object.assign(routeQuickFilter.state, { conditions: [], appliedConditions: [], value: undefined, valueEnd: undefined })
+  const generation = ++routeCodeLinkGeneration
   const targetStateKey = buildMesProRouteListStateKey()
-  queryParams.code = typeof route.query.code === 'string' ? route.query.code : undefined
+  queryParams.status = undefined
+  queryParams.listFilters = undefined
+  if (route.query.codeLinkVisit) openedRouteDetailId.value = ''
+  routeQuickFilter.updateState({ fieldKey: 'code', operator: 'contains', value: typeof route.query.code === 'string' ? route.query.code : undefined })
+  queryParams.code = typeof route.query.code === 'string' ? route.query.code.trim() || undefined : undefined
   queryParams.name = typeof route.query.name === 'string' ? route.query.name : undefined
   queryParams.pageNo = 1
   await getList()
+  if (generation !== routeCodeLinkGeneration || !isMesProRouteListPath() || targetStateKey !== buildMesProRouteListStateKey()) return
   mesProRouteListLastLoadedStateKey = targetStateKey
   mesProRouteListHasLoadedRouteState.value = true
-  const openId = typeof route.query.openId === 'string' ? route.query.openId : ''
+  const openId = parsePositiveRouteQueryId(route.query.openId)
+  if (route.query.openId !== undefined && !openId) throw new Error('无效的详情编号')
   if (!openId) {
     openedRouteDetailId.value = ''
     return
@@ -594,7 +608,7 @@ const loadListFromRoute = async () => {
     return
   }
   openedRouteDetailId.value = openId
-  openForm('detail', Number(openId))
+  openForm('detail', openId)
 }
 
 /** 查询列表 */
@@ -639,7 +653,7 @@ const handleStatusChange = async (row: ProRouteVO) => {
 }
 
 /** 添加/修改操作 */
-const openForm = async (type: string, id?: number) => {
+const openForm = async (type: string, id?: number | string) => {
   await until(() => typeof formRef.value?.open === 'function').toBeTruthy({
     timeout: 60000,
     throwOnTimeout: true
@@ -1164,9 +1178,10 @@ const isUserCancel = (error: unknown) => {
 
 /** 初始化 */
 watch(
-  () => [route.query.code, route.query.name, route.query.openId],
+  () => [route.path, route.query.code, route.query.name, route.query.openId, route.query.codeLinkVisit],
   async () => {
     if (!isMesProRouteListPath()) {
+      ++routeCodeLinkGeneration
       return
     }
     const targetStateKey = buildMesProRouteListStateKey()

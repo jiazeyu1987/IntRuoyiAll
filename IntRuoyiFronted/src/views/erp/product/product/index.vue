@@ -406,9 +406,10 @@ const loadListFromRoute = async () => {
 }
 
 watch(
-  () => [route.path, route.query.barCode],
+  () => [route.path, route.query.barCode, route.query.codeLinkVisit],
   async () => {
     if (route.path === '/mes/md/erp-product') await loadListFromRoute()
+    else listRequest.invalidate()
   }
 )
 

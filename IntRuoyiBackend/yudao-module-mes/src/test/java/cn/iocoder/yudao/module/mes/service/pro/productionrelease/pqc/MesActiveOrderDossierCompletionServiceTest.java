@@ -45,7 +45,7 @@ class MesActiveOrderDossierCompletionServiceTest {
     private final MesProEdhrNonconformanceReviewMapper reviews = mock(MesProEdhrNonconformanceReviewMapper.class);
     private final MesEdhrTaskDeadlineService deadlines = mock(MesEdhrTaskDeadlineService.class);
     private final MesActiveOrderDossierCompletionService service = new MesActiveOrderDossierCompletionService(orders, files, tasks,
-            permissions, notices, auxiliary, users, workOrders, applications, mock(MesProEdhrNonconformanceReviewService.class),
+            permissions, users, workOrders, applications, mock(MesProEdhrNonconformanceReviewService.class),
             mock(MesEdhrBatchLifecycleGuard.class), audit, ledger, reviews);
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
     private MesProcessPoolActiveOrderDO order;
@@ -68,7 +68,6 @@ class MesActiveOrderDossierCompletionServiceTest {
         when(tasks.insert(any(MesProEdhrWorkTaskDO.class))).thenAnswer(call -> { ((MesProEdhrWorkTaskDO) call.getArgument(0)).setId(31L); return 1; });
         when(tasks.updateById(any(MesProEdhrWorkTaskDO.class))).thenReturn(1);
         when(tasks.update(any(MesProEdhrWorkTaskDO.class), any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(1);
-        when(notices.sendSingleMessageToAdmin(any())).thenReturn(500L);
         doAnswer(call -> { ((java.util.function.Supplier<?>) call.getArgument(1)).get(); return null; })
                 .when(auxiliary).notifications(any(), any());
     }
@@ -90,7 +89,7 @@ class MesActiveOrderDossierCompletionServiceTest {
         verify(audit).recordInCallerTransaction(any());
     }
 
-    @Test void explicitOwnerCreatesCategorySpecificTodoAndAtomicNotice() {
+    @Test void explicitOwnerCreatesCategorySpecificTodoWithoutInboxNotice() {
         var task = service.assign(7L, 10L, "OTHER_FILE", 8L, "补齐设备说明");
         assertEquals("DOSSIER_COMPLETE", task.getTaskType());
         assertEquals("ACTIVE_ORDER_DOSSIER", task.getBusinessScopeType());
@@ -99,10 +98,7 @@ class MesActiveOrderDossierCompletionServiceTest {
         assertEquals(8L, task.getAssigneeUserId());
         assertEquals("8", task.getCandidateUserSnapshot());
         assertEquals("/mes/pro/feedback/edhr-dossier-completion?workTaskId=31", task.getActionUrl());
-        verify(auxiliary).notifications(eq(task), any());
-        verify(notices).sendSingleMessageToAdmin(argThat(request -> Long.valueOf(8).equals(request.getUserId())
-                && "MES_EDHR_DOSSIER_COMPLETE_ASSIGNED".equals(request.getTemplateCode())
-                && task.getActionUrl().equals(request.getTemplateParams().get("actionUrl"))));
+        verifyNoInteractions(auxiliary, notices);
     }
     @Test void otherLeaderCannotAssign() {
         login(9L, 1L);

@@ -44,14 +44,6 @@ public class BpmMessageServiceImpl implements BpmMessageService {
     static final String DCC_PROCESS_INSTANCE_APPROVE_NOTIFY_TEMPLATE_CODE = "dcc_controlled_file_approved";
     static final String DCC_PROCESS_INSTANCE_REJECT_NOTIFY_TEMPLATE_CODE = "dcc_controlled_file_rejected";
     static final String DCC_TASK_TIMEOUT_NOTIFY_TEMPLATE_CODE = "dcc_task_timeout";
-    static final String EDHR_TASK_ASSIGNED_NOTIFY_TEMPLATE_CODE = "MES_EDHR_BPM_TASK_ASSIGNED";
-    static final String EDHR_PROCESS_INSTANCE_APPROVE_NOTIFY_TEMPLATE_CODE = "MES_EDHR_BPM_APPROVED";
-    static final String EDHR_PROCESS_INSTANCE_REJECT_NOTIFY_TEMPLATE_CODE = "MES_EDHR_BPM_REJECTED";
-    static final String EDHR_TASK_TIMEOUT_NOTIFY_TEMPLATE_CODE = "MES_EDHR_BPM_TASK_TIMEOUT";
-    static final String ROUTE_VERSION_TASK_ASSIGNED_NOTIFY_TEMPLATE_CODE = "MES_ROUTE_VERSION_BPM_TASK_ASSIGNED";
-    static final String ROUTE_VERSION_PROCESS_INSTANCE_APPROVE_NOTIFY_TEMPLATE_CODE = "MES_ROUTE_VERSION_BPM_APPROVED";
-    static final String ROUTE_VERSION_PROCESS_INSTANCE_REJECT_NOTIFY_TEMPLATE_CODE = "MES_ROUTE_VERSION_BPM_REJECTED";
-    static final String ROUTE_VERSION_TASK_TIMEOUT_NOTIFY_TEMPLATE_CODE = "MES_ROUTE_VERSION_BPM_TASK_TIMEOUT";
 
     @Resource
     private SmsSendApi smsSendApi;
@@ -63,6 +55,9 @@ public class BpmMessageServiceImpl implements BpmMessageService {
 
     @Override
     public void sendMessageWhenProcessInstanceApprove(BpmMessageSendWhenProcessInstanceApproveReqDTO reqDTO) {
+        // eDHR批记录及工艺路线版本审批已停用站内信。
+        if (EDHR_BATCH_RECORD_PROCESS_DEFINITION_KEY.equals(reqDTO.getProcessDefinitionKey())
+                || ROUTE_VERSION_PROCESS_DEFINITION_KEY.equals(reqDTO.getProcessDefinitionKey())) return;
         Map<String, Object> templateParams = new HashMap<>();
         templateParams.put("processInstanceName", reqDTO.getProcessInstanceName());
         templateParams.put("detailUrl", getProcessInstanceDetailUrl(reqDTO.getProcessInstanceId()));
@@ -77,6 +72,9 @@ public class BpmMessageServiceImpl implements BpmMessageService {
 
     @Override
     public void sendMessageWhenProcessInstanceReject(BpmMessageSendWhenProcessInstanceRejectReqDTO reqDTO) {
+        // eDHR批记录及工艺路线版本审批已停用站内信。
+        if (EDHR_BATCH_RECORD_PROCESS_DEFINITION_KEY.equals(reqDTO.getProcessDefinitionKey())
+                || ROUTE_VERSION_PROCESS_DEFINITION_KEY.equals(reqDTO.getProcessDefinitionKey())) return;
         Map<String, Object> templateParams = new HashMap<>();
         templateParams.put("processInstanceName", reqDTO.getProcessInstanceName());
         templateParams.put("reason", reqDTO.getReason());
@@ -103,6 +101,9 @@ public class BpmMessageServiceImpl implements BpmMessageService {
 
     @Override
     public void sendMessageWhenTaskAssigned(BpmMessageSendWhenTaskCreatedReqDTO reqDTO) {
+        // eDHR批记录及工艺路线版本审批已停用站内信。
+        if (EDHR_BATCH_RECORD_PROCESS_DEFINITION_KEY.equals(reqDTO.getProcessDefinitionKey())
+                || ROUTE_VERSION_PROCESS_DEFINITION_KEY.equals(reqDTO.getProcessDefinitionKey())) return;
         Map<String, Object> templateParams = new HashMap<>();
         templateParams.put("processInstanceName", reqDTO.getProcessInstanceName());
         templateParams.put("taskName", reqDTO.getTaskName());
@@ -119,6 +120,9 @@ public class BpmMessageServiceImpl implements BpmMessageService {
 
     @Override
     public void sendMessageWhenTaskTimeout(BpmMessageSendWhenTaskTimeoutReqDTO reqDTO) {
+        // eDHR批记录及工艺路线版本审批已停用站内信。
+        if (EDHR_BATCH_RECORD_PROCESS_DEFINITION_KEY.equals(reqDTO.getProcessDefinitionKey())
+                || ROUTE_VERSION_PROCESS_DEFINITION_KEY.equals(reqDTO.getProcessDefinitionKey())) return;
         Map<String, Object> templateParams = new HashMap<>();
         templateParams.put("processInstanceName", reqDTO.getProcessInstanceName());
         templateParams.put("taskName", reqDTO.getTaskName());
@@ -144,24 +148,12 @@ public class BpmMessageServiceImpl implements BpmMessageService {
         if (isDccNotifyInboxProcess(processDefinitionKey)) {
             return DCC_PROCESS_INSTANCE_APPROVE_NOTIFY_TEMPLATE_CODE;
         }
-        if (EDHR_BATCH_RECORD_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)) {
-            return EDHR_PROCESS_INSTANCE_APPROVE_NOTIFY_TEMPLATE_CODE;
-        }
-        if (ROUTE_VERSION_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)) {
-            return ROUTE_VERSION_PROCESS_INSTANCE_APPROVE_NOTIFY_TEMPLATE_CODE;
-        }
         return null;
     }
 
     private String resolveProcessRejectNotifyTemplateCode(String processDefinitionKey) {
         if (isDccNotifyInboxProcess(processDefinitionKey)) {
             return DCC_PROCESS_INSTANCE_REJECT_NOTIFY_TEMPLATE_CODE;
-        }
-        if (EDHR_BATCH_RECORD_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)) {
-            return EDHR_PROCESS_INSTANCE_REJECT_NOTIFY_TEMPLATE_CODE;
-        }
-        if (ROUTE_VERSION_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)) {
-            return ROUTE_VERSION_PROCESS_INSTANCE_REJECT_NOTIFY_TEMPLATE_CODE;
         }
         return null;
     }
@@ -170,24 +162,12 @@ public class BpmMessageServiceImpl implements BpmMessageService {
         if (isDccNotifyInboxProcess(processDefinitionKey)) {
             return DCC_TASK_ASSIGNED_NOTIFY_TEMPLATE_CODE;
         }
-        if (EDHR_BATCH_RECORD_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)) {
-            return EDHR_TASK_ASSIGNED_NOTIFY_TEMPLATE_CODE;
-        }
-        if (ROUTE_VERSION_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)) {
-            return ROUTE_VERSION_TASK_ASSIGNED_NOTIFY_TEMPLATE_CODE;
-        }
         return null;
     }
 
     private String resolveTaskTimeoutNotifyTemplateCode(String processDefinitionKey) {
         if (isDccNotifyInboxProcess(processDefinitionKey)) {
             return DCC_TASK_TIMEOUT_NOTIFY_TEMPLATE_CODE;
-        }
-        if (EDHR_BATCH_RECORD_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)) {
-            return EDHR_TASK_TIMEOUT_NOTIFY_TEMPLATE_CODE;
-        }
-        if (ROUTE_VERSION_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)) {
-            return ROUTE_VERSION_TASK_TIMEOUT_NOTIFY_TEMPLATE_CODE;
         }
         return null;
     }

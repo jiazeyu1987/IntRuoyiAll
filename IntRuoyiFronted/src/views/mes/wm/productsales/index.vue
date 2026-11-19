@@ -99,9 +99,9 @@
         </template>
       </el-table-column>
       <el-table-column label="出库单名称" align="center" prop="name" min-width="150" />
-      <el-table-column label="发货通知单号" align="center" prop="noticeCode" min-width="160" />
+      <el-table-column label="发货通知单号" align="center" prop="noticeCode" min-width="160"><template #default="{ row }"><BusinessDocumentCodeLink :code="row.noticeCode" document-type="mes-sales-notice" /></template></el-table-column>
       <el-table-column label="销售订单编号" align="center" prop="salesOrderCode" min-width="160" />
-      <el-table-column label="客户编码" align="center" prop="clientCode" min-width="120" />
+      <el-table-column label="客户编码" align="center" prop="clientCode" min-width="120" ><template #default="{ row }"><PartnerCodeLink :code="row.clientCode" partner-type="client" /></template></el-table-column>
       <el-table-column label="客户名称" align="center" prop="clientName" min-width="120" />
       <el-table-column label="收货人" align="center" prop="contactName" min-width="100" />
       <el-table-column label="联系方式" align="center" prop="contactTelephone" min-width="120" />
@@ -202,6 +202,8 @@
 </template>
 
 <script setup lang="ts">
+import BusinessDocumentCodeLink from '@/components/BusinessDocumentCodeLink.vue'
+import PartnerCodeLink from '@/components/PartnerCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { dateFormatter2 } from '@/utils/formatTime'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'

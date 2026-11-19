@@ -73,14 +73,14 @@ class MesNcrFreezeNotificationTest extends MesActiveOrderHandoffLifecycleTest {
         assertEquals("DONE",notice.getStatus());assertTrue(notice.getNotificationOnly());assertEquals("341",notice.getCandidateUserSnapshot());
         assertTrue(notice.getActionUrl().startsWith("/user/profile?"));assertTrue(notice.getActionUrl().endsWith("tab=notifyMessage"));
         assertEquals("SYSTEM_USER",JsonUtils.parseTree(notice.getResponsibilitySnapshotJson()).path("identityDomain").asText());
-        assertNull(notice.getDueTime());verify(delivery).schedule(notice);
+        assertNull(notice.getDueTime());verifyNoInteractions(delivery);
         when(tasks.byIdentity(413L,"NCR_FREEZE_NOTICE","NONCONFORMANCE_REVIEW",91L,91L)).thenReturn(notice);
         order.setLeaderUserId(349L);service.ncrFrozen(review,343L);
-        verify(tasks,times(1)).insert(any(MesActiveOrderHandoffTaskDO.class));verify(delivery,times(1)).schedule(any());
+        verify(tasks,times(1)).insert(any(MesActiveOrderHandoffTaskDO.class));verifyNoInteractions(delivery);
     }
-    @Test void deliveryFailurePropagatesAndNoticeCannotBeTodo() {
-        doThrow(new IllegalStateException("outbox persistence failed")).when(delivery).schedule(any());
-        assertThrows(IllegalStateException.class,()->service.ncrFrozen(review,343L));
+    @Test void frozenLedgerDoesNotRequireInboxAndCannotBeTodo() {
+        assertDoesNotThrow(()->service.ncrFrozen(review,343L));
+        verifyNoInteractions(delivery);
         var capture=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(capture.capture());
         capture.getValue().setStatus("TODO");assertThrows(RuntimeException.class,()->MesActiveOrderHandoffContract.validate(capture.getValue()));
     }

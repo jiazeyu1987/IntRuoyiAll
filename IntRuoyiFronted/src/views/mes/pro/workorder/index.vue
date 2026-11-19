@@ -29,6 +29,7 @@
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
+        <el-tag v-if="queryParams.batchCode" closable @close="resetQuery">批次号：{{ queryParams.batchCode }}</el-tag>
         <el-button
           v-if="testModeEnabled"
           class="app-test-button"
@@ -176,7 +177,7 @@
             prop="batchCode"
             width="160"
             v-bind="sortColumnAttrs('batchCode')"
-          />
+          ><template #default="{ row }"><ProductionBatchCodeLink :code="row.batchCode" /></template></el-table-column>
           <el-table-column
             v-if="isWorkOrderColumnVisible('workshopName')"
             label="生产车间"
@@ -392,7 +393,7 @@
       <el-table :data="localTestResult?.orders || localTestPreflight?.orders || []" border>
         <el-table-column prop="slot" label="槽位" width="70" /><el-table-column prop="workOrderId" label="工单 ID" />
         <el-table-column prop="manifestId" label="来源 ID" />
-        <el-table-column prop="workOrderCode" label="工单编号" /><el-table-column prop="status" label="当前状态" />
+        <el-table-column prop="workOrderCode" label="工单编号" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column><el-table-column prop="status" label="当前状态" />
         <el-table-column label="处理结果"><template #default="{ row }">{{ row.reused ? '复用原记录，状态不变' : localTestResult ? '本轮新建' : '待准备' }}</template></el-table-column>
       </el-table>
     </template>
@@ -460,6 +461,8 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
+import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
 import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'
@@ -656,6 +659,7 @@ const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
   code: undefined as string | undefined,
+  batchCode: undefined as string | undefined,
   productNameKeyword: undefined as string | undefined,
   productCodeKeyword: undefined as string | undefined,
   requestDate: undefined as string[] | undefined,
@@ -675,11 +679,21 @@ const openedRouteDetailId = ref('')
 const formRef = ref<any>()
 const { isExpandAll, refreshTable } = useTreeTableExpand(true)
 let getListRequestSequence = 0
+const buildWorkOrderListQuery = () => {
+  const { batchCode, ...params } = queryParams
+  if (batchCode) {
+    params.listFilters = JSON.stringify([
+      ...(params.listFilters ? JSON.parse(params.listFilters) : []),
+      { key: 'batchCode', operator: 'eq', value: batchCode }
+    ])
+  }
+  return params
+}
 const getList = async () => {
   const requestId = ++getListRequestSequence
   loading.value = true
   try {
-    const data = await ProWorkOrderApi.getWorkOrderPage(queryParams)
+    const data = await ProWorkOrderApi.getWorkOrderPage(buildWorkOrderListQuery())
     if (requestId !== getListRequestSequence) return false
     list.value = handleTree(data.list, 'id', 'parentId') as WorkOrderTreeRow[]
     total.value = data.total
@@ -755,6 +769,7 @@ const workOrderQuickFilter = useTableQuickFilter(
   getList
 )
 const resetQuery = () => {
+  queryParams.batchCode = undefined
   workOrderQuickFilter.resetQuickFilter()
 }
 
@@ -772,7 +787,24 @@ const handleExport = async () => {
   }
 }
 const loadListFromRoute = async () => {
+  if (route.path !== '/mes/pro/work-order') {
+    openedRouteDetailId.value = ''
+    return
+  }
+  if (route.query.code || route.query.openId || route.query.batchCode) {
+    Object.assign(workOrderQuickFilter.state, {
+      conditions: [], appliedConditions: [], value: undefined, operator: undefined, activeConditionId: undefined
+    })
+    codeSyncListTemplate.value?.resetColumnFilters()
+    queryParams.listFilters = undefined
+    queryParams.syncCode = undefined
+    queryParams.productNameKeyword = undefined
+    queryParams.productCodeKeyword = undefined
+    queryParams.requestDate = undefined
+    queryParams.quickFilter = undefined
+  }
   queryParams.code = typeof route.query.code === 'string' ? route.query.code : undefined
+  queryParams.batchCode = typeof route.query.batchCode === 'string' ? route.query.batchCode.trim() || undefined : undefined
   queryParams.pageNo = 1
   await getList()
   const openId = typeof route.query.openId === 'string' ? route.query.openId : ''
@@ -780,7 +812,6 @@ const loadListFromRoute = async () => {
     openedRouteDetailId.value = ''
     return
   }
-  if (openedRouteDetailId.value === openId) return
   openedRouteDetailId.value = openId
   openForm('detail', Number(openId))
 }
@@ -837,7 +868,7 @@ const handleOpenBatchRecord = async (row: WorkOrderTreeRow) => {
   })
 }
 watch(
-  () => [route.query.code, route.query.openId],
+  () => [route.path, route.query.code, route.query.openId, route.query.batchCode, route.query.detailVisit],
   async () => {
     await loadListFromRoute()
   }

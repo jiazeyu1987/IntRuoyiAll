@@ -22,7 +22,7 @@
       @current-change="selectLine"
     >
       <el-table-column prop="billNo" label="补料单号" min-width="140" />
-      <el-table-column prop="materialCode" label="物料号" min-width="165" />
+      <el-table-column prop="materialCode" label="物料号" min-width="165" ><template #default="{ row }"><MaterialCodeLink :code="row.materialCode" /></template></el-table-column>
       <el-table-column prop="materialName" label="物料名称" min-width="160" />
       <el-table-column prop="lotNumber" label="批号" min-width="110" />
       <el-table-column prop="actualQuantity" label="实补数量" width="95" />
@@ -32,7 +32,7 @@
     </el-table>
     <el-form v-if="selected && canBind" label-width="100px" class="mt-16px">
       <el-form-item label="补料物料"
-        >{{ selected.materialName }}（{{ selected.materialCode }}）</el-form-item
+        >{{ selected.materialName }}（<MaterialCodeLink :code="selected.materialCode" />）</el-form-item
       >
       <el-form-item label="所属工序" required>
         <el-select v-model="routeProcessId" placeholder="请选择订单工序" aria-label="补料所属工序">
@@ -67,6 +67,7 @@
 </template>
 
 <script setup lang="ts">
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'

@@ -27,12 +27,12 @@
           />
         </template>
       </el-table-column>
-      <el-table-column label="物料编码" align="center" prop="itemCode" min-width="120" />
+      <el-table-column label="物料编码" align="center" prop="itemCode" min-width="120" ><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="物料名称" align="center" prop="itemName" min-width="140" />
       <el-table-column label="规格型号" align="center" prop="specification" min-width="120" />
       <el-table-column label="单位" align="center" prop="unitMeasureName" width="80" />
       <el-table-column label="退料数量" align="center" prop="quantity" width="100" />
-      <el-table-column label="批次号" align="center" prop="batchCode" min-width="120" />
+      <el-table-column label="批次号" align="center" prop="batchCode" min-width="120"><template #default="{ row }"><BatchCodeLink :code="row.batchCode" :batch-id="row.batchId" /></template></el-table-column>
       <el-table-column label="是否检测" align="center" prop="rqcCheckFlag" width="100">
         <template #default="scope">
           <dict-tag :type="DICT_TYPE.INFRA_BOOLEAN_STRING" :value="scope.row.rqcCheckFlag" />
@@ -121,6 +121,7 @@
         <el-col :span="8">
           <el-form-item label="批次号">
             <el-input :model-value="formData.batchCode" disabled placeholder="选择库存后自动带出" />
+            <BatchCodeLink :code="formData.batchCode" :batch-id="formData.batchId" />
           </el-form-item>
         </el-col>
       </el-row>
@@ -149,6 +150,8 @@
 </template>
 
 <script setup lang="ts">
+import BatchCodeLink from '@/components/BatchCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { DICT_TYPE } from '@/utils/dict'
 import { WmReturnIssueLineApi, WmReturnIssueLineVO } from '@/api/mes/wm/returnissue/line'
 import { WmMaterialStockVO } from '@/api/mes/wm/materialstock'

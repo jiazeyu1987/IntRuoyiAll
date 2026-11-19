@@ -7,6 +7,9 @@ const vm = require('node:vm')
 const { parse, compileScript } = require('vue/compiler-sfc')
 const ts = require('typescript')
 const vue = require('vue')
+const { webcrypto } = require('node:crypto')
+const loadUuid = require('../helpers/load-secure-uuid.cjs')
+const httpCrypto = { getRandomValues: bytes => webcrypto.getRandomValues(bytes) }
 const root = path.resolve(__dirname, '../..')
 const plain = value => JSON.parse(JSON.stringify(value))
 const deferred = () => {
@@ -33,17 +36,18 @@ function loadFolderTree() {
     { exports: exportsObject, Error })
   return exportsObject
 }
-function setup(relative, mocks = {}, props = {}) {
+function setup(relative, mocks = {}, props = {}, crypto = httpCrypto) {
   const filename = path.join(root, relative)
   const { descriptor } = parse(fs.readFileSync(filename, 'utf8'), { filename })
   const script = compileScript(descriptor, { id: relative })
   const code = ts.transpileModule(script.content, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
   const exportsObject = {}
   vm.runInNewContext(code, {
-    exports: exportsObject, Error, crypto: require('node:crypto').webcrypto,
+    exports: exportsObject, Error, crypto,
     require: id => {
       if (Object.hasOwn(mocks, id)) return mocks[id]
       if (id === 'vue') return vue
+      if (id === '@/utils/uuid') return loadUuid(crypto)
       if (id === '@/utils/permission') return { checkPermi: () => true }
       if (id.endsWith('/state') || id === './state') return loadState()
       if (id.endsWith('.vue')) return {}
@@ -73,6 +77,44 @@ async function run() {
   }
   const folderRows = projectId => [{ id: '10', projectCodeId: String(projectId), parentId: '0', name: '正式根目录',
     sortOrder: 0, active: true, sourceTemplateId: '5', sourceNodeKey: 'root' }]
+  await test('HTTP无randomUUID仍能新增目录，UUID v4键保持父子关系和删除保护', async () => {
+    const instance = setup(folderComponent, {
+      [apiPath]: { getFolderTemplates: async () => [] },
+      'element-plus': { ElMessageBox: {} }
+    })
+    await instance.exposed.open()
+    instance.bindings.add()
+    instance.bindings.add()
+    const nodes = instance.bindings.form.structure.nodes
+    assert.equal(nodes.length, 2)
+    for (const [index, node] of nodes.entries()) {
+      assert.match(node.key, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+      assert.equal(node.parentKey, null)
+      assert.equal(node.sortOrder, index)
+    }
+    assert.notEqual(nodes[0].key, nodes[1].key)
+    nodes[1].parentKey = nodes[0].key
+    instance.bindings.remove(0)
+    assert.equal(nodes.length, 2)
+    assert.equal(instance.bindings.error.value, '请先移除或调整子文件夹')
+    instance.bindings.remove(1)
+    instance.bindings.remove(0)
+    assert.equal(nodes.length, 0)
+    instance.stop()
+  })
+  await test('缺少安全随机源时新增目录明确失败且不改变现有结构', async () => {
+    const instance = setup(folderComponent, {
+      [apiPath]: { getFolderTemplates: async () => [template(5, '模板05')] },
+      'element-plus': { ElMessageBox: {} }
+    }, {}, {})
+    await instance.exposed.open()
+    instance.bindings.choose(template(5, '模板05'))
+    const before = plain(instance.bindings.form.structure)
+    assert.throws(() => instance.bindings.add(), /不支持安全随机数/)
+    assert.deepEqual(plain(instance.bindings.form.structure), before)
+    assert.equal(instance.events.length, 0)
+    instance.stop()
+  })
   await test('模板保存和删除缺少原因时就地提示，不确认、不请求、不报成功', async () => {
     let writes = 0, confirms = 0
     const instance = setup(folderComponent, {

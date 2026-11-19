@@ -1,4 +1,5 @@
 import PizZip from 'pizzip'
+import { createSecureUuid } from '@/utils/uuid'
 import type {
   BatchRecordTotalRecognitionJson as Recognition,
   BatchRecordTotalRecognitionProcess as Process,
@@ -48,7 +49,7 @@ export const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value))
 export const signature = (process: EditableProcess) =>
   JSON.stringify([process.value, process.processId, process.craftSelections])
 export const newProcess = (): EditableProcess => ({
-  id: crypto.randomUUID(),
+  id: createSecureUuid(),
   sourceName: '',
   value: { name: '', criticalProcess: false, inputs: [], outputs: [], equipmentGroups: [] }
 })

@@ -65,12 +65,11 @@ class MesEdhrRecordChangeTaskServiceTest {
         verifyNoInteractions(taskMapper, notifyApi);
     }
 
-    @Test void assignment_freezesSelectedReviewerAndNotifiesWithStableBusinessIdentity() {
+    @Test void assignment_freezesSelectedReviewerWithoutInboxNotification() {
         authorized();
         when(taskMapper.insert(any(MesProEdhrWorkTaskDO.class))).thenAnswer(call -> {
             ((MesProEdhrWorkTaskDO) call.getArgument(0)).setId(99L); return 1;
         });
-        when(notifyApi.sendSingleMessageIdempotentlyToAdmin(any())).thenReturn(401L);
         MesProEdhrWorkTaskDO task = service.assign(event(), 20L);
         assertEquals("RECORD_CHANGE_APPROVE", task.getTaskType());
         assertEquals("RECORD_CHANGE", task.getBusinessScopeType());
@@ -80,10 +79,7 @@ class MesEdhrRecordChangeTaskServiceTest {
         assertEquals(10L, task.getSourceUserId());
         assertEquals("TODO", task.getStatus());
         assertEquals("/mes/pro/feedback/edhr-change?changeEventId=7", task.getActionUrl());
-        var notice = ArgumentCaptor.forClass(NotifySendSingleToUserIdempotentReqDTO.class);
-        verify(notifyApi).sendSingleMessageIdempotentlyToAdmin(notice.capture());
-        assertEquals(20L, notice.getValue().getUserId());
-        assertEquals("MES_EDHR_RECORD_CHANGE_ASSIGNED:EVENT:7:USER:20", notice.getValue().getBusinessKey());
+        verifyNoInteractions(notifyApi);
     }
 
     @Test void assignmentReplay_doesNotDuplicateTaskOrNoticeAndCannotReplaceReviewer() {
@@ -110,13 +106,12 @@ class MesEdhrRecordChangeTaskServiceTest {
         verifyNoInteractions(notifyApi);
     }
 
-    @Test void approval_closesOnlyFrozenTaskAndNotifiesOriginalApplicant() {
+    @Test void approval_closesOnlyFrozenTaskWithoutInboxNotification() {
         authorized();
         MesProEdhrWorkTaskDO task = new MesProEdhrWorkTaskDO().setId(99L).setAssigneeUserId(20L)
                 .setStatus("TODO").setActionUrl("/mes/pro/feedback/edhr-change?changeEventId=7");
         when(taskMapper.selectOne(any(Wrapper.class))).thenReturn(task);
         when(taskMapper.updateById(any(MesProEdhrWorkTaskDO.class))).thenReturn(1);
-        when(notifyApi.sendSingleMessageIdempotentlyToAdmin(any())).thenReturn(402L);
         try (var security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(20L);
             service.complete(event().setChangeStatus("EFFECTIVE").setApprovedBy(20L).setApprovalSignatureId(50L)
@@ -127,13 +122,10 @@ class MesEdhrRecordChangeTaskServiceTest {
         assertEquals(99L, update.getValue().getId());
         assertEquals("DONE", update.getValue().getStatus());
         assertNotNull(update.getValue().getCompletedAt());
-        var notice = ArgumentCaptor.forClass(NotifySendSingleToUserIdempotentReqDTO.class);
-        verify(notifyApi).sendSingleMessageIdempotentlyToAdmin(notice.capture());
-        assertEquals(10L, notice.getValue().getUserId());
-        assertEquals("MES_EDHR_RECORD_CHANGE_APPROVED:EVENT:7:USER:10", notice.getValue().getBusinessKey());
+        verifyNoInteractions(notifyApi);
     }
 
-    @Test void rejectedDecision_completesApprovalNotifiesApplicantAndCreatesNoCorrectionTask() {
+    @Test void rejectedDecision_completesApprovalWithoutNoticeOrCorrectionTask() {
         negativeDecision("REJECTED");
         verify(taskMapper, never()).insert(any(MesProEdhrWorkTaskDO.class));
     }
@@ -160,7 +152,6 @@ class MesEdhrRecordChangeTaskServiceTest {
                 .setActionUrl("/mes/pro/feedback/edhr-change?changeEventId=7");
         when(taskMapper.selectOne(any(Wrapper.class))).thenReturn(task);
         when(taskMapper.updateById(any(MesProEdhrWorkTaskDO.class))).thenReturn(1);
-        when(notifyApi.sendSingleMessageIdempotentlyToAdmin(any())).thenReturn(402L);
         try (var security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(20L);
             service.completeNegativeDecision(event().setChangeStatus(decision).setApprovedBy(20L)
@@ -169,11 +160,7 @@ class MesEdhrRecordChangeTaskServiceTest {
         var update = ArgumentCaptor.forClass(MesProEdhrWorkTaskDO.class);
         verify(taskMapper).updateById(update.capture());
         assertEquals("DONE", update.getValue().getStatus());
-        var notice = ArgumentCaptor.forClass(NotifySendSingleToUserIdempotentReqDTO.class);
-        verify(notifyApi).sendSingleMessageIdempotentlyToAdmin(notice.capture());
-        assertEquals(10L, notice.getValue().getUserId());
-        assertEquals("MES_EDHR_RECORD_CHANGE_" + decision, notice.getValue().getTemplateCode());
-        assertEquals("证据不足", notice.getValue().getTemplateParams().get("reason"));
+        verifyNoInteractions(notifyApi);
     }
 
     @Test void correction_rejectsOtherApplicantAndRequiresCurrentApplyPermission() {
@@ -190,16 +177,12 @@ class MesEdhrRecordChangeTaskServiceTest {
         }
     }
 
-    @Test void notificationFailure_isPropagatedInsteadOfReportingSuccess() {
+    @Test void assignmentDoesNotDependOnNotificationReceipt() {
         authorized();
         when(taskMapper.insert(any(MesProEdhrWorkTaskDO.class))).thenAnswer(call -> {
             ((MesProEdhrWorkTaskDO) call.getArgument(0)).setId(99L); return 1;
         });
-        when(notifyApi.sendSingleMessageIdempotentlyToAdmin(any())).thenReturn(null, 0L);
-        assertThrows(IllegalStateException.class, () -> service.assign(event(), 20L));
-        assertThrows(IllegalStateException.class, () -> service.assign(event(), 20L));
-        IllegalStateException deliveryFailure = new IllegalStateException("notification persistence failed");
-        when(notifyApi.sendSingleMessageIdempotentlyToAdmin(any())).thenThrow(deliveryFailure);
-        assertSame(deliveryFailure, assertThrows(IllegalStateException.class, () -> service.assign(event(), 20L)));
+        assertEquals("TODO", service.assign(event(), 20L).getStatus());
+        verifyNoInteractions(notifyApi);
     }
 }

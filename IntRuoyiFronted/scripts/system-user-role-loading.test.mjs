@@ -23,13 +23,16 @@ function form(roles) {
   let writes = 0
   const imports = {
     vue,
+    '@/utils/permissionAudit': require('../tests/helpers/load-permission-audit.cjs')(),
+    './user-change-confirmation': {},
+    './role-option-label': {},
     '@/api/system/permission': { getUserRoleList: async () => [41], assignUserRole: async () => { writes++ } },
     '@/api/system/role': { getSimpleRoleList: () => roles },
     '@/api/system/user': {}
   }
-  new Function('require', 'module', 'exports', 'ref', 'useI18n', 'useMessage', compiled)(
+  new Function('require', 'module', 'exports', 'ref', 'computed', 'watch', 'useI18n', 'useMessage', compiled)(
     (name) => { assert.ok(Object.hasOwn(imports, name)); return imports[name] },
-    module, module.exports, vue.ref, () => ({ t: (v) => v }), () => ({ success() {} })
+    module, module.exports, vue.ref, vue.computed, vue.watch, () => ({ t: (v) => v }), () => ({ success() {} })
   )
   let exposed
   const state = module.exports.default.setup({}, { expose(value) { exposed = value }, emit() {} })
@@ -44,7 +47,7 @@ test('actual role form stays loading until names arrive, then publishes IDs with
   assert.equal(f.state.formLoading.value, true)
   assert.equal(f.state.roleOptionsReady.value, false)
   assert.deepEqual(f.state.formData.value.roleIds, [])
-  await assert.rejects(f.state.submitForm(), /角色资料尚未加载完成/)
+  await f.state.submitForm()
   assert.equal(f.writes(), 0)
   pending.resolve([{ id: 41, name: '本轮角色' }])
   await opening

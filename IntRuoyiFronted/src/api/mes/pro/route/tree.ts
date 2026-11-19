@@ -8,6 +8,7 @@ export interface RouteTreeNode extends ProRouteVO {
   pendingStatus?: string
   different: boolean
   children?: RouteTreeNode[]
+  flowCount?: number
 }
 export interface TreeChange {
   field: string
@@ -33,6 +34,8 @@ export interface TreePreview {
 const url = '/mes/pro/route-tree'
 export const RouteTreeApi = {
   list: () => request.get<RouteTreeNode[]>({ url: url + '/list' }),
+  renameGroup: (id: MesRouteId, name: string) => request.put<boolean>({ url: url + '/group-name', data: { id, name } }),
+  deleteGroup: (id: MesRouteId) => request.delete<boolean>({ url: url + '/group', params: { id } }),
   group: (data: { name: string; parentId?: MesRouteId; sourceRouteId?: MesRouteId }) =>
     request.post<MesRouteId>({ url: url + '/group', data }),
   inherit: (parentId: MesRouteId, data: unknown) =>

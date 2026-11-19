@@ -5,7 +5,7 @@
       <el-table-column label="仓库名称" align="center" prop="warehouseName" min-width="100" />
       <el-table-column label="库区名称" align="center" prop="locationName" min-width="100" />
       <el-table-column label="库位名称" align="center" prop="areaName" min-width="100" />
-      <el-table-column label="批次号" align="center" prop="batchCode" min-width="120" />
+      <el-table-column label="批次号" align="center" prop="batchCode" min-width="120"><template #default="{ row }"><BatchCodeLink :code="row.batchCode" :batch-id="row.batchId" /></template></el-table-column>
       <el-table-column label="数量" align="center" prop="quantity" width="100" />
       <el-table-column v-if="isPick" label="操作" align="center" width="120" fixed="right">
         <template #default="scope">
@@ -20,6 +20,7 @@
 </template>
 
 <script setup lang="ts">
+import BatchCodeLink from '@/components/BatchCodeLink.vue'
 import { WmProductSalesDetailApi, WmProductSalesDetailVO } from '@/api/mes/wm/productsales/detail'
 
 defineOptions({ name: 'ProductSalesDetailList' })

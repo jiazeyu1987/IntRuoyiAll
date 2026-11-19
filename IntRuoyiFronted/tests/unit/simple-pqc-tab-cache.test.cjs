@@ -64,7 +64,7 @@ test('unsaved PQC state survives tab switches and is released when the tab close
         getSimpleParserProject: async id => ({ id, projectCode: 'P42', projectName: '项目', status: 'ENABLE' })
       },
       '@/api/dcc/controlledFile/projectCodes': { getProjectCodePage: async () => ({ list: [] }) },
-    '@/utils/auth': {}, '@/store/modules/user': {},
+    '@/utils/auth': {}, '@/utils/uuid': require('../helpers/load-secure-uuid.cjs')(), '@/store/modules/user': {},
     '../parser/simplePqc': load(read('src/views/form-center/parser/simplePqc.ts'), {}),
     '../parser/simplePqcWord': load(read('src/views/form-center/parser/simplePqcWord.ts'), { pizzip: require('pizzip') })
   }, { useMessage: () => ({}) }).default

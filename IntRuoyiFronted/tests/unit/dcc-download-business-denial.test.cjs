@@ -1,10 +1,10 @@
-const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),crypto=require('node:crypto').webcrypto
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),crypto={getRandomValues:bytes=>require('node:crypto').webcrypto.getRandomValues(bytes)}
 const src=fs.readFileSync('src/api/dcc/controlledFile/workflow.ts','utf8'),ast=ts.createSourceFile('workflow.ts',src,ts.ScriptTarget.Latest,true)
-const names=['DccControlledFileContractError','DCC_DOWNLOAD_REQUIRED_RESPONSE_HEADERS','getAxiosHeader','buildControlledFileDownloadEndpoint','decodeContentDispositionFileName','assertControlledFileDownloadHeaders','assertNoClientProvidedDownloadName','createControlledFileDownloadRequestId','assertControlledFileDownloadBusinessResult','downloadControlledFileWithName']
+const names=['DccControlledFileContractError','DCC_DOWNLOAD_REQUIRED_RESPONSE_HEADERS','getAxiosHeader','buildControlledFileDownloadEndpoint','decodeContentDispositionFileName','assertControlledFileDownloadHeaders','assertNoClientProvidedDownloadName','createControlledFileDownloadRequestId','createControlledFileUploadSessionId','assertControlledFileDownloadBusinessResult','downloadControlledFileWithName']
 const selected=ast.statements.filter(s=>names.includes(s.name?.text)||(s.declarationList?.declarations.some(d=>names.includes(d.name?.text))))
-function host(makeResponse){
- const c={Blob,Response,Error,Number,String,JSON,Array,Uint8Array,crypto,axiosConfig:{base_url:'/admin-api',request_timeout:30000},buildControlledFileBinaryHeaders:()=>({}),calls:[],axios:{get:async(url,options)=>{c.calls.push({url,options});return makeResponse(options.params.downloadRequestId)}}}
- const code=selected.map(s=>s.getText(ast).replace(/^export /,'')).join('\n')+'\nthis.download=downloadControlledFileWithName;this.headers=DCC_DOWNLOAD_REQUIRED_RESPONSE_HEADERS'
+function host(makeResponse, randomSource=crypto){
+ const c={Blob,Response,Error,Number,String,JSON,Array,Uint8Array,crypto:randomSource,...require('../helpers/load-secure-uuid.cjs')(randomSource),axiosConfig:{base_url:'/admin-api',request_timeout:30000},buildControlledFileBinaryHeaders:()=>({}),calls:[],axios:{get:async(url,options)=>{c.calls.push({url,options});return makeResponse(options.params.downloadRequestId)}}}
+ const code=selected.map(s=>s.getText(ast).replace(/^export /,'')).join('\n')+'\nthis.download=downloadControlledFileWithName;this.headers=DCC_DOWNLOAD_REQUIRED_RESPONSE_HEADERS;this.uploadSessionId=createControlledFileUploadSessionId;this.ContractError=DccControlledFileContractError'
  vm.runInNewContext(ts.transpileModule(code,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c);return c
 }
 function evidence(h,id){const x={};for(const item of h.headers)x[item.name.toLowerCase()]=item.target==='downloadRequestId'?id:'actual-evidence';x['content-disposition']="attachment; filename*=UTF-8''file.pdf";return x}
@@ -25,4 +25,25 @@ test('genuine JSON attachment is retained as a binary source with all evidence h
 })
 test('binary success with missing evidence or wrong request identity remains a strict contract failure',async()=>{
  for(const kind of ['missing','mismatch']){let h;h=host(id=>({data:new Blob(['%PDF-1.7'],{type:'application/pdf'}),headers:kind==='missing'?{'content-type':'application/pdf'}:evidence(h,'another-request')}));await assert.rejects(h.download('42'),kind==='missing'?/missing required header/:/request id mismatch/)}
+})
+
+test('HTTP request and upload session identifiers use independent shared UUID v4 values',async()=>{
+ const ids=[];let h;h=host(id=>{ids.push(id);return{data:new Blob(['%PDF-1.7'],{type:'application/pdf'}),headers:{...evidence(h,id),'content-type':'application/pdf'}}})
+ await h.download('42');await h.download('42')
+ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+ ids.forEach(id=>assert.match(id,uuid))
+ assert.notEqual(ids[0],ids[1])
+ const session=h.uploadSessionId();assert.match(session,/^dcc-upload-/);assert.match(session.slice('dcc-upload-'.length),uuid)
+ assert.equal(new Set([...ids,session.slice('dcc-upload-'.length)]).size,3)
+})
+
+test('missing or failing random source prevents download and upload session creation',async()=>{
+ const cause=new Error('entropy unavailable')
+ for(const source of [{},{getRandomValues(){throw cause}}]){
+  const h=host(()=>{throw new Error('must not request')},source)
+  const expected=error=>source.getRandomValues?error===cause:error instanceof h.ContractError&&/requires crypto.getRandomValues/.test(error.message)
+  await assert.rejects(h.download('42'),expected)
+  assert.throws(()=>h.uploadSessionId(),expected)
+  assert.equal(h.calls.length,0)
+ }
 })

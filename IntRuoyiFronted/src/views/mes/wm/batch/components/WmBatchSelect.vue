@@ -28,7 +28,7 @@
       <template #content>
         <div v-if="selectedItem" class="leading-6">
           <div>批次编号：{{ selectedItem.code }}</div>
-          <div>物料编码：{{ selectedItem.itemCode || '-' }}</div>
+          <div>物料编码：<MaterialCodeLink :code="selectedItem.itemCode" empty-text="-" /></div>
           <div>物料名称：{{ selectedItem.itemName || '-' }}</div>
           <div>生产批号：{{ selectedItem.lotNumber || '-' }}</div>
         </div>
@@ -48,6 +48,7 @@
 </template>
 
 <script setup lang="ts">
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { BatchApi, BatchVO } from '@/api/mes/wm/batch'
 import { Search, CircleClose } from '@element-plus/icons-vue'
 import WmBatchSelectDialog from './WmBatchSelectDialog.vue'

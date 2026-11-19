@@ -36,6 +36,7 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { ElMessageBox } from 'element-plus'
+import { createSecureUuid } from '@/utils/uuid'
 import { getFolderTemplates, saveFolderTemplate, deleteFolderTemplate, type FolderTemplate, type FolderStructure } from '@/api/dcc/controlledFile/projectAttributes'
 const emit = defineEmits<{ saved: [] }>()
 const visible = ref(false), loading = ref(false), error = ref(''), selectedUsed = ref(false)
@@ -64,7 +65,7 @@ const choose = (row?: FolderTemplate) => {
 
 const add = () => {
   if (loading.value || writing.value || !ready.value || !selectionValid.value || !visible.value) return
-  form.structure.nodes.push({ key: crypto.randomUUID(), parentKey: null, name: '', sortOrder: form.structure.nodes.length })
+  form.structure.nodes.push({ key: createSecureUuid(), parentKey: null, name: '', sortOrder: form.structure.nodes.length })
 }
 const remove = (index: number) => {
   if (loading.value || writing.value || !ready.value || !selectionValid.value || !visible.value) return

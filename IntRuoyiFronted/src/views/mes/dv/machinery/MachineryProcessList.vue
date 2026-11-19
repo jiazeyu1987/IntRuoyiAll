@@ -1,7 +1,7 @@
 <template>
   <div>
     <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true" border>
-      <el-table-column label="设备编码" align="center" prop="machineryCode" min-width="120" />
+      <el-table-column label="设备编码" align="center" prop="machineryCode" min-width="120" ><template #default="{ row }"><MachineryCodeLink :code="row.machineryCode" /></template></el-table-column>
       <el-table-column label="产线名称" align="center" prop="lineName" min-width="180" />
       <el-table-column label="工序名称" align="center" prop="processName" min-width="160" />
       <el-table-column label="设备名称" align="center" prop="deviceName" min-width="180" />
@@ -24,6 +24,7 @@
 </template>
 
 <script setup lang="ts">
+import MachineryCodeLink from '@/components/MachineryCodeLink.vue'
 import { DvMachineryProcessApi, DvMachineryProcessVO } from '@/api/mes/dv/machinery/process'
 
 defineOptions({ name: 'MachineryProcessList' })

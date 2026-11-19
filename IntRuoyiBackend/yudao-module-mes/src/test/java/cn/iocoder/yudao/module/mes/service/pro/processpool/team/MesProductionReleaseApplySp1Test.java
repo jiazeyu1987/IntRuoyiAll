@@ -99,7 +99,6 @@ class MesProductionReleaseApplySp1Test {
         MesTeamLeaderActiveOrderReleaseApplicationPersistenceService persistenceService =
                 new MesTeamLeaderActiveOrderReleaseApplicationPersistenceService(
                         applicationMapper, workTaskMapper, auditRecorder);
-        org.springframework.test.util.ReflectionTestUtils.setField(persistenceService,"notificationService",notificationService);
         var freezeService = new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl();
         { org.springframework.test.util.ReflectionTestUtils.setField(freezeService, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         org.springframework.test.util.ReflectionTestUtils.setField(freezeService, "reviewMapper", reviewMapper);
@@ -213,7 +212,6 @@ class MesProductionReleaseApplySp1Test {
 
         MesProcessPoolActiveOrderReleaseApplicationDO application = applicationCaptor.getValue();
         MesProEdhrWorkTaskDO task = taskCaptor.getValue();
-        verify(notificationService).scheduleAssigned(task,LEADER_USER_ID);
         String expectedBusinessKey = DigestUtil.sha256Hex(
                 "PQC_RELEASE|1|2001|3001|BATCH-001|4001|4002");
         assertAll(
@@ -262,7 +260,6 @@ class MesProductionReleaseApplySp1Test {
         assertEquals("PQC_RELEASE_REJECTED", rejected.getApplicationStatus());
         assertEquals("成品检文件不完整", rejected.getPqcRejectReason());
         verify(candidateResolver).resolveRequiredCandidates(TENANT_ID, MesProductionReleaseRoleCodes.PQC_RELEASE_OWNER);
-        verify(notificationService).scheduleAssigned(any(MesProEdhrWorkTaskDO.class), eq(LEADER_USER_ID));
     }
 
     @Test

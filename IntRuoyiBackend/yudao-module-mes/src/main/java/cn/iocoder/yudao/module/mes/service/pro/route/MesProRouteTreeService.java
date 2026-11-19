@@ -19,6 +19,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionLi
 @Service
 @Transactional(rollbackFor = Exception.class)
 public class MesProRouteTreeService {
+    static final String UNASSIGNED_CODE = "GROUP-UNASSIGNED";
     @Resource private MesProRouteMapper routes;
     @Resource private MesProRouteVersionMapper versions;
     @Resource private ObjectProvider<MesProCraftService> crafts;
@@ -46,17 +47,47 @@ public class MesProRouteTreeService {
             row.put("activeRouteVersionNo", active == null ? null : active.getVersionNo());
             row.put("pendingStatus", candidate == null ? null : candidate.getLifecycleStatus());
             row.put("processIds", structure(active));
-            row.put("different", route.getParentId() != null && !structure(active).equals(structure(active(route.getParentId()))));
+            MesProRouteVersionDO parent = route.getParentId() == null ? null : groupTemplate(route.getParentId());
+            row.put("different", parent != null && !structure(active).equals(structure(parent)));
             result.add(row);
         }
         return result;
+    }
+    /** 解析流程仅归档，不继承目录下其他流程的配置。目录身份不随重命名改变。 */
+    public void assignParsedRoute(Long routeId) {
+        crafts.getObject().lockCatalog();
+        MesProRouteDO route = requireRoute(routeId);
+        if (!"FLOW".equals(route.getNodeType())) throw invalid("仅工艺流程可以放入待分配目录");
+        MesProRouteDO group = routes.selectByCode(UNASSIGNED_CODE);
+        if (group == null) {
+            if (routes.selectByName("待分配") != null) throw invalid("已存在同名待分配节点，请先重命名该节点");
+            group = MesProRouteDO.builder().code(UNASSIGNED_CODE).name("待分配").nodeType("GROUP").status(1).build();
+            if (routes.insert(group) != 1) throw invalid("待分配目录创建失败");
+        }
+        requireGroup(group.getId()); assertMutable(group.getId()); assertMutable(routeId);
+        if (routes.updateById(MesProRouteDO.builder().id(routeId).parentId(group.getId()).build()) != 1)
+            throw invalid("流程归入待分配目录失败");
+    }
+    public void renameGroup(Long id, String name) {
+        crafts.getObject().lockCatalog();
+        requireGroup(id); assertMutable(id);
+        if (name == null || name.isBlank()) throw invalid("请填写目录名称");
+        MesProRouteDO duplicate = routes.selectByName(name.trim());
+        if (duplicate != null && !Objects.equals(id, duplicate.getId())) throw invalid("名称已存在");
+        if (routes.updateById(MesProRouteDO.builder().id(id).name(name.trim()).build()) != 1)
+            throw invalid("目录重命名失败");
+    }
+    public void deleteGroup(Long id) {
+        crafts.getObject().lockCatalog();
+        requireGroup(id); assertDeletable(id);
+        routeService.getObject().deleteRoute(id);
     }
     public Long createGroup(String name, Long parentId, Long sourceRouteId) {
         crafts.getObject().lockCatalog();
         if (name == null || name.isBlank()) throw invalid("请填写分组名称");
         if (routes.selectByName(name.trim()) != null) throw invalid("名称已存在");
         if (parentId != null) { requireGroup(parentId); assertMutable(parentId); }
-        Long sourceId = parentId == null ? sourceRouteId : parentId;
+        Long sourceId = parentId == null || groupTemplate(parentId) == null ? sourceRouteId : parentId;
         if (sourceId == null) throw invalid("请选择分组的初始工艺模板");
         JSONObject source = snapshot(active(sourceId));
         MesProRouteDO group = MesProRouteDO.builder().name(name.trim())
@@ -96,15 +127,20 @@ public class MesProRouteTreeService {
         if (parentId != null) requireGroup(parentId);
         if (Objects.equals(id, parentId) || descendants(id).stream().anyMatch(item -> Objects.equals(item.getId(), parentId)))
             throw invalid("不能移入自身或下级分组");
-        List<Long> own = structure(active(id)), expected = parentId == null ? own : structure(active(parentId));
+        MesProRouteVersionDO ownVersion = versions.selectActiveByRouteId(id);
+        MesProRouteVersionDO parentVersion = parentId == null ? null : versions.selectActiveByRouteId(parentId);
+        if (ownVersion == null && !UNASSIGNED_CODE.equals(route.getCode())) throw invalid("缺少已发布配置：" + id);
+        if (parentId != null && parentVersion == null && !UNASSIGNED_CODE.equals(requireGroup(parentId).getCode()))
+            throw invalid("缺少已发布配置：" + parentId);
+        List<Long> own = structure(ownVersion), expected = parentVersion == null ? own : structure(parentVersion);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("different", !own.equals(expected));
         result.put("currentProcessIds", own); result.put("expectedProcessIds", expected);
-        result.put("currentProcesses", processNames(snapshot(active(id))));
-        result.put("expectedProcesses", parentId == null ? List.of() : processNames(snapshot(active(parentId))));
+        result.put("currentProcesses", ownVersion == null ? List.of() : processNames(snapshot(ownVersion)));
+        result.put("expectedProcesses", parentVersion == null ? List.of() : processNames(snapshot(parentVersion)));
         result.put("fingerprint", canonicalizer.sha256(JSON.toJSONString(Arrays.asList(id, parentId, own, expected,
-                route.getParentId(), active(id).getRouteSnapshotSha256(),
-                parentId == null ? null : active(parentId).getRouteSnapshotSha256()))));
+                route.getParentId(), ownVersion == null ? null : ownVersion.getRouteSnapshotSha256(),
+                parentVersion == null ? null : parentVersion.getRouteSnapshotSha256()))));
         return result;
     }
     public void move(Long id, Long parentId, String fingerprint, boolean confirmDifference) {
@@ -196,6 +232,7 @@ public class MesProRouteTreeService {
         }
     }
     public void assertDeletable(Long id) {
+        crafts.getObject().lockCatalog();
         assertMutable(id);
         if (!descendants(id).isEmpty()) throw invalid("请先移出下级流程，再删除分组");
     }
@@ -213,6 +250,11 @@ public class MesProRouteTreeService {
         MesProRouteVersionDO value = versions.selectActiveByRouteId(id);
         if (value == null) throw invalid("缺少已发布配置：" + id);
         return value;
+    }
+    private MesProRouteVersionDO groupTemplate(Long id) {
+        MesProRouteDO group = requireGroup(id);
+        if (UNASSIGNED_CODE.equals(group.getCode())) return null;
+        return active(id);
     }
     private List<MesProRouteDO> descendants(Long root) {
         List<MesProRouteDO> all = routes.selectList(), result = new ArrayList<>();

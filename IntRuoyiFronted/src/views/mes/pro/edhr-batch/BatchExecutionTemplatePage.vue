@@ -23,7 +23,7 @@
                   <span class="edhr-batch-template__process-main">
                     <span class="edhr-batch-template__process-sort">{{ task.routeProcessSort || '--' }}</span>
                     <span class="edhr-batch-template__process-name">
-                      {{ task.processCode || '--' }} {{ task.processName || '--' }}
+                      <ProcessCodeLink :code="task.processCode" empty-text="--" /> {{ task.processName || '--' }}
                     </span>
                   </span>
                 </button>
@@ -56,7 +56,7 @@
                 <div>
                   <div class="edhr-batch-template__preview-title">
                     {{ selectedTask.routeProcessSort || '--' }}.
-                    {{ selectedTask.processCode || '--' }}
+                    <ProcessCodeLink :code="selectedTask.processCode" empty-text="--" />
                     {{ selectedTask.processName || '--' }}
                   </div>
                   <div class="edhr-batch-template__preview-subtitle">
@@ -100,6 +100,7 @@
 </template>
 
 <script setup lang="ts">
+import ProcessCodeLink from '@/components/ProcessCodeLink.vue'
 import { useTestMode } from '@/store/modules/testMode'
 
 import {

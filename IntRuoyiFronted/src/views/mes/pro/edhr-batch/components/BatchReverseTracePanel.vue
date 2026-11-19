@@ -169,7 +169,7 @@
         />
         <el-table v-if="queryResponse.list?.length" :data="queryResponse.list" border stripe data-edhr-reverse-trace-result-table>
           <el-table-column prop="batchExecutionCode" label="批次执行" min-width="150" />
-          <el-table-column prop="workOrderCode" label="工单号" min-width="130" />
+          <el-table-column prop="workOrderCode" label="工单号" min-width="130" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
           <el-table-column prop="productName" label="产品" min-width="120" show-overflow-tooltip />
           <el-table-column label="命中条件" min-width="90">
             <template #default="{ row }">{{ row.matchCount || 0 }}</template>
@@ -251,6 +251,7 @@
 </template>
 
 <script setup lang="ts">
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useWindowSize } from '@vueuse/core'
 import { ElMessage } from 'element-plus'

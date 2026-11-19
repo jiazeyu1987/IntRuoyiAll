@@ -114,7 +114,7 @@
             <dict-tag :type="DICT_TYPE.INFRA_BOOLEAN_STRING" :value="scope.row.checkFlag" />
           </template>
         </el-table-column>
-        <el-table-column label="物料编码" align="center" prop="itemCode" width="140" />
+        <el-table-column label="物料编码" align="center" prop="itemCode" width="140" ><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
         <el-table-column label="物料名称" align="center" prop="itemName" width="140" />
         <el-table-column label="规格型号" align="center" prop="itemSpecification" width="120" />
         <el-table-column label="排产数量" align="center" prop="quantity" width="100" />
@@ -151,6 +151,7 @@
 </template>
 
 <script setup lang="ts">
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import { DICT_TYPE, getDictLabel } from '@/utils/dict'
 import { ProTaskApi, ProTaskVO } from '@/api/mes/pro/task'

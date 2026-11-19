@@ -105,8 +105,8 @@
             </el-table-column>
             <el-table-column v-if="isColumnVisible('workOrderCode')" label="生产工单" prop="workOrderCode" :width="getColumnWidth('workOrderCode')" :min-width="210">
               <template #default="{ row }">
-                <div>{{ row.workOrderCode || '--' }}</div>
-                <div class="edhr-ncr__muted">{{ row.batchCode || '--' }}</div>
+                <div><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></div>
+                <div class="edhr-ncr__muted"><ProductionBatchCodeLink :code="row.batchCode" /></div>
               </template>
             </el-table-column>
             <el-table-column v-if="isColumnVisible('nonconformanceReason')" label="不合格原因" prop="nonconformanceReason" :width="getColumnWidth('nonconformanceReason')" :min-width="220" />
@@ -177,8 +177,8 @@
         </el-form-item>
         <section v-if="selectedActiveOrder" class="edhr-ncr-create-dialog__order" aria-label="订单信息">
           <dl>
-            <div><dt>生产工单</dt><dd>{{ selectedActiveOrder.workOrderCode || '--' }}</dd></div>
-            <div><dt>批号</dt><dd>{{ selectedActiveOrder.batchCode || '--' }}</dd></div>
+            <div><dt>生产工单</dt><dd><WorkOrderCodeLink :code="selectedActiveOrder.workOrderCode" :work-order-id="selectedActiveOrder.workOrderId" /></dd></div>
+            <div><dt>批号</dt><dd><ProductionBatchCodeLink :code="selectedActiveOrder.batchCode" /></dd></div>
           </dl>
         </section>
         <el-form-item label="QA评审责任人" required>
@@ -212,6 +212,8 @@
 </template>
 
 <script setup lang="ts">
+import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import '@/views/mes/pro/edhr-batch/record-viewport.css'

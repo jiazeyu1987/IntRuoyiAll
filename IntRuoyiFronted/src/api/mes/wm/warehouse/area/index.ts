@@ -35,7 +35,7 @@ export const WmWarehouseAreaApi = {
   },
 
   // 查询库位详情
-  getWarehouseArea: async (id: number) => {
+  getWarehouseArea: async (id: number | string) => {
     return await request.get({ url: '/mes/wm/warehouse-area/get?id=' + id })
   },
 

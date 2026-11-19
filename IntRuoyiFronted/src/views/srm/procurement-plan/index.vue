@@ -97,7 +97,7 @@
       </div>
       <el-table :data="formData.lines" border size="small">
         <el-table-column label="物料编码" min-width="130">
-          <template #default="{ row }"><el-input v-model="row.materialCode" placeholder="物料编码" /></template>
+          <template #default="{ row }"><el-input v-model="row.materialCode" placeholder="物料编码" /><MaterialCodeLink :code="row.materialCode" /></template>
         </el-table-column>
         <el-table-column label="物料名称" min-width="160">
           <template #default="{ row }"><el-input v-model="row.materialName" placeholder="物料名称" /></template>
@@ -155,6 +155,7 @@
 </template>
 
 <script setup lang="ts">
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import type { FormInstance, FormRules } from 'element-plus'
 import {

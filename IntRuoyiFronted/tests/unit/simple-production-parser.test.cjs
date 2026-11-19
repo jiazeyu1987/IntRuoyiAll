@@ -15,9 +15,26 @@ const code = ts.transpileModule(
     }
   }
 ).outputText
-const context = { exports: {}, require, crypto: require('node:crypto').webcrypto }
+const httpCrypto = { getRandomValues: bytes => require('node:crypto').webcrypto.getRandomValues(bytes) }
+const loadUuid = require('../helpers/load-secure-uuid.cjs')
+const context = { exports: {}, require: id => id === '@/utils/uuid' ? loadUuid(httpCrypto) : require(id) }
 vm.runInNewContext(code, context)
 const { checkParameter, parseRecognition, reviewIssues, signature, clone } = context.exports
+test('new recognition processes use independent UUID v4 keys in HTTP browsers', () => {
+  const first = context.exports.newProcess()
+  const second = context.exports.newProcess()
+  assert.match(first.id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+  assert.notEqual(first.id, second.id)
+  assert.equal(first.sourceName, '')
+  assert.deepEqual(JSON.parse(JSON.stringify(first.value)), {
+    name: '', criticalProcess: false, inputs: [], outputs: [], equipmentGroups: []
+  })
+})
+test('recognition process creation fails explicitly without a random source', () => {
+  const blocked = { exports: {}, require: id => id === '@/utils/uuid' ? loadUuid({}) : require(id) }
+  vm.runInNewContext(code, blocked)
+  assert.throws(() => blocked.exports.newProcess(), /不支持安全随机数/)
+})
 const parameter = () => ({
   name: '清洗温度',
   referenceValue: '20～30℃',

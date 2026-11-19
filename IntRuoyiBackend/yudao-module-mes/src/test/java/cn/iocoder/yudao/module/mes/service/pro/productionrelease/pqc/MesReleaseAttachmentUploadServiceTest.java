@@ -38,7 +38,7 @@ class MesReleaseAttachmentUploadServiceTest {
     private final NotifyMessageSendApi notices = mock(NotifyMessageSendApi.class);
     private final MesWorkTaskAuxiliaryAudit auxiliary = mock(MesWorkTaskAuxiliaryAudit.class);
     private final MesReleaseAttachmentUploadService service = new MesReleaseAttachmentUploadService(tasks,
-            applications, orders, roles, permissions, users, mock(MesEdhrTaskDeadlineService.class), notices, auxiliary);
+            applications, orders, roles, permissions, users, mock(MesEdhrTaskDeadlineService.class));
     private final List<MesProEdhrWorkTaskDO> inserted = new ArrayList<>();
     private MesProcessPoolActiveOrderReleaseApplicationDO application;
 
@@ -72,14 +72,11 @@ class MesReleaseAttachmentUploadServiceTest {
                 .filter(task -> task.getId().equals(call.getArgument(0))).findFirst().orElse(null));
         when(tasks.selectList(any(Wrapper.class))).thenAnswer(call -> inserted.stream()
                 .filter(task -> !"DONE".equals(task.getStatus())).toList());
-        when(notices.sendSingleMessageToAdmin(any())).thenReturn(500L);
-        doAnswer(call -> { ((Supplier<?>) call.getArgument(1)).get(); return null; })
-                .when(auxiliary).notifications(any(), any());
     }
 
     @AfterEach void cleanup() { SecurityContextHolder.clearContext(); TenantContextHolder.clear(); }
 
-    @Test void createsFourIndependentSharedDutiesAndNotifiesEveryEnabledRoleMember() {
+    @Test void createsFourIndependentSharedDutiesWithoutInboxMessages() {
         service.initialize(application, 7L);
         assertEquals(4, inserted.size());
         assertEquals(4, inserted.stream().map(MesProEdhrWorkTaskDO::getResponsibilitySourceKey).distinct().count());
@@ -93,9 +90,7 @@ class MesReleaseAttachmentUploadServiceTest {
             assertTrue(task.getActionUrl().contains("batchExecutionId=10"));
             assertTrue(task.getActionUrl().endsWith("workTaskId=" + task.getId()));
         }
-        var captor = org.mockito.ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notices, times(8)).sendSingleMessageToAdmin(captor.capture());
-        assertEquals(Set.of(71L, 72L), captor.getAllValues().stream().map(NotifySendSingleToUserReqDTO::getUserId).collect(java.util.stream.Collectors.toSet()));
+        verifyNoInteractions(notices, auxiliary);
         assertEquals(4, service.pending(71L, 20L).size());
     }
 

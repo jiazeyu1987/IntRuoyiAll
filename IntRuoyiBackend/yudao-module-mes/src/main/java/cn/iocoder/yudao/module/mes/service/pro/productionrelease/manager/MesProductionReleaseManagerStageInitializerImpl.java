@@ -25,7 +25,6 @@ import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProdu
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRequiredCandidateResolver;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCandidates;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCodes;
-import cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseTaskNotificationService;
 import jakarta.annotation.Resource;
 import com.alibaba.fastjson.JSON;
 import org.springframework.stereotype.Service;
@@ -49,7 +48,6 @@ public class MesProductionReleaseManagerStageInitializerImpl
     private final MesProEdhrWorkTaskMapper workTaskMapper;
     private final MesProductionReleaseRequiredCandidateResolver candidateResolver;
     private final MesProductionReleaseBusinessReadinessService businessReadinessService;
-    @Resource private MesReleaseTaskNotificationService notificationService;
     @Resource private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService audit;
     @Resource private MesProEdhrReleaseServiceImpl releaseFacts;
     @Resource private MesEdhrManagedHandoffMaterialAssociationStore handoffAssociations;
@@ -177,7 +175,6 @@ public class MesProductionReleaseManagerStageInitializerImpl
                     .setActionUrl(workTask.getActionUrl())) != 1) {
                 throw new IllegalStateException("manager release task navigation binding failed");
             }
-            notificationService.scheduleAssigned(workTask, application.getPqcDecidedBy());
         }
         return new MesProductionReleaseManagerStageInitializationResult()
                 .setReleaseTransactionId(transaction.getId())

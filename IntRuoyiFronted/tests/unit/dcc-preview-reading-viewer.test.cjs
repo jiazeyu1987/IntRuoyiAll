@@ -1,6 +1,8 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), vm = require('node:vm')
 const ts = require('typescript'), vue = require('vue')
+const { webcrypto } = require('node:crypto')
+const loadSecureUuid = require('../helpers/load-secure-uuid.cjs')
 const { parse, compileTemplate } = require('vue/compiler-sfc')
 const root = path.resolve(__dirname, '../..')
 const compile = text => ts.transpileModule(text, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText
@@ -10,12 +12,16 @@ const row = (id='9223372036854775001') => ({ sessionId:id, openedAt:'2026-10-15T
 const sum = seconds => ({ firstOpenedAt:'2026-10-15T00:00:01Z',lastOpenedAt:'2026-10-15T00:00:11Z',accumulatedSeconds:seconds,openedSessionCount:1 })
 
 // Production SFC + actual API wrapper + actual lifecycle helper. Only HTTP, PDF and browser ports are isolated.
-function load({kind='TEXT', source, local=false, bodyGate, metadataGate, pdfGate, startGate, summaryGate, summaryError, heartbeatError, stopError, previewError, summarySeconds, uuidError}={}) {
+function load({kind='TEXT', source, local=false, bodyGate, metadataGate, pdfGate, startGate, summaryGate, summaryError, heartbeatError, stopError, previewError, summarySeconds, uuidError, missingRandomSource=false}={}) {
   const descriptor=parse(fs.readFileSync(path.join(root,'src/views/dcc/controlled-file/view/index.vue'),'utf8')).descriptor
   const calls=[], errors=[], timers=new Map(), listeners=new Map(), hooks={}
   const identity={actorId:'99',baseTenantId:'31',visitTenantId:null,token:'authenticated'}
   const emitted=[]
-  let timerId=0,client=0,focused=true, api, requestNumber=0
+  let timerId=0,focused=true, api, requestNumber=0
+  const httpCrypto = missingRandomSource ? {} : { getRandomValues: bytes => {
+    if(uuidError)throw new Error(uuidError)
+    return webcrypto.getRandomValues(bytes)
+  } }
   const props=vue.reactive(local?{title:'Controlled body',previewBlob:new Uint8Array([1]),previewKind:kind}:{title:'Controlled body',controlledFileId:'910',...(source?{previewSource:source}:{})})
   const document={visibilityState:'visible',hasFocus:()=>focused,addEventListener:(n,f)=>listeners.set('document:'+n,f),removeEventListener:(n,f)=>{if(listeners.get('document:'+n)===f)listeners.delete('document:'+n)}}
   const window={devicePixelRatio:1,addEventListener:(n,f)=>listeners.set('window:'+n,f),removeEventListener:(n,f)=>{if(listeners.get('window:'+n)===f)listeners.delete('window:'+n)},
@@ -52,12 +58,13 @@ function load({kind='TEXT', source, local=false, bodyGate, metadataGate, pdfGate
   const host={exports:{},...vue,Blob,Uint8Array,TextDecoder,Date,Intl,Number,Object,Error,Promise,JSON,document,window,HTMLElement:Element,HTMLCanvasElement:Canvas,
     ResizeObserver:class{observe(){}disconnect(){}},
     URL:{createObjectURL:()=> 'blob:reading-body',revokeObjectURL(){}},
-    crypto:{randomUUID:()=> {if(uuidError)throw new Error(uuidError);return 'client-'+(++client)}},console:{error:(...args)=>errors.push(args.join(' '))},
+    crypto:httpCrypto,console:{error:(...args)=>errors.push(args.join(' '))},
     defineOptions(){},defineProps:()=>props,defineEmits:()=>(...args)=>emitted.push(args),defineExpose:value=>{hooks.exposed=value},
     watch:(value,fn,opts)=>{if(vue.isRef(value)||Array.isArray(value))return vue.watch(value,fn,opts);hooks.sourceWatch={value,fn,opts};return()=>{}},
     onMounted:fn=>{hooks.mount=fn},onBeforeUnmount:fn=>{hooks.unmount=fn},
     nextTick:async()=>{if(api)for(const page of api.pageEntries.value)api.bindCanvasRef(page.pageNumber,new Canvas())},
     require:id=>{
+      if(id==='@/utils/uuid')return loadSecureUuid(httpCrypto)
       if(id==='@/utils/auth')return{getAccessToken:()=>identity.token,getTenantId:()=>identity.baseTenantId,getVisitTenantId:()=>identity.visitTenantId}
       if(id==='@/hooks/web/useCache')return{CACHE_KEY:{USER:'user'},useCache:()=>({wsCache:{get:()=>({user:{id:identity.actorId}})}})}
       if(id.endsWith('.vue'))return{}
@@ -242,6 +249,25 @@ test('missing client-session identity dependency stays a reported failure and fo
   const r=load({uuidError:'secure random UUID unavailable'});await r.load()
   assert.match(r.api.readingError.value,/secure random UUID unavailable/);assert.equal(r.startCalls().length,0)
   await r.blur();await assert.doesNotReject(()=>r.focus());assert.equal(r.startCalls().length,0)
+  await r.unmount()
+})
+
+test('HTTP reading uses UUID v4 client identities and creates a new identity after resume',async()=>{
+  const r=load();await r.load()
+  assert.equal(r.startCalls().length,1)
+  const first=r.startCalls()[0][1].data.clientSessionId
+  assert.match(first,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+  await r.blur();await r.focus()
+  assert.equal(r.startCalls().length,2)
+  assert.notEqual(r.startCalls()[1][1].data.clientSessionId,first)
+  await r.unmount()
+})
+
+test('missing HTTP random source prevents reading-session writes and reports the prerequisite',async()=>{
+  const r=load({missingRandomSource:true});await r.load()
+  assert.match(r.api.readingError.value,/不支持安全随机数生成/)
+  assert.equal(r.startCalls().length,0)
+  await r.blur();await r.focus();assert.equal(r.startCalls().length,0)
   await r.unmount()
 })
 test('server expiry at the fifteen-minute boundary stops timing without silently renewing metadata',async()=>{

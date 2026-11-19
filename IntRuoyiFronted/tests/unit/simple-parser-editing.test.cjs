@@ -8,6 +8,9 @@ const { parse, compileScript, compileTemplate } = require('vue/compiler-sfc')
 const read = file => fs.readFileSync(`src/views/form-center/${file}`, 'utf8')
 function load(source, imports = {}, globals = {}) {
   const context = { exports: {}, ...globals, require: name => {
+    if (name === '@/utils/uuid') return require('../helpers/load-secure-uuid.cjs')({
+      getRandomValues: bytes => require('node:crypto').webcrypto.getRandomValues(bytes)
+    })
     if (Object.hasOwn(imports, name)) return imports[name]
     throw new Error(`Unexpected import: ${name}`)
   } }
@@ -42,7 +45,9 @@ function page(kind) {
     '../parser/useParserEditing': editing, './useParserEditing': editing,
     '../parser/simplePqc': pqc, './simpleRecognition': production, './draft': commonValidation,
     '@/api/mes/pro/batchrecordreport': {}, '@/api/mes/pro/process': {}, '@/api/mes/pro/craft': {}, '@/api/mes/md/item': {},
-    '@/api/mes/pro/batchrecordreport/simpleParser': { SimpleParserApi: { devices: async () => [] } },
+    '@/api/mes/pro/batchrecordreport/simpleParser': {
+      SimpleParserApi: { devices: async () => [], reuseMatches: async () => [] }
+    },
     '@/api/mes/pro/route': { getRouteProjectOptions: async () => [] },
     '@/api/mes/qc/template': { QcTemplateApi: { getCurrentQaRegulation: async () => null, listQaRegulationVersions: async () => [] } },
     '@/api/mes/qc/template/simpleCommonParser': {},
@@ -59,7 +64,7 @@ function page(kind) {
     '@/utils/auth': { getTenantId: () => 1, getVisitTenantId: () => undefined },
     '../parser/simplePqcWord': {}, './simpleWord': {}, '@/assets/templates/simple-parser-export.docx?url': {}
   }
-  for (const prefix of ['../parser/', './']) for (const name of ['SimpleParserHeader', 'SimpleParameterDialog',
+  for (const prefix of ['../parser/', './']) for (const name of ['SimpleParserHeader', 'SimpleParameterDialog', 'SimpleReuseDialog',
     'SimpleTrialPreview', 'SimplePqcTrialPreview', 'ParserProcessToolbar', 'ParserTrialNavigation', 'ParserIssueList', 'ParserRegulationResult'])
     imports[`${prefix}components/${name}.vue`] = {}
   const filename = kind === 'production' ? 'parser/SimpleParserPage.vue' : `simple-${kind}-parser/index.vue`

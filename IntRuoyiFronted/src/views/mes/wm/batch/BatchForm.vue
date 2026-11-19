@@ -9,7 +9,7 @@
         </el-col>
         <el-col :span="8">
           <el-form-item label="物料编码">
-            <el-input v-model="formData.itemCode" />
+            <MaterialCodeLink :code="formData.itemCode" />
           </el-form-item>
         </el-col>
         <el-col :span="8">
@@ -94,7 +94,7 @@
         </el-col>
         <el-col :span="8">
           <el-form-item label="生产工单">
-            <el-input v-model="formData.workOrderCode" />
+            <WorkOrderCodeLink :code="formData.workOrderCode" :work-order-id="formData.workOrderId" />
           </el-form-item>
         </el-col>
       </el-row>
@@ -113,6 +113,8 @@
 </template>
 
 <script setup lang="ts">
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { ref } from 'vue'
 import { formatDate } from '@/utils/formatTime'
 import { BatchApi, BatchVO } from '@/api/mes/wm/batch'

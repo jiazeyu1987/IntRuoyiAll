@@ -3,7 +3,7 @@
 <template>
   <div class="overflow-hidden">
     <el-table v-loading="loading" :data="list" stripe>
-      <el-table-column label="物资编码" align="center" prop="itemCode" min-width="120" />
+      <el-table-column label="物资编码" align="center" prop="itemCode" min-width="120" ><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="物资名称" align="center" prop="itemName" min-width="140" />
       <el-table-column label="规格型号" align="center" prop="specification" min-width="120" />
       <el-table-column label="消耗数量" align="center" prop="quantity" min-width="100" />

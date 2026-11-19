@@ -10,7 +10,7 @@ for (const token of [
   'expectedStateVersion',
   'idempotencyKey',
   'infra:runtime-control:promote-prod',
-  'crypto.randomUUID()'
+  'createSecureUuid()'
 ]) {
   if (!page.includes(token) && !api.includes(token)) {
     throw new Error(`missing production promotion contract token: ${token}`)

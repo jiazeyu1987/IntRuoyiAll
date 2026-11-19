@@ -8,9 +8,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderDossierFileMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesWorkTaskAuxiliaryAudit;
-import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
-import cn.iocoder.yudao.module.system.api.notify.dto.NotifySendSingleToUserReqDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,7 +24,6 @@ import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /** Explicit responsibility and completion lifecycle for active-order dossier categories. */
@@ -44,8 +40,6 @@ public class MesActiveOrderDossierCompletionService {
     private final MesProcessPoolActiveOrderDossierFileMapper fileMapper;
     private final MesProEdhrWorkTaskMapper taskMapper;
     private final PermissionApi permissionApi;
-    private final NotifyMessageSendApi notifyApi;
-    private final MesWorkTaskAuxiliaryAudit auxiliaryAudit;
     private final AdminUserApi adminUserApi;
     private final MesProWorkOrderMapper workOrderMapper;
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
@@ -103,11 +97,6 @@ public class MesActiveOrderDossierCompletionService {
         if (taskMapper.updateById(new MesProEdhrWorkTaskDO().setId(task.getId()).setActionUrl(task.getActionUrl())) != 1)
             throw new IllegalStateException("资料待办入口保存失败");
         audit(task, actor, "DOSSIER_ASSIGN", "指派资料责任人", null);
-        var params = Map.<String,Object>of("workOrderCode", task.getWorkOrderCode(), "processName", task.getProcessName(),
-                "actionUrl", task.getActionUrl(), "reason", reason, "workTaskId", task.getId());
-        var notice = new NotifySendSingleToUserReqDTO();
-        notice.setUserId(assignee); notice.setTemplateCode("MES_EDHR_DOSSIER_COMPLETE_ASSIGNED"); notice.setTemplateParams(params);
-        auxiliaryAudit.notifications(task, () -> List.of(notifyApi.sendSingleMessageToAdmin(notice)));
         return task;
     }
 

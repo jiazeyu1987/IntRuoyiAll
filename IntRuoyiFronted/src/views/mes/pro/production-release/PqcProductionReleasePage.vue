@@ -69,9 +69,9 @@
             <el-table-column label="生产对象" min-width="240">
               <template #default="{ row }">
                 <div class="pqc-release-page__primary" data-pqc-production-release-work-order-code>
-                  {{ row.workOrderCode || '--' }}
+                  <WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" />
                 </div>
-                <div class="pqc-release-page__secondary">批次：{{ row.batchCode || '--' }}</div>
+                <div class="pqc-release-page__secondary">批次：<ProductionBatchCodeLink :code="row.batchCode" /></div>
               </template>
             </el-table-column>
             <el-table-column label="申请" min-width="180">
@@ -163,12 +163,8 @@
     >
       <div v-if="selectedRow" class="pqc-release-dialog">
         <el-descriptions :column="1" border>
-          <el-descriptions-item label="工单号">{{
-            selectedRow.workOrderCode || '--'
-          }}</el-descriptions-item>
-          <el-descriptions-item label="批次号">{{
-            selectedRow.batchCode || '--'
-          }}</el-descriptions-item>
+          <el-descriptions-item label="工单号"><WorkOrderCodeLink :code="selectedRow.workOrderCode" :work-order-id="selectedRow.workOrderId" /></el-descriptions-item>
+          <el-descriptions-item label="批次号"><ProductionBatchCodeLink :code="selectedRow.batchCode" /></el-descriptions-item>
           <el-descriptions-item label="申请编号">{{
             selectedRow.applicationId
           }}</el-descriptions-item>
@@ -247,6 +243,8 @@
 </template>
 
 <script setup lang="ts">
+import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import WorkflowInteractionLog from '@/views/mes/pro/processpool/components/WorkflowInteractionLog.vue'
 import {useWorkflowInteractionLog} from '@/views/mes/pro/processpool/workflowInteractionLog'
@@ -256,6 +254,7 @@ import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import CryptoJS from 'crypto-js'
+import { createSecureUuid } from '@/utils/uuid'
 import ActiveOrderSubmissionDetailPanel from '../processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 import ActiveOrderDetailLayout from '../processpool/components/ActiveOrderDetailLayout.vue'
 import {
@@ -690,8 +689,7 @@ const resetReleaseDialog = () => {
 const getOrCreateReleaseIdempotencyKey = (scopeKey: string, applicationId: string) => {
   const existingKey = releaseIdempotencyKeys.get(scopeKey)
   if (existingKey) return existingKey
-  const nonce = crypto.getRandomValues(new Uint8Array(16))
-  const key = `pqc-release-${applicationId}-${Date.now()}-${Array.from(nonce, value => value.toString(16).padStart(2, '0')).join('')}`
+  const key = `pqc-release-${applicationId}-${createSecureUuid()}`
   releaseIdempotencyKeys.set(scopeKey, key)
   return key
 }

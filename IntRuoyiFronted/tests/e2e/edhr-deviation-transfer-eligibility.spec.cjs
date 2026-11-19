@@ -8,6 +8,9 @@ const source = fs.readFileSync(
   path.resolve(__dirname, '../../src/views/mes/pro/edhr-deviation/DeviationDetail.vue'),
   'utf8'
 )
+const { webcrypto } = require('node:crypto')
+const loadUuid = require('../helpers/load-secure-uuid.cjs')
+const httpCrypto = { getRandomValues: bytes => webcrypto.getRandomValues(bytes) }
 const stateModule = { exports: {} }
 const stateCode = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../../src/store/modules/approvalCenterInvalidationState.ts'), 'utf8'),
   { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText
@@ -43,7 +46,12 @@ function harness(options = {}) {
       options.getDeviation ||
       (async () => ({ id: 1, status: 'OPEN', level: 'CRITICAL', canTransferToNcr: true })),
     ElMessage: { warning: () => {}, error: (message) => errors.push(message) },
-    createCriticalDeviationReview: async (body) => calls.push(body),
+    createCriticalDeviationReview: async (body) => {
+      calls.push(body)
+      if (options.reviewError) throw options.reviewError
+      return body
+    },
+    ...loadUuid(Object.hasOwn(options, 'crypto') ? options.crypto : httpCrypto),
     ...currentDependencies
   }
   let script = source
@@ -86,6 +94,43 @@ test('refreshed allowed transfer can open dialog', () => {
   assert.equal(h.ncrCreateVisible.value, false)
   h.detail.value.canTransferToNcr = true
   h.openNcrCreateDialog()
+  assert.equal(h.ncrCreateVisible.value, true)
+})
+
+test('HTTP transfer dialog generates UUID v4 audit keys and opening a new dialog renews them', () => {
+  const h = harness()
+  h.detail.value = { id: 1, status: 'OPEN', level: 'CRITICAL', canTransferToNcr: true }
+  h.openNcrCreateDialog()
+  const first = h.ncrCreateForm.idempotencyKey
+  assert.match(first, /^EDHR_DEVIATION_NCR_1_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+  h.openNcrCreateDialog()
+  assert.notEqual(h.ncrCreateForm.idempotencyKey, first)
+})
+
+test('transfer dialog fails before opening or writing when the secure random source is missing or fails', () => {
+  for (const crypto of [{}, { getRandomValues() { throw new Error('entropy unavailable') } }]) {
+    const h = harness({ crypto })
+    h.detail.value = { id: 1, status: 'OPEN', level: 'CRITICAL', canTransferToNcr: true }
+    assert.throws(() => h.openNcrCreateDialog(), /不支持安全随机数|entropy unavailable/)
+    assert.equal(h.ncrCreateVisible.value, false)
+    assert.equal(h.calls.length, 0)
+  }
+})
+
+test('a failed NCR transfer retry retains the original audit key', async () => {
+  const h = harness({ reviewError: new Error('write failed') })
+  h.detail.value = { id: 1, activeOrderId: 2, status: 'OPEN', level: 'CRITICAL', canTransferToNcr: true }
+  h.openNcrCreateDialog()
+  h.ncrCreateForm.qaReviewerUserId = 7
+  h.ncrCreateForm.nonconformanceReason = 'critical reason'
+  h.ncrCreateForm.signaturePassword = 'test-only'
+  const key = h.ncrCreateForm.idempotencyKey
+  await h.submitNcrCreate()
+  assert.equal(h.ncrCreateError.value, 'write failed')
+  await h.submitNcrCreate()
+  assert.equal(h.calls.length, 2)
+  assert.equal(h.calls[0].idempotencyKey, key)
+  assert.equal(h.calls[1].idempotencyKey, key)
   assert.equal(h.ncrCreateVisible.value, true)
 })
 test('template exposes disabled reason and refresh action', () => {

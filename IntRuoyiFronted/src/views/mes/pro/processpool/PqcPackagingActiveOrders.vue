@@ -6,9 +6,9 @@
     </div>
     <el-alert v-if="error" :title="error" type="error" :closable="false" class="mb-12px" />
     <el-table v-loading="loading" :data="orders" border stripe row-key="activeOrderId">
-      <el-table-column prop="workOrderCode" label="生产订单号" min-width="240" />
+      <el-table-column prop="workOrderCode" label="生产订单号" min-width="240" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
       <el-table-column prop="batchCode" label="批次号" min-width="180">
-        <template #default="{ row }">{{ row.batchCode || '批次号缺失' }}</template>
+        <template #default="{ row }"><ProductionBatchCodeLink :code="row.batchCode" /></template>
       </el-table-column>
       <el-table-column prop="workOrderName" label="工单名称" min-width="180" />
       <el-table-column prop="quantity" label="生产数量" width="100" />
@@ -25,6 +25,8 @@
 </template>
 
 <script setup lang="ts">
+import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import request from '@/config/axios'
 
 interface ActiveOrder {

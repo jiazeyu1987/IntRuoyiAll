@@ -154,6 +154,7 @@
 </template>
 
 <script setup lang="ts">
+import { createSecureUuid } from '@/utils/uuid'
 import { getRouteProjectOptions, type RouteProjectOption } from '@/api/mes/pro/route'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { ProProcessApi, ProProcessRouteVO, ProProcessVO } from '@/api/mes/pro/process'
@@ -226,7 +227,7 @@ const routeSelectionTip = computed(() => {
 })
 
 /** 打开弹窗 */
-const open = async (type: string, id?: number, context: ProProcessFormOpenContext = {}) => {
+const open = async (type: string, id?: number | string, context: ProProcessFormOpenContext = {}) => {
   dialogVisible.value = true
   if (type === 'create') codeProjects.value = await getRouteProjectOptions()
   const titles: Record<string, string> = {
@@ -351,7 +352,7 @@ const submitForm = async () => {
   const valid = await formRef.value.validate()
   if (!valid) return
   if (formType.value !== 'create' && formData.value.id) {
-    await sharedChangeDialog.value?.open({ subjectType: 'PROCESS', action: 'UPDATE', sourceId: formData.value.id, expectedFingerprint: sharedFingerprint.value, requestId: crypto.randomUUID(), process: { ...formData.value }, processContents: processContents.value.map(row => ({ ...row })), nodes: [], reason: '' })
+    await sharedChangeDialog.value?.open({ subjectType: 'PROCESS', action: 'UPDATE', sourceId: formData.value.id, expectedFingerprint: sharedFingerprint.value, requestId: createSecureUuid(), process: { ...formData.value }, processContents: processContents.value.map(row => ({ ...row })), nodes: [], reason: '' })
     return
   }
   // 提交请求

@@ -85,7 +85,7 @@
                     {{ execution.routeProcessSort || '--' }}
                   </span>
                   <span class="edhr-form-trace-batch-trace__record-process-name">
-                    {{ execution.processCode || '--' }} {{ execution.processName || '--' }}
+                    <ProcessCodeLink :code="execution.processCode" empty-text="--" /> {{ execution.processName || '--' }}
                   </span>
                 </span>
                 <span class="edhr-form-trace-batch-trace__record-process-report">
@@ -111,7 +111,7 @@
                   <div>
                     <div class="edhr-form-trace-batch-trace__record-title">
                       {{ selectedRecordExecution.routeProcessSort || '--' }}.
-                      {{ selectedRecordExecution.processCode || '--' }}
+                      <ProcessCodeLink :code="selectedRecordExecution.processCode" empty-text="--" />
                       {{ selectedRecordExecution.processName || '--' }}
                     </div>
                     <div class="edhr-form-trace-batch-trace__muted">
@@ -302,6 +302,7 @@
 </template>
 
 <script setup lang="ts">
+import ProcessCodeLink from '@/components/ProcessCodeLink.vue'
 import SignaturePage from '@/views/mes/pro/edhr/SignaturePage.vue'
 import DeviationTracePane from '@/views/mes/pro/edhr/components/DeviationTracePane.vue'
 import EdhrExecutionReadonlyForm from '@/views/mes/pro/edhr/components/EdhrExecutionReadonlyForm.vue'

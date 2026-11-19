@@ -67,9 +67,7 @@
     <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true">
       <el-table-column label="通知单编号" align="center" prop="code" min-width="160">
         <template #default="scope">
-          <el-button link type="primary" @click="openForm('detail', scope.row.id)">
-            {{ scope.row.code }}
-          </el-button>
+          <BusinessDocumentCodeLink :code="scope.row.code" document-type="mes-sales-notice" />
         </template>
       </el-table-column>
       <el-table-column label="通知单名称" align="center" prop="name" min-width="150" />
@@ -136,6 +134,8 @@
 </template>
 
 <script setup lang="ts">
+import BusinessDocumentCodeLink from '@/components/BusinessDocumentCodeLink.vue'
+import { useRoute } from 'vue-router'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { dateFormatter2 } from '@/utils/formatTime'
 import { DICT_TYPE } from '@/utils/dict'
@@ -166,14 +166,20 @@ const queryFormRef = ref() // 搜索的表单
 const formRef = ref() // 表单弹窗
 
 /** 查询列表 */
+const documentRoute = useRoute()
+const documentDefaults = structuredClone(toRaw(queryParams))
+let documentSequence = 0
 const getList = async () => {
+  const sequence = ++documentSequence
+  const path = documentRoute.path
   loading.value = true
   try {
-    const data = await WmSalesNoticeApi.getSalesNoticePage(queryParams)
+    const data = await WmSalesNoticeApi.getSalesNoticePage({ ...queryParams })
+    if (sequence !== documentSequence || path !== documentRoute.path) return
     list.value = data.list
     total.value = data.total
   } finally {
-    loading.value = false
+    if (sequence === documentSequence) loading.value = false
   }
 }
 
@@ -222,7 +228,18 @@ const handleExport = async () => {
 }
 
 /** 初始化 */
+const receiveDocumentCodeLink = () => {
+  ++documentSequence
+  if (documentRoute.path !== '/mes/wm/sales-notice') return false
+  const code = typeof documentRoute.query.code === 'string' ? documentRoute.query.code.trim() : ''
+  if (!code) return false
+  queryFormRef.value?.resetFields()
+  Object.assign(queryParams, structuredClone(documentDefaults), { code: code })
+  void getList()
+  return true
+}
+watch(() => [documentRoute.path, documentRoute.query.code, documentRoute.query.codeLinkVisit], receiveDocumentCodeLink)
 onMounted(() => {
-  getList()
+  if (!receiveDocumentCodeLink()) getList()
 })
 </script>

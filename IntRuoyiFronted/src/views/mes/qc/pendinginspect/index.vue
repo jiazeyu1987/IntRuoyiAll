@@ -64,7 +64,7 @@
           <dict-tag :type="DICT_TYPE.MES_QC_TYPE" :value="scope.row.qcType" />
         </template>
       </el-table-column>
-      <el-table-column label="物料编码" align="center" prop="itemCode" min-width="130" />
+      <el-table-column label="物料编码" align="center" prop="itemCode" min-width="130" ><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="物料名称" align="center" prop="itemName" min-width="150" />
       <el-table-column label="规格型号" align="center" prop="specification" width="130" />
       <el-table-column label="待检数量" align="center" prop="quantity" width="100" />
@@ -126,6 +126,7 @@
 </template>
 
 <script setup lang="ts">
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { QcPendingInspectApi, QcPendingInspectVO } from '@/api/mes/qc/pendinginspect'

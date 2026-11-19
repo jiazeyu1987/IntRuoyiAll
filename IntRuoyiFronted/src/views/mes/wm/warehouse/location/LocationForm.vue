@@ -169,7 +169,7 @@ const generateCode = async () => {
 }
 
 /** 打开弹窗 */
-const open = async (type: string, id?: number, defaultWarehouseId?: number | string) => {
+const open = async (type: string, id?: number | string, defaultWarehouseId?: number | string) => {
   dialogVisible.value = true
   formType.value = type
   resetForm()

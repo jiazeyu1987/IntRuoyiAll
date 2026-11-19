@@ -1,6 +1,7 @@
 import type { LocationQuery } from 'vue-router'
 import { useUserStore } from '@/store/modules/user'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
+import { createSecureUuid } from '@/utils/uuid'
 import type { EdhrBatchExecutionPageReqVO } from '@/api/mes/pro/edhr/batchExecution'
 import type {
   ReverseTraceCatalogItem, ReverseTraceCategory, ReverseTraceQueryRequest,
@@ -61,7 +62,7 @@ export const saveReverseTraceState = (state: ReverseTraceSavedState) => {
   for (const [key, entry] of states) {
     if (entry.expiresAt <= Date.now() || entry.owner !== owner) states.delete(key)
   }
-  const key = crypto.randomUUID()
+  const key = createSecureUuid()
   states.set(key, { owner, expiresAt: Date.now() + 30 * 60 * 1000, state: copyReverseTraceState(state) })
   return key
 }

@@ -118,7 +118,7 @@
               }}</el-tag>
             </div>
             <div class="process-pool-event__meta">
-              <span>生产工单：{{ event.workOrderCode || '--' }}</span>
+              <span>生产工单：<WorkOrderCodeLink :code="event.workOrderCode" :work-order-id="event.workOrderId" /></span>
               <span>设备：{{ event.deviceName || event.deviceCode || '--' }}</span>
               <span>登录账号：{{ event.loginUserName || '--' }}</span>
               <span>电子签名员工：{{ event.signatureEmployeeUserName || '--' }}</span>
@@ -151,7 +151,7 @@
         >
           <div class="process-pool-gantt__label">
             <strong>{{ event.processName || '--' }}</strong>
-            <span>{{ event.workOrderCode || '--' }}</span>
+            <span><WorkOrderCodeLink :code="event.workOrderCode" :work-order-id="event.workOrderId" /></span>
           </div>
           <div class="process-pool-gantt__track">
             <div class="process-pool-gantt__bar" :style="resolveGanttBarStyle(event)">
@@ -198,7 +198,7 @@
           {{ detail.templateTypeName || detail.templateType || '--' }}
         </el-descriptions-item>
         <el-descriptions-item label="生产工单">
-          {{ detail.workOrderCode || '--' }}
+          <WorkOrderCodeLink :code="detail.workOrderCode" :work-order-id="detail.workOrderId" />
         </el-descriptions-item>
         <el-descriptions-item label="提交摘要">
           {{ submissionSummary(detail.submittedSummary) }}
@@ -352,6 +352,7 @@
 </template>
 
 <script setup lang="ts">
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import { businessFieldLabel, readBusinessEvidence } from './components/businessEvidenceDisplay'
 import { ElMessage } from 'element-plus'

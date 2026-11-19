@@ -4,7 +4,6 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.definition.BpmProcessDefinitionInfoDO;
 import cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionService;
 import cn.iocoder.yudao.module.dcc.service.file.DccElectronicSignatureAuthorizationService;
@@ -27,11 +26,9 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteFlowContextMatcher;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordCellRuleSupport;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordJimuReportGateway;
-import cn.iocoder.yudao.module.system.dal.dataobject.notify.NotifyTemplateDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.MenuDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleMenuDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.UserRoleDO;
-import cn.iocoder.yudao.module.system.dal.mysql.notify.NotifyTemplateMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.MenuMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleMenuMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.UserRoleMapper;
@@ -76,11 +73,6 @@ public class MesProEdhrRehearsalReadinessServiceImpl implements MesProEdhrRehear
             "mes:pro-edhr-batch-execution-archive:download",
             "mes:pro-batch-record-execution:track",
             "mes:pro-batch-record-execution:domain-trace-query");
-    private static final List<String> BPM_NOTIFY_TEMPLATE_CODES = List.of(
-            "MES_EDHR_BPM_TASK_ASSIGNED",
-            "MES_EDHR_BPM_APPROVED",
-            "MES_EDHR_BPM_REJECTED",
-            "MES_EDHR_BPM_TASK_TIMEOUT");
     private static final List<String> REQUIRED_EXECUTOR_RECORD_ABILITIES = List.of("VIEW", "FILL", "SIGN");
     private static final List<String> REQUIRED_APPROVER_RECORD_ABILITIES = List.of("VIEW", "APPROVE");
 
@@ -114,8 +106,6 @@ public class MesProEdhrRehearsalReadinessServiceImpl implements MesProEdhrRehear
     private DccElectronicSignatureAuthorizationService signatureAuthorizationService;
     @Resource
     private BpmProcessDefinitionService bpmProcessDefinitionService;
-    @Resource
-    private NotifyTemplateMapper notifyTemplateMapper;
 
     @Override
     public MesProEdhrRehearsalReadinessResult check(MesProEdhrRehearsalReadinessCommand command) {
@@ -125,7 +115,6 @@ public class MesProEdhrRehearsalReadinessServiceImpl implements MesProEdhrRehear
         checkRoleMenus(result, "archiver", command.getArchiverUserId(), PERMISSIONS_ARCHIVER);
         checkSignatureAuthorizations(result, command);
         checkBpmStartEligibility(result, command.getExecutorUserId());
-        checkBpmNotifyTemplates(result);
         checkRouteArchiveRule(result, command.getRouteId(), command.getArchiverUserId());
         checkRouteBatchRecordConfig(result, command.getRouteId(), command.getExecutorUserId(),
                 command.getApproverUserId());
@@ -233,35 +222,6 @@ public class MesProEdhrRehearsalReadinessServiceImpl implements MesProEdhrRehear
             return;
         }
         addPass(result, "BPM_START_READY", "executor", executorUserId, "执行人具备 eDHR BPM 发起资格。");
-    }
-
-    private void checkBpmNotifyTemplates(MesProEdhrRehearsalReadinessResult result) {
-        List<String> missingCodes = new ArrayList<>();
-        List<String> disabledCodes = new ArrayList<>();
-        for (String templateCode : BPM_NOTIFY_TEMPLATE_CODES) {
-            NotifyTemplateDO template = notifyTemplateMapper.selectByCode(templateCode);
-            if (template == null) {
-                missingCodes.add(templateCode);
-                continue;
-            }
-            if (!Objects.equals(template.getStatus(), CommonStatusEnum.ENABLE.getStatus())) {
-                disabledCodes.add(templateCode);
-            }
-        }
-        if (CollUtil.isNotEmpty(missingCodes)) {
-            addBlocker(result, "BPM_NOTIFY_TEMPLATE_MISSING", "bpm", 0L,
-                    "eDHR BPM 站内信模板缺失：" + String.join("、", missingCodes),
-                    "执行正式种子脚本 ruoyi-vue-pro/sql/mysql/20260622_mes_edhr_bpm_notify_to_inbox.sql，或通过站内信模板正式页面补齐后再演练。");
-            return;
-        }
-        if (CollUtil.isNotEmpty(disabledCodes)) {
-            addBlocker(result, "BPM_NOTIFY_TEMPLATE_DISABLED", "bpm", 0L,
-                    "eDHR BPM 站内信模板被禁用：" + String.join("、", disabledCodes),
-                    "在站内信模板正式页面启用上述模板，确保审批通过、驳回、待办和超时通知不会阻断 BPM。");
-            return;
-        }
-        addPass(result, "BPM_NOTIFY_TEMPLATE_READY", "bpm", 0L,
-                "eDHR BPM 站内信模板已配置并启用。");
     }
 
     private void checkRouteArchiveRule(MesProEdhrRehearsalReadinessResult result, Long routeId, Long archiverUserId) {

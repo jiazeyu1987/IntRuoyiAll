@@ -94,7 +94,6 @@ class MesPqcApprovedDossierContractTest extends BaseDbUnitTest {
                 manager, mock(MesReleaseFlowAuditRecorder.class),
                 signatures, mock(MesProEdhrNonconformanceReviewService.class), ncr, Clock.systemUTC());
         ReflectionTestUtils.setField(pqc, "gxpAuditService", audit);
-        ReflectionTestUtils.setField(pqc, "outcomeNotifications", mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseOutcomeNotificationService.class));
         ReflectionTestUtils.setField(pqc, "lifecycleGuard", guard);
         var affectedStates = mock(MesReleaseAffectedStateCollector.class);
         when(affectedStates.capture(any(), any(), any(), any(), anyBoolean())).thenReturn(Map.of("batchExecutionId", batchId));

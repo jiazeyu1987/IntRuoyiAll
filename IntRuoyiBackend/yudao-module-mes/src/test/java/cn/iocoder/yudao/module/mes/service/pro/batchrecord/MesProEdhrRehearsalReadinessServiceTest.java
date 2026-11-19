@@ -276,7 +276,7 @@ class MesProEdhrRehearsalReadinessServiceTest extends BaseDbUnitTest {
         assertHasBlocker(result, "SIGNATURE_AUTH_MISSING", "approver");
         assertHasBlocker(result, "SIGNATURE_AUTH_MISSING", "archiver");
         assertHasBlocker(result, "BPM_START_USER_DENIED", "executor");
-        assertHasBlocker(result, "BPM_NOTIFY_TEMPLATE_MISSING", "bpm");
+        assertTrue(result.getItems().stream().noneMatch(item -> item.getCode().startsWith("BPM_NOTIFY_TEMPLATE_")));
         assertEquals(0L, permissionScopeMapper.selectCount());
         verify(signatureAuthorizationService, never()).updateAuthorization(APPROVER_ID, true);
     }
@@ -472,7 +472,7 @@ class MesProEdhrRehearsalReadinessServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void preflight_reportsDisabledBpmNotifyTemplateBeforeRehearsal() {
+    void preflightDoesNotRequireEnabledInboxTemplates() {
         seedHappyPathMenusSignaturesAndTemplate();
         notifyTemplateMapper.updateById(new NotifyTemplateDO()
                 .setId(91002L)
@@ -493,8 +493,7 @@ class MesProEdhrRehearsalReadinessServiceTest extends BaseDbUnitTest {
                 .setApproverUserId(APPROVER_ID)
                 .setArchiverUserId(ARCHIVER_ID));
 
-        assertEquals(MesProEdhrRehearsalReadinessResult.STATUS_BLOCKED, result.getOverallStatus());
-        assertHasBlocker(result, "BPM_NOTIFY_TEMPLATE_DISABLED", "bpm");
+        assertTrue(result.getItems().stream().noneMatch(item -> item.getCode().startsWith("BPM_NOTIFY_TEMPLATE_")));
     }
 
     @Test

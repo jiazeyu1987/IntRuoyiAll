@@ -18,6 +18,7 @@ function load(response, failure) {
   vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/api/dcc/controlledFile/bodyReadContext.ts', 'utf8'),
     { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, bodyReadContext)
   const c = { exports: {}, require: name => {
+    if (name === '@/utils/uuid') return require('../helpers/load-secure-uuid.cjs')()
     if (name === './bodyReadContext') return bodyReadContext.exports
     if (name === '@/config/axios') return { default: {
       get: async args => { calls.push(args); if (failure) throw failure; return response },

@@ -435,7 +435,7 @@
             <div>
               <dt>工单号</dt>
               <dd>
-                {{ selectedRejectBatch.workOrderCode || "--" }}
+                <WorkOrderCodeLink :code="selectedRejectBatch.workOrderCode" :work-order-id="selectedRejectBatch.workOrderId" />
               </dd>
             </div>
             <div>
@@ -824,6 +824,8 @@
 </template>
 
 <script setup lang="ts">
+import { createSecureUuid } from '@/utils/uuid'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import WorkflowInteractionLog from '@/views/mes/pro/processpool/components/WorkflowInteractionLog.vue'
@@ -1731,7 +1733,7 @@ const openReleaseDialog = async (
   releaseError.value = ''
   releaseForm.password = ''
   if (!taskContext) {
-    releaseForm.idempotencyKey = crypto.randomUUID()
+    releaseForm.idempotencyKey = createSecureUuid()
   }
   releaseDialogVisible.value = true
   releaseContextLoading.value = true
@@ -1749,7 +1751,7 @@ const openReleaseDialog = async (
       if (context.releaseStatus === 'RELEASED') {
         releaseCompletedReadOnly.value = true
       } else if (context.releaseStatus === 'PENDING_APPROVAL') {
-        releaseForm.idempotencyKey = crypto.randomUUID()
+        releaseForm.idempotencyKey = createSecureUuid()
       } else {
         throw new Error('通知对应的正式上市放行状态不支持签批或已完成查询。')
       }

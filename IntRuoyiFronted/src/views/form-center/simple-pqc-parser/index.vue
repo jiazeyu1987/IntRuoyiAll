@@ -518,6 +518,7 @@ import {
 } from '@/api/mes/pro/batchrecordreport/simpleParserProjects'
 import { DvMachineryApi, type DvMachineryVO } from '@/api/mes/dv/machinery'
 import { getTenantId } from '@/utils/auth'
+import { createSecureUuid } from '@/utils/uuid'
 import { useUserStore } from '@/store/modules/user'
 import { createPqcWord, readPqcWord, pqcWordFilename, pqcWordMime } from '../parser/simplePqcWord'
 import {
@@ -786,7 +787,7 @@ function normalize() {
 }
 function addProcess() {
   draft.value!.processes.push({
-    processCode: `P-${crypto.randomUUID()}`,
+    processCode: `P-${createSecureUuid()}`,
     processName: '新工序',
     sort: draft.value!.processes.length + 1,
     items: []
@@ -796,7 +797,7 @@ function addProcess() {
 }
 function addItem() {
   process.value!.items.push({
-    itemCode: `I-${crypto.randomUUID()}`,
+    itemCode: `I-${createSecureUuid()}`,
     itemName: '',
     itemSort: process.value!.items.length + 1,
     standardText: '',

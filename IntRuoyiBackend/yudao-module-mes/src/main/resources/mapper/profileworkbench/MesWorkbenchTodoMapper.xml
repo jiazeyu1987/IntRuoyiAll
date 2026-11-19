@@ -19,7 +19,8 @@ AND ${ownerSql}<choose><when test="_parameter.containsKey('lockedBatchStatus')">
 FROM mes_active_order_handoff_task h
 LEFT JOIN mes_pqc_inspection_task pt ON h.task_type IN ('PQC_REVIEW','PQC_RETURN') AND pt.id=JSON_UNQUOTE(JSON_EXTRACT(h.responsibility_snapshot_json, '$.pqcTaskId')) AND pt.tenant_id=h.tenant_id AND pt.deleted=0
 LEFT JOIN mes_qa_inspection_regulation_process qp ON qp.id=pt.qa_process_id AND qp.regulation_version_id=pt.regulation_version_id AND qp.tenant_id=h.tenant_id AND qp.deleted=0
-WHERE h.tenant_id=#{q.tenantId} AND h.deleted=0 AND h.task_type IN ('PRODUCTION_HANDOFF','PRODUCTION_REVIEW','PRODUCTION_RETURN','PQC_HANDOFF','PQC_REVIEW','PQC_RETURN','QA_DECISION_HANDOFF','QA_REVIEW') AND h.status='TODO' AND h.notification_only=0
+<!-- Submission reviews remain in the leader business pages, outside personal workbench duties. -->
+WHERE h.tenant_id=#{q.tenantId} AND h.deleted=0 AND h.task_type IN ('PRODUCTION_HANDOFF','PRODUCTION_RETURN','PQC_HANDOFF','PQC_RETURN','QA_DECISION_HANDOFF','QA_REVIEW') AND h.status='TODO' AND h.notification_only=0
 AND FIND_IN_SET(#{q.userId},h.candidate_user_snapshot)>0
 AND EXISTS(SELECT 1 FROM mes_pro_process_pool_active_order ao WHERE ao.id=h.active_order_id AND ao.tenant_id=h.tenant_id AND ao.deleted=0 AND ao.active_status='ACTIVE')</sql>
 <!-- These branches read tables with different default collations. Normalize the

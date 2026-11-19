@@ -101,7 +101,7 @@
                 {{ row.executionCode || row.executionId || '--' }}
               </el-button>
               <div class="edhr-domain-trace-pane__muted">
-                {{ row.workOrderCode || '未关联工单' }} / {{ row.batchCode || '未关联批次' }}
+                <WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /> / <ProductionBatchCodeLink :code="row.batchCode" />
               </div>
             </template>
           </el-table-column>
@@ -174,6 +174,8 @@
 </template>
 
 <script setup lang="ts">
+import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'

@@ -85,7 +85,7 @@
             align="center"
             prop="machineryCode"
             :min-width="getRepairColumnMinWidthString('machineryCode', 120)"
-          />
+          ><template #default="{ row }"><MachineryCodeLink :code="row.machineryCode" /></template></el-table-column>
           <el-table-column
             v-if="isRepairColumnVisible('machineryName')"
             label="设备名称"
@@ -209,6 +209,7 @@
 </template>
 
 <script setup lang="ts">
+import MachineryCodeLink from '@/components/MachineryCodeLink.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 

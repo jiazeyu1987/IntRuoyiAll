@@ -1,9 +1,9 @@
-const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),crypto=require('node:crypto').webcrypto
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),crypto={getRandomValues:bytes=>require('node:crypto').webcrypto.getRandomValues(bytes)}
 const src=fs.readFileSync('src/api/dcc/controlledFile/workflow.ts','utf8'),ast=ts.createSourceFile('workflow.ts',src,ts.ScriptTarget.Latest,true)
 const names=['DccControlledFileContractError','DCC_DOWNLOAD_REQUIRED_RESPONSE_HEADERS','getAxiosHeader','assertControlledFileRequestIdentity','decodeContentDispositionFileName','assertControlledFileDownloadHeaders','createControlledFileDownloadRequestId','assertControlledFileDownloadBusinessResult','downloadControlledFileAttachmentWithName']
-function host(makeResponse){
+function host(makeResponse, randomSource=crypto){
  const selected=ast.statements.filter(s=>names.includes(s.name?.text)||s.declarationList?.declarations.some(d=>names.includes(d.name?.text)))
- const c={exports:{},Blob,Response,Error,Number,String,JSON,Array,Uint8Array,BigInt,crypto,axiosConfig:{base_url:'/admin-api',request_timeout:30000},buildControlledFileBinaryHeaders:()=>({}),calls:[]}
+ const c={exports:{},Blob,Response,Error,Number,String,JSON,Array,Uint8Array,BigInt,crypto:randomSource,...require('../helpers/load-secure-uuid.cjs')(randomSource),axiosConfig:{base_url:'/admin-api',request_timeout:30000},buildControlledFileBinaryHeaders:()=>({}),calls:[]}
  c.axios={get:async(url,options)=>{c.calls.push({url,options});return makeResponse(options.params.downloadRequestId)}}
  vm.runInNewContext(ts.transpileModule(selected.map(s=>s.getText(ast).replace(/^export /,'')).join('\n')+'\nthis.download=typeof downloadControlledFileAttachmentWithName==="function"?downloadControlledFileAttachmentWithName:undefined',{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText,c)
  return c

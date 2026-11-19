@@ -9,7 +9,7 @@
       <template v-if="isClockIn">
         <el-tag type="success" effect="plain" round class="!inline-flex !items-center">
           <Icon icon="ep:check" class="mr-4px" />
-          {{ myWorkstation!.workstationCode }} - {{ myWorkstation!.workstationName }}
+          <WorkstationCodeLink :code="myWorkstation!.workstationCode" :id="myWorkstation!.workstationId" /> - {{ myWorkstation!.workstationName }}
         </el-tag>
         <span class="ml-4px text-13px text-[var(--el-text-color-secondary)]">
           上工时间：{{ formatDate(myWorkstation!.clockInTime) }}
@@ -60,6 +60,7 @@
 </template>
 
 <script setup lang="ts">
+import WorkstationCodeLink from '@/components/WorkstationCodeLink.vue'
 import { formatDate } from '@/utils/formatTime'
 import { ProWorkRecordApi, type ProWorkRecordVO } from '@/api/mes/pro/workrecord'
 import MdWorkstationSelect from '@/views/mes/md/workstation/components/MdWorkstationSelect.vue'

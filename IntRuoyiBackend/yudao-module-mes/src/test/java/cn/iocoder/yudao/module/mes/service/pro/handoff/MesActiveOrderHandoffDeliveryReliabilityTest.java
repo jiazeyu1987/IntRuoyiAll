@@ -31,7 +31,7 @@ class MesActiveOrderHandoffDeliveryReliabilityTest {
  @BeforeEach void fixture()throws Exception{
  var ds=new DriverManagerDataSource("jdbc:h2:mem:handoff_"+UUID.randomUUID()+";MODE=MySQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1","sa","");jdbc=new JdbcTemplate(ds);manager=new DataSourceTransactionManager(ds);
  jdbc.execute("CREATE TABLE mes_active_order_handoff_delivery(id BIGINT AUTO_INCREMENT PRIMARY KEY,tenant_id BIGINT,handoff_task_id BIGINT,user_id BIGINT,business_key VARCHAR(255),template_params_json CLOB,status VARCHAR(16),attempt_count INT,row_version INT,last_attempt_at TIMESTAMP,sent_at TIMESTAMP,system_message_id BIGINT,last_error_summary VARCHAR(512),creator VARCHAR(64),updater VARCHAR(64),create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,deleted BOOLEAN DEFAULT FALSE,UNIQUE(tenant_id,handoff_task_id,user_id),UNIQUE(tenant_id,business_key))");
- jdbc.execute("CREATE TABLE system_tenant_notify_message(id BIGINT AUTO_INCREMENT PRIMARY KEY,tenant_id BIGINT NOT NULL,user_id BIGINT NOT NULL,user_type INT NOT NULL,business_key VARCHAR(255),template_id BIGINT,template_code VARCHAR(128),template_type INT,template_nickname VARCHAR(255),template_content VARCHAR(12000),template_params VARCHAR(12000),read_status BOOLEAN DEFAULT FALSE,read_time TIMESTAMP,creator VARCHAR(64),updater VARCHAR(64),create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,deleted BOOLEAN DEFAULT FALSE,UNIQUE(tenant_id,business_key))");
+ jdbc.execute("CREATE TABLE system_tenant_notify_message(id BIGINT AUTO_INCREMENT PRIMARY KEY,tenant_id BIGINT NOT NULL,user_id BIGINT NOT NULL,user_type INT NOT NULL,business_key VARCHAR(255),template_id BIGINT,source_template_id BIGINT,template_code VARCHAR(128),template_type INT,template_nickname VARCHAR(255),template_content VARCHAR(12000),template_params VARCHAR(12000),read_status BOOLEAN DEFAULT FALSE,read_time TIMESTAMP,creator VARCHAR(64),updater VARCHAR(64),create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,deleted BOOLEAN DEFAULT FALSE,UNIQUE(tenant_id,business_key))");
  var config=new MybatisConfiguration();config.setMapUnderscoreToCamelCase(true);var factory=new MybatisSqlSessionFactoryBean();factory.setDataSource(ds);factory.setConfiguration(config);factory.setGlobalConfig(new com.baomidou.mybatisplus.core.config.GlobalConfig().setDbConfig(new com.baomidou.mybatisplus.core.config.GlobalConfig.DbConfig().setIdType(com.baomidou.mybatisplus.annotation.IdType.AUTO)).setMetaObjectHandler(new cn.iocoder.yudao.framework.mybatis.core.handler.DefaultDBFieldHandler()));com.baomidou.mybatisplus.core.toolkit.GlobalConfigUtils.setGlobalConfig(config,new com.baomidou.mybatisplus.core.config.GlobalConfig().setDbConfig(new com.baomidou.mybatisplus.core.config.GlobalConfig.DbConfig().setIdType(com.baomidou.mybatisplus.annotation.IdType.AUTO)).setMetaObjectHandler(new cn.iocoder.yudao.framework.mybatis.core.handler.DefaultDBFieldHandler()));config.addMapper(MesActiveOrderHandoffDeliveryMapper.class);config.addMapper(NotifyMessageMapper.class);var sf=Objects.requireNonNull(factory.getObject());var sessions=new SqlSessionTemplate(sf);mapper=sessions.getMapper(MesActiveOrderHandoffDeliveryMapper.class);
  tasks=mock(MesActiveOrderHandoffTaskMapper.class);audit=mock(MesActiveOrderHandoffAudit.class);
  var templates=mock(NotifyTemplateService.class);var template=new NotifyTemplateDO().setId(9001L).setCode(MesActiveOrderHandoffContract.TEMPLATE).setStatus(0).setType(1).setNickname("交接通知").setContent("{reason}").setParams(List.of("activeOrderId","taskName","actionUrl","reason","handoffTaskId","handoffType"));
@@ -140,4 +140,46 @@ class MesActiveOrderHandoffDeliveryReliabilityTest {
   var queued=new ArrayList<Runnable>();ReflectionTestUtils.setField(service,"notificationExecutor",(org.springframework.core.task.TaskExecutor)queued::add);
   commit();task.setStatus("CANCELED");queued.get(0).run();verifyNoInteractions(sender);assertEquals("PENDING",row().getStatus());
  }
+ MesActiveOrderHandoffTaskDO retiredEdhrTask(String type) {
+  if(Set.of("PRODUCTION_RETURN","PQC_RETURN").contains(type)) {
+   boolean production="PRODUCTION_RETURN".equals(type);
+   var result=MesActiveOrderHandoffContractTest.review().setTaskType(type).setSourceType("PROCESS_POOL_EVENT")
+     .setSourceId(176L).setRoundId(700L).setCandidateUserSnapshot("343").setRouteProcessId(production?91L:null)
+     .setNotificationOnly(false).setStatus("TODO");
+   return result.setActionUrl("/mes/pro/feedback/edhr-batch-"+(production?"production":"pqc")
+     +"-fill?activeOrderId=413&eventId=176&handoffTaskId="+result.getId()+"&roundId=700&handoffType="+type
+     +"&returnTaskId="+result.getId()+"&rejectedReviewId=700");
+  }
+  var result=MesActiveOrderHandoffContractTest.review().setTaskType(type).setSourceType("NONCONFORMANCE_REVIEW")
+    .setSourceId(91L).setRoundId(91L).setCandidateUserSnapshot("343").setRouteProcessId(null);
+  boolean notice=type.startsWith("NCR_");
+  String path=notice?"/user/profile":("QA_REVIEW".equals(type)?"/mes/pro/feedback/edhr-nonconformance-review":"/mes/pro/process-pool/production-leader");
+  if(notice)result.setNotificationOnly(true).setStatus("DONE");
+  return result.setActionUrl(path+"?activeOrderId=413&reviewId=91&handoffTaskId="+result.getId()+"&roundId=91&handoffType="+type+(notice?"&tab=notifyMessage":""));
+ }
+ @org.junit.jupiter.params.ParameterizedTest
+ @org.junit.jupiter.params.provider.ValueSource(strings={"QA_REVIEW","QA_DECISION_HANDOFF","NCR_FREEZE_NOTICE","NCR_DISPOSITION_NOTICE","PRODUCTION_RETURN","PQC_RETURN"})
+ void retiredEdhrTasksCreateNoNotificationIntentOrMessage(String type) {
+  var queued=new ArrayList<Runnable>();ReflectionTestUtils.setField(service,"notificationExecutor",(org.springframework.core.task.TaskExecutor)queued::add);
+  task=retiredEdhrTask(type);commit();commit();
+  assertTrue(mapper.forTask(1L,task.getId()).isEmpty());assertTrue(queued.isEmpty());verifyNoInteractions(sender);
+  assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM system_tenant_notify_message",Integer.class));
+ }
+ @org.junit.jupiter.params.ParameterizedTest
+ @org.junit.jupiter.params.provider.ValueSource(strings={"QA_REVIEW","QA_DECISION_HANDOFF","NCR_FREEZE_NOTICE","NCR_DISPOSITION_NOTICE","PRODUCTION_RETURN","PQC_RETURN"})
+ void retiredEdhrTasksCannotRetryHistoricalNotification(String type) {
+  doThrow(new IllegalStateException("offline")).when(sender).sendSingleMessageIdempotentlyToAdmin(any());commit();
+  var failed=row();task=retiredEdhrTask(type);clearInvocations(sender);
+  var error=assertThrows(RuntimeException.class,()->service.retry(failed.getId(),failed.getRowVersion(),343L,"历史通知重试"));
+  assertTrue(error.getMessage().contains("已停用"));assertEquals(failed.getAttemptCount(),row().getAttemptCount());verifyNoInteractions(sender);
+ }
+ @org.junit.jupiter.params.ParameterizedTest
+ @org.junit.jupiter.params.provider.ValueSource(strings={"QA_REVIEW","QA_DECISION_HANDOFF","NCR_FREEZE_NOTICE","NCR_DISPOSITION_NOTICE","PRODUCTION_RETURN","PQC_RETURN"})
+ void queuedHistoricalEdhrNotificationCannotDeliver(String type) {
+  var queued=new ArrayList<Runnable>();ReflectionTestUtils.setField(service,"notificationExecutor",(org.springframework.core.task.TaskExecutor)queued::add);
+  commit();task=retiredEdhrTask(type);queued.get(0).run();
+  verifyNoInteractions(sender);assertEquals("PENDING",row().getStatus());
+  assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM system_tenant_notify_message",Integer.class));
+ }
+
 }

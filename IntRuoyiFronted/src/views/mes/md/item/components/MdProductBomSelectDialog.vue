@@ -34,7 +34,7 @@
           />
         </template>
       </el-table-column>
-      <el-table-column label="物料编码" align="center" prop="bomItemCode" width="160" />
+      <el-table-column label="物料编码" align="center" prop="bomItemCode" width="160" ><template #default="{ row }"><MaterialCodeLink :code="row.bomItemCode" /></template></el-table-column>
       <el-table-column label="物料名称" align="left" prop="bomItemName" min-width="150" />
       <el-table-column label="规格型号" align="left" prop="bomItemSpecification" min-width="120" />
       <el-table-column label="单位" align="center" prop="unitMeasureName" width="80" />
@@ -60,6 +60,7 @@
 </template>
 
 <script setup lang="ts">
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { DICT_TYPE } from '@/utils/dict'
 import { MdProductBomApi, MdProductBomVO } from '@/api/mes/md/item/productBom'
 

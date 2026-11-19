@@ -25,7 +25,7 @@
     <el-tooltip :disabled="!selectedBom" placement="top" :show-after="500">
       <template #content>
         <div v-if="selectedBom" class="leading-6">
-          <div>编码：<ProductCodeLink :code="selectedBom.bomItemCode" /></div>
+          <div>编码：<MaterialCodeLink :code="selectedBom.bomItemCode" /></div>
           <div>名称：{{ selectedBom.bomItemName }}</div>
           <div>规格：{{ selectedBom.bomItemSpecification || '-' }}</div>
           <div>单位：{{ selectedBom.unitMeasureName || '-' }}</div>
@@ -47,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import ProductCodeLink from '@/components/ProductCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { MdProductBomApi, MdProductBomVO } from '@/api/mes/md/item/productBom'
 import { Search, CircleClose } from '@element-plus/icons-vue'
 import MdProductBomSelectDialog from './MdProductBomSelectDialog.vue'

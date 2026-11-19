@@ -300,6 +300,7 @@
 import { computed, ref, watch } from 'vue'
 import { useWindowSize } from '@vueuse/core'
 import { ElMessage } from 'element-plus'
+import { createSecureUuid } from '@/utils/uuid'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import SamplingRuleEditor from '@/views/mes/qc/template/SamplingRuleEditor.vue'
 import {
@@ -447,7 +448,7 @@ function addItem() {
   )
   if (!process) {
     process = {
-      processCode: `${draft.value.regulationCode}-P-${crypto.randomUUID().slice(0, 8)}`,
+      processCode: `${draft.value.regulationCode}-P-${createSecureUuid().slice(0, 8)}`,
       processName: addProcessName.value.trim(),
       sort: draft.value.processes.length + 1,
       items: []
@@ -455,7 +456,7 @@ function addItem() {
     draft.value.processes.push(process)
   }
   process.items.push({
-    itemCode: crypto.randomUUID(),
+    itemCode: createSecureUuid(),
     itemName: addItemName.value.trim(),
     itemSort: process.items.length + 1,
     inspectionMethod: '',

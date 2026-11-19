@@ -27,7 +27,8 @@
         </el-col>
         <el-col :span="8">
           <el-form-item label="关联订单" prop="orderNo">
-            <el-input v-model="formData.orderNo" readonly>
+            <BusinessDocumentCodeLink v-if="formType === 'detail'" :code="formData.orderNo" :document-id="formData.orderId" document-type="erp-sale-order" />
+            <el-input v-else v-model="formData.orderNo" readonly>
               <template #append>
                 <el-button @click="openSaleOrderOutEnableList">
                   <Icon icon="ep:search" /> 选择
@@ -177,6 +178,7 @@
   <SaleOrderOutEnableList ref="saleOrderOutEnableListRef" @success="handleSaleOrderChange" />
 </template>
 <script setup lang="ts">
+import BusinessDocumentCodeLink from '@/components/BusinessDocumentCodeLink.vue'
 import { SaleOutApi, SaleOutVO } from '@/api/erp/sale/out'
 import SaleOutItemForm from './components/SaleOutItemForm.vue'
 import { CustomerApi, CustomerVO } from '@/api/erp/sale/customer'
@@ -246,7 +248,7 @@ watch(
 )
 
 /** 打开弹窗 */
-const open = async (type: string, id?: number) => {
+const open = async (type: string, id?: number | string) => {
   dialogVisible.value = true
   dialogTitle.value = t('action.' + type)
   formType.value = type

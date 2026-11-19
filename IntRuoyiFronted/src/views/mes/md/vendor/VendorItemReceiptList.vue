@@ -10,7 +10,7 @@
         </template>
       </el-table-column>
       <el-table-column label="采购订单号" align="center" prop="purchaseOrderCode" min-width="150" />
-      <el-table-column label="物料编码" align="center" prop="itemCode" width="140" />
+      <el-table-column label="物料编码" align="center" prop="itemCode" width="140" ><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="物料名称" align="center" prop="itemName" min-width="150" />
       <el-table-column label="规格型号" align="center" prop="specification" min-width="120" />
       <el-table-column label="单位" align="center" prop="unitMeasureName" width="80" />
@@ -29,6 +29,7 @@
 </template>
 
 <script setup lang="ts">
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { WmItemReceiptLineApi } from '@/api/mes/wm/itemreceipt/line'
 import ItemReceiptForm from '@/views/mes/wm/itemreceipt/ItemReceiptForm.vue'
 

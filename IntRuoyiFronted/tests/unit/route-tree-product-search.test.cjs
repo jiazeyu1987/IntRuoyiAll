@@ -21,7 +21,7 @@ function setup(api = {}) {
     setTimeout: callback => { timers.add(callback); return callback }, clearTimeout: callback => timers.delete(callback),
     require: name => name === './routeTreeOrderSearch' ? helper : name === './routeError'
       ? { resolveRouteOperationErrorMessage: failure => failure.message } : {} }
-  const code = descriptor.scriptSetup.content + '\nObject.assign(exports, { filterNode, filter, treeRef, rows, tree, searchType, orderSearchResult, orderSearchLoading, orderSearchError, searchEmptyText })'
+  const code = descriptor.scriptSetup.content + '\nObject.assign(exports, { filterNode, filter, treeRef, rows, tree, nodeLabel, searchType, orderSearchResult, orderSearchLoading, orderSearchError, searchEmptyText })'
   vm.runInNewContext(ts.transpileModule(code, { compilerOptions: {
     module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022
   } }).outputText, context)
@@ -69,6 +69,29 @@ test('refresh reapplies the current search after the tree data changes', async (
 test('the search template compiles', () => {
   const result = compileTemplate({ source: descriptor.template.content, filename, id: 'route-tree-search' })
   assert.deepEqual(result.errors, [])
+})
+
+test('directory labels count all descendant flows without counting folders or changing on search', async () => {
+  const h = setup()
+  h.rows.value = [
+    { id: 1, name: '压力泵', nodeType: 'GROUP' },
+    { id: 2, name: '二代压力泵', nodeType: 'GROUP', parentId: 1 },
+    { id: 3, name: '一代压力泵', nodeType: 'GROUP', parentId: 1 },
+    { id: 4, name: '其他', nodeType: 'GROUP' },
+    ...[5,6,7,8].map(id => ({ id, name: '流程'+id, nodeType: 'FLOW', parentId: 2 })),
+    { id: 9, name: '流程9', nodeType: 'FLOW', parentId: 3 }
+  ]
+  const root = h.tree.value[0]
+  assert.equal(h.nodeLabel(root), '压力泵(5)')
+  assert.equal(h.nodeLabel(root.children[0]), '二代压力泵(4)')
+  assert.equal(h.nodeLabel(root.children[1]), '一代压力泵(1)')
+  assert.equal(h.nodeLabel(h.tree.value[1]), '其他(0)')
+  assert.equal(h.nodeLabel(root.children[1].children[0]), '流程9')
+  h.filter.value = '流程5'
+  await vue.nextTick()
+  assert.equal(h.nodeLabel(h.tree.value[0]), '压力泵(5)')
+  h.rows.value = h.rows.value.filter(row => row.id !== 5)
+  assert.equal(h.nodeLabel(h.tree.value[0]), '压力泵(4)')
 })
 
 test('Element Plus keeps matching flows and their ancestors and hides unrelated branches', async () => {

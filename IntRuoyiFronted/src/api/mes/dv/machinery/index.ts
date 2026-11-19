@@ -25,7 +25,7 @@ export const DvMachineryApi = {
     return await request.get({ url: `/mes/dv/machinery/page`, params })
   },
 
-  getMachinery: async (id: number) => {
+  getMachinery: async (id: number | string) => {
     return await request.get({ url: `/mes/dv/machinery/get?id=` + id })
   },
 

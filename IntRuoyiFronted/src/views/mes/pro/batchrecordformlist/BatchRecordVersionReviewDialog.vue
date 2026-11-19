@@ -159,6 +159,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+import { createSecureUuid } from '@/utils/uuid'
 import { BatchRecordReportApi, type BatchRecordReportVO } from '@/api/mes/pro/batchrecordreport'
 import {
   BatchRecordVersionGovernanceApi,
@@ -430,7 +431,7 @@ const confirmSelected = async () => {
       data: {
         itemIds: [...selectedIds.value],
         comment: comment.value.trim(),
-        idempotencyKey: `batch-version-confirm-${crypto.randomUUID()}`
+        idempotencyKey: `batch-version-confirm-${createSecureUuid()}`
       }
     }
     attempts.set(identity.versionId, pendingAttempt.value)

@@ -16,8 +16,8 @@
           <el-table-column prop="currentPosition" label="当前节点顺序" width="120" />
         </el-table>
         <div class="route-tree-difference__sequences">
-          <div><h3>父节点工序顺序</h3><ol><li v-for="process in parentProcesses" :key="String(process.processId)">{{ process.processName }}（{{ process.processCode }}）</li></ol></div>
-          <div><h3>当前节点工序顺序</h3><ol><li v-for="process in currentProcesses" :key="String(process.processId)">{{ process.processName }}（{{ process.processCode }}）</li></ol></div>
+          <div><h3>父节点工序顺序</h3><ol><li v-for="process in parentProcesses" :key="String(process.processId)">{{ process.processName }}（<ProcessCodeLink :code="process.processCode" />）</li></ol></div>
+          <div><h3>当前节点工序顺序</h3><ol><li v-for="process in currentProcesses" :key="String(process.processId)">{{ process.processName }}（<ProcessCodeLink :code="process.processCode" />）</li></ol></div>
         </div>
       </template>
     </div>
@@ -29,6 +29,7 @@
 </template>
 
 <script setup lang="ts">
+import ProcessCodeLink from '@/components/ProcessCodeLink.vue'
 import { ProRouteApi, type RouteFlowNodeVO } from '@/api/mes/pro/route'
 import type { RouteTreeNode } from '@/api/mes/pro/route/tree'
 import { resolveRouteOperationErrorMessage } from './routeError'

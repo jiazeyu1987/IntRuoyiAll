@@ -1,7 +1,7 @@
 <!-- MES 工单物料需求列表（只读） -->
 <template>
   <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true">
-    <el-table-column label="物料编码" align="center" prop="itemCode" width="120" />
+    <el-table-column label="物料编码" align="center" prop="itemCode" width="120" ><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
     <el-table-column label="物料名称" align="center" prop="itemName" min-width="150" />
     <el-table-column label="规格型号" align="center" prop="itemSpecification" width="120" />
     <el-table-column label="单位" align="center" prop="unitMeasureName" width="80" />
@@ -15,6 +15,7 @@
 </template>
 
 <script setup lang="ts">
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { ProWorkOrderBomApi } from '@/api/mes/pro/workorder/bom'
 import { DICT_TYPE } from '@/utils/dict'
 

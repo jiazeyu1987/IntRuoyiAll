@@ -146,7 +146,6 @@ class MesSa37ReworkReleaseTransactionTest {
         ReflectionTestUtils.setField(completion,"handoffService",mock(MesActiveOrderHandoffService.class));
         var persistence=new MesTeamLeaderActiveOrderReleaseApplicationPersistenceService(applications,
                 db.mapper(MesProEdhrWorkTaskMapper.class),mock(MesReleaseFlowAuditRecorder.class));
-        ReflectionTestUtils.setField(persistence,"notificationService",mock(MesReleaseTaskNotificationService.class));
         var candidates=mock(MesProductionReleaseRequiredCandidateResolver.class);
         when(candidates.resolveRequiredCandidates(1L,MesProductionReleaseRoleCodes.PQC_RELEASE_OWNER))
                 .thenReturn(new MesProductionReleaseRoleCandidates(90L,MesProductionReleaseRoleCodes.PQC_RELEASE_OWNER,List.of(91L),"candidate-hash"));

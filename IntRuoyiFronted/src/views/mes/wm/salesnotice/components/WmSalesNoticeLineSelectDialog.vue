@@ -44,11 +44,11 @@
             />
           </template>
         </el-table-column>
-        <el-table-column label="物料编码" align="center" prop="itemCode" width="150" />
+        <el-table-column label="物料编码" align="center" prop="itemCode" width="150" ><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
         <el-table-column label="物料名称" align="left" prop="itemName" min-width="200" />
         <el-table-column label="规格型号" align="center" prop="specification" min-width="120" />
         <el-table-column label="单位" align="center" prop="unitMeasureName" width="80" />
-        <el-table-column label="批次号" align="center" prop="batchCode" width="130" />
+        <el-table-column label="批次号" align="center" prop="batchCode" width="130"><template #default="{ row }"><BatchCodeLink :code="row.batchCode" :batch-id="row.batchId" /></template></el-table-column>
         <el-table-column label="发货数量" align="center" prop="quantity" width="100" />
         <el-table-column label="是否检验" align="center" prop="oqcCheckFlag" width="90">
           <template #default="scope">
@@ -72,6 +72,8 @@
 </template>
 
 <script setup lang="ts">
+import BatchCodeLink from '@/components/BatchCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { DICT_TYPE } from '@/utils/dict'
 import { WmSalesNoticeLineApi, WmSalesNoticeLineVO } from '@/api/mes/wm/salesnotice/line'
 

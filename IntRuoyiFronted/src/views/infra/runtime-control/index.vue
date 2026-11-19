@@ -807,6 +807,7 @@ import * as RuntimeControlApi from '@/api/infra/runtimeControl'
 import type { RuntimeControlOperationVO, RuntimeControlStatusVO } from '@/api/infra/runtimeControl'
 
 import { checkPermi } from '@/utils/permission'
+import { createSecureUuid } from '@/utils/uuid'
 import { useMessage } from '@/hooks/web/useMessage'
 import OpsCandidatePicker from './components/OpsCandidatePicker.vue'
 import OpsIncidentDrawer from './components/OpsIncidentDrawer.vue'
@@ -1297,7 +1298,7 @@ const previewProductionPromotion = async (workflow: RuntimeControlApi.RuntimeCon
       workflow.workflowId, workflow.stateVersion, workflowReason.value.trim()
     )
     productionDialog.workflowId = workflow.workflowId
-    productionDialog.idempotencyKey = crypto.randomUUID()
+    productionDialog.idempotencyKey = createSecureUuid()
     productionDialog.visible = true
   } catch (error) {
     reportActionError(error)

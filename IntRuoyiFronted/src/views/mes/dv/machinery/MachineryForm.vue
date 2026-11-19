@@ -130,7 +130,7 @@
     </el-tabs>
 
     <template #footer>
-      <el-button v-if="formData.id && !isDetail" plain :disabled="formLoading" @click="sharedChangeDialog?.openReplacement('DEVICE', formData.id)">统一替换设备</el-button>
+      <el-button v-if="formData.id && !isDetail" plain :disabled="formLoading" @click="sharedChangeDialog?.openReplacement('DEVICE', formData.id)">工艺流程统一替换</el-button>
       <el-button v-if="isDetail && formData.id" type="primary" plain @click="handleBarcode">
         查看条码
       </el-button>
@@ -146,6 +146,7 @@
 </template>
 
 <script setup lang="ts">
+import { createSecureUuid } from '@/utils/uuid'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { DvMachineryApi, DvMachineryVO } from '@/api/mes/dv/machinery'
 import MdWorkshopSelect from '@/views/mes/md/workstation/components/MdWorkshopSelect.vue'
@@ -223,7 +224,7 @@ const generateCode = async () => {
   formData.value.code = await AutoCodeRecordApi.generateAutoCode(MesAutoCodeRuleCode.DV_MACHINERY_CODE)
 }
 
-const open = async (type: string, id?: number) => {
+const open = async (type: string, id?: number | string) => {
   dialogVisible.value = true
   formType.value = type
   resetForm()
@@ -252,7 +253,7 @@ const emit = defineEmits(['success'])
 const submitForm = async () => {
   await formRef.value.validate()
   if (formType.value !== 'create' && formData.value.id) {
-    await sharedChangeDialog.value?.open({ subjectType: 'DEVICE', action: 'UPDATE', sourceId: formData.value.id, expectedFingerprint: sharedFingerprint.value, requestId: crypto.randomUUID(), device: { ...formData.value }, reason: '', nodes: [] })
+    await sharedChangeDialog.value?.open({ subjectType: 'DEVICE', action: 'UPDATE', sourceId: formData.value.id, expectedFingerprint: sharedFingerprint.value, requestId: createSecureUuid(), device: { ...formData.value }, reason: '', nodes: [] })
     return
   }
   formLoading.value = true

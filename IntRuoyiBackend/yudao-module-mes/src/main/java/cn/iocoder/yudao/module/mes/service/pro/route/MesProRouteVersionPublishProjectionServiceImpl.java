@@ -410,10 +410,12 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
     }
 
     private void updateRoute(Long routeId, JSONObject snapshot) {
+        MesProRouteDO current = routeMapper.selectById(routeId);
+        if (current == null) throw new IllegalStateException("工艺流程不存在：" + routeId);
         routeMapper.updateById(MesProRouteDO.builder()
                 .id(routeId)
                 .code(requireText(snapshot, "routeCode"))
-                .name(requireText(snapshot, "routeName"))
+                .name("GROUP".equals(current.getNodeType()) ? current.getName() : requireText(snapshot, "routeName"))
                 .status(snapshot.getInteger("status"))
                 .build());
     }

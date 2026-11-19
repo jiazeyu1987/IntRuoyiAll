@@ -27,12 +27,12 @@
           />
         </template>
       </el-table-column>
-      <el-table-column label="物料编码" align="center" prop="itemCode" min-width="120" />
+      <el-table-column label="物料编码" align="center" prop="itemCode" min-width="120" ><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="物料名称" align="center" prop="itemName" min-width="140" />
       <el-table-column label="规格型号" align="center" prop="specification" min-width="120" />
       <el-table-column label="单位" align="center" prop="unitMeasureName" width="80" />
       <el-table-column label="入库数量" align="center" prop="quantity" width="100" />
-      <el-table-column label="批次号" align="center" prop="batchCode" min-width="120" />
+      <el-table-column label="批次号" align="center" prop="batchCode" min-width="120"><template #default="{ row }"><BatchCodeLink :code="row.batchCode" :batch-id="row.batchId" /></template></el-table-column>
       <el-table-column label="是否检验" align="center" prop="iqcCheckFlag" width="100">
         <template #default="scope">
           <dict-tag :type="DICT_TYPE.INFRA_BOOLEAN_STRING" :value="scope.row.iqcCheckFlag" />
@@ -163,6 +163,8 @@
 </template>
 
 <script setup lang="ts">
+import BatchCodeLink from '@/components/BatchCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { DICT_TYPE } from '@/utils/dict'
 import {
   WmOutsourceReceiptLineApi,

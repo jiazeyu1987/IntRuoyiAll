@@ -79,7 +79,7 @@ export const ProProcessApi = {
   },
 
   // 查询生产工序详情
-  getProcess: async (id: number, params?: { routeId?: MesRouteId }) => {
+  getProcess: async (id: number | string, params?: { routeId?: MesRouteId }) => {
     return await request.get({ url: `/mes/pro/process/get`, params: { id, ...params } })
   },
 

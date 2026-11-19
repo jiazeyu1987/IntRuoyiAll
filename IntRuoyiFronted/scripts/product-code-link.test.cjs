@@ -45,7 +45,18 @@ async function testLink() {
   const { descriptor } = compiler.parse(read('src/components/ProductCodeLink.vue'))
   const script = compiler.compileScript(descriptor, { id: 'product-link', inlineTemplate: true })
   const exports = {}
-  vm.runInNewContext(transpile(script.content), { exports, require })
+  const componentRequire = name => {
+    if (name === '@/utils/permission') return { checkPermi: () => true }
+    if (name === './BusinessCodeLink.vue') {
+      const child = compiler.parse(read('src/components/BusinessCodeLink.vue')).descriptor
+      const compiled = compiler.compileScript(child, { id: 'business-link', inlineTemplate: true })
+      const childExports = {}
+      vm.runInNewContext(transpile(compiled.content), { exports: childExports, require: componentRequire })
+      return childExports
+    }
+    return require(name)
+  }
+  vm.runInNewContext(transpile(script.content), { exports, require: componentRequire })
   const router = createRouter({ history: createMemoryHistory(), routes: [
     { path: '/source', component: {} }, { path: '/mes/md/erp-product', component: {} }
   ] })

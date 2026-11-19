@@ -44,7 +44,7 @@
 
   <ContentWrap>
     <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true" row-key="id">
-      <el-table-column label="订单编号" prop="orderNo" width="170" />
+      <el-table-column label="订单编号" prop="orderNo" width="170"><template #default="{ row }"><BusinessDocumentCodeLink :code="row.orderNo" document-type="srm-purchase-order" /></template></el-table-column>
       <el-table-column label="来源计划" prop="sourcePlanNo" width="170" />
       <el-table-column label="供应商" prop="supplierName" min-width="180" />
       <el-table-column label="状态" width="130" align="center">
@@ -159,7 +159,7 @@
       </el-descriptions>
       <el-table class="mt-16px" :data="currentDetail.lines" border size="small">
         <el-table-column label="行号" prop="lineNo" width="140" />
-        <el-table-column label="物料编码" prop="materialCode" width="140" />
+        <el-table-column label="物料编码" prop="materialCode" width="140" ><template #default="{ row }"><MaterialCodeLink :code="row.materialCode" /></template></el-table-column>
         <el-table-column label="物料名称" prop="materialName" min-width="180" />
         <el-table-column label="需求数量" prop="requestedQuantity" width="110" align="right" />
         <el-table-column label="单位" prop="unit" width="80" align="center" />
@@ -189,7 +189,7 @@
         <el-input v-model="changeFormData.changeRemark" type="textarea" :rows="3" maxlength="500" show-word-limit />
       </el-form-item>
       <el-table :data="changeFormData.lines" border size="small">
-        <el-table-column label="物料编码" prop="materialCode" width="140" />
+        <el-table-column label="物料编码" prop="materialCode" width="140" ><template #default="{ row }"><MaterialCodeLink :code="row.materialCode" /></template></el-table-column>
         <el-table-column label="物料名称" prop="materialName" min-width="180" />
         <el-table-column label="原确认数量" prop="confirmedQuantity" width="110" align="right" />
         <el-table-column label="原确认交期" prop="confirmedDeliveryDate" width="120" />
@@ -230,6 +230,9 @@
 </template>
 
 <script setup lang="ts">
+import BusinessDocumentCodeLink from '@/components/BusinessDocumentCodeLink.vue'
+import { useRoute } from 'vue-router'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import type { FormInstance, FormRules } from 'element-plus'
 import { dateFormatter } from '@/utils/formatTime'
@@ -333,17 +336,23 @@ const resolveStatusType = (status?: string) => {
   return 'info'
 }
 
+const documentRoute = useRoute()
+const documentDefaults = structuredClone(toRaw(queryParams))
+let documentSequence = 0
 const getList = async () => {
+  const sequence = ++documentSequence
+  const path = documentRoute.path
   loading.value = true
   try {
-    const data = await SrmPurchaseOrderApi.getPurchaseOrderPage(queryParams)
+    const data = await SrmPurchaseOrderApi.getPurchaseOrderPage({ ...queryParams })
+    if (sequence !== documentSequence || path !== documentRoute.path) return
     list.value = data.list || []
     total.value = data.total || 0
   } catch (error) {
     message.error(resolveErrorMessage(error, '采购订单协同列表加载失败，请检查后端接口。'))
     throw error
   } finally {
-    loading.value = false
+    if (sequence === documentSequence) loading.value = false
   }
 }
 
@@ -498,7 +507,18 @@ const submitWithdrawChange = async () => {
   }
 }
 
+const receiveDocumentCodeLink = () => {
+  ++documentSequence
+  if (documentRoute.path !== '/srm/purchase-order') return false
+  const code = typeof documentRoute.query.code === 'string' ? documentRoute.query.code.trim() : ''
+  if (!code) return false
+  queryFormRef.value?.resetFields()
+  Object.assign(queryParams, structuredClone(documentDefaults), { orderNo: code })
+  void getList()
+  return true
+}
+watch(() => [documentRoute.path, documentRoute.query.code, documentRoute.query.codeLinkVisit], receiveDocumentCodeLink)
 onMounted(() => {
-  getList()
+  if (!receiveDocumentCodeLink()) getList()
 })
 </script>

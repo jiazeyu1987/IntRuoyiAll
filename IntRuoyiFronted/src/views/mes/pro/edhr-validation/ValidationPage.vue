@@ -159,7 +159,7 @@
             <el-table-column label="条目" min-width="210">
               <template #default="{ row }">
                 <div class="edhr-validation__strong">{{ row.itemName }}</div>
-                <div class="edhr-validation__muted">{{ row.itemCode }} / {{ row.itemVersion }}</div>
+                <div class="edhr-validation__muted"><MaterialCodeLink :code="row.itemCode" /> / {{ row.itemVersion }}</div>
               </template>
             </el-table-column>
             <el-table-column label="类型" width="90">
@@ -429,6 +429,7 @@
 </template>
 
 <script setup lang="ts">
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import {
   createEdhrValidationPackage,

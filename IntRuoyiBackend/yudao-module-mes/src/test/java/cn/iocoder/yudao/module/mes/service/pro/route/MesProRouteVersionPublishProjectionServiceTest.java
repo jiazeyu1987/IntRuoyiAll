@@ -107,6 +107,8 @@ class MesProRouteVersionPublishProjectionServiceTest {
 
     @BeforeEach
     void setUpIds() {
+        lenient().when(routeMapper.selectById(any())).thenAnswer(call -> MesProRouteDO.builder()
+                .id(call.getArgument(0)).nodeType("FLOW").build());
         lenient().when(routeWorkstationService.forPublishedProcess(any(), org.mockito.ArgumentMatchers.anyInt(),
                 any(), any(), org.mockito.ArgumentMatchers.nullable(String.class)))
                 .thenAnswer(call -> call.getArgument(2));

@@ -5,6 +5,8 @@ const test = require('node:test'),
   ts = require('typescript')
 const { ref, computed, watch } = require('vue'),
   { parse } = require('vue/compiler-sfc')
+const { webcrypto } = require('node:crypto')
+const loadUuid = require('../helpers/load-secure-uuid.cjs')
 const read = (name) => fs.readFileSync(path.resolve(__dirname, '../../', name), 'utf8')
 const source = read('src/views/mes/pro/batchrecordformlist/BatchRecordVersionReviewDialog.vue')
 const body = parse(source).descriptor.scriptSetup.content
@@ -59,7 +61,6 @@ function setup(options = {}) {
     allowed = new Set(options.permissions || permissions)
   let current = row(),
     diff = result(),
-    key = 0,
     unmount
   const deps = {
     ref,
@@ -70,7 +71,7 @@ function setup(options = {}) {
     },
     defineExpose() {},
     defineEmits: () => (name) => events.push(name),
-    crypto: { randomUUID: () => `key-${++key}` },
+    ...loadUuid(options.crypto || { getRandomValues: bytes => webcrypto.getRandomValues(bytes) }),
     hasPermission: (p) => p.some((x) => allowed.has(x)),
     parsePositiveRouteQueryId: (v) =>
       /^\d+$/.test(String(v)) && String(v) !== '0' ? String(v) : '',
@@ -244,6 +245,8 @@ test('unknown confirmation requires readonly refresh and preserves original payl
   s.comment.value = '原始意见'
   await s.confirmSelected()
   const first = calls.find((c) => c[0] === 'confirm')[2]
+  assert.match(first.idempotencyKey,
+    /^batch-version-confirm-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   assert.match(s.errorMessage.value, /回执未知/)
   assert.equal(s.canConfirm.value, false)
   await s.confirmSelected()
@@ -255,6 +258,22 @@ test('unknown confirmation requires readonly refresh and preserves original payl
   assert.equal(s.canConfirm.value, true)
   await s.confirmSelected()
   assert.deepEqual(calls.filter((c) => c[0] === 'confirm')[1][2], first)
+})
+
+test('missing or failed HTTP random source stops confirmation before a dialog or write', async () => {
+  const failure = new Error('random source unavailable')
+  for (const crypto of [{}, { getRandomValues() { throw failure } }]) {
+    const { s, calls } = setup({ crypto })
+    await s.open(row())
+    s.toggleItem(s.diff.value.items[0], true)
+    s.comment.value = '确认'
+    await assert.rejects(s.confirmSelected(), crypto.getRandomValues
+      ? error => error === failure
+      : /不支持安全随机数/)
+    assert.equal(calls.some(call => call[0] === 'ask' || call[0] === 'confirm'), false)
+    assert.equal(s.pendingAttempt.value, undefined)
+    assert.equal(s.confirming.value, false)
+  }
 })
 test('confirmed facts after unknown response clear request without replay', async () => {
   const { s, calls, set } = setup({

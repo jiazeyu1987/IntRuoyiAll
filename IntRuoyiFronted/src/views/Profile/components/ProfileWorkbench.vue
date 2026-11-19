@@ -116,16 +116,27 @@
             </template>
           </el-table-column>
           <el-table-column
-            v-if="isTodoColumnVisible('statusTime')"
-            label="状态/时间"
-            prop="statusTime"
-            :width="getTodoColumnWidthString('statusTime', 220)"
-            v-bind="sortColumnAttrs('statusTime')"
+            v-if="isTodoColumnVisible('statusLabel')"
+            label="状态"
+            prop="statusLabel"
+            :width="getTodoColumnWidthString('statusLabel', 120)"
+            v-bind="sortColumnAttrs('statusLabel')"
           >
             <template #default="{ row }">
               <div class="profile-workbench__status">
                 <span>{{ row.statusLabel }}</span>
               </div>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isTodoColumnVisible('createdAt')"
+            label="时间"
+            prop="createdAt"
+            :width="getTodoColumnWidthString('createdAt', 200)"
+            :sortable="false"
+          >
+            <template #default="{ row }">
+              {{ formatDateTimeValue(row.createdAt) }}
             </template>
           </el-table-column>
           <el-table-column
@@ -200,6 +211,7 @@ import {
 import { useUserStore } from '@/store/modules/user'
 
 import { getAccessToken } from '@/utils/auth'
+import { formatDateTimeValue } from '@/utils/formatTime'
 import { authorizedWorkbenchSources, refreshWorkbenchDirectory, openWorkbenchAction, workbenchIdentityKey } from '@/workbench/registry'
 
 
@@ -236,7 +248,8 @@ const todoDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'taskType', label: '任务类型', width: 120, sortable: 'custom' },
   { key: 'source', label: '来源', width: 150, sortable: 'custom' },
   { key: 'detail', label: '待办详情', minWidth: 360, sortable: 'custom' },
-  { key: 'statusTime', label: '状态/时间', width: 220, sortProp: 'statusLabel', sortable: 'custom' },
+  { key: 'statusLabel', label: '状态', width: 120, sortable: 'custom' },
+  { key: 'createdAt', label: '时间', width: 200, sortable: false },
   { key: 'actions', label: '操作', width: 170, hideable: false, business: false }
 ]
 

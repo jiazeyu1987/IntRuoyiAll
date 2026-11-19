@@ -14,6 +14,7 @@
       </el-button>
     </el-alert>
     <UnifiedListTemplate
+      ref="codeLinkListTemplate"
       single-line-toolbar
       table-key="mes.md.workstation.main"
       :query-model="queryParams"
@@ -315,6 +316,7 @@
 </template>
 
 <script setup lang="ts">
+import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
@@ -342,6 +344,7 @@ defineOptions({ name: 'MesMdWorkstation' })
 const message = useMessage() // 消息弹窗
 const { t } = useI18n() // 国际化
 const route = useRoute()
+const codeLinkListTemplate = ref()
 const router = useRouter()
 
 type WorkstationQuickFilterFieldKey = 'code' | 'name' | 'status'
@@ -485,15 +488,20 @@ const buildWorkstationPageParams = () => {
 }
 
 /** 查询列表 */
+let workstationListSequence = 0
 async function getList() {
+  const requestId = ++workstationListSequence
+  const requestRoute = route.fullPath
   loading.value = true
   listLoadError.value = ''
   failedWorkstationId.value = undefined
   try {
     const data = await MdWorkstationApi.getWorkstationPage(buildWorkstationPageParams())
+    if (requestId !== workstationListSequence || route.fullPath !== requestRoute) return
     list.value = data.list
     total.value = data.total
   } catch (error) {
+    if (requestId !== workstationListSequence || route.fullPath !== requestRoute) throw error
     list.value = []
     total.value = 0
     listLoadError.value = error instanceof Error ? error.message : String(error)
@@ -502,7 +510,7 @@ async function getList() {
     }
     throw error
   } finally {
-    loading.value = false
+    if (requestId === workstationListSequence) loading.value = false
   }
 }
 
@@ -560,6 +568,13 @@ const applyRouteQuickFilter = (fieldKey: 'code' | 'name', value: string) => {
 }
 
 const syncQueryParamsFromRoute = () => {
+  codeLinkListTemplate.value?.resetColumnFilters()
+  queryParams.pageNo = 1
+  queryParams.listFilters = undefined
+  queryParams.workshopId = undefined
+  queryParams.status = undefined
+  clearRouteQuickFilter()
+  workstationQuickFilter.updateState({ conditions: [], appliedConditions: [] })
   const code = typeof route.query.code === 'string' ? route.query.code : undefined
   const name = typeof route.query.name === 'string' ? route.query.name : undefined
   const processIdText = typeof route.query.processId === 'string' ? route.query.processId : ''
@@ -583,6 +598,8 @@ const buildWorkstationRouteQuerySignature = () =>
     code: typeof route.query.code === 'string' ? route.query.code : '',
     name: typeof route.query.name === 'string' ? route.query.name : '',
     processId: typeof route.query.processId === 'string' ? route.query.processId : '',
+    path: route.path,
+    visit: route.query.codeLinkVisit,
     openId: typeof route.query.openId === 'string' ? route.query.openId : ''
   })
 
@@ -595,8 +612,10 @@ const tryOpenDetailFromRoute = () => {
   if (openedWorkstationDetailId.value === openId) {
     return
   }
-  openedWorkstationDetailId.value = openId
-  openForm('detail', Number(openId))
+  const id = parsePositiveRouteQueryId(openId)
+  if (!id) throw new Error(`工作站详情定位参数无效：${openId}`)
+  openedWorkstationDetailId.value = id
+  openForm('detail', id)
 }
 
 const isUserCancel = (error: unknown) => error === 'cancel' || error === 'close'
@@ -639,29 +658,26 @@ const handleExport = async () => {
 }
 
 /** 初始化 **/
-onMounted(async () => {
-  lastAppliedWorkstationRouteQuerySignature.value = buildWorkstationRouteQuerySignature()
+let workstationRouteGeneration = 0
+const syncWorkstationRoute = async () => {
+  const generation = ++workstationRouteGeneration
+  if (route.path !== WORKSTATION_ROUTE_PATH) {
+    ++workstationListSequence
+    lastAppliedWorkstationRouteQuerySignature.value = ''
+    openedWorkstationDetailId.value = ''
+    return
+  }
+  const signature = buildWorkstationRouteQuerySignature()
+  if (signature === lastAppliedWorkstationRouteQuerySignature.value) return
+  lastAppliedWorkstationRouteQuerySignature.value = signature
+  openedWorkstationDetailId.value = ''
   syncQueryParamsFromRoute()
   await getList()
+  if (generation !== workstationRouteGeneration || route.path !== WORKSTATION_ROUTE_PATH || signature !== buildWorkstationRouteQuerySignature()) return
   tryOpenDetailFromRoute()
-})
-
-watch(
-  () => route.fullPath,
-  async () => {
-    if (route.path !== WORKSTATION_ROUTE_PATH) {
-      return
-    }
-    const nextSignature = buildWorkstationRouteQuerySignature()
-    if (nextSignature === lastAppliedWorkstationRouteQuerySignature.value) {
-      return
-    }
-    lastAppliedWorkstationRouteQuerySignature.value = nextSignature
-    syncQueryParamsFromRoute()
-    await getList()
-    tryOpenDetailFromRoute()
-  }
-)
+}
+onMounted(syncWorkstationRoute)
+watch(() => route.fullPath, syncWorkstationRoute)
 
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [

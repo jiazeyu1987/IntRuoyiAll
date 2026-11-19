@@ -4614,6 +4614,18 @@
     {
       "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteTreeController.java",
       "kind": "permission",
+      "value": "mes:pro-route:delete",
+      "reason": "工艺流程树新增空目录删除，复用既有工艺流程删除权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteTreePanel.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:delete",
+      "reason": "工艺流程树新增空目录删除按钮，复用既有工艺流程删除权限及页面入口；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteTreeController.java",
+      "kind": "permission",
       "value": "mes:pro-route:update",
       "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
     },
@@ -4658,6 +4670,120 @@
       "kind": "permission",
       "value": "mes:pro-route:version-query",
       "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/components/BatchCodeLink.vue",
+      "kind": "permission",
+      "value": "mes:wm-batch:query",
+      "reason": "业务编号跳转内部组件复用既有查询权限 mes:wm-batch:query，有权限时打开现有列表或详情；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/components/BatchExecutionCodeLink.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution:query",
+      "reason": "业务编号跳转内部组件复用既有查询权限 mes:pro-edhr-batch-execution:query，有权限时打开现有列表或详情；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/components/ExecutionCodeLink.vue",
+      "kind": "permission",
+      "value": "mes:pro-batch-record-execution:query",
+      "reason": "业务编号跳转内部组件复用既有查询权限 mes:pro-batch-record-execution:query，有权限时打开现有列表或详情；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/components/MachineryCodeLink.vue",
+      "kind": "permission",
+      "value": "mes:dv-machinery:query",
+      "reason": "业务编号跳转内部组件复用既有查询权限 mes:dv-machinery:query，有权限时打开现有列表或详情；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/components/MaterialCodeLink.vue",
+      "kind": "permission",
+      "value": "mes:md-item:query",
+      "reason": "业务编号跳转内部组件复用既有查询权限 mes:md-item:query，有权限时打开现有列表或详情；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/components/ProcessCodeLink.vue",
+      "kind": "permission",
+      "value": "mes:pro-process:query",
+      "reason": "业务编号跳转内部组件复用既有查询权限 mes:pro-process:query，有权限时打开现有列表或详情；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/components/ProductCodeLink.vue",
+      "kind": "permission",
+      "value": "erp:product:query",
+      "reason": "业务编号跳转内部组件复用既有查询权限 erp:product:query，有权限时打开现有列表或详情；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/components/ProductionBatchCodeLink.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution:query",
+      "reason": "业务编号跳转内部组件复用既有查询权限 mes:pro-edhr-batch-execution:query，有权限时打开现有列表或详情；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/components/ProductionBatchCodeLink.vue",
+      "kind": "permission",
+      "value": "mes:pro-work-order:query",
+      "reason": "业务编号跳转内部组件复用既有查询权限 mes:pro-work-order:query，有权限时打开现有列表或详情；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/components/RouteCodeLink.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:query",
+      "reason": "业务编号跳转内部组件复用既有查询权限 mes:pro-route:query，有权限时打开现有列表或详情；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/components/StorageCodeLink.vue",
+      "kind": "permission",
+      "value": "mes:wm-warehouse:query",
+      "reason": "业务编号跳转内部组件复用既有查询权限 mes:wm-warehouse:query，有权限时打开现有列表或详情；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/components/WorkstationCodeLink.vue",
+      "kind": "permission",
+      "value": "mes:md-workstation:query",
+      "reason": "业务编号跳转内部组件复用既有查询权限 mes:md-workstation:query，有权限时打开现有列表或详情；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/documentCodeLink.ts",
+      "kind": "permission",
+      "value": "erp:purchase-in:query",
+      "reason": "业务编号跳转内部组件复用既有查询权限 erp:purchase-in:query，有权限时打开现有列表或详情；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/documentCodeLink.ts",
+      "kind": "permission",
+      "value": "erp:purchase-order:query",
+      "reason": "业务编号跳转内部组件复用既有查询权限 erp:purchase-order:query，有权限时打开现有列表或详情；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/documentCodeLink.ts",
+      "kind": "permission",
+      "value": "erp:purchase-return:query",
+      "reason": "业务编号跳转内部组件复用既有查询权限 erp:purchase-return:query，有权限时打开现有列表或详情；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/documentCodeLink.ts",
+      "kind": "permission",
+      "value": "erp:sale-out:query",
+      "reason": "业务编号跳转内部组件复用既有查询权限 erp:sale-out:query，有权限时打开现有列表或详情；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/documentCodeLink.ts",
+      "kind": "permission",
+      "value": "erp:sale-return:query",
+      "reason": "业务编号跳转内部组件复用既有查询权限 erp:sale-return:query，有权限时打开现有列表或详情；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/documentCodeLink.ts",
+      "kind": "permission",
+      "value": "mes:wm-sales-notice:query",
+      "reason": "业务单据编号跳转复用既有查询权限 mes:wm-sales-notice:query，按单据类型打开现有业务列表；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/documentCodeLink.ts",
+      "kind": "permission",
+      "value": "srm:purchase-order:query",
+      "reason": "业务单据编号跳转复用既有查询权限 srm:purchase-order:query，按单据类型打开现有业务列表；不新增菜单、路由、权限标识、角色或租户套餐授权。"
     }
   ]
 }

@@ -27,7 +27,7 @@
       </el-table-column>
       <el-table-column prop="taskCode" label="任务编号" min-width="150" />
       <el-table-column label="任务类型" min-width="120"><template #default="{ row }">{{ taskTypeLabel(row.taskType) }}</template></el-table-column>
-      <el-table-column prop="workOrderCode" label="工单" min-width="150" />
+      <el-table-column prop="workOrderCode" label="工单" min-width="150" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
       <el-table-column prop="batchCode" label="批次" min-width="140" />
       <el-table-column prop="processName" label="工序" min-width="120" />
       <el-table-column label="到期时间" min-width="170"><template #default="{ row }">{{ formatEdhrDateTime(row.dueTime) }}</template></el-table-column>
@@ -40,6 +40,7 @@
   </Dialog>
 </template>
 <script setup lang="ts">
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { getEdhrWorkTaskDonePage, getEdhrWorkTaskCandidateTodoPage, getEdhrWorkTaskMyPage, type EdhrWorkTaskRespVO } from '@/api/mes/pro/edhr/workTask'
 import { navigateToEdhrWorkTask } from '@/utils/edhrWorkTaskNavigation'
 import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'

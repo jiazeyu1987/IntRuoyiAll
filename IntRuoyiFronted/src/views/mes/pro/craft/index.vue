@@ -345,7 +345,7 @@
         </el-table>
         <p>受影响工艺流程：{{ impact.routes?.length || 0 }} 个</p>
         <el-table :data="impact.routes" max-height="260"
-          ><el-table-column label="流程编号" prop="routeCode" /><el-table-column
+          ><el-table-column label="流程编号" prop="routeCode" ><template #default="{ row }"><RouteCodeLink :code="row.routeCode" /></template></el-table-column><el-table-column
             label="流程名称"
             prop="routeName" /><el-table-column label="版本" width="130">
             <template #default="{ row }">{{ row.versionNo }} → {{ row.nextVersionNo }}</template>
@@ -419,7 +419,7 @@
     </template>
     <el-alert v-if="historyRoutesError" :title="historyRoutesError" type="error" :closable="false" class="mt-12px" />
     <el-table v-if="historyRoutesLoading || historyRoutes.length" v-loading="historyRoutesLoading" :data="historyRoutes" max-height="320" class="mt-12px">
-      <el-table-column prop="routeCode" label="路线编码" min-width="180" />
+      <el-table-column prop="routeCode" label="路线编码" min-width="180" ><template #default="{ row }"><RouteCodeLink :code="row.routeCode" /></template></el-table-column>
       <el-table-column prop="routeName" label="路线" min-width="180" />
       <el-table-column prop="versionNo" label="原版本" width="90" />
       <el-table-column prop="nextVersionNo" label="新版本" width="90" />
@@ -429,6 +429,8 @@
   <SharedChangeDialog ref="sharedChangeDialog" @submitted="load" />
 </template>
 <script setup lang="ts">
+import { createSecureUuid } from '@/utils/uuid'
+import RouteCodeLink from '@/components/RouteCodeLink.vue'
 import { changeDifferences } from '../shared/changeDifferences'
 import RouteTreePublishPreview from '../route/RouteTreePublishPreview.vue'
 import type { TreePreview } from '@/api/mes/pro/route/tree'
@@ -754,7 +756,7 @@ function openEditor(craft?: Craft, detail = false) {
     processId: craft?.processId,
     parameters: craft ? JSON.parse(craft.parametersJson) : [],
     expectedFingerprint: craft?.fingerprint,
-    requestId: crypto.randomUUID(),
+    requestId: createSecureUuid(),
     impactToken: undefined,
     reason: ''
   })

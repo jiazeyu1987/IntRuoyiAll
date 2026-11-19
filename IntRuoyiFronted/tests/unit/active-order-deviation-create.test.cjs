@@ -4,7 +4,10 @@ const fs = require('node:fs')
 const path = require('node:path')
 const ts = require('typescript')
 const { parse } = require('vue/compiler-sfc')
-const { ref } = require('vue')
+const { ref, reactive } = require('vue')
+const { webcrypto } = require('node:crypto')
+const loadUuid = require('../helpers/load-secure-uuid.cjs')
+const httpCrypto = { getRandomValues: bytes => webcrypto.getRandomValues(bytes) }
 const source = fs.readFileSync(path.resolve(__dirname, '../../src/views/mes/pro/processpool/components/ActiveOrderDeviationDialog.vue'), 'utf8')
 const ast = ts.createSourceFile('dialog.ts', parse(source).descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
 function production(name, context) {
@@ -13,11 +16,14 @@ function production(name, context) {
   const code = ts.transpileModule(statement.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   return Function(...Object.keys(context), `${code}; return ${name}`)(...Object.values(context))
 }
-function setup() {
-  const calls = []
+function setup(crypto = httpCrypto, calls = []) {
+  const props = { activeOrderId: 991 }
+  const form = production('form', { props, reactive, ...loadUuid(crypto) })
+  form.categoryCodes = ['INSPECTION']
+  form.signaturePassword = 'test-only'
   const context = {
-    props: { activeOrderId: 991 }, loading: ref(false), submitting: ref(false), error: ref(''),
-    batchesLoaded: ref(false), batches: ref([]), form: { batchExecutionId: 0, categoryCodes: ['INSPECTION'], signaturePassword: 'test-only' },
+    props, loading: ref(false), submitting: ref(false), error: ref(''),
+    batchesLoaded: ref(false), batches: ref([]), form,
     formRef: ref({ validate: async () => true }), captureContext: () => () => true,
     getActiveOrderDeviationCreationBatches: async id => { calls.push(['options', id]); return [{ batchExecutionId: 41 }] },
     createActiveOrderDeviation: async (id, data) => { calls.push(['create', id, data]); return { id: 100, deviationCode: 'PC-100', activeOrderId: 991, batchExecutionId: 41 } },
@@ -94,4 +100,33 @@ test('write errors stay visible and cannot show success', async () => {
   assert.equal(context.form.signaturePassword, '')
   assert.equal(context.submitting.value, false)
   assert.equal(calls.some(c => c[0] === 'success'), false)
+})
+
+test('HTTP deviation command preserves order prefix and reuses UUID v4 after failed submission', async () => {
+  assert.equal(httpCrypto.randomUUID, undefined)
+  const { context, calls } = setup()
+  const key = context.form.idempotencyKey
+  assert.match(key, /^EDHR_ORDER_DEVIATION_991_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+  await production('loadBatches', context)()
+  context.createActiveOrderDeviation = async (id, data) => {
+    calls.push(['create', id, data])
+    throw new Error('response unavailable')
+  }
+  await production('submit', context)()
+  context.form.signaturePassword = 'test-only'
+  await production('submit', context)()
+  const writes = calls.filter(c => c[0] === 'create')
+  assert.equal(writes.length, 2)
+  assert.equal(writes[0][2].idempotencyKey, key)
+  assert.equal(writes[1][2].idempotencyKey, key)
+  assert.notEqual(setup().context.form.idempotencyKey, key)
+})
+
+test('missing or failed secure random source stops dialog initialization without requests', () => {
+  const calls = []
+  assert.throws(() => setup({}, calls), /不支持安全随机数/)
+  assert.deepEqual(calls, [])
+  const cause = new Error('entropy unavailable')
+  assert.throws(() => setup({ getRandomValues() { throw cause } }, calls), error => error === cause)
+  assert.deepEqual(calls, [])
 })
