@@ -74,7 +74,7 @@
                     {{ execution.workOrderCode || execution.workOrderId || '--' }}
                   </el-descriptions-item>
                   <el-descriptions-item label="批次">
-                    {{ execution.batchCode || '--' }}
+                    <ProductionBatchCodeLink :code="execution.batchCode" />
                   </el-descriptions-item>
                   <el-descriptions-item label="工序">{{ semanticSummary.process }}</el-descriptions-item>
                   <el-descriptions-item label="工作站">{{ semanticSummary.workstation }}</el-descriptions-item>
@@ -1550,6 +1550,8 @@
 </template>
 
 <script setup lang="ts">
+import { createSecureUuid } from '@/utils/uuid'
+import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import {
   EDHR_EXECUTION_ARCHIVE_ARTIFACT_PDF,
@@ -4597,13 +4599,7 @@ const resolveHashStatusLabel = (status?: string) => {
     : status || '--'
 }
 
-const createFieldAuditIdempotencyKey = () => {
-  const randomUUID = globalThis.crypto?.randomUUID
-  if (typeof randomUUID !== 'function') {
-    throw new Error('当前浏览器缺少 crypto.randomUUID，不能生成字段审计幂等键。')
-  }
-  return randomUUID.call(globalThis.crypto)
-}
+const createFieldAuditIdempotencyKey = () => createSecureUuid()
 
 const buildFieldAuditChangeRequest = (change: PendingFieldChange): EdhrFieldChangeItemReqVO => {
   if (change.validationMessage) {
@@ -4854,7 +4850,13 @@ const handleFormReviewSign = async () => {
   }
 }
 
+const executionReadSignature = () => JSON.stringify([route.name, route.query.id, route.query.codeLinkVisit, route.query.batchExecutionId, route.query.batchTaskId, route.query.workTaskId])
+let executionReadSerial = 0
+
 const loadLatestArchive = async () => {
+  const signature = executionReadSignature()
+  const serial = executionReadSerial
+  const isCurrent = () => signature === executionReadSignature() && serial === executionReadSerial
   if (!execution.value?.id || !hasArchiveQueryPermission.value) {
     latestArchive.value = undefined
     archiveError.value = ''
@@ -4864,8 +4866,11 @@ const loadLatestArchive = async () => {
   archiveLoading.value = true
   archiveError.value = ''
   try {
-    latestArchive.value = await getLatestEdhrExecutionArchive(execution.value.id, archiveArtifactType)
+    const archive = await getLatestEdhrExecutionArchive(execution.value.id, archiveArtifactType)
+    if (!isCurrent()) return
+    latestArchive.value = archive
   } catch (error) {
+    if (!isCurrent()) throw error
     const errorMessage = resolveErrorMessage(error, '归档状态加载失败，请联系管理员。')
     if (isEdhrExecutionArchiveNotExistsMessage(errorMessage)) {
       latestArchive.value = undefined
@@ -4875,7 +4880,7 @@ const loadLatestArchive = async () => {
     latestArchive.value = undefined
     archiveError.value = errorMessage
   } finally {
-    archiveLoading.value = false
+    if (isCurrent()) archiveLoading.value = false
   }
 }
 
@@ -4943,6 +4948,9 @@ const handleGenerateArchive = async () => {
 }
 
 const loadTrackingAndSignatures = async () => {
+  const signature = executionReadSignature()
+  const serial = executionReadSerial
+  const isCurrent = () => signature === executionReadSignature() && serial === executionReadSerial
   if (!execution.value?.id) {
     trackingTimeline.value = []
     signatureRows.value = []
@@ -4951,8 +4959,11 @@ const loadTrackingAndSignatures = async () => {
   trackingError.value = ''
   signatureError.value = ''
   try {
-    trackingTimeline.value = await getEdhrTrackingTimeline(execution.value.id)
+    const timeline = await getEdhrTrackingTimeline(execution.value.id)
+    if (!isCurrent()) return
+    trackingTimeline.value = timeline
   } catch (error) {
+    if (!isCurrent()) throw error
     trackingTimeline.value = []
     trackingError.value = resolveErrorMessage(error, 'eDHR 追踪时间线加载失败，请联系管理员。')
   }
@@ -4962,8 +4973,10 @@ const loadTrackingAndSignatures = async () => {
       pageSize: 20,
       executionId: execution.value.id
     })
+    if (!isCurrent()) return
     signatureRows.value = signaturePage.list || []
   } catch (error) {
+    if (!isCurrent()) throw error
     signatureRows.value = []
     signatureError.value = resolveErrorMessage(error, 'eDHR 签名记录加载失败，请联系管理员。')
   }
@@ -5002,12 +5015,14 @@ const parseAssistPreviewCellValues = (
 const loadAssistBatchTaskPreviewExecution = async (
   batchExecutionId: number,
   batchTaskId: number,
-  currentExecutionContextKey: string
+  currentExecutionContextKey: string,
+  isCurrent: () => boolean
 ) => {
   const [batchDetail, preview] = await Promise.all([
     getEdhrBatchExecution(batchExecutionId),
     getEdhrBatchTaskPreview(batchExecutionId, batchTaskId)
   ])
+  if (!isCurrent()) return
   const task = (batchDetail.tasks || []).find((item) => sameRouteQueryId(item.id, batchTaskId))
   if (!task || isAssistSpecialBatchTask(task)) {
     throw new Error(`批次任务 ${batchTaskId} 不是可查看的普通工序任务，无法在填写页切换。`)
@@ -5069,6 +5084,9 @@ const loadAssistBatchTaskPreviewExecution = async (
 }
 
 const loadExecution = async () => {
+  const serial = ++executionReadSerial
+  const signature = executionReadSignature()
+  const isCurrent = () => serial === executionReadSerial && signature === executionReadSignature()
   const currentExecutionId = executionId.value
   const currentExecutionContextKey = resolveExecutionContextKey()
   if (isAssistBatchTaskPreviewMode.value) {
@@ -5086,8 +5104,9 @@ const loadExecution = async () => {
     archiveError.value = ''
     formReviewSignError.value = ''
     try {
-      await loadAssistBatchTaskPreviewExecution(batchExecutionId, batchTaskId, currentExecutionContextKey)
+      await loadAssistBatchTaskPreviewExecution(batchExecutionId, batchTaskId, currentExecutionContextKey, isCurrent)
     } catch (error) {
+    if (!isCurrent()) throw error
       execution.value = undefined
       loadedExecutionContextKey.value = ''
       latestArchive.value = undefined
@@ -5102,7 +5121,7 @@ const loadExecution = async () => {
       draftRemark.value = ''
       loadError.value = resolveErrorMessage(error, '工序预览加载失败，请联系管理员。')
     } finally {
-      loading.value = false
+      if (isCurrent()) loading.value = false
     }
     return
   }
@@ -5120,6 +5139,7 @@ const loadExecution = async () => {
   formReviewSignError.value = ''
   try {
     const detail = await ProFeedbackApi.getEdhrExecution(currentExecutionId, workTaskId.value)
+    if (!isCurrent()) return
     if (!detail?.id) {
       throw new Error('eDHR 执行记录未返回有效执行记录 ID。')
     }
@@ -5129,9 +5149,12 @@ const loadExecution = async () => {
     execution.value = detail
     hydrateDraftState(detail)
     await loadLatestArchive()
+    if (!isCurrent()) return
     await loadTrackingAndSignatures()
+    if (!isCurrent()) return
     loadedExecutionContextKey.value = currentExecutionContextKey
   } catch (error) {
+    if (!isCurrent()) throw error
     execution.value = undefined
     loadedExecutionContextKey.value = ''
     latestArchive.value = undefined
@@ -5146,7 +5169,7 @@ const loadExecution = async () => {
     draftRemark.value = ''
     loadError.value = resolveErrorMessage(error, 'eDHR 执行页加载失败，请联系管理员。')
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 
@@ -5840,7 +5863,8 @@ watch(
       route.query.assistUserId,
       route.query.batchExecutionId,
       route.query.batchTaskId,
-      route.query.batchTaskPreview
+      route.query.batchTaskPreview,
+      route.query.codeLinkVisit
     ] as const,
   ([routeName]) => {
     if (routeName !== 'MesProFeedbackEdhrExecutionForm') {
@@ -5849,7 +5873,7 @@ watch(
     const nextExecutionContextKey = resolveExecutionContextKey()
     if (
       !nextExecutionContextKey ||
-      loadedExecutionContextKey.value === nextExecutionContextKey
+      (loadedExecutionContextKey.value === nextExecutionContextKey && !route.query.codeLinkVisit)
     ) {
       return
     }

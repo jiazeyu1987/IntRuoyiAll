@@ -24,7 +24,7 @@
     <el-tooltip :disabled="!selectedItem" placement="top" :show-after="500">
       <template #content>
         <div v-if="selectedItem" class="leading-6">
-          <div>物料编码：{{ selectedItem.itemCode }}</div>
+          <div>物料编码：<MaterialCodeLink :code="selectedItem.itemCode" /></div>
           <div>物料名称：{{ selectedItem.itemName }}</div>
           <div>规格型号：{{ selectedItem.specification || '-' }}</div>
           <div>到货数量：{{ selectedItem.arrivalQuantity ?? '-' }}</div>
@@ -49,6 +49,7 @@
 </template>
 
 <script setup lang="ts">
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { WmArrivalNoticeLineApi, WmArrivalNoticeLineVO } from '@/api/mes/wm/arrivalnotice/line'
 import { Search, CircleClose } from '@element-plus/icons-vue'
 import WmArrivalNoticeLineSelectDialog from './WmArrivalNoticeLineSelectDialog.vue'

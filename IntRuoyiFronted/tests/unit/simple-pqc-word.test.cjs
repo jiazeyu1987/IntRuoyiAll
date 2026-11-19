@@ -192,6 +192,7 @@ for (const common of [false, true])
         getProjectCode: async () => ({ id: 129, productMasterId: 8 })
       },
       '@/utils/auth': { getTenantId: () => '7' },
+      '@/utils/uuid': require('../helpers/load-secure-uuid.cjs')(),
       '@/store/modules/user': {},
       '../parser/simplePqc': draftContext.exports,
       '../parser/simplePqcWord': context.exports

@@ -501,7 +501,7 @@
             :stripe="true"
             :show-overflow-tooltip="true"
           >
-            <el-table-column label="物料编码" min-width="160" prop="materialCode" />
+            <el-table-column label="物料编码" min-width="160" prop="materialCode" ><template #default="{ row }"><MaterialCodeLink :code="row.materialCode" /></template></el-table-column>
             <el-table-column label="物料名称" min-width="180" prop="materialName" />
             <el-table-column label="累计需求" width="120" align="center">
               <template #default="{ row }">{{ buildQuantityLabel(row.requiredQty) }}</template>
@@ -527,8 +527,8 @@
             :stripe="true"
             :show-overflow-tooltip="true"
           >
-            <el-table-column label="工单" min-width="160" prop="workOrderCode" />
-            <el-table-column label="物料编码" min-width="160" prop="materialCode" />
+            <el-table-column label="工单" min-width="160" prop="workOrderCode" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
+            <el-table-column label="物料编码" min-width="160" prop="materialCode" ><template #default="{ row }"><MaterialCodeLink :code="row.materialCode" /></template></el-table-column>
             <el-table-column label="物料名称" min-width="180" prop="materialName" />
             <el-table-column label="订单需求" width="120" align="center">
               <template #default="{ row }">{{ buildQuantityLabel(row.requiredQty) }}</template>
@@ -663,7 +663,7 @@
     >
       <el-table-column label="类型" prop="issueType" width="130" />
       <el-table-column label="严重级别" prop="severity" width="110" />
-      <el-table-column label="工单" prop="workOrderCode" width="150" />
+      <el-table-column label="工单" prop="workOrderCode" width="150" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
       <el-table-column label="任务" prop="taskId" width="110" />
       <el-table-column label="来源" prop="sourceType" width="120" />
       <el-table-column label="说明" prop="message" min-width="240" />
@@ -911,6 +911,8 @@
 </template>
 
 <script setup lang="ts">
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import { formatDateTimeValue } from '@/utils/formatTime'

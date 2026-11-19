@@ -117,7 +117,6 @@ class MesWorkTaskAuxiliaryAuditTransactionTest {
         ReflectionTestUtils.setField(notificationApi, "notifySendService", tx(send));
         tasks = new MesProEdhrWorkTaskServiceImpl();
         ReflectionTestUtils.setField(tasks, "permissionApi", permissions);
-        ReflectionTestUtils.setField(tasks, "notifyMessageSendApi", notificationApi);
         // Discover newly added resource by field metadata, so RED runs the unchanged original calls.
         for (var field : tasks.getClass().getDeclaredFields()) {
             if (field.getType().getSimpleName().equals("MesWorkTaskAuxiliaryAudit")) {
@@ -195,17 +194,7 @@ class MesWorkTaskAuxiliaryAuditTransactionTest {
         assertFalse(events.get(1).getAfterStateJson().contains("\"tenant_id\":2"));
     }
 
-    @Test void notificationsFreezeActualMessageIdsRecipientsAndContent() {
-        var before = state();
-        run("sendNotify");
-        assertEquals(2, count(MESSAGE));
-        var event = event(NOTIFY); assertState(event, before, state(), true);
-        assertTrue(event.getAfterStateJson().contains("Assigned task 7001"));
-        assertTrue(event.getAfterStateJson().contains("workTaskId"));
-        assertEquals(List.of(11L,12L), jdbc.queryForList("SELECT user_id FROM " + MESSAGE + " ORDER BY id", Long.class));
-    }
-
-    @ParameterizedTest @ValueSource(strings={"syncRuntimeTaskEntitlement","revokeRuntimeTaskEntitlement","sendNotify"})
+    @ParameterizedTest @ValueSource(strings={"syncRuntimeTaskEntitlement","revokeRuntimeTaskEntitlement"})
     void auditFailureRollsBackAuxiliaryAndParentWrites(String method) {
         if (method.startsWith("revoke")) run("syncRuntimeTaskEntitlement");
         var before = state(); int events = count(EVENT);
@@ -219,16 +208,11 @@ class MesWorkTaskAuxiliaryAuditTransactionTest {
         assertEquals(before, state()); assertEquals(events, count(EVENT)); assertEquals(0, count("parent_marker"));
     }
 
-    @ParameterizedTest @ValueSource(strings={"syncRuntimeTaskEntitlement","sendNotify"})
+    @ParameterizedTest @ValueSource(strings={"syncRuntimeTaskEntitlement"})
     void foreignTenantTaskFailsBeforeDownstreamWrite(String method) {
         actor(2L);
         assertThrows(RuntimeException.class, () -> run(method));
         assertEquals(0, count(CLAIM)); assertEquals(0, count(MESSAGE)); assertEquals(0, count(EVENT));
-    }
-
-    @Test void missingTransactionFailsBeforeNotificationWrite() {
-        assertThrows(RuntimeException.class, () -> ReflectionTestUtils.invokeMethod(tasks, "sendNotify", task));
-        assertEquals(0, count(MESSAGE)); assertEquals(0, count(EVENT));
     }
 
     public static class RelationFailure implements Trigger {

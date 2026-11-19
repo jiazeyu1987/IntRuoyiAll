@@ -38,7 +38,7 @@
         empty-text="暂无已作废放行申请"
         border
       >
-        <el-table-column label="工单号" prop="workOrderCode" min-width="180" />
+        <el-table-column label="工单号" prop="workOrderCode" min-width="180" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
         <el-table-column label="批次号" prop="batchCode" min-width="150" />
         <el-table-column label="申请编号" prop="applicationId" min-width="130" />
         <el-table-column label="状态" width="100">
@@ -72,6 +72,7 @@
 </template>
 
 <script setup lang="ts">
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import '@/views/mes/pro/edhr-batch/record-viewport.css'
 import { onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'

@@ -66,6 +66,7 @@
         <el-col :span="8">
           <el-form-item label="批次号">
             <el-input :model-value="formData.batchCode" disabled />
+            <BatchCodeLink :code="formData.batchCode" :batch-id="formData.batchId" />
           </el-form-item>
         </el-col>
       </el-row>
@@ -78,6 +79,7 @@
 </template>
 
 <script setup lang="ts">
+import BatchCodeLink from '@/components/BatchCodeLink.vue'
 import { WmReturnIssueDetailApi, WmReturnIssueDetailVO } from '@/api/mes/wm/returnissue/detail'
 import { WmMaterialStockVO } from '@/api/mes/wm/materialstock'
 import MdItemSelect from '@/views/mes/md/item/components/MdItemSelect.vue'

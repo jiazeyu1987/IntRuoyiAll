@@ -7,6 +7,9 @@ const vm = require('node:vm')
 const { parse, compileScript } = require('vue/compiler-sfc')
 const ts = require('typescript')
 const vue = require('vue')
+const { webcrypto } = require('node:crypto')
+const loadUuid = require('../helpers/load-secure-uuid.cjs')
+const httpCrypto = { getRandomValues: bytes => webcrypto.getRandomValues(bytes) }
 const root = path.resolve(__dirname, '../..')
 const plain = value => JSON.parse(JSON.stringify(value))
 const deferred = () => {
@@ -40,10 +43,11 @@ function setup(relative, mocks = {}, props = {}) {
   const code = ts.transpileModule(script.content, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
   const exportsObject = {}
   vm.runInNewContext(code, {
-    exports: exportsObject, Error, crypto: require('node:crypto').webcrypto,
+    exports: exportsObject, Error, crypto: httpCrypto,
     require: id => {
       if (Object.hasOwn(mocks, id)) return mocks[id]
       if (id === 'vue') return vue
+      if (id === '@/utils/uuid') return loadUuid(httpCrypto)
       if (id === '@/utils/permission') return { checkPermi: () => true }
       if (id.endsWith('/state') || id === './state') return loadState()
       if (id.endsWith('.vue')) return {}

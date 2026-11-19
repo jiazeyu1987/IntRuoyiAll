@@ -75,7 +75,7 @@
         </template>
       </el-table-column>
       <el-table-column label="发料单名称" align="center" prop="name" min-width="150" />
-      <el-table-column label="生产工单号" align="center" prop="workOrderCode" min-width="140" />
+      <el-table-column label="生产工单号" align="center" prop="workOrderCode" min-width="140" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
       <el-table-column label="供应商名称" align="center" prop="vendorName" min-width="120" />
       <el-table-column
         label="发料日期"
@@ -159,6 +159,7 @@
 </template>
 
 <script setup lang="ts">
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { dateFormatter2 } from '@/utils/formatTime'
 import { DICT_TYPE } from '@/utils/dict'

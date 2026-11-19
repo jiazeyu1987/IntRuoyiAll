@@ -28,7 +28,7 @@
           :status="MesProWorkOrderStatusEnum.CONFIRMED"
           placeholder="请选择工单（可选）"
         />
-        <el-input v-else :model-value="formData.workOrderCode || '-'" disabled />
+        <WorkOrderCodeLink v-else :code="formData.workOrderCode" :work-order-id="formData.workOrderId" />
       </el-form-item>
       <el-form-item label="工序" prop="processId">
         <ProProcessSelect
@@ -115,6 +115,7 @@
 </template>
 
 <script setup lang="ts">
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { ProAndonRecordApi } from '@/api/mes/pro/andon/record'
 import { ProAndonConfigVO } from '@/api/mes/pro/andon/config'
 import { DICT_TYPE } from '@/utils/dict'

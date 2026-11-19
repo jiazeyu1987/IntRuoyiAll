@@ -94,7 +94,7 @@
       </el-descriptions>
       <el-table class="mt-16px" :data="currentDetail.lines" border size="small">
         <el-table-column label="行号" prop="lineNo" width="140" />
-        <el-table-column label="物料编码" prop="materialCode" width="140" />
+        <el-table-column label="物料编码" prop="materialCode" width="140" ><template #default="{ row }"><MaterialCodeLink :code="row.materialCode" /></template></el-table-column>
         <el-table-column label="物料名称" prop="materialName" min-width="180" />
         <el-table-column label="需求数量" prop="requestedQuantity" width="110" align="right" />
         <el-table-column label="需求交期" prop="requestedDeliveryDate" width="120" />
@@ -120,7 +120,7 @@
         <el-input v-model="confirmFormData.confirmRemark" type="textarea" :rows="3" maxlength="500" show-word-limit />
       </el-form-item>
       <el-table :data="confirmFormData.lines" border size="small">
-        <el-table-column label="物料编码" prop="materialCode" width="140" />
+        <el-table-column label="物料编码" prop="materialCode" width="140" ><template #default="{ row }"><MaterialCodeLink :code="row.materialCode" /></template></el-table-column>
         <el-table-column label="物料名称" prop="materialName" min-width="180" />
         <el-table-column label="需求数量" prop="requestedQuantity" width="110" align="right" />
         <el-table-column label="需求交期" prop="requestedDeliveryDate" width="120" />
@@ -172,6 +172,7 @@
 </template>
 
 <script setup lang="ts">
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import type { FormInstance, FormRules } from 'element-plus'
 import { dateFormatter } from '@/utils/formatTime'

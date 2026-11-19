@@ -461,6 +461,7 @@ import { extractPdfTextPages, findPdfTextMatches, type PdfTextMatch, type PdfTex
 import { createPreviewReadingApi, type PreviewReadingScope, type PreviewReadingSummary } from '@/api/dcc/controlledFile/readingSession'
 import { createPreviewReadingLifecycle } from './reading-lifecycle'
 import { getAccessToken, getTenantId, getVisitTenantId } from '@/utils/auth'
+import { createSecureUuid } from '@/utils/uuid'
 import { useCache, CACHE_KEY } from '@/hooks/web/useCache'
 
 defineOptions({ name: 'ProtectedPdfViewer' })
@@ -879,7 +880,7 @@ const startPreviewReading = async (generation: number) => {
       visible: () => !readingPausedForSignature && isReadingOwner(owner) && !owner.failed && registeredPreviewVisible.value
         && !errorMessage.value && !resolvedPreviewUnavailableReason.value
         && readingPageActive && document.visibilityState === 'visible' && document.hasFocus(),
-      newClientId: () => crypto.randomUUID(),
+      newClientId: createSecureUuid,
       schedule: (tick, intervalMs) => {
         const timer = window.setInterval(() => {
           void tick().catch(error => reportReadingFailure(owner, error))

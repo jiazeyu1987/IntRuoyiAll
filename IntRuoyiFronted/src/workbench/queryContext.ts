@@ -1,6 +1,7 @@
 import { shallowRef, watch } from 'vue'
 import { authContextRevision, getAccessToken, getAuthSessionId, getTenantId, getVisitTenantId } from '@/utils/auth'
 import { useUserStoreWithOut } from '@/store/modules/user'
+import { createSecureUuid } from '@/utils/uuid'
 
 // Shared lifetime and consumer leases are distinct: a badge read cannot revoke a page read.
 export const workbenchLifetime = shallowRef(0)
@@ -48,7 +49,7 @@ export interface WorkbenchReadLease {
 }
 export const beginWorkbenchRead = (): WorkbenchReadLease => {
   const identity = workbenchContextIdentity()
-  return { lifetime: workbenchLifetime.value, identity, contextEpoch: crypto.randomUUID() }
+  return { lifetime: workbenchLifetime.value, identity, contextEpoch: createSecureUuid() }
 }
 export const isWorkbenchReadCurrent = (lease: WorkbenchReadLease) =>
   lease.identity === workbenchContextIdentity() && lease.lifetime === workbenchLifetime.value

@@ -55,7 +55,7 @@ class MesMarketReleaseHandoverTest {
         security.when(SecurityFrameworkUtils::getLoginUserId).thenAnswer(call -> actor);
         security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("原办理人");
         access=new MesMarketReleaseAccess(handovers,mock(MesProBatchRecordExecutionMapper.class),ledger);
-        service=new MesMarketReleaseHandoverService(handovers,access,visibility,batches,origins,transactions,tasks,taskService,candidates,users,authority,ledger,operationAudit,notifications);
+        service=new MesMarketReleaseHandoverService(handovers,access,visibility,batches,origins,transactions,tasks,taskService,candidates,users,authority,ledger,operationAudit);
         batch=new MesProEdhrBatchExecutionDO().setId(50L).setTenantId(1L).setWorkOrderId(55L).setRouteId(5L).setStatus(10);
         transaction=new MesProEdhrReleaseTransactionDO().setTenantId(1L).setId(60L).setBatchExecutionId(50L).setReleaseStatus("PENDING_APPROVAL").setVersion(1);
         task=new MesProEdhrWorkTaskDO().setId(70L).setBatchExecutionId(50L).setBusinessScopeId(60L)
@@ -106,15 +106,15 @@ class MesMarketReleaseHandoverTest {
         assertThrows(ServiceException.class,()->access.requireWritable(50L));
         verify(operationAudit).recordInCallerTransaction(argThat(c -> c.getOperationType().equals("MARKET_RELEASE_HANDOVER") && c.getMetadataJson().contains("500")));
         verify(operationAudit).recordInCallerTransaction(argThat(c -> c.getOperationType().equals("MARKET_RELEASE_RECALL")));
-        verify(notifications).scheduleHandover(any(),eq(100L),eq(200L),eq(1L),eq(false),eq("交接测试"),anyString());
-        verify(notifications).scheduleHandover(any(),eq(100L),eq(200L),eq(1L),eq(true),eq("回收测试"),anyString());
+        verifyNoInteractions(notifications);
+        verifyNoInteractions(notifications);
         verify(authority,times(2)).incrementLockedAuthorityRevision(1L,1L);
     }
     @Test void duplicateRequestsDoNotCreateExtraTasksNotificationsOrHistory() {
         service.handover(50L,200L,"交接测试","NONE","handover-key-1");
         service.handover(50L,200L,"交接测试","NONE","handover-key-1");
         assertEquals(1,history.size());verify(tasks,times(1)).updateById(any(MesProEdhrWorkTaskDO.class));
-        verify(notifications,times(1)).scheduleHandover(any(),anyLong(),anyLong(),anyLong(),anyBoolean(),anyString(),anyString());
+        verifyNoInteractions(notifications);
         assertThrows(ServiceException.class,()->service.handover(50L,300L,"交接测试","NONE","handover-key-1"));
     }
     @Test void finishedReleaseStaleVersionForeignTenantAndUnqualifiedRecipientAreRejected() {

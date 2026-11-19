@@ -74,7 +74,7 @@
       </el-table-column>
       <el-table-column label="退货单名称" align="center" prop="name" min-width="150" />
       <el-table-column label="采购订单号" align="center" prop="purchaseOrderCode" min-width="140" />
-      <el-table-column label="供应商编码" align="center" prop="vendorCode" min-width="120" />
+      <el-table-column label="供应商编码" align="center" prop="vendorCode" min-width="120" ><template #default="{ row }"><PartnerCodeLink :code="row.vendorCode" partner-type="vendor" /></template></el-table-column>
       <el-table-column label="供应商名称" align="center" prop="vendorName" min-width="150" />
       <el-table-column
         label="退货日期"
@@ -158,6 +158,7 @@
 </template>
 
 <script setup lang="ts">
+import PartnerCodeLink from '@/components/PartnerCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { dateFormatter2 } from '@/utils/formatTime'
 import { DICT_TYPE } from '@/utils/dict'

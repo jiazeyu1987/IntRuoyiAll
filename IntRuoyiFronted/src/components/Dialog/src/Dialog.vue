@@ -75,6 +75,10 @@ const dialogStyle = computed(() => {
 
 const closing = ref(false)
 
+onDeactivated(() => {
+  if (props.modelValue) emits('update:modelValue', false)
+})
+
 function closeHandler() {
   emits('update:modelValue', false)
   closing.value = true

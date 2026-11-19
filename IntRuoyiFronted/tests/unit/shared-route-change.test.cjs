@@ -5,9 +5,11 @@ const path = require('node:path')
 const vm = require('node:vm')
 const ts = require('typescript')
 const vue = require('vue')
+const loadUuid = require('../helpers/load-secure-uuid.cjs')
+const httpCrypto = { getRandomValues: bytes => require('node:crypto').webcrypto.getRandomValues(bytes) }
 const { parse, compileScript, compileTemplate } = require('vue/compiler-sfc')
 const root = path.resolve(__dirname, '../..')
-function component(file, api = {}, props = {}) {
+function component(file, api = {}, props = {}, crypto = httpCrypto) {
   const filename = path.join(root, file)
   const descriptor = parse(fs.readFileSync(filename, 'utf8'), { filename }).descriptor
   const script = compileScript(descriptor, { id: file })
@@ -19,9 +21,9 @@ function component(file, api = {}, props = {}) {
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root, 'src/views/mes/pro/shared/changeDifferences.ts'), 'utf8'),
     { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText,
     { module: diffModule, exports: diffModule.exports })
-  const context = { ...vue, module, exports: module.exports, console, Error, crypto: require('node:crypto').webcrypto,
+  const context = { ...vue, module, exports: module.exports, console, Error, crypto,
     useMessage: () => ({ success: value => notices.push(value) }),
-    require: name => name === 'vue' ? vue : name === './changeDifferences' ? diffModule.exports : { SharedChangeApi: api } }
+    require: name => name === 'vue' ? vue : name === '@/utils/uuid' ? loadUuid(crypto) : name === './changeDifferences' ? diffModule.exports : { SharedChangeApi: api } }
   vm.runInNewContext(code, context)
   let exposed
   const state = module.exports.default.setup(props, { expose: value => exposed = value, emit: (...args) => emitted.push(args) })
@@ -78,6 +80,56 @@ test('replacement candidates distinguish same-name processes by every usage work
   assert.equal(state.targetLabel({id:3,code:'GX-3',name:'热合',workshops:[]}), 'GX-3 / 热合 / 未关联车间')
   await exposed.openReplacement('DEVICE',1)
   assert.equal(state.targetLabel({id:4,code:'SB-4',name:'热合机'}), 'SB-4 / 热合机')
+})
+
+test('HTTP replacement generates UUID v4 once and retains key and fingerprint through preview and retry', async () => {
+  const writes = [], previews = []
+  let fail = true
+  const { state, exposed } = dialog({
+    source: async () => ({ fingerprint: 'source-fingerprint' }), options: async () => [],
+    preview: async (_, value) => {
+      previews.push(plain(value))
+      return { before: {}, after: {}, routes: [], blockers: [], impactToken: 'preview-token' }
+    },
+    submit: async (_, value) => {
+      writes.push(plain(value))
+      if (fail) throw new Error('temporary failure')
+      return { status: 'APPLIED' }
+    }
+  })
+  assert.equal(httpCrypto.randomUUID, undefined)
+  await exposed.openReplacement('PROCESS', 1)
+  const key = state.draft.value.requestId
+  assert.match(key, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+  state.draft.value.targetId = 2
+  state.draft.value.reason = '替换工序'
+  await state.targetChanged()
+  await assert.rejects(state.submit(), /temporary failure/)
+  fail = false
+  await state.submit()
+  for (const command of [...previews, ...writes]) {
+    assert.equal(command.requestId, key)
+    assert.equal(command.expectedFingerprint, 'source-fingerprint')
+  }
+  assert.equal(writes.length, 2)
+  await exposed.openReplacement('PROCESS', 1)
+  assert.notEqual(state.draft.value.requestId, key)
+})
+
+test('replacement fails before opening or writing when secure random source is unavailable or fails', async () => {
+  for (const crypto of [{}, { getRandomValues() { throw new Error('entropy failed') } }]) {
+    const writes = [], optionReads = []
+    const { state, exposed } = component('src/views/mes/pro/shared/SharedChangeDialog.vue', {
+      source: async () => ({ fingerprint: 'source-fingerprint' }),
+      options: async () => { optionReads.push(true); return [] },
+      submit: async value => writes.push(value)
+    }, {}, crypto)
+    await assert.rejects(exposed.openReplacement('PROCESS', 1), /不支持安全随机数|entropy failed/)
+    assert.equal(state.visible.value, false)
+    assert.equal(state.draft.value, undefined)
+    assert.equal(writes.length, 0)
+    assert.equal(optionReads.length, 0)
+  }
 })
 test('server conflict keeps the dialog open and does not emit success', async () => {
   const {state,exposed,emitted} = dialog({preview:async()=>({before:{},after:{},routes:[],blockers:[],impactToken:'old'}), submit:async()=>{throw new Error('引用已变化')} })

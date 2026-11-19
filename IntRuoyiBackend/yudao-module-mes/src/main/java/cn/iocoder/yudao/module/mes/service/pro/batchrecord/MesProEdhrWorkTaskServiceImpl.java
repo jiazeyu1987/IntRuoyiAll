@@ -42,8 +42,6 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBat
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
 import cn.iocoder.yudao.module.system.api.dept.dto.DeptRespDTO;
-import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
-import cn.iocoder.yudao.module.system.api.notify.dto.NotifySendSingleToUserReqDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.permission.dto.SystemEntitlementRevokeReqDTO;
 import cn.iocoder.yudao.module.system.api.permission.dto.SystemEntitlementSyncReqDTO;
@@ -142,8 +140,6 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     private MesProEdhrProcessFormPermissionRuleMapper processFormPermissionRuleMapper;
     @Resource
     private MesProBatchRecordReportMapper batchRecordReportMapper;
-    @Resource
-    private NotifyMessageSendApi notifyMessageSendApi;
     @Resource
     private MesWorkTaskAuxiliaryAudit auxiliaryAudit;
     @Resource
@@ -1657,9 +1653,6 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         MesProEdhrWorkTaskDO reassigned = workTaskMapper.selectById(workTask.getId());
         syncRuntimeTaskEntitlement(reassigned);
         boolean ownerChanged = hasTaskOwnerChanged(workTask, reassigned);
-        if (ownerChanged) {
-            sendReassignmentNotify(reassigned, reason);
-        }
         recordFillTaskReassignAudit(workTask, reassigned, reason, ownerChanged);
         return reassigned;
     }
@@ -1739,9 +1732,6 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             workTaskMapper.updateById(update);
             MesProEdhrWorkTaskDO reassigned = workTaskMapper.selectById(task.getId());
             syncRuntimeTaskEntitlement(reassigned);
-            if (hasTaskOwnerChanged(task, reassigned)) {
-                sendReassignmentNotify(reassigned, reason);
-            }
         }
     }
 
@@ -2180,7 +2170,6 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 task.setStatus(MesProEdhrWorkTaskStatus.OVERDUE)
                         .setOverdueAt(now)
                         .setOverdueReason(reason);
-                sendOverdueNotify(task);
                 processed++;
             }
         }
@@ -2488,7 +2477,6 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 .setId(task.getId())
                 .setActionUrl(task.getActionUrl()));
         syncRuntimeTaskEntitlement(task);
-        sendNotify(task);
         return task;
     }
 
@@ -3173,108 +3161,11 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         return MesDeviationTaskDescription.title(task.getTaskType(), task.getSignatureCellKey(), hasCorrectiveOwner);
     }
 
-    private void sendNotify(MesProEdhrWorkTaskDO task) {
-        String templateCode = "RECORD_CHANGE".equals(task.getBusinessScopeType()) && TASK_TYPE_REWORK.equals(task.getTaskType())
-                ? "MES_EDHR_RECORD_CHANGE_REWORK" : resolveNotifyTemplateCode(task.getTaskType());
-        Map<String, Object> templateParams = Map.of(
-                "workOrderCode", Objects.toString(task.getWorkOrderCode(), ""),
-                "batchCode", Objects.toString(task.getBatchCode(), ""),
-                "processName", Objects.toString(task.getProcessName(), ""),
-                "actionUrl", task.getActionUrl(),
-                "reason", Objects.toString(task.getReason(), ""),
-                "taskTitle", task.getTaskType() != null && task.getTaskType().startsWith("DEVIATION_")
-                        ? deviationTaskTitle(task) : Objects.toString(task.getReason(), ""),
-                "workTaskId", task.getId());
-        auxiliaryAudit.notifications(task, () -> {
-            List<Long> messageIds = new ArrayList<>();
-            for (Long userId : parseCandidateUserIds(task.getCandidateUserSnapshot())) {
-                NotifySendSingleToUserReqDTO reqDTO = new NotifySendSingleToUserReqDTO();
-                reqDTO.setUserId(userId);
-                reqDTO.setTemplateCode(templateCode);
-                reqDTO.setTemplateParams(templateParams);
-                messageIds.add(notifyMessageSendApi.sendSingleMessageToAdmin(reqDTO));
-            }
-            return messageIds;
-        });
-    }
-
-    private void sendReassignmentNotify(MesProEdhrWorkTaskDO task, String reason) {
-        NotifySendSingleToUserReqDTO reqDTO = new NotifySendSingleToUserReqDTO();
-        reqDTO.setUserId(task.getAssigneeUserId());
-        reqDTO.setTemplateCode("MES_EDHR_FILL_TASK_REASSIGNED");
-        reqDTO.setTemplateParams(Map.of(
-                "workOrderCode", Objects.toString(task.getWorkOrderCode(), ""),
-                "batchCode", Objects.toString(task.getBatchCode(), ""),
-                "processName", Objects.toString(task.getProcessName(), ""),
-                "actionUrl", task.getActionUrl(),
-                "reason", Objects.toString(reason, ""),
-                "workTaskId", task.getId()));
-        notifyMessageSendApi.sendSingleMessageToAdmin(reqDTO);
-    }
-
     private boolean hasTaskOwnerChanged(MesProEdhrWorkTaskDO beforeTask, MesProEdhrWorkTaskDO afterTask) {
         return !Objects.equals(beforeTask.getAssigneeUserId(), afterTask.getAssigneeUserId())
                 || !Objects.equals(beforeTask.getCandidateSourceType(), afterTask.getCandidateSourceType())
                 || !Objects.equals(beforeTask.getCandidateSourceId(), afterTask.getCandidateSourceId())
                 || !Objects.equals(beforeTask.getCandidateUserSnapshot(), afterTask.getCandidateUserSnapshot());
-    }
-
-    private void sendOverdueNotify(MesProEdhrWorkTaskDO task) {
-        // Once assigned, responsibility belongs to that person. Only unassigned tasks notify the frozen pool.
-        Set<Long> recipients = task.getAssigneeUserId() == null
-                ? parseCandidateUserIds(task.getCandidateUserSnapshot()) : Set.of(task.getAssigneeUserId());
-        if (recipients.isEmpty()) throw exception(PRO_EDHR_WORK_TASK_CANDIDATE_POOL_EMPTY);
-        for (Long userId : recipients) {
-            AdminUserRespDTO user = adminUserApi.getUser(userId);
-            if (user == null || !Objects.equals(userId, user.getId())
-                    || !Objects.equals(user.getTenantId(), TenantContextHolder.getRequiredTenantId())
-                    || !CommonStatusEnum.isEnable(user.getStatus())) {
-                throw exception(PRO_EDHR_WORK_TASK_ASSIGNEE_INVALID);
-            }
-            NotifySendSingleToUserReqDTO reqDTO = new NotifySendSingleToUserReqDTO();
-            reqDTO.setUserId(userId);
-            boolean deviationTask = task.getTaskType() != null && task.getTaskType().startsWith("DEVIATION_");
-            reqDTO.setTemplateCode(deviationTask ? "MES_EDHR_DEVIATION_WORK_TASK_OVERDUE" : "MES_EDHR_WORK_TASK_OVERDUE");
-            reqDTO.setTemplateParams(Map.of(
-                    "workOrderCode", Objects.toString(task.getWorkOrderCode(), ""),
-                    "batchCode", Objects.toString(task.getBatchCode(), ""),
-                    "processName", Objects.toString(task.getProcessName(), ""),
-                    "dueTime", Objects.toString(task.getDueTime(), ""),
-                    "taskTitle", task.getTaskType() != null && task.getTaskType().startsWith("DEVIATION_")
-                        ? deviationTaskTitle(task) : Objects.toString(task.getReason(), ""),
-                    "reason", Objects.toString(task.getReason(), ""),
-                    "actionUrl", task.getActionUrl(),
-                    "workTaskId", task.getId()));
-            Long messageId = notifyMessageSendApi.sendSingleMessageToAdmin(reqDTO);
-            if (messageId == null || messageId <= 0) {
-                throw new IllegalStateException("超期提醒未取得有效站内信回执，任务=" + task.getId() + "，接收人=" + userId);
-            }
-        }
-    }
-
-    private String resolveNotifyTemplateCode(String taskType) {
-        if (TASK_TYPE_DEVIATION_RECEIVE.equals(taskType)) {
-            return "MES_EDHR_DEVIATION_RECEIVE_ASSIGNED";
-        }
-        if (TASK_TYPE_DEVIATION_CORRECT.equals(taskType)) {
-            return "MES_EDHR_DEVIATION_CORRECT_ASSIGNED";
-        }
-        if (TASK_TYPE_REVIEW.equals(taskType)) {
-            return "MES_EDHR_REVIEW_TASK_ASSIGNED";
-        }
-        if (TASK_TYPE_APPROVE.equals(taskType)) {
-            return "MES_EDHR_APPROVE_TASK_ASSIGNED";
-        }
-        if (TASK_TYPE_REWORK.equals(taskType)) {
-            return "MES_EDHR_REWORK_TASK_ASSIGNED";
-        }
-        if (TASK_TYPE_ARCHIVE.equals(taskType)) {
-            return "MES_EDHR_ARCHIVE_TASK_ASSIGNED";
-        }
-        if (TASK_TYPE_RELEASE_APPROVE.equals(taskType)) {
-            return "MES_EDHR_RELEASE_APPROVE_TASK_ASSIGNED";
-        }
-        return "MES_EDHR_FILL_TASK_ASSIGNED";
     }
 
     private String buildActionUrl(MesProEdhrWorkTaskDO task) {

@@ -27,7 +27,8 @@
         </el-col>
         <el-col :span="8">
           <el-form-item label="关联订单" prop="orderNo">
-            <el-input v-model="formData.orderNo" readonly>
+            <BusinessDocumentCodeLink v-if="formType === 'detail'" :code="formData.orderNo" :document-id="formData.orderId" document-type="erp-purchase-order" />
+            <el-input v-else v-model="formData.orderNo" readonly>
               <template #append>
                 <el-button @click="openPurchaseOrderInEnableList">
                   <Icon icon="ep:search" /> 选择
@@ -162,6 +163,7 @@
   />
 </template>
 <script setup lang="ts">
+import BusinessDocumentCodeLink from '@/components/BusinessDocumentCodeLink.vue'
 import { PurchaseInApi, PurchaseInVO } from '@/api/erp/purchase/in'
 import PurchaseInItemForm from './components/PurchaseInItemForm.vue'
 import { AccountApi, AccountVO } from '@/api/erp/finance/account'
@@ -230,7 +232,7 @@ watch(
 )
 
 /** 打开弹窗 */
-const open = async (type: string, id?: number) => {
+const open = async (type: string, id?: number | string) => {
   dialogVisible.value = true
   dialogTitle.value = t('action.' + type)
   formType.value = type

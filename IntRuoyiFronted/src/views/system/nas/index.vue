@@ -641,6 +641,7 @@ import { useTestMode } from '@/store/modules/testMode'
 import { ElMessageBox, type ElTree } from 'element-plus'
 import { CardTitle } from '@/components/Card'
 import { downloadByData } from '@/utils/filt'
+import { createSecureUuid } from '@/utils/uuid'
 import { getFileCategoryList, type ControlledFileCategoryVO } from '@/api/dcc/controlledFile/fileCategories'
 import NasPermissionRestorePanel from './components/NasPermissionRestorePanel.vue'
 import {
@@ -1654,10 +1655,7 @@ const handleRecognizeNasUncontrolledFiles = async () => {
 }
 
 const createNasOriginalPathSyncIdempotencyKey = () => {
-  if (typeof globalThis.crypto?.randomUUID !== 'function') {
-    throw new Error('当前浏览器不支持 crypto.randomUUID，无法创建原路径同步任务')
-  }
-  return globalThis.crypto.randomUUID()
+  return createSecureUuid()
 }
 
 const buildNasOriginalPathSelectedFiles = () => {
@@ -1809,10 +1807,7 @@ const handleNasControlAuditFilePageChange = () => {
 }
 
 const createNasUncontrolledImportIdempotencyKey = () => {
-  if (typeof globalThis.crypto?.randomUUID !== 'function') {
-    throw new Error('当前浏览器不支持 crypto.randomUUID，无法创建未受控文件导入任务')
-  }
-  return globalThis.crypto.randomUUID()
+  return createSecureUuid()
 }
 
 const buildNasUncontrolledImportSelectedFiles = () => {

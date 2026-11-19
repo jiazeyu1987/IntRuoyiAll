@@ -40,7 +40,8 @@ def test_formal_frontline_submit_carries_one_group_id_across_task_payloads():
         / "IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue"
     )
     assert "pqcSubmissionGroupId" in frontend
-    assert "crypto.randomUUID()" in frontend
+    assert "import { createSecureUuid } from '@/utils/uuid'" in frontend
+    assert 'const pqcSubmissionGroupId = `PQC-${createSecureUuid()}`' in frontend
 
 
 def test_stage1_simulation_carries_one_group_id_for_same_submission_action():

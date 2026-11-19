@@ -30,7 +30,7 @@ export const PurchaseOrderApi = {
   },
 
   // 查询采购订单详情
-  getPurchaseOrder: async (id: number) => {
+  getPurchaseOrder: async (id: number | string) => {
     return await request.get({ url: `/erp/purchase-order/get?id=` + id })
   },
 

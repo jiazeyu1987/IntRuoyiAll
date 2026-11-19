@@ -47,6 +47,7 @@ import { defaultProps, handleTree } from '@/utils/tree'
 import * as RoleApi from '@/api/system/role'
 import * as MenuApi from '@/api/system/menu'
 import * as PermissionApi from '@/api/system/permission'
+import { createPermissionAuditIdempotencyKey, PermissionAuditKeyError } from '@/utils/permissionAudit'
 
 defineOptions({ name: 'SystemRoleAssignMenuForm' })
 
@@ -121,13 +122,16 @@ const submitForm = async () => {
         ...(checkStrictly.value ? treeRef.value.getHalfCheckedKeys() : []) // 关闭联动时不提交遗留半选父节点
       ],
       reason: formData.reason.trim(),
-      idempotencyKey: createPermissionAuditIdempotencyKey()
+      idempotencyKey: createPermissionAuditIdempotencyKey('ROLE-MENU', formData.id!)
     } as PermissionApi.PermissionAssignRoleMenuReqVO
     await PermissionApi.assignRoleMenu(data)
     message.success(t('common.updateSuccess'))
     dialogVisible.value = false
     // 发送操作成功的事件
     emit('success')
+  } catch (error) {
+    if (error instanceof PermissionAuditKeyError) message.error(error.message)
+    throw error
   } finally {
     formLoading.value = false
   }
@@ -142,10 +146,4 @@ const resetForm = () => {
   formRef.value?.resetFields()
 }
 
-const createPermissionAuditIdempotencyKey = () => {
-  if (typeof crypto !== 'object' || typeof crypto.randomUUID !== 'function') {
-    throw new Error('当前浏览器不支持 crypto.randomUUID，无法生成权限审计幂等键')
-  }
-  return `SYSTEM-PERM-ROLE-MENU-${formData.id}-${crypto.randomUUID()}`
-}
 </script>

@@ -32,7 +32,7 @@
         width="180"
       />
       <el-table-column label="点检人" align="center" prop="nickname" width="100" />
-      <el-table-column label="设备编码" align="center" prop="machineryCode" width="120" />
+      <el-table-column label="设备编码" align="center" prop="machineryCode" width="120" ><template #default="{ row }"><MachineryCodeLink :code="row.machineryCode" /></template></el-table-column>
       <el-table-column label="设备名称" align="center" prop="machineryName" width="120" />
       <el-table-column label="品牌" align="center" prop="machineryBrand" width="100" />
       <el-table-column label="规格型号" align="center" prop="machinerySpecification" width="120" />
@@ -52,6 +52,7 @@
 </template>
 
 <script setup lang="ts">
+import MachineryCodeLink from '@/components/MachineryCodeLink.vue'
 import { DICT_TYPE } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
 import { DvCheckRecordApi } from '@/api/mes/dv/checkrecord'

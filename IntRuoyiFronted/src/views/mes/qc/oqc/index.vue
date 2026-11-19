@@ -97,7 +97,7 @@
       <el-table-column label="检验单名称" align="center" prop="name" min-width="180" />
       <el-table-column label="客户名称" align="center" prop="clientNickname" width="120" />
       <el-table-column label="批次号" align="center" prop="batchCode" width="130" />
-      <el-table-column label="产品物料编码" align="center" prop="itemCode" width="130"><template #default="{ row }"><ProductCodeLink :code="row.itemCode" /></template></el-table-column>
+      <el-table-column label="产品物料编码" align="center" prop="itemCode" width="130"><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="产品物料名称" align="center" prop="itemName" min-width="150" />
       <el-table-column label="规格型号" align="center" prop="itemSpecification" min-width="150" />
       <el-table-column label="单位" align="center" prop="unitName" width="80" />
@@ -166,7 +166,7 @@
 </template>
 
 <script setup lang="ts">
-import ProductCodeLink from '@/components/ProductCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { dateFormatter2 } from '@/utils/formatTime'
 import download from '@/utils/download'
@@ -188,7 +188,7 @@ const total = ref(0) // 列表的总页数
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
-  code: undefined,
+  code: undefined as string | undefined,
   clientId: undefined,
   batchCode: undefined,
   itemId: undefined,
@@ -197,15 +197,22 @@ const queryParams = reactive({
 const queryFormRef = ref() // 搜索的表单
 const exportLoading = ref(false) // 导出的加载中
 
+let listRequestSerial = 0
+const listRouteSignature = () => JSON.stringify([codeLinkRoute.path, codeLinkRoute.query.code, codeLinkRoute.query.codeLinkVisit])
+
 /** 查询列表 */
 const getList = async () => {
+  const serial = ++listRequestSerial
+  const signature = listRouteSignature()
+  const isCurrent = () => serial === listRequestSerial && signature === listRouteSignature()
   loading.value = true
   try {
-    const data = await QcOqcApi.getOqcPage(queryParams)
+    const data = await QcOqcApi.getOqcPage({ ...queryParams })
+    if (!isCurrent()) return
     list.value = data.list
     total.value = data.total
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 
@@ -255,7 +262,21 @@ const handleExport = async () => {
 }
 
 /** 初始化 **/
-onMounted(() => {
-  getList()
-})
+const codeLinkRoute = useRoute()
+watch(
+  () => [codeLinkRoute.path, codeLinkRoute.query.code, codeLinkRoute.query.codeLinkVisit],
+  () => {
+    if (codeLinkRoute.path !== '/mes/qc/oqc') { listRequestSerial++; loading.value = false; return }
+    const code = typeof codeLinkRoute.query.code === 'string' ? codeLinkRoute.query.code.trim() : ''
+    if (code) {
+      Object.keys(queryParams).forEach((key) => {
+        if (key !== 'pageNo' && key !== 'pageSize') (queryParams as Record<string, unknown>)[key] = undefined
+      })
+      queryParams.code = code
+      queryParams.pageNo = 1
+    }
+    getList()
+  },
+  { immediate: true }
+)
 </script>

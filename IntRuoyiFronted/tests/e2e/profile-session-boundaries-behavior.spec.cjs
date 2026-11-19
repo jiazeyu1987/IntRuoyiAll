@@ -31,10 +31,12 @@ function harness() {
   const CACHE_KEY = Object.fromEntries(['USER', 'ROLE_ROUTERS', 'VisitTenantId', 'TenantId'].map(key => [key, key]))
   const wsCache = { get: key => cache.get(key), set: (key, value) => cache.set(key, value), delete: key => cache.delete(key) }
   const cacheModule = { CACHE_KEY, useCache: () => ({ wsCache }), deleteUserCache: () => ['USER', 'ROLE_ROUTERS', 'VisitTenantId'].forEach(key => cache.delete(key)) }
-  const auth = evaluate(read('src/utils/auth.ts'), { '@/hooks/web/useCache': cacheModule, '@/utils/jsencrypt': { encrypt: x => x, decrypt: x => x } })
+  const auth = evaluate(read('src/utils/auth.ts'), { vue, '@/hooks/web/useCache': cacheModule, '@/utils/jsencrypt': { encrypt: x => x, decrypt: x => x }, '@/utils/uuid': evaluate(read('src/utils/uuid.ts'), {}) })
   const store = pinia.createPinia()
   pinia.setActivePinia(store)
-  const userModule = evaluate(read('src/store/modules/user.ts'), { '@/store': { store }, pinia, '@/utils/auth': auth, '@/hooks/web/useCache': cacheModule, '@/api/login': { getInfo: async () => { throw new Error('unexpected getInfo') }, loginOut: async () => {} } })
+  const testMode = evaluate(read('src/store/modules/testMode.ts'), { vue, pinia,
+    '@/api/infra/config': { getConfigKey: async () => { throw new Error('unexpected test-mode config request') } } })
+  const userModule = evaluate(read('src/store/modules/user.ts'), { '@/store': { store }, pinia, '@/utils/auth': auth, '@/hooks/web/useCache': cacheModule, './testMode': testMode, '@/api/login': { getInfo: async () => { throw new Error('unexpected getInfo') }, loginOut: async () => {} } })
   const user = userModule.useUserStore(store)
   const identity = { id: 42, nickname: 'before', avatar: '', username: 'fixture', deptId: 1 }
   user.user = { ...identity }

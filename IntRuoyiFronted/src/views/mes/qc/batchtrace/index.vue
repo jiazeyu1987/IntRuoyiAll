@@ -56,14 +56,14 @@
   <!-- 列表 -->
   <ContentWrap>
     <el-table v-loading="loading" :data="list">
-      <el-table-column label="批次编号" align="center" prop="code" />
-      <el-table-column label="产品物料编码" align="center" prop="itemCode"><template #default="{ row }"><ProductCodeLink :code="row.itemCode" /></template></el-table-column>
+      <el-table-column label="批次编号" align="center" prop="code"><template #default="{ row }"><BatchCodeLink :code="row.code" :batch-id="row.id" /></template></el-table-column>
+      <el-table-column label="产品物料编码" align="center" prop="itemCode"><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="产品物料名称" align="center" prop="itemName" />
       <el-table-column label="规格型号" align="center" prop="itemSpecification" />
       <el-table-column label="单位" align="center" prop="unitName" />
-      <el-table-column label="供应商编码" align="center" prop="vendorCode" />
+      <el-table-column label="供应商编码" align="center" prop="vendorCode" ><template #default="{ row }"><PartnerCodeLink :code="row.vendorCode" partner-type="vendor" /></template></el-table-column>
       <el-table-column label="供应商名称" align="center" prop="vendorName" />
-      <el-table-column label="客户编码" align="center" prop="clientCode" />
+      <el-table-column label="客户编码" align="center" prop="clientCode" ><template #default="{ row }"><PartnerCodeLink :code="row.clientCode" partner-type="client" /></template></el-table-column>
       <el-table-column label="客户名称" align="center" prop="clientName" />
       <el-table-column label="销售订单编号" align="center" prop="salesOrderCode" />
       <el-table-column label="采购订单编号" align="center" prop="purchaseOrderCode" />
@@ -94,6 +94,7 @@
 </template>
 
 <script lang="ts" setup>
+import BatchCodeLink from '@/components/BatchCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { BatchApi, BatchVO } from '@/api/mes/wm/batch'
 import MdItemSelect from '@/views/mes/md/item/components/MdItemSelect.vue'
@@ -109,7 +110,7 @@ const total = ref(0) // 列表的总页数
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
-  code: undefined,
+  code: undefined as string | undefined,
   itemId: undefined,
   vendorId: undefined,
   clientId: undefined,
@@ -120,14 +121,17 @@ const queryFormRef = ref() // 搜索的表单
 const detailRef = ref() // 详情弹窗
 
 /** 查询列表 */
+let listRequestSerial = 0
 const getList = async () => {
+  const requestId = ++listRequestSerial
   loading.value = true
   try {
     const data = await BatchApi.getBatchPage(queryParams)
+    if (requestId !== listRequestSerial) return
     list.value = data.list
     total.value = data.total
   } finally {
-    loading.value = false
+    if (requestId === listRequestSerial) loading.value = false
   }
 }
 
@@ -152,8 +156,22 @@ const openDetail = (row: BatchVO) => {
   detailRef.value.open(row)
 }
 
-/** 初始化 */
-onMounted(() => {
-  getList()
-})
+const route = useRoute()
+watch(
+  () => [route.path, route.query.code, route.query.codeLinkVisit] as const,
+  ([path, code]) => {
+    if (path !== '/mes/qc/batch-trace') {
+      listRequestSerial++
+      return
+    }
+    queryFormRef.value?.resetFields()
+    Object.assign(queryParams, {
+      pageNo: 1, code: typeof code === 'string' ? code.trim() || undefined : undefined,
+      itemId: undefined, vendorId: undefined, clientId: undefined,
+      salesOrderCode: undefined, purchaseOrderCode: undefined
+    })
+    getList()
+  },
+  { immediate: true }
+)
 </script>

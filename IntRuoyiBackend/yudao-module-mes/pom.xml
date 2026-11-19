@@ -423,6 +423,8 @@
                                 <testInclude>**/MesProRouteServiceImplTest.java</testInclude>
                                 <testInclude>**/MesProRouteWorkstationServiceTest.java</testInclude>
                                 <testInclude>**/MesSimpleParserPublishServiceTest.java</testInclude>
+                                <testInclude>**/MesProRouteTreeServiceTest.java</testInclude>
+                                <testInclude>**/MesProRouteVersionPublishProjectionServiceTest.java</testInclude>
                                 <testInclude>**/MesMdAutoCodeSerialNumberPartStrategyTest.java</testInclude>
                             </testIncludes>
                         </configuration>
@@ -436,6 +438,8 @@
                                 <include>**/MesProRouteServiceImplTest.java</include>
                                 <include>**/MesProRouteWorkstationServiceTest.java</include>
                                 <include>**/MesSimpleParserPublishServiceTest.java</include>
+                                <include>**/MesProRouteTreeServiceTest.java</include>
+                                <include>**/MesProRouteVersionPublishProjectionServiceTest.java</include>
                                 <include>**/MesMdAutoCodeSerialNumberPartStrategyTest.java</include>
                             </includes>
                         </configuration>

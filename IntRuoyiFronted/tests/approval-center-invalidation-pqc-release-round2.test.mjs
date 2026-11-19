@@ -5,6 +5,7 @@ import { stripTypeScriptTypes } from 'node:module'
 import { runInNewContext } from 'node:vm'
 import { webcrypto, createHash } from 'node:crypto'
 import CryptoJS from 'crypto-js'
+import loadUuid from './helpers/load-secure-uuid.cjs'
 import { createApprovalInvalidationState } from '../src/store/modules/approvalCenterInvalidationState.ts'
 
 const source = readFileSync(new URL('../src/views/mes/pro/production-release/PqcProductionReleasePage.vue', import.meta.url), 'utf8')
@@ -20,7 +21,7 @@ const formalPayloadHash = (payload, actor = '7') => {
   }
   return digest.digest('hex')
 }
-const harness = () => {
+const harness = (crypto = { getRandomValues: values => webcrypto.getRandomValues(values) }) => {
   let session = { key: 's1', tenantId: '1', loginUserId: '7' }, writes = 0, reads = 0, listReads = 0
   const state = createApprovalInvalidationState(); state.setSession(session.key)
   const events = [], notices = [], watchers = [], deactivated = [], unmounted = [], start = deferred()
@@ -34,7 +35,7 @@ const harness = () => {
   })
   const runtime = {
     Number, String, Object, Date, Map, Set, TextEncoder, Uint8Array, DataView, Array,
-    CryptoJS, crypto: { getRandomValues: values => webcrypto.getRandomValues(values) }, route: { fullPath: '/pqc?applicationId=9007199254740993&workTaskId=9007199254740995' },
+    CryptoJS, crypto, ...loadUuid(crypto), route: { fullPath: '/pqc?applicationId=9007199254740993&workTaskId=9007199254740995' },
     approvalInvalidation: { syncSession: () => session, captureEdhrSuccess: identity => state.capture(session, identity), publishEdhrSuccess: event => { events.push(event); state.publish(event) } },
     loading: ref(false), loadError: ref(''), list: ref([]), total: ref(0), selectedRow: ref(row),
     releaseDialogVisible: ref(true), releaseSubmitting: ref(false), releaseError: ref(''), releaseResult: ref(undefined), releaseOutcomeUncertain: ref(false),
@@ -79,7 +80,7 @@ test('actual HTTP PQC submit works without secure-context randomUUID or subtle',
   assert.equal(h.runtime.crypto.subtle, undefined)
   await h.runtime.submitRelease()
   const payload = await h.start.promise
-  assert.match(payload.idempotencyKey, /^pqc-release-9007199254740993-\d+-[a-f0-9]{32}$/)
+  assert.match(payload.idempotencyKey, /^pqc-release-9007199254740993-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   assert.equal(h.counts().writes, 1)
   assert.equal(h.events.length, 1)
   assert.equal(h.runtime.releaseResult.value.decisionPayloadHash, formalPayloadHash(payload))
@@ -336,3 +337,15 @@ for (const field of ['outcome','applicationId','workTaskId','actorId','expectedV
     await h.runtime.submitRelease();assert.equal(h.counts().writes,1)
   })
 }
+
+for (const variant of ['missing', 'entropy-failure']) test(`PQC ${variant} random source stops before write and clears pending state`, async () => {
+  const crypto = variant === 'missing' ? {} : { getRandomValues() { throw new Error('entropy unavailable') } }
+  const h = harness(crypto)
+  await h.runtime.submitRelease()
+  assert.equal(h.counts().writes, 0)
+  assert.equal(h.counts().reads, 0)
+  assert.equal(h.runtime.releaseIdempotencyKeys.size, 0)
+  assert.equal(h.runtime.releaseRequestStates.size, 0)
+  assert.equal(h.runtime.releaseSubmitting.value, false)
+  assert.match(h.runtime.releaseError.value, variant === 'missing' ? /不支持安全随机数/ : /entropy unavailable/)
+})

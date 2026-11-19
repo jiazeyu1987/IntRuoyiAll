@@ -12,7 +12,7 @@
     <el-table v-loading="loading" :data="processList" :stripe="true" :show-overflow-tooltip="true">
       <el-table-column label="序号" align="center" prop="sort" width="60" />
       <el-table-column label="工序名称" align="center" prop="processName" min-width="120" />
-      <el-table-column label="工序编码" align="center" prop="processCode" width="120" />
+      <el-table-column label="工序编码" align="center" prop="processCode" width="120" ><template #default="{ row }"><ProcessCodeLink :code="row.processCode" /></template></el-table-column>
       <el-table-column
         label="进入工序时间"
         align="center"
@@ -30,7 +30,7 @@
       <el-table-column label="投入数量" align="center" prop="inputQuantity" width="100" />
       <el-table-column label="产出数量" align="center" prop="outputQuantity" width="100" />
       <el-table-column label="不良品数量" align="center" prop="unqualifiedQuantity" width="100" />
-      <el-table-column label="工位编码" align="center" prop="workstationCode" width="120" />
+      <el-table-column label="工位编码" align="center" prop="workstationCode" width="120" ><template #default="{ row }"><WorkstationCodeLink :code="row.workstationCode" /></template></el-table-column>
       <el-table-column label="工位名称" align="center" prop="workstationName" min-width="120" />
       <el-table-column label="操作人" align="center" prop="nickname" width="100" />
       <el-table-column label="操作" align="center" width="160" v-if="!disabled">
@@ -158,6 +158,8 @@
 </template>
 
 <script setup lang="ts">
+import ProcessCodeLink from '@/components/ProcessCodeLink.vue'
+import WorkstationCodeLink from '@/components/WorkstationCodeLink.vue'
 import { dateFormatter } from '@/utils/formatTime'
 import { ProCardProcessApi, ProCardProcessVO } from '@/api/mes/pro/card/process'
 import ProProcessSelect from '@/views/mes/pro/process/components/ProProcessSelect.vue'

@@ -52,9 +52,7 @@
     <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true">
       <el-table-column label="仓库编码" align="center" prop="code" min-width="120">
         <template #default="scope">
-          <el-link type="primary" @click="openForm('detail', scope.row.id)">
-            {{ scope.row.code }}
-          </el-link>
+          <StorageCodeLink :code="scope.row.code" storage-type="warehouse" :storage-id="scope.row.id" />
         </template>
       </el-table-column>
       <el-table-column label="仓库名称" align="center" prop="name" min-width="140" />
@@ -133,7 +131,9 @@
 </template>
 
 <script setup lang="ts">
+import StorageCodeLink from '@/components/StorageCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
+import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import { dateFormatter } from '@/utils/formatTime'
 import { DICT_TYPE } from '@/utils/dict'
 import { WmWarehouseApi, WmWarehouseVO } from '@/api/mes/wm/warehouse'
@@ -147,6 +147,7 @@ defineOptions({ name: 'MesWmWarehouse' })
 const message = useMessage() // 消息弹窗
 const { t } = useI18n() // 国际化
 const router = useRouter()
+const route = useRoute()
 
 const loading = ref(true) // 列表的加载中
 const list = ref<WmWarehouseVO[]>([]) // 列表的数据
@@ -155,7 +156,7 @@ const total = ref(0) // 列表的总页数
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
-  code: undefined,
+  code: undefined as string | undefined,
   name: undefined,
   frozen: undefined
 }) // 查询参数
@@ -167,14 +168,17 @@ const loadUserList = async () => {
 }
 
 /** 查询列表 */
+let listGeneration = 0
 const getList = async () => {
+  const generation = ++listGeneration
   loading.value = true
   try {
     const data = await WmWarehouseApi.getWarehousePage(queryParams)
+    if (generation !== listGeneration) return
     list.value = data.list
     total.value = data.total
   } finally {
-    loading.value = false
+    if (generation === listGeneration) loading.value = false
   }
 }
 
@@ -196,7 +200,7 @@ const resetQuery = () => {
 
 /** 添加/修改操作 */
 const formRef = ref() // 表单 Ref
-const openForm = (type: string, id?: number) => {
+const openForm = (type: string, id?: number | string) => {
   formRef.value.open(type, id)
 }
 
@@ -229,8 +233,30 @@ const handleBarcode = async (row: WmWarehouseVO) => {
   )
 }
 
-/** 初始化 */
-onMounted(async () => {
-  await Promise.all([loadUserList(), getList()])
-})
+/** 接收业务编码导航，离开页面时不发起查询。 */
+let routeGeneration = 0
+const receiveCodeLink = async () => {
+  const generation = ++routeGeneration
+  ++listGeneration
+  const rawId = route.path === '/mes/wm/warehouse' ? route.query.id : undefined
+  const detailId = parsePositiveRouteQueryId(rawId)
+  if (rawId !== undefined && rawId !== null && rawId !== '' && !detailId) {
+    throw new Error('仓储详情 ID 必须为正整数')
+  }
+  if (route.path !== '/mes/wm/warehouse') return
+  queryFormRef.value?.resetFields()
+  queryParams.pageNo = 1
+  queryParams.name = undefined
+  queryParams.code = typeof route.query.code === 'string' ? route.query.code.trim() || undefined : undefined
+  queryParams.frozen = undefined
+  await loadUserList()
+  if (generation !== routeGeneration) return
+  await getList()
+  if (generation !== routeGeneration) return
+  if (route.path !== '/mes/wm/warehouse') return
+  const id = detailId
+  if (id) openForm('detail', id)
+}
+onMounted(receiveCodeLink)
+watch(() => [route.path, route.query.id, route.query.code, route.query.codeLinkVisit, route.query.warehouseId, route.query.locationId], receiveCodeLink)
 </script>

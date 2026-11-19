@@ -4,6 +4,7 @@
 
   <ContentWrap>
     <UnifiedListTemplate
+      ref="codeLinkListTemplate"
       single-line-toolbar
       table-key="mes.dv.machinery.main"
       :query-model="queryParams"
@@ -209,6 +210,7 @@
 </template>
 
 <script setup lang="ts">
+import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
@@ -237,6 +239,7 @@ defineOptions({ name: 'MesDvMachinery' })
 const message = useMessage()
 const { t } = useI18n()
 const route = useRoute()
+const codeLinkListTemplate = ref()
 
 const MACHINERY_TABLE_KEY = 'mes.dv.machinery.main'
 
@@ -268,6 +271,7 @@ const loading = ref(true)
 const list = ref<DvMachineryVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
+  code: undefined as string | undefined,
   listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
@@ -334,11 +338,12 @@ const machineryQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>((
 
 let getListRequestSequence = 0
 const getList = async () => {
+  const requestRoute = route.fullPath
   const requestId = ++getListRequestSequence
   loading.value = true
   try {
     const data = await DvMachineryApi.getMachineryPage(queryParams)
-    if (requestId !== getListRequestSequence) return false
+    if (requestId !== getListRequestSequence || route.fullPath !== requestRoute) return false
     list.value = data.list
     total.value = data.total
     return true
@@ -359,7 +364,7 @@ const handleQuery = async () => {
 }
 
 const formRef = ref()
-const openForm = (type: string, id?: number) => {
+const openForm = (type: string, id?: number | string) => {
   formRef.value.open(type, id)
 }
 
@@ -371,12 +376,12 @@ const tryOpenDetailFromRoute = () => {
     return
   }
   if (openedMachineryDetailId.value === openId) return
-  const machineryId = Number(openId)
-  if (!Number.isFinite(machineryId)) {
+  const machineryId = parsePositiveRouteQueryId(openId)
+  if (!machineryId) {
     throw new Error(`设备详情定位参数无效：${openId}`)
   }
   openedMachineryDetailId.value = openId
-  openForm('detail', Number(openId))
+  openForm('detail', machineryId)
 }
 
 const handleDelete = async (id: number) => {
@@ -415,17 +420,28 @@ const handleImport = () => {
   importFormRef.value.open()
 }
 
-onMounted(async () => {
-  await getList()
-  tryOpenDetailFromRoute()
-})
-
-watch(
-  () => route.query.openId,
-  () => {
-    tryOpenDetailFromRoute()
+let machineryRouteGeneration = 0
+const buildMachineryRouteSignature = () => JSON.stringify([route.path, route.query.openId, route.query.code, route.query.codeLinkVisit])
+const syncMachineryRoute = async () => {
+  const generation = ++machineryRouteGeneration
+  if (route.path !== '/mes/dv/machinery') { ++getListRequestSequence; return }
+  const signature = buildMachineryRouteSignature()
+  codeLinkListTemplate.value?.resetColumnFilters()
+  for (const key of Object.keys(queryParams)) {
+    if (key !== 'pageSize') (queryParams as Record<string, unknown>)[key] = undefined
   }
-)
+  queryParams.pageNo = 1
+  queryParams.listFilters = undefined
+  queryParams.status = undefined
+  queryParams.code = typeof route.query.code === 'string' ? route.query.code : undefined
+  machineryQuickFilter.updateState({ fieldKey: 'code', operator: 'contains', value: queryParams.code, conditions: [], appliedConditions: [] })
+  openedMachineryDetailId.value = ''
+  await getList()
+  if (generation !== machineryRouteGeneration || route.path !== '/mes/dv/machinery' || signature !== buildMachineryRouteSignature()) return
+  tryOpenDetailFromRoute()
+}
+onMounted(syncMachineryRoute)
+watch(() => [route.path, route.query.openId, route.query.code, route.query.codeLinkVisit], syncMachineryRoute)
 
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [

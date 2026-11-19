@@ -37,11 +37,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-/**
- * First RED gate for the two actual producers. Mapper doubles delimit this unit test:
- * callback registration is asserted here; real commit/rollback and delivery durability
- * are intentionally reserved for the separate transaction contract, not claimed by this test.
- */
+/** Formal handoffs retain their business tasks without registering inbox delivery. */
 class MesReleaseTaskNotificationHandoffTest {
 
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applications =
@@ -63,7 +59,7 @@ class MesReleaseTaskNotificationHandoffTest {
     }
 
     @Test
-    void newPqcReleaseTaskSchedulesNotificationOnlyAfterBusinessCommit() {
+    void newPqcReleaseTaskCreatesTodoWithoutInboxDelivery() {
         MesProcessPoolActiveOrderReleaseApplicationDO application = newApplication();
         when(applications.insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class)))
                 .thenAnswer(invocation -> {
@@ -82,12 +78,11 @@ class MesReleaseTaskNotificationHandoffTest {
         verify(tasks).insert(task.capture());
         assertEquals("1,1300,2022,9908090335,9908090346", task.getValue().getCandidateUserSnapshot());
         assertEquals(2734L, application.getPqcReleaseWorkTaskId());
-        assertFalse(TransactionSynchronizationManager.getSynchronizations().isEmpty(),
-                "a committed PQC task must trigger its frozen recipients' durable delivery after commit");
+        assertTrue(TransactionSynchronizationManager.getSynchronizations().isEmpty());
     }
 
     @Test
-    void formalPqcApprovalSchedulesManagerTaskNotificationAfterBusinessCommit() {
+    void formalPqcApprovalCreatesManagerTaskWithoutInboxDelivery() {
         MesProEdhrBatchExecutionMapper batches = mock(MesProEdhrBatchExecutionMapper.class);
         MesProEdhrReleaseTransactionMapper releases = mock(MesProEdhrReleaseTransactionMapper.class);
         MesProductionReleaseRequiredCandidateResolver candidates =
@@ -123,7 +118,6 @@ class MesReleaseTaskNotificationHandoffTest {
         var initializer = new MesProductionReleaseManagerStageInitializerImpl(applications, batches, releases, tasks,
                 candidates, readiness);
         ReflectionTestUtils.setField(initializer, "lifecycleGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
-        ReflectionTestUtils.setField(initializer, "notificationService", scheduler());
         initializer.initializeManagerReleaseStage(
                 new MesProductionReleaseManagerStageInitializationCommand().setApplicationId(224L)
                         .setBatchExecutionId(952L).setExpectedApplicationVersion(5)
@@ -133,8 +127,7 @@ class MesReleaseTaskNotificationHandoffTest {
         verify(tasks).insert(task.capture());
         assertEquals("1,9908090347", task.getValue().getCandidateUserSnapshot());
         assertEquals("RELEASE_APPROVE", task.getValue().getTaskType());
-        assertFalse(TransactionSynchronizationManager.getSynchronizations().isEmpty(),
-                "the formal PQC approval handoff must schedule manager notification after commit");
+        assertTrue(TransactionSynchronizationManager.getSynchronizations().isEmpty());
     }
 
     @Test
@@ -185,23 +178,7 @@ class MesReleaseTaskNotificationHandoffTest {
 
     private MesTeamLeaderActiveOrderReleaseApplicationPersistenceService persistence() {
         var service = new MesTeamLeaderActiveOrderReleaseApplicationPersistenceService(applications, tasks, audit);
-        ReflectionTestUtils.setField(service, "notificationService", scheduler());
         return service;
-    }
-
-    /** Real scheduler; explicit persistence/audit/dispatch doubles retain this test's documented unit boundary. */
-    private MesReleaseTaskNotificationService scheduler() {
-        var scheduler = new MesReleaseTaskNotificationService();
-        var deliveries = mock(MesReleaseTaskNotifyDeliveryMapper.class);
-        var ids = new java.util.concurrent.atomic.AtomicLong(9000);
-        when(deliveries.insert(any(MesReleaseTaskNotifyDeliveryDO.class))).thenAnswer(call -> {
-            ((MesReleaseTaskNotifyDeliveryDO) call.getArgument(0)).setId(ids.incrementAndGet());
-            return 1;
-        });
-        ReflectionTestUtils.setField(scheduler, "deliveryMapper", deliveries);
-        ReflectionTestUtils.setField(scheduler, "audit", mock(MesReleaseTaskNotificationAudit.class));
-        ReflectionTestUtils.setField(scheduler, "dispatchService", mock(MesReleaseTaskNotificationDispatchService.class));
-        return scheduler;
     }
 
     private MesProcessPoolActiveOrderReleaseApplicationDO newApplication() {

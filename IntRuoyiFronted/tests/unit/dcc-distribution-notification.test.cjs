@@ -12,6 +12,7 @@ function workflowApi(metadata, postResult = true) {
   const calls = []
   const content = read('src/api/dcc/controlledFile/workflow.ts').replace(/import\.meta\.env/g, '({})')
   const sandbox = { exports: {}, Error, BigInt, URL, Set, Date, window: {}, require: name => {
+    if (name === '@/utils/uuid') return require('../helpers/load-secure-uuid.cjs')()
     if (name === '@/config/axios') return { default: {
       get: async request => { calls.push(request); return metadata },
       post: async request => { calls.push(request); return postResult }

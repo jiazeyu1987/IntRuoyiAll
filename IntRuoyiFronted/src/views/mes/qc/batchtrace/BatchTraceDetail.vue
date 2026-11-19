@@ -5,7 +5,7 @@
         {{ detailData.code }}
       </el-descriptions-item>
       <el-descriptions-item label="物资编码">
-        <ProductCodeLink :code="detailData.itemCode" />
+        <MaterialCodeLink :code="detailData.itemCode" />
       </el-descriptions-item>
       <el-descriptions-item label="物资名称">
         {{ detailData.itemName }}
@@ -17,7 +17,7 @@
         {{ detailData.purchaseOrderCode }}
       </el-descriptions-item>
       <el-descriptions-item label="供应商编码">
-        {{ detailData.vendorCode }}
+        <PartnerCodeLink :code="detailData.vendorCode" partner-type="vendor" />
       </el-descriptions-item>
       <el-descriptions-item label="供应商名称">
         {{ detailData.vendorName }}
@@ -26,7 +26,7 @@
         {{ detailData.salesOrderCode }}
       </el-descriptions-item>
       <el-descriptions-item label="客户编码">
-        {{ detailData.clientCode }}
+        <PartnerCodeLink :code="detailData.clientCode" partner-type="client" />
       </el-descriptions-item>
       <el-descriptions-item label="客户名称">
         {{ detailData.clientName }}
@@ -35,10 +35,10 @@
         {{ detailData.lotNumber }}
       </el-descriptions-item>
       <el-descriptions-item label="生产工单">
-        {{ detailData.workOrderCode }}
+        <WorkOrderCodeLink :code="detailData.workOrderCode" :work-order-id="detailData.workOrderId" />
       </el-descriptions-item>
       <el-descriptions-item label="工作站编码">
-        {{ detailData.workstationCode }}
+        <WorkstationCodeLink :code="detailData.workstationCode" />
       </el-descriptions-item>
     </el-descriptions>
     <el-tabs type="border-card" class="mt-10px">
@@ -61,7 +61,8 @@
 </template>
 
 <script lang="ts" setup>
-import ProductCodeLink from '@/components/ProductCodeLink.vue'
+import WorkstationCodeLink from '@/components/WorkstationCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { BatchVO } from '@/api/mes/wm/batch'
 import BatchTraceDetailList from './BatchTraceDetailList.vue'
 

@@ -76,8 +76,6 @@ class MesProductionReleaseManagerStageInitializerTest {
         org.mockito.Mockito.lenient().when(batchExecutionMapper.selectByTenantIdAndIdForUpdate(1L, 901L))
             .thenAnswer(invocation -> { var row = batch(); row.setTenantId(1L); return row; });
         ReflectionTestUtils.setField(initializer, "lifecycleGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
-        ReflectionTestUtils.setField(initializer, "notificationService",
-                org.mockito.Mockito.mock(MesReleaseTaskNotificationService.class));
         facts = org.mockito.Mockito.mock(MesProEdhrReleaseServiceImpl.class);
         ReflectionTestUtils.setField(initializer, "releaseFacts", facts);
         ReflectionTestUtils.setField(initializer, "activeOrderFacts", activeOrderFacts);

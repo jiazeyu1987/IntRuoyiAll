@@ -139,8 +139,6 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.system.service.signature.SystemSignatureAuthenticationService signatureAuthentication;
     @jakarta.annotation.Resource private org.springframework.transaction.PlatformTransactionManager transactionManager;
     @jakarta.annotation.Resource private MesPqcReleaseAuthenticatedSignatureService authenticatedSignatures;
-    @jakarta.annotation.Resource
-    private cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseOutcomeNotificationService outcomeNotifications;
     @jakarta.annotation.Resource private MesPqcReleaseCorrectionService correctionService;
     @Resource private MesReleaseAttachmentUploadService attachmentUploads;
 
@@ -293,7 +291,6 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         appendPqcProductionReleaseGxpAudit(application, workTask, result,
                 "mes.pqc.production-release.approve",
                 "MesPqcProductionReleaseServiceImpl#approve", affectedBefore);
-        outcomeNotifications.schedulePqc(application, workTask, actorUserId, true, opinion);
         return result;
     }
 

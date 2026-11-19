@@ -17,6 +17,9 @@ import static cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHand
 @Service
 @Slf4j
 public class MesActiveOrderHandoffDeliveryService {
+    private static final Set<String> RETIRED_EDHR_NOTICES = Set.of(
+            "QA_REVIEW", "QA_DECISION_HANDOFF", "NCR_FREEZE_NOTICE", "NCR_DISPOSITION_NOTICE",
+            "PRODUCTION_RETURN", "PQC_RETURN");
     @Resource private MesActiveOrderHandoffDeliveryMapper mapper;
     @Resource private MesActiveOrderHandoffTaskMapper tasks;
     @Resource private MesActiveOrderHandoffDeliveryTransactionService transactions;
@@ -29,6 +32,7 @@ public class MesActiveOrderHandoffDeliveryService {
         require(TransactionSynchronizationManager.isSynchronizationActive(),"通知意图必须加入正式交接事务");
         require(!"PQC_HANDOFF".equals(task.getTaskType()),"PQC检验接手通知已取消");
         validate(task);
+        if (RETIRED_EDHR_NOTICES.contains(task.getTaskType())) return;
         // Production and PQC reviews retain workbench responsibility without notification delivery.
         if (Set.of("PRODUCTION_REVIEW", "PQC_REVIEW").contains(task.getTaskType())) return;
         audit.lock(); Long currentTenant=tenant();
@@ -74,6 +78,7 @@ public class MesActiveOrderHandoffDeliveryService {
     public void retry(Long id,Integer version,Long actor,String reason) {
         require(reason!=null&&!reason.isBlank()&&reason.length()<=1000,"请填写通知重试原因");
         var row=mapper.exact(tenant(),id); require(row!=null,"通知投递不存在");var task=tasks.selectById(row.getHandoffTaskId());access(task,actor);
+        require(!RETIRED_EDHR_NOTICES.contains(task.getTaskType()),"eDHR站内信通知已停用，禁止补发历史通知");
         require(!"CANCELED".equals(task.getStatus()),"旧周期交接已取消，禁止重试办理通知");
         require(Objects.equals(actor,row.getUserId()),"仅原收件人可以重试本人通知");
         require(Objects.equals(version,row.getRowVersion())&&Set.of("PENDING","FAILED").contains(row.getStatus()),"通知已发送或版本变化，请刷新");
@@ -82,6 +87,7 @@ public class MesActiveOrderHandoffDeliveryService {
     private void dispatchPending(Long taskId) {
         var task = tasks.selectById(taskId);
         require(task != null, "交接通知原任务不存在");
+        if (RETIRED_EDHR_NOTICES.contains(task.getTaskType())) return;
         if ("CANCELED".equals(task.getStatus()) || Set.of("PRODUCTION_REVIEW", "PQC_REVIEW").contains(task.getTaskType())) return;
         for(var row:mapper.forTask(tenant(),taskId)) {
             if(!"PENDING".equals(row.getStatus()))continue;
@@ -92,6 +98,7 @@ public class MesActiveOrderHandoffDeliveryService {
     private void dispatch(MesActiveOrderHandoffDeliveryDO row,String reason) {
         var task=tasks.selectById(row.getHandoffTaskId());
         require(task!=null&&!Set.of("PQC_HANDOFF", "PQC_REVIEW", "PRODUCTION_REVIEW").contains(task.getTaskType()),"生产复核、PQC检验接手及复核通知已取消或交接不存在");
+        require(!RETIRED_EDHR_NOTICES.contains(task.getTaskType()),"eDHR站内信通知已停用，禁止发送历史通知");
         var attempt=transactions.recordAttempt(row.getId(),row.getRowVersion(),reason);
         try {
             var request=new NotifySendSingleToUserIdempotentReqDTO();request.setUserId(attempt.getUserId());request.setTemplateCode(TEMPLATE);request.setBusinessKey(attempt.getBusinessKey());

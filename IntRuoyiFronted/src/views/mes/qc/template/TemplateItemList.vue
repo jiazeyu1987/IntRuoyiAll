@@ -16,7 +16,7 @@
 
     <!-- 列表 -->
     <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true">
-      <el-table-column label="物料编码" align="center" prop="itemCode" width="130" />
+      <el-table-column label="物料编码" align="center" prop="itemCode" width="130" ><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="物料名称" align="center" prop="itemName" min-width="150" />
       <el-table-column label="规格型号" align="center" prop="specification" min-width="130" />
       <el-table-column label="计量单位" align="center" prop="unitMeasureName" width="100" />
@@ -151,6 +151,7 @@
 </template>
 
 <script setup lang="ts">
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { QcTemplateItemApi, QcTemplateItemVO } from '@/api/mes/qc/template/item/index'
 import MdItemSelect from '@/views/mes/md/item/components/MdItemSelect.vue'
 

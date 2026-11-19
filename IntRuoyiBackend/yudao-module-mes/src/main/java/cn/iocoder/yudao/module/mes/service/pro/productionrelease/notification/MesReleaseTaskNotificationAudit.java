@@ -26,21 +26,6 @@ public class MesReleaseTaskNotificationAudit {
         gxpAuditService.acquireLedgerLock();
     }
 
-    public void created(MesReleaseTaskNotifyDeliveryDO after) {
-        append("created", MesReleaseTaskNotificationService.class.getName() + "#scheduleAssigned",
-                null, after, "冻结正式放行任务候选通知意图", false);
-    }
-
-    public void outcomeCreated(MesReleaseTaskNotifyDeliveryDO after) {
-        append("created", MesReleaseOutcomeNotificationService.class.getName() + "#schedule",
-                null, after, "冻结正式放行结果通知，不新增待办", false);
-    }
-
-    public void handoverCreated(MesReleaseTaskNotifyDeliveryDO after) {
-        append("created", MesReleaseTaskNotificationService.class.getName() + "#scheduleHandover",
-                null, after, "冻结上市放行交接或回收通知", false);
-    }
-
     public void attempted(MesReleaseTaskNotifyDeliveryDO before, MesReleaseTaskNotifyDeliveryDO after,
                           String reason, boolean retry) {
         append("attempted", MesReleaseTaskNotificationTransactionService.class.getName() + "#recordAttempt",

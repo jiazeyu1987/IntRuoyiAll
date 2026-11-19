@@ -3,6 +3,8 @@ const assert = require('node:assert/strict')
 const { readFileSync } = require('node:fs')
 const path = require('node:path')
 const ts = require('typescript')
+const { webcrypto } = require('node:crypto')
+const loadUuid = require('./helpers/load-secure-uuid.cjs')
 const { parse, compileScript, compileTemplate } = require('vue/compiler-sfc')
 const filename = path.resolve(__dirname, '../src/views/dcc/registration-certificate/index/index.vue')
 const { descriptor, errors } = parse(readFileSync(filename, 'utf8'), { filename })
@@ -16,7 +18,6 @@ const code = ts.transpileModule(declaration.getText(ast), {
 const row = { certificateId: '9007199254740993', certificateNo: '测试注册证', rowVersion: 7 }
 const setup = (options = {}) => {
   const events = []
-  let commandNumber = 0
   const rows = options.rows ?? [row]
   const context = {
     deletingCertificate: { value: false }, selectedCertificates: { value: rows },
@@ -32,7 +33,7 @@ const setup = (options = {}) => {
     },
     loadPage: async () => { events.push(['current']); if (options.refreshError) throw options.refreshError },
     loadOldIndexPage: async () => events.push(['old']),
-    crypto: { randomUUID: () => `delete-command-key-${++commandNumber}` }
+    ...loadUuid(options.crypto ?? { getRandomValues: values => webcrypto.getRandomValues(values) })
   }
   const handleDeleteCertificate = Function(...Object.keys(context), `${code}; return handleDeleteCertificate`)(...Object.values(context))
   return { ...context, events, handleDeleteCertificate }
@@ -49,7 +50,8 @@ test('delete preserves string ids, sends revision and command key, then refreshe
   await state.handleDeleteCertificate()
   assert.deepEqual(state.events.map(event => event[0]), ['confirm', 'delete', 'current', 'old', 'success'])
   assert.match(state.events[0][1], /历史版本、附件和审计证据仍保留/)
-  assert.deepEqual(state.events[1], ['delete', row.certificateId, 7, 'delete-command-key-1'])
+  assert.deepEqual(state.events[1].slice(0, 3), ['delete', row.certificateId, 7])
+  assert.match(state.events[1][3], /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   assert.equal(state.queryParams.pageNo, 1)
   assert.deepEqual(state.selectedCertificates.value, [])
   assert.equal(state.deletingCertificate.value, false)
@@ -86,11 +88,16 @@ test('multiple selections each send their own id, revision and command key', asy
   const state = setup({ rows: [row, second, third] })
   await state.handleDeleteCertificate()
   assert.match(state.events[0][1], /选中的 3 条注册证/)
-  assert.deepEqual(state.events.filter(event => event[0] === 'delete'), [
-    ['delete', row.certificateId, 7, 'delete-command-key-1'],
-    ['delete', second.certificateId, 9, 'delete-command-key-2'],
-    ['delete', third.certificateId, 11, 'delete-command-key-3']
+  const commands = state.events.filter(event => event[0] === 'delete')
+  assert.deepEqual(commands.map(command => command.slice(0, 3)), [
+    ['delete', row.certificateId, 7],
+    ['delete', second.certificateId, 9],
+    ['delete', third.certificateId, 11]
   ])
+  assert.equal(new Set(commands.map(command => command[3])).size, 3)
+  for (const command of commands) {
+    assert.match(command[3], /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+  }
   assert.equal(state.queryParams.pageNo, 1)
   assert.match(state.events.at(-1)[1], /已删除 3 条/)
 })
@@ -113,6 +120,15 @@ test('all failures retain selection and pagination and never show success', asyn
   await assert.rejects(state.handleDeleteCertificate(), actual =>
     actual instanceof AggregateError && actual.errors[0] === error)
   assert.deepEqual(state.events.map(event => event[0]), ['confirm', 'delete', 'error'])
+  assert.deepEqual(state.selectedCertificates.value, [row])
+  assert.equal(state.queryParams.pageNo, 2)
+  assert.equal(state.deletingCertificate.value, false)
+})
+
+test('missing secure random source prevents delete and resets pending state', async () => {
+  const state = setup({ crypto: {} })
+  await assert.rejects(state.handleDeleteCertificate(), /不支持安全随机数/)
+  assert.deepEqual(state.events.map(event => event[0]), ['confirm'])
   assert.deepEqual(state.selectedCertificates.value, [row])
   assert.equal(state.queryParams.pageNo, 2)
   assert.equal(state.deletingCertificate.value, false)

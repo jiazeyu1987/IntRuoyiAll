@@ -93,7 +93,7 @@ class MesActiveOrderHandoffLifecycleTest {
   task.setStatus("CANCELED");assertThrows(RuntimeException.class,()->service.assertQaCanDispose(91L,413L,345L));
   verify(owners,atLeastOnce()).user(345L,"mes:pro-edhr-nonconformance-review:dispose");
  }
- @Test void explicitReviewerCreatesOneFrozenTaskAndNotification() {
+ @Test void explicitReviewerCreatesOneFrozenTaskWithoutInboxNotice() {
   var review=new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO()
     .setId(91L).setActiveOrderId(413L).setWorkOrderId(274L).setReviewStatus("pending_review").setNonconformanceReason("检验异常");
   service.qaReviewCreated(review,345L,343L);
@@ -104,9 +104,9 @@ class MesActiveOrderHandoffLifecycleTest {
   assertEquals("91",MesActiveOrderHandoffContract.actionQuery(task).get("reviewId"));
   verify(owners).user(345L,"mes:pro-edhr-nonconformance-review:dispose");
   verify(owners,never()).user(345L,"mes:pro-edhr-nonconformance-review:query");
-  verify(delivery).schedule(task);
+  verifyNoInteractions(delivery);
   when(tasks.byIdentity(413L,"QA_REVIEW","NONCONFORMANCE_REVIEW",91L,91L)).thenReturn(task);
-  service.qaReviewCreated(review,345L,343L);verify(tasks,times(1)).insert(any(MesActiveOrderHandoffTaskDO.class));verify(delivery,times(1)).schedule(any());
+  service.qaReviewCreated(review,345L,343L);verify(tasks,times(1)).insert(any(MesActiveOrderHandoffTaskDO.class));verifyNoInteractions(delivery);
   assertThrows(RuntimeException.class,()->service.qaReviewCreated(review,346L,343L));
  }
  @Test void missingOrUnqualifiedReviewerCannotCreateTask() {
@@ -116,7 +116,7 @@ class MesActiveOrderHandoffLifecycleTest {
   doThrow(new IllegalStateException("not a tenant QA")).when(owners).user(345L,"mes:pro-edhr-nonconformance-review:dispose");
   assertThrows(RuntimeException.class,()->service.qaReviewCreated(review,345L,343L));verify(tasks,never()).insert(any(MesActiveOrderHandoffTaskDO.class));verifyNoInteractions(delivery);
  }
- @Test void dispositionCompletesFrozenQaTaskAndNotifiesProductionLeader() {
+ @Test void dispositionCompletesFrozenQaTaskAndCreatesLeaderTodoWithoutInboxNotice() {
   var review=new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO()
     .setId(91L).setWorkOrderId(274L).setReviewStatus("closed").setQaUserId(345L)
     .setClosedAt(LocalDateTime.now()).setDisposition("concession_release").setReviewOpinion("评审材料已核实");
@@ -124,7 +124,7 @@ class MesActiveOrderHandoffLifecycleTest {
   service.qaDisposed(review,413L,null,345L);
   var captured=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(captured.capture());
   assertEquals("QA_DECISION_HANDOFF",captured.getValue().getTaskType());assertEquals("341",captured.getValue().getCandidateUserSnapshot());
-  assertEquals("TODO",captured.getValue().getStatus());assertFalse(captured.getValue().getNotificationOnly());verify(delivery).schedule(captured.getValue());
+  assertEquals("TODO",captured.getValue().getStatus());assertFalse(captured.getValue().getNotificationOnly());verifyNoInteractions(delivery);
   verify(tasks).close(eq(1L),eq(task.getId()),eq(0),eq("DONE"),eq(345L),eq(91L),eq(review.getClosedAt()));
  }
  @Test void voidDispositionCreatesCompletedNotificationOnlyResult(){
@@ -134,11 +134,11 @@ class MesActiveOrderHandoffLifecycleTest {
   var task=qaTask(92L);when(tasks.byIdentity(413L,"QA_REVIEW","NONCONFORMANCE_REVIEW",92L,92L)).thenReturn(task);stubClose(task,345L,92L);
   service.qaDisposed(review,413L,null,345L);
   var captured=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(captured.capture());
-  assertEquals("DONE",captured.getValue().getStatus());assertTrue(captured.getValue().getNotificationOnly());verify(delivery).schedule(captured.getValue());
+  assertEquals("DONE",captured.getValue().getStatus());assertTrue(captured.getValue().getNotificationOnly());verifyNoInteractions(delivery);
  }
  @org.junit.jupiter.params.ParameterizedTest
  @org.junit.jupiter.params.provider.ValueSource(strings={"concession_release","rework","void"})
- void qaOutcomeNotifiesOriginalFrozenPeopleWithoutAssigningThemLeaderDuties(String disposition) {
+ void qaOutcomePreservesFrozenLedgerWithoutInboxDelivery(String disposition) {
   var review=disposedReview(disposition);var frozen=frozenNotice();
   Long successor=null;
   if("rework".equals(disposition)) {
@@ -159,7 +159,7 @@ class MesActiveOrderHandoffLifecycleTest {
   assertTrue(result.getReason().contains("NCR-91"));assertTrue(result.getReason().contains(review.getReviewOpinion()));
   assertTrue(result.getReason().contains(switch(disposition){case "concession_release"->"让步不代替PQC生产放行或上市批准";case "rework"->"原周期不得继续正常生产";default->"停止正常推进";}));
   assertEquals(1,created.stream().filter(t->"QA_DECISION_HANDOFF".equals(t.getTaskType())).count());
-  assertEquals("341,342,344",frozen.getCandidateUserSnapshot());verify(delivery).schedule(result);
+  assertEquals("341,342,344",frozen.getCandidateUserSnapshot());verify(delivery,never()).schedule(result);
   verify(owners,never()).productionEmployees(order); // Never recalculate the original frozen recipients.
   when(tasks.selectById(result.getId())).thenReturn(result);
   var context=service.navigationContext(result.getId(),342L);assertFalse(context.processable());
@@ -171,12 +171,12 @@ class MesActiveOrderHandoffLifecycleTest {
   var capture=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks,times(2)).insert(capture.capture());
   for(var t:capture.getAllValues())when(tasks.byIdentity(413L,t.getTaskType(),"NONCONFORMANCE_REVIEW",91L,91L)).thenReturn(t);
   service.qaDisposed(review,413L,null,345L);
-  verify(tasks,times(2)).insert(any(MesActiveOrderHandoffTaskDO.class));verify(delivery,times(2)).schedule(any());
+  verify(tasks,times(2)).insert(any(MesActiveOrderHandoffTaskDO.class));verifyNoInteractions(delivery);
  }
- @Test void resultDeliveryFailurePropagatesToFormalDispositionTransaction() {
+ @Test void formalDispositionDoesNotDependOnInboxDelivery() {
   var review=disposedReview("concession_release");frozenNotice();
-  doAnswer(i->{if("NCR_DISPOSITION_NOTICE".equals(i.<MesActiveOrderHandoffTaskDO>getArgument(0).getTaskType()))throw new IllegalStateException("result outbox failed");return null;}).when(delivery).schedule(any());
-  assertThrows(IllegalStateException.class,()->service.qaDisposed(review,413L,null,345L));
+  assertDoesNotThrow(()->service.qaDisposed(review,413L,null,345L));
+  verify(tasks,times(2)).insert(any(MesActiveOrderHandoffTaskDO.class));verifyNoInteractions(delivery);
  }
  @Test void resultRejectsForeignFreezeSnapshotAndDoesNotAddDuplicateLeaderNotice() {
   var review=disposedReview("concession_release");var frozen=frozenNotice();frozen.setTenantId(2L);
@@ -250,6 +250,7 @@ class MesActiveOrderHandoffLifecycleTest {
   when(owners.submissionIdentity(event)).thenReturn(new MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("SYSTEM_USER",344L,1L));
   service.reviewed(176L,700L);var c=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(c.capture());
   assertEquals("PQC_RETURN",c.getValue().getTaskType());assertEquals("344",c.getValue().getCandidateUserSnapshot());assertPqcStage(c.getValue(),700L);
+  assertEquals("TODO",c.getValue().getStatus());assertFalse(c.getValue().getNotificationOnly());verifyNoInteractions(delivery);
   assertTrue(c.getValue().getReason().startsWith(rejected.getReviewRemark()));assertEquals("DONE",reviewTask.getStatus());
   verify(owners,never()).pqcLeader(any());assertNull(event.getRouteProcessId());assertNull(event.getProcessId());
  }
@@ -488,6 +489,7 @@ class MesActiveOrderHandoffLifecycleTest {
    service.reviewed(176L,7001L);assertEquals(7000L,original.getCompletionSourceId());
    var captured=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(captured.capture());
    assertEquals("PRODUCTION_RETURN",captured.getValue().getTaskType());assertEquals(7001L,captured.getValue().getRoundId());
+   assertEquals("TODO",captured.getValue().getStatus());assertFalse(captured.getValue().getNotificationOnly());verifyNoInteractions(delivery);
    verify(tasks,never()).close(any(),eq(5L),any(),any(),any(),any(),any());
   }else assertThrows(RuntimeException.class,()->service.reviewed(176L,7001L));
  }

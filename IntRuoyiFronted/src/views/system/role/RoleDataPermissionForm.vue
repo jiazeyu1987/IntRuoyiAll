@@ -87,6 +87,7 @@ import { SystemDataScopeEnum } from '@/utils/constants'
 import * as RoleApi from '@/api/system/role'
 import * as DeptApi from '@/api/system/dept'
 import * as PermissionApi from '@/api/system/permission'
+import { createPermissionAuditIdempotencyKey, PermissionAuditKeyError } from '@/utils/permissionAudit'
 
 defineOptions({ name: 'SystemRoleDataPermissionForm' })
 
@@ -162,13 +163,16 @@ const submitForm = async () => {
           ? []
           : treeRef.value.getCheckedKeys(false),
       reason: formData.reason.trim(),
-      idempotencyKey: createPermissionAuditIdempotencyKey()
+      idempotencyKey: createPermissionAuditIdempotencyKey('DATA-SCOPE', formData.id!)
     } as PermissionApi.PermissionAssignRoleDataScopeReqVO
     await PermissionApi.assignRoleDataScope(data)
     message.success(t('common.updateSuccess'))
     dialogVisible.value = false
     // 发送操作成功的事件
     emit('success')
+  } catch (error) {
+    if (error instanceof PermissionAuditKeyError) message.error(error.message)
+    throw error
   } finally {
     formLoading.value = false
   }
@@ -202,10 +206,4 @@ const handleCheckedTreeExpand = () => {
   }
 }
 
-const createPermissionAuditIdempotencyKey = () => {
-  if (typeof crypto !== 'object' || typeof crypto.randomUUID !== 'function') {
-    throw new Error('当前浏览器不支持 crypto.randomUUID，无法生成权限审计幂等键')
-  }
-  return `SYSTEM-PERM-DATA-SCOPE-${formData.id}-${crypto.randomUUID()}`
-}
 </script>

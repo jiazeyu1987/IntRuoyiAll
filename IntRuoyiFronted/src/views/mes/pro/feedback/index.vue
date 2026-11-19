@@ -324,14 +324,14 @@
           row-key="id"
           :cell-class-name="resolveImportRecordCellClassName"
         >
-          <el-table-column label="工单" prop="workOrderCode" min-width="150" />
-          <el-table-column label="产品编码" prop="itemCode" min-width="140"><template #default="{ row }"><ProductCodeLink :code="row.itemCode" /></template></el-table-column>
+          <el-table-column label="工单" prop="workOrderCode" min-width="150" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
+          <el-table-column label="产品编码" prop="itemCode" min-width="140"><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
           <el-table-column label="产品名称" prop="itemName" min-width="160" />
           <el-table-column label="规格" prop="specification" min-width="120" />
           <el-table-column label="工序" min-width="180">
             <template #default="scope">
               <div class="feedback-import-process">
-                <span class="feedback-import-process__line">{{ scope.row.processCode || '--' }}</span>
+                <span class="feedback-import-process__line"><ProcessCodeLink :code="scope.row.processCode" empty-text="--" /></span>
                 <span class="feedback-import-process__line">{{ scope.row.processName || '--' }}</span>
               </div>
             </template>
@@ -472,6 +472,9 @@
 </template>
 
 <script setup lang="ts">
+import ProcessCodeLink from '@/components/ProcessCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { showImportResult } from '@/utils/importResult'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'

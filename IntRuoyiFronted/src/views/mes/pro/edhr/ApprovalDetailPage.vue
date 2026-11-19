@@ -20,8 +20,8 @@
       <template v-if="detail">
         <el-descriptions :column="2" border class="edhr-detail__summary">
           <el-descriptions-item label="执行编号">{{ detail.executionCode }}</el-descriptions-item>
-          <el-descriptions-item label="工单号">{{ detail.workOrderCode }}</el-descriptions-item>
-          <el-descriptions-item label="批次号">{{ detail.batchCode }}</el-descriptions-item>
+          <el-descriptions-item label="工单号"><WorkOrderCodeLink :code="detail.workOrderCode" :work-order-id="detail.workOrderId" /></el-descriptions-item>
+          <el-descriptions-item label="批次号"><ProductionBatchCodeLink :code="detail.batchCode" /></el-descriptions-item>
           <el-descriptions-item label="工序">{{ detail.processName || '--' }}</el-descriptions-item>
           <el-descriptions-item label="工作站">{{ detail.workstationName || '--' }}</el-descriptions-item>
           <el-descriptions-item label="状态">
@@ -188,7 +188,7 @@
                 </template>
               </el-table-column>
               <el-table-column label="签名编号" prop="id" width="90" />
-              <el-table-column label="执行编号" prop="executionCode" min-width="155" />
+              <el-table-column label="执行编号" prop="executionCode" min-width="155"><template #default="{ row }"><ExecutionCodeLink :code="row.executionCode" :execution-id="row.executionId" /></template></el-table-column>
               <el-table-column label="签名动作" width="120">
                 <template #default="{ row }">{{ formatSignatureAction(row.actionType) }}</template>
               </el-table-column>
@@ -300,6 +300,9 @@
 </template>
 
 <script setup lang="ts">
+import ExecutionCodeLink from '@/components/ExecutionCodeLink.vue'
+import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 const approvalInvalidation = useApprovalCenterInvalidationStore()

@@ -18,7 +18,6 @@ public class MesEdhrWorkTaskOverdueJob implements JobHandler {
     private static final int DEFAULT_LIMIT = 200;
 
     private final MesProEdhrWorkTaskService workTaskService;
-    private final cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOverdueService handoffOverdueService;
 
     @Override
     @TenantJob
@@ -26,12 +25,10 @@ public class MesEdhrWorkTaskOverdueJob implements JobHandler {
         int limit = parseLimit(param);
         MesProEdhrWorkTaskOverdueProcessResult result =
                 workTaskService.processOverdueTasksWithSummary(LocalDateTime.now(), limit);
-        int handoffOverdue = handoffOverdueService.process(LocalDateTime.now(), limit);
         return "eDHR work task overdue processing: scanned=" + result.getScannedCount()
                 + ", overdue=" + result.getOverdueCount()
                 + ", skipped=" + result.getSkippedCount()
                 + ", skippedReason=" + result.getSkippedReason()
-                + ", handoffOverdue=" + handoffOverdue
                 + ", limit=" + limit;
     }
 

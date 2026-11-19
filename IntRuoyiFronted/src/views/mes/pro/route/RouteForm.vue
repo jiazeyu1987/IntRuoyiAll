@@ -64,7 +64,7 @@ const waitForContentRef = async () => {
   return contentRef.value!
 }
 
-const open = async (type: string, id?: number) => {
+const open = async (type: string, id?: number | string) => {
   formType.value = type
   dialogVisible.value = true
   try {

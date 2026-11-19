@@ -63,8 +63,8 @@
           </el-table-column>
           <el-table-column label="生产上下文" min-width="280">
             <template #default="{ row }">
-              <div class="edhr-traveler-page__strong">{{ row.workOrderCode || '--' }}</div>
-              <div class="edhr-traveler-page__muted">批次：{{ row.batchCode || '--' }}</div>
+              <div class="edhr-traveler-page__strong"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></div>
+              <div class="edhr-traveler-page__muted">批次：<ProductionBatchCodeLink :code="row.batchCode" :batch-execution-id="row.batchExecutionId" /></div>
               <div class="edhr-traveler-page__muted">批次执行：{{ row.batchExecutionCode || row.batchExecutionId || '--' }}</div>
             </template>
           </el-table-column>
@@ -79,7 +79,7 @@
           <el-table-column label="工序" min-width="180">
             <template #default="{ row }">
               <div class="edhr-traveler-page__strong">{{ row.processName || '--' }}</div>
-              <div class="edhr-traveler-page__muted">{{ row.processCode || '--' }}</div>
+              <div class="edhr-traveler-page__muted"><ProcessCodeLink :code="row.processCode" empty-text="--" /></div>
             </template>
           </el-table-column>
           <el-table-column label="状态" width="110">
@@ -285,8 +285,8 @@
       <el-descriptions v-if="currentTraveler" :column="1" border>
         <el-descriptions-item label="流转单编码">{{ currentTraveler.travelerCode || '--' }}</el-descriptions-item>
         <el-descriptions-item label="模板">{{ currentTraveler.templateCode || '--' }}</el-descriptions-item>
-        <el-descriptions-item label="工单">{{ currentTraveler.workOrderCode || '--' }}</el-descriptions-item>
-        <el-descriptions-item label="批次">{{ currentTraveler.batchCode || '--' }}</el-descriptions-item>
+        <el-descriptions-item label="工单"><WorkOrderCodeLink :code="currentTraveler.workOrderCode" :work-order-id="currentTraveler.workOrderId" /></el-descriptions-item>
+        <el-descriptions-item label="批次"><ProductionBatchCodeLink :code="currentTraveler.batchCode" /></el-descriptions-item>
         <el-descriptions-item label="SN">{{ currentTraveler.serialNo || '--' }}</el-descriptions-item>
         <el-descriptions-item label="工序">{{ currentTraveler.processName || '--' }}</el-descriptions-item>
         <el-descriptions-item label="技术详情">
@@ -302,6 +302,10 @@
 </template>
 
 <script setup lang="ts">
+import { createSecureUuid } from '@/utils/uuid'
+import ProcessCodeLink from '@/components/ProcessCodeLink.vue'
+import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import {
@@ -550,7 +554,7 @@ const openGenerateDialog = async () => {
     batchExecutionId: undefined,
     routeProcessId: undefined,
     serialNo: undefined,
-    requestId: `traveler-${Date.now()}`,
+    requestId: `traveler-${createSecureUuid()}`,
     remark: undefined
   })
   generateDialogVisible.value = true

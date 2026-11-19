@@ -26,15 +26,13 @@ class MesProEdhrWorkTaskFlowContractTest {
     }
 
     @Test
-    void taskCreationMustSendNotifyAfterRealActionUrlIsBuilt() throws Exception {
+    void taskCreationBuildsActionUrlAfterRealIdIsAssigned() throws Exception {
         String source = read("src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/"
                 + "MesProEdhrWorkTaskServiceImpl.java");
         int insertIndex = source.indexOf("workTaskMapper.insert(task);");
         int actionUrlIndex = source.indexOf("task.setActionUrl(buildActionUrl(task));");
-        int notifyIndex = source.indexOf("sendNotify(task);");
         assertTrue(insertIndex >= 0, "工作任务必须先插入以获得真实主键。");
         assertTrue(actionUrlIndex > insertIndex, "工作任务必须在插入后用真实主键生成 actionUrl。");
-        assertTrue(notifyIndex > actionUrlIndex, "站内信必须在真实 actionUrl 回填后发送。");
     }
 
     @Test
@@ -54,22 +52,6 @@ class MesProEdhrWorkTaskFlowContractTest {
     }
 
     @Test
-    void workTaskNotifyTemplatesMustSeedEveryRuntimeTaskType() throws Exception {
-        String javaSource = read("src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/"
-                + "MesProEdhrWorkTaskServiceImpl.java");
-        String seedSql = read("../sql/mysql/20260611_mes_edhr_work_task_flow.sql")
-                + read("../sql/mysql/20260612_mes_edhr_final_archive_work_task.sql")
-                + read("../sql/mysql/20260718_mes_edhr_fill_task_reassignment_notify.sql");
-        assertRuntimeTemplateSeeded(javaSource, seedSql, "MES_EDHR_FILL_TASK_ASSIGNED");
-        assertRuntimeTemplateSeeded(javaSource, seedSql, "MES_EDHR_FILL_TASK_REASSIGNED");
-        assertRuntimeTemplateSeeded(javaSource, seedSql, "MES_EDHR_REVIEW_TASK_ASSIGNED");
-        assertRuntimeTemplateSeeded(javaSource, seedSql, "MES_EDHR_APPROVE_TASK_ASSIGNED");
-        assertRuntimeTemplateSeeded(javaSource, seedSql, "MES_EDHR_REWORK_TASK_ASSIGNED");
-        assertRuntimeTemplateSeeded(javaSource, seedSql, "MES_EDHR_ARCHIVE_TASK_ASSIGNED");
-        assertRuntimeTemplateSeeded(javaSource, seedSql, "MES_EDHR_WORK_TASK_OVERDUE");
-    }
-
-    @Test
     void myWorkTaskPageMustAllowFillerBatchExecutionQueryWithoutOpeningManagementActions() throws Exception {
         String controller = read("src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/"
                 + "MesProEdhrWorkTaskController.java");
@@ -82,13 +64,6 @@ class MesProEdhrWorkTaskFlowContractTest {
         assertTrue(controller.contains(
                         "@PreAuthorize(\"@ss.hasPermission('mes:pro-edhr-work-task-rule:update')\")"),
                 "工作任务规则维护仍必须保留规则 update 权限。");
-    }
-
-    private static void assertRuntimeTemplateSeeded(String javaSource, String seedSql, String templateCode) {
-        assertTrue(javaSource.contains("\"" + templateCode + "\""),
-                "运行时代码必须显式引用模板编码 " + templateCode);
-        assertTrue(seedSql.contains("'" + templateCode + "'"),
-                "正式 MySQL 种子脚本必须插入模板编码 " + templateCode);
     }
 
     private static void assertContains(String relativePath, String... expectedTexts) throws Exception {

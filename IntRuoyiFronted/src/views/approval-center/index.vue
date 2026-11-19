@@ -459,6 +459,7 @@
 </template>
 
 <script lang="ts" setup>
+import { createSecureUuid } from '@/utils/uuid'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import { readBusinessEvidence } from '@/views/mes/pro/processpool/components/businessEvidenceDisplay'
@@ -1288,7 +1289,7 @@ const openReviewDialog = (row: ApprovalTaskSummaryVO) => {
   reviewForm.passwordFocused = false
   reviewDialogVisible.value = true
   reviewPreview.value = undefined
-  reviewIdempotencyKey.value = crypto.randomUUID()
+  reviewIdempotencyKey.value = createSecureUuid()
   if (row.moduleCode === 'EDHR') void loadReviewPreview()
 }
 
@@ -1308,7 +1309,7 @@ const loadReviewPreview = async () => {
     const presentation = readBusinessEvidence(preview.content.canonicalBusinessContentJson)
     if (presentation.error) throw new Error(presentation.error)
     reviewPreview.value = preview
-    reviewIdempotencyKey.value = crypto.randomUUID()
+    reviewIdempotencyKey.value = createSecureUuid()
   } catch (error) {
     if (generation === reviewGeneration) reviewPreviewError.value = resolveErrorMessage(error)
   } finally {

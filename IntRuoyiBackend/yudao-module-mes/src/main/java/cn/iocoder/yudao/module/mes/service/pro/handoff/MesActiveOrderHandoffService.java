@@ -498,7 +498,10 @@ public class MesActiveOrderHandoffService {
         task.setActionUrl(actionUrl(task));validate(task);
         require(tasks.insert(task)==1,"正式交接任务未持久化");
         audit.append("task-created",MesActiveOrderHandoffService.class.getName()+"#create","MES_HANDOFF_TASK",task.getId(),0,null,task,reason);
-        delivery.schedule(task); return task;
+        if (!Set.of("QA_REVIEW", "QA_DECISION_HANDOFF", "NCR_FREEZE_NOTICE", "NCR_DISPOSITION_NOTICE",
+                "PRODUCTION_RETURN", "PQC_RETURN").contains(type))
+            delivery.schedule(task);
+        return task;
     }
     private String actionUrl(MesActiveOrderHandoffTaskDO task) {
         String path=switch(task.getTaskType()) {

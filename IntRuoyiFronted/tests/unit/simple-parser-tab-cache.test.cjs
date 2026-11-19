@@ -12,6 +12,9 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
 
 function load(source, imports, globals = {}) {
   const context = { exports: {}, ...globals, require: (name) => {
+    if (name === '@/utils/uuid') return require('../helpers/load-secure-uuid.cjs')({
+      getRandomValues: bytes => require('node:crypto').webcrypto.getRandomValues(bytes)
+    })
     if (Object.hasOwn(imports, name)) return imports[name]
     throw new Error(`Unexpected import: ${name}`)
   } }
@@ -77,6 +80,7 @@ for (const common of [false, true]) {
       }),
       './components/SimpleParserHeader.vue': {}, '../parser/components/SimpleParserHeader.vue': {},
       './components/SimpleParameterDialog.vue': {}, './components/SimpleTrialPreview.vue': {},
+      './components/SimpleReuseDialog.vue': {},
       './simpleWord': {}, '@/assets/templates/simple-parser-export.docx?url': {},
       '../parser/components/SimplePqcTrialPreview.vue': {},
       '../parser/components/ParserRegulationResult.vue': {},

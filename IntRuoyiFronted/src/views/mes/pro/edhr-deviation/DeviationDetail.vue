@@ -28,7 +28,7 @@
             <dl class="edhr-detail-fields">
               <div v-if="detail.activeOrderId">
                 <dt>生产订单</dt>
-                <dd>{{ detail.workOrderCode || '—' }}</dd>
+                <dd><WorkOrderCodeLink :code="detail.workOrderCode" /></dd>
               </div>
               <div>
                 <dt>关联批记录</dt>
@@ -41,7 +41,7 @@
               </div>
               <div>
                 <dt>批号</dt>
-                <dd>{{ detail.batchCode || "—" }}</dd>
+                <dd><ProductionBatchCodeLink :code="detail.batchCode" /></dd>
               </div>
               <div>
                 <dt>产品名称</dt>
@@ -444,6 +444,8 @@
 </template>
 
 <script setup lang="ts">
+import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import DeviationCorrectivePanel from './components/DeviationCorrectivePanel.vue'
 import DeviationResponsibilityRecovery from './components/DeviationResponsibilityRecovery.vue'
 import DeviationReviewerSelect from './components/DeviationReviewerSelect.vue'
@@ -464,6 +466,7 @@ import { useUserStore } from '@/store/modules/user'
 import { checkPermi } from '@/utils/permission'
 import { getSelectionList } from '@/api/system/user'
 import { parseExactIntegerJson } from '@/utils/exactIntegerJson'
+import { createSecureUuid } from '@/utils/uuid'
 const message = useMessage()
 const approvalInvalidation = useApprovalCenterInvalidationStore()
 const signatureUser = computed(() => useUserStore().getUser)
@@ -713,7 +716,7 @@ const openNcrCreateDialog = () => {
   ncrCreateForm.nonconformanceReason = ''
   ncrCreateForm.remark = ''
   ncrCreateForm.signaturePassword = ''
-  ncrCreateForm.idempotencyKey = `EDHR_DEVIATION_NCR_${detail.value.id}_${Date.now()}_${Math.random().toString(36).slice(2)}`
+  ncrCreateForm.idempotencyKey = `EDHR_DEVIATION_NCR_${detail.value.id}_${createSecureUuid()}`
   ncrCreateVisible.value = true
 }
 const submitNcrCreate = async () => {

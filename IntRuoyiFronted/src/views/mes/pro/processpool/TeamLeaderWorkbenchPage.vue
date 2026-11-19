@@ -1456,7 +1456,7 @@
             {{ detail.processName || detail.processCode || '--' }}
           </el-descriptions-item>
           <el-descriptions-item label="生产工单">
-            {{ detail.workOrderCode || '--' }}
+            <WorkOrderCodeLink :code="detail.workOrderCode" :work-order-id="detail.workOrderId" />
           </el-descriptions-item>
           <el-descriptions-item
             v-if="isPqcSubmissionRow(detail)"
@@ -1808,7 +1808,7 @@
             </template>
           </el-table-column>
           <el-table-column label="批次号" prop="batchCode" min-width="180">
-            <template #default="{ row }">{{ row.batchCode || '批次号缺失' }}</template>
+            <template #default="{ row }"><ProductionBatchCodeLink :code="row.batchCode" /></template>
           </el-table-column>
           <el-table-column label="产品名称" prop="productName" min-width="200" />
           <el-table-column label="路线名称" prop="routeName" min-width="200" />
@@ -2143,7 +2143,7 @@
           >
             <div>
               <span>生产订单</span>
-              <strong>{{ activeOrderConflictDetail.workOrderCode }}</strong>
+              <strong><WorkOrderCodeLink :code="activeOrderConflictDetail.workOrderCode" :work-order-id="activeOrderConflictDetail.workOrderId" /></strong>
             </div>
             <div>
               <span>工艺路线</span>
@@ -3827,7 +3827,7 @@
             <div class="team-leader-workbench__correction-material-card">
               <div class="team-leader-workbench__correction-material-title">
                 <strong>{{ materialRow.materialName || materialRow.materialCode }}</strong>
-                <small v-if="materialRow.materialCode">{{ materialRow.materialCode }}</small>
+                <small v-if="materialRow.materialCode"><MaterialCodeLink :code="materialRow.materialCode" /></small>
               </div>
               <div class="team-leader-workbench__correction-material-summary">
                 <div class="team-leader-workbench__correction-field-row">
@@ -4057,7 +4057,7 @@
         title="本流程将按全部最新正式版本提交审批；不提供逐项版本选择；审批通过后整单从头执行。"
       />
       <div class="upgrade-summary">
-        <div>来源工单：{{ activeOrderVersionUpgradePreview.workOrderCode || '-' }}</div>
+        <div>来源工单：<WorkOrderCodeLink :code="activeOrderVersionUpgradePreview.workOrderCode" :work-order-id="activeOrderVersionUpgradePreview.workOrderId" /></div>
         <div>活跃订单：{{ activeOrderVersionUpgradePreview.activeOrderId }}</div>
         <div>目标策略：全部最新正式版本</div>
       </div>
@@ -4121,6 +4121,9 @@
 </template>
 
 <script setup lang="ts">
+import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import LossReasonCatalog from './components/LossReasonCatalog.vue'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
@@ -4247,6 +4250,7 @@ import {
 import { MdItemApi } from '@/api/mes/md/item'
 import { formatDateTimeValue, formatDate } from '@/utils/formatTime'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+import { createSecureUuid } from '@/utils/uuid'
 
 const testModeEnabled = useTestMode()
 
@@ -7376,7 +7380,7 @@ const getOrCreateAllocationSaveIdempotencyKey = (request: {
   if (allocationSaveIdempotencyState.value?.requestIdentity !== requestIdentity) {
     allocationSaveIdempotencyState.value = {
       requestIdentity,
-      key: crypto.randomUUID()
+      key: createSecureUuid()
     }
   }
   return allocationSaveIdempotencyState.value.key
@@ -9826,7 +9830,7 @@ const submitAddActiveOrder = async () => {
 const getOrCreateActiveOrderReleaseIdempotencyKey = (row: TeamLeaderActiveOrderRespVO) => {
   const existingKey = releaseApplicationIdempotencyKeys.get(row.id)
   if (existingKey) return existingKey
-  const idempotencyKey = `team-leader-active-order-release-${row.id}-${Date.now()}`
+  const idempotencyKey = `team-leader-active-order-release-${row.id}-${createSecureUuid()}`
   releaseApplicationIdempotencyKeys.set(row.id, idempotencyKey)
   return idempotencyKey
 }
@@ -10169,7 +10173,7 @@ const submitActiveOrderVersionUpgrade = async () => {
     if (!requireWritableHandoff()) return
     const result = await submitTeamLeaderActiveOrderVersionUpgrade({
       activeOrderId: requirePositiveNumber(preview.activeOrderId, '活跃订单记录ID不能为空'),
-      idempotencyKey: `active-order-version-upgrade-${preview.activeOrderId}-${Date.now()}`,
+      idempotencyKey: `active-order-version-upgrade-${preview.activeOrderId}-${createSecureUuid()}`,
       upgradeReason: activeOrderVersionUpgradeReason.value.trim(),
       confirmRestartFromBeginning: activeOrderVersionUpgradeConfirmRestart.value
     })
@@ -10183,7 +10187,7 @@ const submitActiveOrderVersionUpgrade = async () => {
   }
 }
 
-const createSimulationCopyRunId = () => `SIMCOPY-${Date.now()}-${crypto.randomUUID()}`
+const createSimulationCopyRunId = () => `SIMCOPY-${Date.now()}-${createSecureUuid()}`
 
 const handleCopyLatestSimulationActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
   if (!requireWritableHandoff()) return

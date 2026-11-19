@@ -16,7 +16,7 @@ export interface ProProcessContentVO {
 // MES 生产工序内容 API
 export const ProProcessContentApi = {
   // 查询工序内容列表（按工序编号）
-  getProcessContentListByProcessId: async (processId: number) => {
+  getProcessContentListByProcessId: async (processId: number | string) => {
     return await request.get({
       url: `/mes/pro/process-content/list-by-process?processId=` + processId
     })

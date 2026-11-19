@@ -27,12 +27,12 @@
           />
         </template>
       </el-table-column>
-      <el-table-column label="产品编码" align="center" prop="itemCode" min-width="120"><template #default="{ row }"><ProductCodeLink :code="row.itemCode" /></template></el-table-column>
+      <el-table-column label="产品编码" align="center" prop="itemCode" min-width="120"><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="产品名称" align="center" prop="itemName" min-width="140" />
       <el-table-column label="规格型号" align="center" prop="specification" min-width="120" />
       <el-table-column label="单位" align="center" prop="unitMeasureName" width="80" />
       <el-table-column label="出库数量" align="center" prop="quantity" width="100" />
-      <el-table-column label="批次号" align="center" prop="batchCode" min-width="120" />
+      <el-table-column label="批次号" align="center" prop="batchCode" min-width="120"><template #default="{ row }"><BatchCodeLink :code="row.batchCode" :batch-id="row.batchId" /></template></el-table-column>
       <el-table-column label="是否校验" align="center" prop="oqcCheckFlag" width="100">
         <template #default="scope">
           <dict-tag :type="DICT_TYPE.INFRA_BOOLEAN_STRING" :value="scope.row.oqcCheckFlag" />
@@ -157,7 +157,8 @@
 </template>
 
 <script setup lang="ts">
-import ProductCodeLink from '@/components/ProductCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
+import BatchCodeLink from '@/components/BatchCodeLink.vue'
 import { WmProductSalesLineApi, WmProductSalesLineVO } from '@/api/mes/wm/productsales/line'
 import MdItemSelect from '@/views/mes/md/item/components/MdItemSelect.vue'
 import WmSalesNoticeLineSelect from '@/views/mes/wm/salesnotice/components/WmSalesNoticeLineSelect.vue'

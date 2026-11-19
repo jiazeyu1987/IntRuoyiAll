@@ -143,6 +143,7 @@ import {
   resolveTrainingPageErrorMessage
 } from '../presentation'
 import { formatDateTimeValue } from '@/utils/formatTime'
+import { createSecureUuid } from '@/utils/uuid'
 import { openControlledFileViewer } from '../../shared/viewer-navigation'
 
 defineOptions({ name: 'DccTrainingTask' })
@@ -291,7 +292,7 @@ const startSessionIfNeeded = async () => {
     return
   }
   const requestSequence = ++startRequestSequence
-  const requestedSessionId = crypto.randomUUID()
+  const requestedSessionId = createSecureUuid()
   activeClientSessionId = requestedSessionId
   const startedTask = await startTrainingViewSession(progressId.value, {
     clientSessionId: requestedSessionId

@@ -30,6 +30,7 @@
 
 <script setup lang="ts">
 import type { FormInstance, FormRules } from 'element-plus'
+import { createSecureUuid } from '@/utils/uuid'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import DeviationReceiverSelect from '@/views/mes/pro/edhr-deviation/components/DeviationReceiverSelect.vue'
 import { createActiveOrderDeviation, getActiveOrderDeviationCreationBatches, type DeviationBatchOptionRespVO, type DeviationCreateReqVO } from '@/api/mes/pro/edhr/deviation'
@@ -46,7 +47,7 @@ const error = ref('')
 const batchesLoaded = ref(false)
 const batches = ref<DeviationBatchOptionRespVO[]>([])
 const formRef = ref<FormInstance>()
-const form = reactive<DeviationCreateReqVO>({ batchExecutionId: undefined, level: 'NORMAL', categoryCodes: [], description: '', levelBasis: '', discoveryLocation: '', emergencyAction: '', idempotencyKey: `EDHR_ORDER_DEVIATION_${props.activeOrderId}_${crypto.randomUUID()}`, signaturePassword: '' })
+const form = reactive<DeviationCreateReqVO>({ batchExecutionId: undefined, level: 'NORMAL', categoryCodes: [], description: '', levelBasis: '', discoveryLocation: '', emergencyAction: '', idempotencyKey: `EDHR_ORDER_DEVIATION_${props.activeOrderId}_${createSecureUuid()}`, signaturePassword: '' })
 const categoryOptions = [
   { label: '生产过程', value: 'PRODUCTION_PROCESS' }, { label: '生产公用系统', value: 'PRODUCTION_UTILITY' },
   { label: '检验', value: 'INSPECTION' }, { label: '验证确认', value: 'VALIDATION_CONFIRMATION' },

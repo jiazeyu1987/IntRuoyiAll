@@ -15,8 +15,8 @@
     />
     <div v-loading="loading">
       <el-descriptions v-if="task" :column="2" border>
-        <el-descriptions-item label="工单">{{ task.workOrderCode }}</el-descriptions-item>
-        <el-descriptions-item label="批次">{{ task.batchCode }}</el-descriptions-item>
+        <el-descriptions-item label="工单"><WorkOrderCodeLink :code="task.workOrderCode" /></el-descriptions-item>
+        <el-descriptions-item label="批次"><ProductionBatchCodeLink :code="task.batchCode" /></el-descriptions-item>
         <el-descriptions-item label="补正责任人">原放行申请人（当前账号）</el-descriptions-item>
         <el-descriptions-item label="状态">{{
           task.taskStatus === 'DONE' ? '已重新提交' : '待补正'
@@ -98,10 +98,13 @@
   </el-card>
 </template>
 <script setup lang="ts">
+import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { UploadRequestOptions } from 'element-plus'
 import { formatDate } from '@/utils/formatTime'
+import { createSecureUuid } from '@/utils/uuid'
 import { useProfileWorkbenchTodoBadgeStore } from '@/store/modules/profileWorkbenchTodoBadge'
 import type { ActiveOrderDossierFileCategoryVO } from '@/api/mes/pro/processpool/teamLeader'
 import {
@@ -177,7 +180,7 @@ const resubmit = async () => {
   const selected = task.value
   const current = revision
   if (!selected || !canResubmit.value) return
-  key.value ||= crypto.randomUUID()
+  key.value ||= createSecureUuid()
   submitting.value = true
   error.value = ''
   try {

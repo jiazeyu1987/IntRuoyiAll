@@ -22,9 +22,12 @@ function harness() {
   const cache = { get: key => values.get(key), set: (key, value) => values.set(key, structuredClone(value)), delete: key => values.delete(key) }
   const authModule = { exports: {} }
   const authSource = fs.readFileSync(path.join(root, 'src/utils/auth.ts'), 'utf8')
+  const uuidModule = { exports: {} }
+  Function('exports', compile(fs.readFileSync(path.join(root, 'src/utils/uuid.ts'), 'utf8')))(uuidModule.exports)
   Function('require', 'exports', compile(authSource))(name => {
     if (name === '@/hooks/web/useCache') return { useCache: () => ({ wsCache: cache }), CACHE_KEY: keys }
     if (name === '@/utils/jsencrypt') return { decrypt: value => value }
+    if (name === '@/utils/uuid') return uuidModule.exports
     if (name === 'vue') return vue
     throw new Error(`Unexpected import: ${name}`)
   }, authModule.exports)

@@ -74,22 +74,14 @@
       <!-- 列表 -->
       <ContentWrap>
         <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true">
-          <el-table-column label="产品物料编码" align="center" prop="itemCode" min-width="120"><template #default="{ row }"><ProductCodeLink :code="row.itemCode" /></template></el-table-column>
+          <el-table-column label="产品物料编码" align="center" prop="itemCode" min-width="120"><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
           <el-table-column label="产品物料名称" align="center" prop="itemName" min-width="140" />
           <el-table-column label="规格型号" align="center" prop="specification" min-width="120" />
           <el-table-column label="在库数量" align="center" prop="quantity" min-width="100" />
           <el-table-column label="单位" align="center" prop="unitMeasureName" min-width="80" />
           <el-table-column label="批次号" align="center" prop="batchCode" min-width="140">
             <template #default="scope">
-              <el-button
-                v-if="scope.row.batchId"
-                link
-                type="primary"
-                @click="openBatchDetail(scope.row.batchId)"
-              >
-                {{ scope.row.batchCode }}
-              </el-button>
-              <span v-else>-</span>
+              <BatchCodeLink :code="scope.row.batchCode" :batch-id="scope.row.batchId" />
             </template>
           </el-table-column>
           <el-table-column label="仓库" align="center" prop="warehouseName" min-width="100" />
@@ -140,19 +132,17 @@
   <!-- 库位详情弹窗 -->
   <AreaForm ref="areaFormRef" />
 
-  <!-- 批次详情弹窗 -->
-  <BatchForm ref="batchFormRef" />
+
 </template>
 
 <script setup lang="ts">
-import ProductCodeLink from '@/components/ProductCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { dateFormatter2 } from '@/utils/formatTime'
 import download from '@/utils/download'
 import { WmMaterialStockApi, WmMaterialStockVO } from '@/api/mes/wm/materialstock'
 import MdItemTypeTree from '@/views/mes/md/item/type/components/MdItemTypeTree.vue'
 import AreaForm from '@/views/mes/wm/warehouse/area/AreaForm.vue'
-import BatchForm from '@/views/mes/wm/batch/BatchForm.vue'
 import MdItemSelect from '@/views/mes/md/item/components/MdItemSelect.vue'
 import WmWarehouseSelect from '@/views/mes/wm/warehouse/components/WmWarehouseSelect.vue'
 import WmWarehouseLocationSelect from '@/views/mes/wm/warehouse/components/WmWarehouseLocationSelect.vue'
@@ -236,11 +226,7 @@ const openAreaDetail = (areaId: number) => {
   areaFormRef.value.open('detail', areaId)
 }
 
-/** 打开批次详情弹窗 */
-const batchFormRef = ref()
-const openBatchDetail = (batchId: number) => {
-  batchFormRef.value.open(batchId)
-}
+
 
 /** 导出按钮操作 */
 const handleExport = async () => {

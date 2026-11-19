@@ -5,7 +5,7 @@
       <Icon icon="ep:plus" class="mr-5px" /> 添加物料
     </el-button>
     <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true" border>
-      <el-table-column label="物料编码" align="center" prop="itemCode" min-width="120" />
+      <el-table-column label="物料编码" align="center" prop="itemCode" min-width="120" ><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="物料名称" align="center" prop="itemName" min-width="140" />
       <el-table-column label="规格型号" align="center" prop="specification" min-width="120" />
       <el-table-column label="单位" align="center" prop="unitMeasureName" width="80" />
@@ -16,7 +16,7 @@
         </template>
       </el-table-column>
       <el-table-column label="合格数量" align="center" prop="qualifiedQuantity" width="100" />
-      <el-table-column label="检验单号" align="center" prop="iqcCode" min-width="140" />
+      <el-table-column label="检验单号" align="center" prop="iqcCode" min-width="140"><template #default="{ row }"><InspectionCodeLink kind="iqc" :code="row.iqcCode" /></template></el-table-column>
       <el-table-column label="备注" align="center" prop="remark" min-width="120" />
       <el-table-column v-if="isEditable" label="操作" align="center" width="120">
         <template #default="scope">
@@ -81,6 +81,8 @@
 </template>
 
 <script setup lang="ts">
+import InspectionCodeLink from '@/components/InspectionCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import type { FormRules } from 'element-plus'
 import { DICT_TYPE } from '@/utils/dict'
 import { WmArrivalNoticeLineApi, WmArrivalNoticeLineVO } from '@/api/mes/wm/arrivalnotice/line'

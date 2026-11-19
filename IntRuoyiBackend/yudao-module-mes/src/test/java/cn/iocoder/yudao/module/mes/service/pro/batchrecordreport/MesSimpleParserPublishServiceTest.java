@@ -43,6 +43,7 @@ class MesSimpleParserPublishServiceTest {
     private MesProCraftService crafts;
     private MesTeamLeaderRuntimeConfigService devices;
     private MesProRouteService routes;
+    private MesProRouteTreeService routeTrees;
     private MesProRouteWorkstationService workstations;
     private MesProRouteCandidateConfigService configs;
     private MesProcessPoolTeamDeviceMapper deviceMapper;
@@ -80,6 +81,7 @@ class MesSimpleParserPublishServiceTest {
                 cn.iocoder.yudao.module.mes.dal.dataobject.md.autocode.MesMdAutoCodePartDO.builder().id(1L).build()));
         processes=mock(MesProProcessService.class);crafts=mock(MesProCraftService.class);devices=mock(MesTeamLeaderRuntimeConfigService.class);
         routes=mock(MesProRouteService.class);configs=mock(MesProRouteCandidateConfigService.class);
+        routeTrees=mock(MesProRouteTreeService.class);
         workstations=mock(MesProRouteWorkstationService.class);
         when(workstations.requireWorkshop(70L)).thenReturn(
                 cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkshopDO.builder()
@@ -131,6 +133,7 @@ class MesSimpleParserPublishServiceTest {
         var target=new MesSimpleParserPublishService();
         Map<String,Object> fields=new HashMap<>();fields.put("processService",processes);fields.put("craftService",crafts);fields.put("deviceService",devices);
         fields.put("routeService",routes);fields.put("candidateConfig",configs);fields.put("processMapper",processMapper);fields.put("deviceMapper",deviceMapper);
+        fields.put("routeTreeService",routeTrees);
         fields.put("routeWorkstationService",workstations);
         fields.put("routeMapper",routeMapper);fields.put("versionMapper",versionMapper);fields.put("workflow",workflow);fields.put("jdbc",jdbc);
         fields.put("itemMapper",itemMapper);fields.put("craftMapper",craftMapper);
@@ -194,6 +197,7 @@ class MesSimpleParserPublishServiceTest {
         assertEquals("选定车间",preview.getString("workshopName"));
         req.setPreviewToken(preview.getString("previewToken"));service.publish(req);
         verify(routes).createRouteWithProcesses(argThat(route -> Long.valueOf(70).equals(route.getWorkshopId())));
+        verify(routeTrees).assignParsedRoute(9L);
         verify(workstations).bindMachinery(900L,Set.of(980126L));
         verify(workstations).bindMachinery(901L,Set.of(980126L));
     }

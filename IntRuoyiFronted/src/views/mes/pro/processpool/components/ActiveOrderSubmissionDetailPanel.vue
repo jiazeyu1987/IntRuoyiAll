@@ -34,7 +34,7 @@
       >
         <div v-if="!embedded && !hideOrderSummary">
           <span>生产订单</span>
-          <strong>{{ activeOrderWorkOrderDisplay.workOrderCode }}</strong>
+          <strong><WorkOrderCodeLink :code="activeOrderWorkOrderDisplay.workOrderCode" /></strong>
         </div>
         <div v-if="!embedded && !hideOrderSummary">
           <span>工艺路线</span>
@@ -103,7 +103,7 @@
                 </tr>
                 <tr>
                   <th>生产批号</th>
-                  <td>{{ activeOrderWorkOrderDisplay.batchCode }}</td>
+                  <td><ProductionBatchCodeLink :code="activeOrderWorkOrderDisplay.batchCode" /></td>
                   <th>生产数量</th>
                   <td>{{ activeOrderWorkOrderDisplay.quantity }}</td>
                 </tr>
@@ -111,7 +111,7 @@
                   <th>生产指令</th>
                   <td>{{ activeOrderWorkOrderDisplay.demandBillNo }}</td>
                   <th>生产订单号</th>
-                  <td>{{ activeOrderWorkOrderDisplay.workOrderCode }}</td>
+                  <td><WorkOrderCodeLink :code="activeOrderWorkOrderDisplay.workOrderCode" /></td>
                 </tr>
                 <tr>
                   <th>图号</th>
@@ -150,10 +150,10 @@
                   v-for="pair in summaryPickListMaterialPairs"
                   :key="pair.key"
                 >
-                  <td>{{ pair.left?.materialCode || blankSummaryField }}</td>
+                  <td><MaterialCodeLink :code="pair.left?.materialCode" :empty-text="blankSummaryField" /></td>
                   <td>{{ pair.left?.materialName || blankSummaryField }}</td>
                   <td>{{ formatSummaryMaterialBatchCodes(pair.left) }}</td>
-                  <td>{{ pair.right?.materialCode || blankSummaryField }}</td>
+                  <td><MaterialCodeLink :code="pair.right?.materialCode" :empty-text="blankSummaryField" /></td>
                   <td>{{ pair.right?.materialName || blankSummaryField }}</td>
                   <td>{{ formatSummaryMaterialBatchCodes(pair.right) }}</td>
                 </tr>
@@ -364,7 +364,7 @@
                   </div>
                   <div>
                     <span>生产批号</span>
-                    <strong>{{ detail.batchCode || '未记录' }}</strong>
+                    <strong><ProductionBatchCodeLink :code="detail.batchCode" /></strong>
                   </div>
                   <div>
                     <span>产品规格</span>
@@ -372,7 +372,7 @@
                   </div>
                   <div>
                     <span>生产订单</span>
-                    <strong>{{ detail.workOrderCode }}</strong>
+                    <strong><WorkOrderCodeLink :code="detail.workOrderCode" :work-order-id="detail.workOrderId" /></strong>
                   </div>
                 </div>
                 <div
@@ -393,7 +393,7 @@
                     class="team-leader-workbench__production-record-table"
                   >
                     <el-table-column label="输入物料编码" min-width="135">
-                      <template #default="{ row }">{{ row.materialCode || '未记录' }}</template>
+                      <template #default="{ row }"><MaterialCodeLink :code="row.materialCode" empty-text="未记录" /></template>
                     </el-table-column>
                     <el-table-column label="输入物料名称" min-width="150">
                       <template #default="{ row }">{{ row.materialName || '未记录' }}</template>
@@ -448,7 +448,7 @@
                     >
                       <tr data-active-order-production-record-main-row>
                         <td>{{ formatDateTime(row.submittedAt) }}</td>
-                        <td>{{ row.materialCode || '未记录' }}</td>
+                        <td><MaterialCodeLink :code="row.materialCode" empty-text="未记录" /></td>
                         <td>{{ row.materialName || '未记录' }}</td>
                         <td>{{ row.materialSpecification || '未记录' }}</td>
                         <td>{{ formatTraceQuantity(row.outputQuantity) }}</td>
@@ -737,11 +737,11 @@
             <div class="team-leader-workbench__production-record-meta">
               <div>
                 <span>生产订单</span>
-                <strong>{{ detail.workOrderCode }}</strong>
+                <strong><WorkOrderCodeLink :code="detail.workOrderCode" :work-order-id="detail.workOrderId" /></strong>
               </div>
               <div>
                 <span>生产批号</span>
-                <strong>{{ detail.batchCode || '未记录' }}</strong>
+                <strong><ProductionBatchCodeLink :code="detail.batchCode" /></strong>
               </div>
               <div>
                 <span>产品规格</span>
@@ -965,7 +965,7 @@
               table-layout="fixed"
               class="team-leader-workbench__active-order-submission-table"
             >
-              <el-table-column label="物料编码" prop="materialCode" min-width="140" />
+              <el-table-column label="物料编码" prop="materialCode" min-width="140" ><template #default="{ row }"><MaterialCodeLink :code="row.materialCode" /></template></el-table-column>
               <el-table-column label="物料名称" prop="materialName" />
               <el-table-column label="规格型号" min-width="150">
                 <template #default="{ row: material }">
@@ -1004,7 +1004,7 @@
           >
             <h3>生产补料单</h3>
             <div class="order-document__description">
-              <div><span>生产订单编号：</span><strong>{{ detail.workOrderCode }}</strong></div>
+              <div><span>生产订单编号：</span><strong><WorkOrderCodeLink :code="detail.workOrderCode" :work-order-id="detail.workOrderId" /></strong></div>
               <div><span>物料条目：</span><strong>{{ replenishmentMaterials.length }}</strong></div>
             </div>
             <el-table
@@ -1030,7 +1030,7 @@
                   </span>
                 </template>
               </el-table-column>
-              <el-table-column label="物料编码" prop="materialCode" min-width="140" />
+              <el-table-column label="物料编码" prop="materialCode" min-width="140" ><template #default="{ row }"><MaterialCodeLink :code="row.materialCode" /></template></el-table-column>
               <el-table-column label="物料名称" prop="materialName" />
               <el-table-column label="物料主数据" min-width="140">
                 <template #default="{ row: material }">
@@ -1174,7 +1174,7 @@
             <div>
               <span>批次号</span>
               <strong >
-                {{ activeOrderWorkOrderDisplay.batchCode }}
+                <ProductionBatchCodeLink :code="activeOrderWorkOrderDisplay.batchCode" />
               </strong>
             </div>
             <div>
@@ -1215,7 +1215,7 @@
               <el-table-column label="批次号">
                 <template #default="{ row }">
                   <strong class="team-leader-workbench__work-order-list-emphasis">
-                    {{ row.batchCode }}
+                    <ProductionBatchCodeLink :code="row.batchCode" />
                   </strong>
                 </template>
               </el-table-column>
@@ -1417,7 +1417,7 @@
                   <th>型号规格</th>
                   <td>{{ activeOrderWorkOrderDisplay.productSpecification }}</td>
                   <th>批号</th>
-                  <td>{{ activeOrderWorkOrderDisplay.batchCode }}</td>
+                  <td><ProductionBatchCodeLink :code="activeOrderWorkOrderDisplay.batchCode" /></td>
                   <th>生产数量</th>
                   <td>{{ activeOrderWorkOrderDisplay.quantity }}</td>
                 </tr>
@@ -1673,7 +1673,7 @@
             </div>
             <div>
               <span>生产批号</span>
-              <strong>{{ detail.batchCode || '未记录' }}</strong>
+              <strong><ProductionBatchCodeLink :code="detail.batchCode" /></strong>
             </div>
             <div>
               <span>产品规格</span>
@@ -1681,7 +1681,7 @@
             </div>
             <div>
               <span>生产订单</span>
-              <strong>{{ detail.workOrderCode }}</strong>
+              <strong><WorkOrderCodeLink :code="detail.workOrderCode" :work-order-id="detail.workOrderId" /></strong>
             </div>
           </div>
           <div
@@ -1702,7 +1702,7 @@
               class="team-leader-workbench__production-record-table"
             >
               <el-table-column label="输入物料编码" min-width="135">
-                <template #default="{ row }">{{ row.materialCode || '未记录' }}</template>
+                <template #default="{ row }"><MaterialCodeLink :code="row.materialCode" empty-text="未记录" /></template>
               </el-table-column>
               <el-table-column label="输入物料名称" min-width="150">
                 <template #default="{ row }">{{ row.materialName || '未记录' }}</template>
@@ -1757,7 +1757,7 @@
               >
                 <tr data-active-order-production-record-main-row>
                   <td>{{ formatDateTime(row.submittedAt) }}</td>
-                  <td>{{ row.materialCode || '未记录' }}</td>
+                  <td><MaterialCodeLink :code="row.materialCode" empty-text="未记录" /></td>
                   <td>{{ row.materialName || '未记录' }}</td>
                   <td>{{ row.materialSpecification || '未记录' }}</td>
                   <td>{{ formatTraceQuantity(row.outputQuantity) }}</td>
@@ -1883,11 +1883,11 @@
           <div class="team-leader-workbench__production-record-meta">
             <div>
               <span>生产订单</span>
-              <strong>{{ detail.workOrderCode }}</strong>
+              <strong><WorkOrderCodeLink :code="detail.workOrderCode" :work-order-id="detail.workOrderId" /></strong>
             </div>
             <div>
               <span>生产批号</span>
-              <strong>{{ detail.batchCode || '未记录' }}</strong>
+              <strong><ProductionBatchCodeLink :code="detail.batchCode" /></strong>
             </div>
             <div>
               <span>产品规格</span>
@@ -2138,6 +2138,9 @@
 </template>
 
 <script setup lang="ts">
+import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'

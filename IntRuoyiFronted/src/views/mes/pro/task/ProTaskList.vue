@@ -18,7 +18,7 @@
     <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true">
       <el-table-column label="任务编码" align="center" prop="code" width="140" />
       <el-table-column label="任务名称" align="center" prop="name" min-width="150" />
-      <el-table-column label="工作站编号" align="center" prop="workstationCode" width="120" />
+      <el-table-column label="工作站编号" align="center" prop="workstationCode" width="120" ><template #default="{ row }"><WorkstationCodeLink :code="row.workstationCode" /></template></el-table-column>
       <el-table-column label="工作站名称" align="center" prop="workstationName" width="120" />
       <el-table-column label="排产数量" align="center" prop="quantity" width="100" />
       <el-table-column label="已生产数量" align="center" prop="producedQuantity" width="100" />
@@ -163,6 +163,7 @@
 </template>
 
 <script setup lang="ts">
+import WorkstationCodeLink from '@/components/WorkstationCodeLink.vue'
 import type { FormRules } from 'element-plus'
 import { dateFormatter } from '@/utils/formatTime'
 import { ProTaskApi, ProTaskVO } from '@/api/mes/pro/task'

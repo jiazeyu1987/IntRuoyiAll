@@ -1332,7 +1332,7 @@
                 :width="getProcessRouteColumnWidthString('processCode', 112)"
                 :min-width="getProcessRouteColumnMinWidthString('processCode', 104)"
                 v-bind="sortColumnAttrs('processCode')"
-              />
+              ><template #default="{ row }"><ProcessCodeLink :code="row.processCode" /></template></el-table-column>
               <el-table-column
                 v-if="isProcessRouteColumnVisible('processName')"
                 label="工序名称"
@@ -1966,7 +1966,7 @@
           max-height="420"
           border
         >
-          <el-table-column label="工单编码" prop="workOrderCode" min-width="170" />
+          <el-table-column label="工单编码" prop="workOrderCode" min-width="170" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
           <el-table-column label="ERP 订单编号" prop="sourceBillNo" min-width="170" />
           <el-table-column label="处理结果" width="100">
             <template #default="{ row }">
@@ -2007,7 +2007,7 @@
         row-key="id"
       >
         <el-table-column label="物料" prop="materialName" min-width="180" />
-        <el-table-column label="编码" prop="materialCode" min-width="220" />
+        <el-table-column label="编码" prop="materialCode" min-width="220" ><template #default="{ row }"><MaterialCodeLink :code="row.materialCode" /></template></el-table-column>
         <el-table-column label="缺少数量" prop="shortageQty" width="140" align="right">
           <template #default="{ row }">{{ formatQuantity(row.shortageQty) }}</template>
         </el-table-column>
@@ -2017,6 +2017,9 @@
 </template>
 
 <script setup lang="ts">
+import ProcessCodeLink from '@/components/ProcessCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 

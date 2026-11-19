@@ -19,7 +19,7 @@
       </el-table>
     </section>
     <template v-else-if="draft">
-      <p>{{ draft.row.workOrderCode }} · {{ draft.row.formName }}</p>
+      <p><WorkOrderCodeLink :code="draft.row.workOrderCode" /> · {{ draft.row.formName }}</p>
       <p>退回原因：{{ draft.row.rejectionReason }}</p>
       <p data-own-return-formal-identity>原事件：{{ draft.row.eventId }}；原退回轮次：{{ draft.row.rejectedReviewId }}；原修订：{{ draft.row.expectedRevisionId }}</p>
       <p>退回轮次：{{ draft.row.rejectedReviewId }}。修改业务值后由本人签名，组长再次复核。</p>
@@ -104,7 +104,7 @@
               aria-label="更正PQC损耗数量"
           /></label>
           <article v-for="item in draft.pqc.items" :key="item.itemCode">
-            <h4>{{ item.itemName }}（{{ item.itemCode }}）</h4>
+            <h4>{{ item.itemName }}（<MaterialCodeLink :code="item.itemCode" />）</h4>
             <p
               >接收标准：{{ item.standardText
               }}<template v-if="item.lowerLimit != null || item.upperLimit != null">
@@ -149,7 +149,7 @@
       :data="rows"
       empty-text="当前没有属于本人的有效退回待办"
     >
-      <el-table-column prop="workOrderCode" label="订单" />
+      <el-table-column prop="workOrderCode" label="订单" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" /></template></el-table-column>
       <el-table-column prop="formName" label="表单" />
       <el-table-column prop="rejectionReason" label="退回原因" />
       <el-table-column prop="rejectedAt" label="退回时间" />
@@ -174,6 +174,8 @@
 </template>
 
 <script setup lang="ts">
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 const approvalInvalidation = useApprovalCenterInvalidationStore()

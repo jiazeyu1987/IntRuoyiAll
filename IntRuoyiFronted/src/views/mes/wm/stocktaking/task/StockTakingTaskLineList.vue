@@ -13,11 +13,11 @@
       <Icon icon="ep:plus" class="mr-5px" /> 添加物料
     </el-button>
     <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true" border>
-      <el-table-column label="物料编码" align="center" prop="itemCode" min-width="140" />
+      <el-table-column label="物料编码" align="center" prop="itemCode" min-width="140" ><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="物料名称" align="center" prop="itemName" min-width="160" />
       <el-table-column label="规格型号" align="center" prop="specification" min-width="120" />
       <el-table-column label="单位" align="center" prop="unitMeasureName" width="90" />
-      <el-table-column label="批次号" align="center" prop="batchCode" min-width="120" />
+      <el-table-column label="批次号" align="center" prop="batchCode" min-width="120"><template #default="{ row }"><BatchCodeLink :code="row.batchCode" :batch-id="row.batchId" /></template></el-table-column>
       <el-table-column label="在库数量" align="center" prop="quantity" width="120" />
       <el-table-column label="仓库" align="center" prop="warehouseName" min-width="120" />
       <el-table-column label="库区" align="center" prop="locationName" min-width="120" />
@@ -50,6 +50,8 @@
 </template>
 
 <script setup lang="ts">
+import BatchCodeLink from '@/components/BatchCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { DICT_TYPE } from '@/utils/dict'
 import {
   StockTakingTaskLineApi,

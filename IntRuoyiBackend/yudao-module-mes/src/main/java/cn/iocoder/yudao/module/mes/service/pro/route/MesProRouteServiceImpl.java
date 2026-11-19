@@ -523,6 +523,13 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         // 2.2 删除工艺路线
         routeDccProjectBindingMapper.delete(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesRouteDccProjectBindingDO>()
                 .eq(MesRouteDccProjectBindingDO::getRouteId, id));
+        // 编码唯一约束包含已删除记录，释放系统目录标识后才能在下一次解析时重新创建。
+        if ("GROUP".equals(route.getNodeType()) && MesProRouteTreeService.UNASSIGNED_CODE.equals(route.getCode())) {
+            if (routeMapper.updateById(MesProRouteDO.builder().id(id)
+                    .code(route.getCode() + "-DELETED-" + id).build()) != 1) {
+                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("待分配目录删除失败");
+            }
+        }
         routeMapper.deleteById(id);
     }
 

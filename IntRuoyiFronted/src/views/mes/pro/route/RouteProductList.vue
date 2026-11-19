@@ -35,7 +35,7 @@
       </p>
       <ul v-else class="route-product-list__codes" aria-label="关联产品编码">
         <li v-for="product in list" :key="product.itemId" class="route-product-list__row">
-          <ProductCodeLink :code="product.itemCode" class="route-product-list__code" />
+          <MaterialCodeLink :code="product.itemCode" class="route-product-list__code" />
           <div class="route-product-list__row-actions">
             <el-button link type="primary" size="small" :disabled="productionConfigActionDisabled"
               @click="handleProductCommand('edit', product)">编辑</el-button>
@@ -168,6 +168,7 @@
 </template>
 
 <script setup lang="ts">
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { CommonStatusEnum } from '@/utils/constants'
 import { ProRouteProductApi, type ProRouteProductVO } from '@/api/mes/pro/route/product'

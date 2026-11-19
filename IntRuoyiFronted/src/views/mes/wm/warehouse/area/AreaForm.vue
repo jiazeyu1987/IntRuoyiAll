@@ -256,7 +256,7 @@ const handleWarehouseChange = async (warehouseId?: number | string) => {
 /** 打开弹窗 */
 const open = async (
   type: string,
-  id?: number,
+  id?: number | string,
   defaultLocationId?: number | string,
   defaultWarehouseId?: number | string
 ) => {

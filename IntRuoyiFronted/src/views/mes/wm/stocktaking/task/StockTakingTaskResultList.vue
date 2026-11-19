@@ -13,7 +13,7 @@
       <Icon icon="ep:plus" class="mr-5px" /> 新增
     </el-button>
     <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true" border>
-      <el-table-column label="产品物料编码" align="center" prop="itemCode" min-width="140"><template #default="{ row }"><ProductCodeLink :code="row.itemCode" /></template></el-table-column>
+      <el-table-column label="产品物料编码" align="center" prop="itemCode" min-width="140"><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="产品物料名称" align="center" prop="itemName" min-width="160" />
       <el-table-column label="规格型号" align="center" prop="specification" min-width="120" />
       <el-table-column label="单位名称" align="center" prop="unitMeasureName" width="90" />
@@ -151,7 +151,7 @@
 </template>
 
 <script setup lang="ts">
-import ProductCodeLink from '@/components/ProductCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import {
   StockTakingResultApi,
   type StockTakingResultVO

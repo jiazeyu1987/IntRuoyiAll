@@ -9,7 +9,7 @@
     </div>
     <!-- BOM 列表 -->
     <el-table v-loading="loading" :data="bomList" :stripe="true" :show-overflow-tooltip="true">
-      <el-table-column label="BOM 物料编码" align="center" prop="itemCode" width="120" />
+      <el-table-column label="BOM 物料编码" align="center" prop="itemCode" width="120" ><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="BOM 物料名称" align="center" prop="itemName" min-width="150" />
       <el-table-column label="规格型号" align="center" prop="itemSpecification" width="120" />
       <el-table-column label="单位" align="center" prop="unitMeasureName" width="80" />
@@ -95,6 +95,7 @@
 </template>
 
 <script setup lang="ts">
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { ProWorkOrderBomApi, ProWorkOrderBomVO } from '@/api/mes/pro/workorder/bom'
 import { MesProWorkOrderStatusEnum, MesProWorkOrderTypeEnum } from '@/views/mes/utils/constants'
 import { DICT_TYPE } from '@/utils/dict'

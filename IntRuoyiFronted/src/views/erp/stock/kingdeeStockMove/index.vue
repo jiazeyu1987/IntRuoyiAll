@@ -54,7 +54,7 @@
                   size="small"
                   empty-text="暂无调拨明细"
                 >
-                  <el-table-column label="物料编码" prop="materialNumber" min-width="150" />
+                  <el-table-column label="物料编码" prop="materialNumber" min-width="150" ><template #default="{ row }"><ProductCodeLink :code="row.materialNumber" /></template></el-table-column>
                   <el-table-column label="物料名称" prop="materialName" min-width="180" />
                   <el-table-column label="单位" prop="unitName" width="90" align="center" />
                   <el-table-column label="调拨数量" prop="quantity" width="120" align="right" />
@@ -145,6 +145,7 @@
 </template>
 
 <script setup lang="ts">
+import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 

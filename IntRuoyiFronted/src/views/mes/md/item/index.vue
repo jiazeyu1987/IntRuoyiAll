@@ -181,6 +181,7 @@
 </template>
 
 <script setup lang="ts">
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { checkPermi } from '@/utils/permission'
@@ -201,7 +202,8 @@ const message = useMessage() // 消息弹窗
 const { t } = useI18n() // 国际化
 const route = useRoute()
 
-const loading = ref(true) // 列表的加载中
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const list = ref<MdItemVO[]>([]) // 列表的数据
 const total = ref(0) // 列表的总页数
 const openedDetailId = ref('')
@@ -211,7 +213,7 @@ const queryParams = reactive({
   code: undefined as string | undefined,
   name: undefined as string | undefined,
   itemTypeId: undefined as number | undefined,
-  status: CommonStatusEnum.ENABLE
+  status: CommonStatusEnum.ENABLE as number | undefined
 })
 const queryFormRef = ref() // 搜索的表单
 const exportLoading = ref(false) // 导出的加载中
@@ -219,16 +221,10 @@ const kingdeeSyncLoading = ref(false)
 const typeTreeRef = ref()
 
 /** 查询列表 */
-const getList = async () => {
-  loading.value = true
-  try {
-    const data = await MdItemApi.getItemPage(queryParams)
-    list.value = data.list
-    total.value = data.total
-  } finally {
-    loading.value = false
-  }
-}
+const getList = () => listRequest.run(
+  () => MdItemApi.getItemPage({ ...queryParams }),
+  (data) => { list.value = data.list; total.value = data.total }
+)
 
 /** 搜索按钮操作 */
 const handleQuery = (skipEmptyReset = false) => {
@@ -260,8 +256,12 @@ const openForm = (type: string, id?: number) => {
 }
 
 const loadListFromRoute = async () => {
+  if (route.path !== '/mes/md/item') { listRequest.invalidate(); return }
   queryParams.code = typeof route.query.code === 'string' ? route.query.code : undefined
   queryParams.pageNo = 1
+  queryParams.name = undefined
+  queryParams.itemTypeId = undefined
+  queryParams.status = route.query.code ? undefined : CommonStatusEnum.ENABLE
   await getList()
   const openDetailId =
     typeof route.query.openDetailId === 'string' ? route.query.openDetailId : ''
@@ -342,7 +342,7 @@ const handleExport = async () => {
 
 /** 初始化 **/
 watch(
-  () => [route.query.code, route.query.openDetailId],
+  () => [route.path, route.query.code, route.query.openDetailId, route.query.codeLinkVisit],
   async () => {
     await loadListFromRoute()
   }

@@ -27,12 +27,12 @@
           />
         </template>
       </el-table-column>
-      <el-table-column label="物料编码" align="center" prop="itemCode" min-width="120" />
+      <el-table-column label="物料编码" align="center" prop="itemCode" min-width="120" ><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="物料名称" align="center" prop="itemName" min-width="140" />
       <el-table-column label="规格型号" align="center" prop="specification" min-width="120" />
       <el-table-column label="单位" align="center" prop="unitMeasureName" width="80" />
       <el-table-column label="领料数量" align="center" prop="quantity" width="100" />
-      <el-table-column label="批次号" align="center" prop="batchCode" min-width="120" />
+      <el-table-column label="批次号" align="center" prop="batchCode" min-width="120"><template #default="{ row }"><BatchCodeLink :code="row.batchCode" :batch-id="row.batchId" /></template></el-table-column>
       <el-table-column
         label="备注"
         align="center"
@@ -123,6 +123,8 @@
 </template>
 
 <script setup lang="ts">
+import BatchCodeLink from '@/components/BatchCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { WmOutsourceIssueLineApi, WmOutsourceIssueLineVO } from '@/api/mes/wm/outsourceissue/line'
 import MdItemSelect from '@/views/mes/md/item/components/MdItemSelect.vue'
 import OutsourceIssueDetailList from './OutsourceIssueDetailList.vue'

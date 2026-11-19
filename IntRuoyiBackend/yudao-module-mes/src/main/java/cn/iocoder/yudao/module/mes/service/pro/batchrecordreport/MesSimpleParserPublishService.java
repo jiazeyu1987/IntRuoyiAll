@@ -58,6 +58,7 @@ public class MesSimpleParserPublishService {
     @Resource private MesProCraftService craftService;
     @Resource private MesTeamLeaderRuntimeConfigService deviceService;
     @Resource private MesProRouteService routeService;
+    @Resource private MesProRouteTreeService routeTreeService;
     @Resource private MesProRouteWorkstationService routeWorkstationService;
     @Resource private DccProjectCodeMapper projectMapper;
     @Resource private MesProRouteVersionWorkflowService workflow;
@@ -185,6 +186,7 @@ public class MesSimpleParserPublishService {
         routeRequest.setName(request.getRouteName().trim()); routeRequest.setProcessIds(processIds);
         routeRequest.setRemark("简易解析确认创建，需完成路线治理配置后启用");
         Long routeId = routeService.createRouteWithProcesses(routeRequest);
+        routeTreeService.assignParsedRoute(routeId);
 
         MesProRouteVersionDO active = versionMapper.selectActiveByRouteId(routeId);
         MesProRouteVersionCreateReqVO candidateRequest = new MesProRouteVersionCreateReqVO();

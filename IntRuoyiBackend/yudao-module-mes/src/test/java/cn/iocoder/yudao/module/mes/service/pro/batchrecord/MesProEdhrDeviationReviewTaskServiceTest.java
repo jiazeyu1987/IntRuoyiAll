@@ -43,8 +43,6 @@ class MesProEdhrDeviationReviewTaskServiceTest {
         ReflectionTestUtils.setField(service, "taskMapper", taskMapper);
         ReflectionTestUtils.setField(service, "adminUserApi", adminUserApi);
         ReflectionTestUtils.setField(service, "permissionApi", permissionApi);
-        ReflectionTestUtils.setField(service, "notifyApi", notifyApi);
-        ReflectionTestUtils.setField(service, "auxiliaryAudit", auxiliaryAudit);
         lenient().when(adminUserApi.getUser(201L)).thenReturn(user(0));
         lenient().when(permissionApi.hasAnyPermissions(eq(201L), any(String[].class))).thenReturn(true);
     }
@@ -67,13 +65,10 @@ class MesProEdhrDeviationReviewTaskServiceTest {
     @org.junit.jupiter.params.provider.CsvSource({"PREPARER,DEVIATION_SIGN", "VERIFIER,DEVIATION_SIGN",
             "DEPARTMENT_OWNER,DEVIATION_SIGN", "QA,DEVIATION_APPROVE", "QUALITY_OWNER,DEVIATION_APPROVE",
             "MANAGEMENT_REP,DEVIATION_APPROVE", "CLOSE,DEVIATION_CLOSE", "CORRECTIVE_VERIFIER,DEVIATION_VERIFY"})
-    void explicitResponsibilityCreatesCorrectTaskCategoryAndOneAuditedNotification(String node, String type) {
+    void explicitResponsibilityCreatesCorrectTaskCategoryWithoutInboxNotification(String node, String type) {
         when(taskMapper.selectList(any())).thenReturn(List.of());
         doAnswer(call -> { ((MesProEdhrWorkTaskDO) call.getArgument(0)).setId(6001L); return 1; })
                 .when(taskMapper).insert(any(MesProEdhrWorkTaskDO.class));
-        when(notifyApi.sendSingleMessageToAdmin(any())).thenReturn(5001L);
-        doAnswer(call -> { call.<Supplier<List<Long>>>getArgument(1).get(); return null; })
-                .when(auxiliaryAudit).notifications(any(), any());
 
         service.assign(deviation(), handling(), node, 201L);
 
@@ -89,11 +84,7 @@ class MesProEdhrDeviationReviewTaskServiceTest {
         assertEquals(201L, inserted.getValue().getAssigneeUserId());
         assertEquals("201", inserted.getValue().getCandidateUserSnapshot());
         assertEquals("/mes/pro/feedback/edhr-deviation/detail?deviationId=901", inserted.getValue().getActionUrl());
-        verify(notifyApi).sendSingleMessageToAdmin(argThat(message -> message.getUserId().equals(201L)
-                && message.getTemplateCode().equals("MES_EDHR_DEVIATION_REVIEW_ASSIGNED")
-                && inserted.getValue().getReason().equals(message.getTemplateParams().get("taskTitle"))
-                && message.getTemplateParams().containsKey("workOrderCode")
-                && message.getTemplateParams().containsKey("batchCode")));
+        verifyNoInteractions(notifyApi, auxiliaryAudit);
         if ("CORRECTIVE_VERIFIER".equals(node)) {
             assertEquals("完成偏差调查结果验证", inserted.getValue().getReason());
         }

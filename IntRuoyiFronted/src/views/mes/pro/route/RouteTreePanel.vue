@@ -27,7 +27,7 @@
           <template #default="{ data }">
             <span class="route-tree__node" :data-tree-node="data.name">
               <Icon :icon="data.nodeType === 'GROUP' ? 'ep:folder' : 'ep:document'" />
-              <span>{{ data.name }}</span>
+              <span>{{ nodeLabel(data) }}</span>
               <el-tag v-if="data.different" size="small" type="warning">工序有差异</el-tag>
             </span>
           </template>
@@ -35,19 +35,23 @@
       </aside>
       <section v-if="selected">
         <div class="route-tree__heading">
-          <h2>{{ selected.name }}</h2>
-          <el-tag>{{ selected.nodeType === 'GROUP' ? '分组模板' : '工艺流程' }}</el-tag>
-          <el-tag type="success">{{ selected.activeRouteVersionNo }}</el-tag>
+          <h2>{{ nodeLabel(selected) }}</h2>
+          <el-tag>{{ selected.nodeType === 'GROUP' ? (selected.activeRouteVersionId ? '分组模板' : '目录') : '工艺流程' }}</el-tag>
+          <el-tag v-if="selected.activeRouteVersionNo" type="success">{{ selected.activeRouteVersionNo }}</el-tag>
           <el-tag v-if="selected.pendingStatus" type="warning">{{ statusLabel(selected.pendingStatus) }}</el-tag>
         </div>
         <div class="route-tree__actions">
+          <template v-if="selected.activeRouteVersionId">
           <el-button type="primary" v-hasPermi="['mes:pro-route:version-create']" @click="emit('edit', selected)">修改配置</el-button>
           <el-button @click="emit('view', selected.id)">查看配置</el-button>
           <el-button v-hasPermi="['mes:pro-route:version-query']" @click="emit('versions', selected)">版本与审核</el-button>
+          </template>
           <template v-if="selected.nodeType === 'GROUP'">
             <el-button v-hasPermi="['mes:pro-route:create']" @click="openGroup(selected)">新增下级分组</el-button>
-            <el-button v-hasPermi="['mes:pro-route:create']" @click="openInherited">新增继承流程</el-button>
+            <el-button v-if="selected.activeRouteVersionId" v-hasPermi="['mes:pro-route:create']" @click="openInherited">新增继承流程</el-button>
             <el-button v-hasPermi="['mes:pro-route:update']" @click="openMove(true)">添加已有流程</el-button>
+            <el-button v-hasPermi="['mes:pro-route:update']" @click="renameGroup">重命名目录</el-button>
+            <el-button v-if="!selected.children?.length" v-hasPermi="['mes:pro-route:delete']" type="danger" @click="deleteGroup">删除空目录</el-button>
           </template>
           <el-button v-hasPermi="['mes:pro-route:update']" @click="openMove(false)">移动归属</el-button>
           <el-button v-if="selected.different" @click="openDifference">差异分析</el-button>
@@ -63,7 +67,7 @@
         <template v-else>
           <h3>直接下级</h3>
           <el-table :data="selected.children || []" @row-click="selected = $event" empty-text="暂无直接下级">
-            <el-table-column prop="name" label="名称" />
+            <el-table-column label="名称"><template #default="{ row }">{{ nodeLabel(row) }}</template></el-table-column>
             <el-table-column label="类型" width="110"><template #default="{ row }">{{ row.nodeType === 'GROUP' ? '分组' : '流程' }}</template></el-table-column>
             <el-table-column prop="activeRouteVersionNo" label="已发布版本" width="120" />
             <el-table-column label="工序结构" width="130"><template #default="{ row }">{{ row.different ? '有差异' : '与父级一致' }}</template></el-table-column>
@@ -78,7 +82,7 @@
     <el-form label-width="110px">
       <el-form-item label="分组名称" required><el-input v-model="group.name" aria-label="分组名称" /></el-form-item>
       <el-form-item label="直接父节点">{{ group.parentId ? groupParentName : '顶级分组' }}</el-form-item>
-      <el-form-item v-if="!group.parentId" label="初始工艺模板" required>
+      <el-form-item v-if="groupNeedsTemplate" label="初始工艺模板" required>
         <el-select v-model="group.sourceRouteId" filterable placeholder="选择已有流程作为初始模板" aria-label="初始工艺模板">
           <el-option v-for="row in rows.filter(item => item.nodeType === 'FLOW')" :key="row.id" :value="row.id!" :label="row.name" />
         </el-select>
@@ -197,8 +201,15 @@ const tree = computed(() => {
     if (node.parentId != null && nodes.has(String(node.parentId))) nodes.get(String(node.parentId))!.children.push(node)
     else roots.push(node)
   }
+  const countFlows = (node: RouteTreeNode): number => {
+    const childCount = (node.children || []).reduce((total, child) => total + countFlows(child), 0)
+    node.flowCount = childCount
+    return childCount + (node.nodeType === 'FLOW' ? 1 : 0)
+  }
+  roots.forEach(countFlows)
   return roots
 })
+const nodeLabel = (node: RouteTreeNode) => node.nodeType === 'GROUP' ? `${node.name}(${node.flowCount ?? 0})` : node.name
 watch(tree, roots => {
   const find = (nodes: RouteTreeNode[]): RouteTreeNode | undefined => {
     for (const node of nodes) {
@@ -231,6 +242,7 @@ const load = async () => {
 const groupVisible = ref(false), inheritVisible = ref(false), moveVisible = ref(false), addingExisting = ref(false)
 const groupParentName = ref('')
 const group = reactive<{ name: string; parentId?: MesRouteId; sourceRouteId?: MesRouteId }>({ name: '' })
+const groupNeedsTemplate = computed(() => !group.parentId || !rows.value.find(row => String(row.id) === String(group.parentId))?.activeRouteVersionId)
 const inherit = reactive<{ name: string; dccProjectCodeId?: number; workshopId?: number }>({ name: '' })
 const move = reactive<{ id?: MesRouteId; parentId?: MesRouteId }>({})
 const openGroup = (parent?: RouteTreeNode) => {
@@ -244,9 +256,25 @@ const run = async (action: () => Promise<void>) => {
   finally { saving.value = false }
 }
 const saveGroup = () => run(async () => {
-  if (!group.name.trim() || (!group.parentId && !group.sourceRouteId)) throw new Error('请填写名称并选择初始模板')
+  if (!group.name.trim() || (groupNeedsTemplate.value && !group.sourceRouteId)) throw new Error('请填写名称并选择初始模板')
   const id = await RouteTreeApi.group(group); groupVisible.value = false
   await load(); selected.value = rows.value.find(row => String(row.id) === String(id)); message.success('分组已创建')
+})
+const renameGroup = () => run(async () => {
+  const node = selected.value
+  if (!node?.id || node.nodeType !== 'GROUP') throw new Error('请选择目录')
+  const { value } = await ElMessageBox.prompt('请输入目录名称', '重命名目录', {
+    inputValue: node.name, inputValidator: value => Boolean(value.trim()) || '请填写目录名称'
+  })
+  await RouteTreeApi.renameGroup(node.id, value.trim())
+  message.success('目录已重命名')
+})
+const deleteGroup = () => run(async () => {
+  const node = selected.value
+  if (!node?.id || node.nodeType !== 'GROUP' || node.children?.length) throw new Error('仅可删除没有下级节点的空目录')
+  await ElMessageBox.confirm(`确认删除空目录「${node.name}」？`, '删除空目录', { type: 'warning' })
+  await RouteTreeApi.deleteGroup(node.id)
+  message.success('空目录已删除')
 })
 const openInherited = () => {
   Object.assign(inherit, { name: '', dccProjectCodeId: undefined, workshopId: undefined }); inheritVisible.value = true

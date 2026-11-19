@@ -47,7 +47,7 @@
             <div class="edhr-domain-trace-detail__summary-item">
               <div class="edhr-domain-trace-detail__label">生产信息</div>
               <div class="edhr-domain-trace-detail__value">
-                {{ detail.workOrderCode || '未关联工单' }} / {{ detail.batchCode || '未关联批次' }}
+                <WorkOrderCodeLink :code="detail.workOrderCode" /> / <ProductionBatchCodeLink :code="detail.batchCode" />
               </div>
             </div>
             <div class="edhr-domain-trace-detail__summary-item">
@@ -275,6 +275,8 @@
 </template>
 
 <script setup lang="ts">
+import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { traceItemLabel, traceBlockerMessage } from './traceDisplay'
 import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import {

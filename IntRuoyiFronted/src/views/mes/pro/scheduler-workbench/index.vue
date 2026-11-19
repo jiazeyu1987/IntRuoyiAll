@@ -429,8 +429,7 @@
                     show-overflow-tooltip
                     v-bind="sortColumnAttrs('routeCode')"
                   >
-                    <template #default="{ row }">
-                      {{ row.routeCode || '无路线编码' }}
+                    <template #default="{ row }"><RouteCodeLink :code="row.routeCode" empty-text="无路线编码" :route-id="row.routeId" />
                     </template>
                   </el-table-column>
                   <el-table-column
@@ -456,8 +455,7 @@
                     v-bind="sortColumnAttrs('processCode')"
                   >
                     <template #default="{ row }">
-                      <span class="scheduler-workbench__table-link">
-                        {{ row.processCode || '无工序编码' }}
+                      <span class="scheduler-workbench__table-link"><ProcessCodeLink :code="row.processCode" empty-text="无工序编码" :process-id="row.processId" />
                       </span>
                     </template>
                   </el-table-column>
@@ -717,7 +715,7 @@
                     :min-width="getRouteActiveOrderColumnMinWidthString('routeCode', 136)"
                     show-overflow-tooltip
                   >
-                    <template #default="{ row }">{{ row.routeCode || '无路线编码' }}</template>
+                    <template #default="{ row }"><RouteCodeLink :code="row.routeCode" empty-text="无路线编码" :route-id="row.routeId" /></template>
                   </el-table-column>
                   <el-table-column
                     label="关联产品"
@@ -822,7 +820,7 @@
                       >
                         <el-table-column label="顺序" prop="rank" :width="getReplanOrderColumnWidthString('rank', 68)" :min-width="getReplanOrderColumnMinWidthString('rank', 60)" align="center" />
                         <el-table-column label="排产订单" prop="scheduleOrderCode" :width="getReplanOrderColumnWidthString('scheduleOrderCode', 150)" :min-width="getReplanOrderColumnMinWidthString('scheduleOrderCode', 132)" show-overflow-tooltip />
-                        <el-table-column label="生产工单" prop="workOrderCode" :width="getReplanOrderColumnWidthString('workOrderCode', 150)" :min-width="getReplanOrderColumnMinWidthString('workOrderCode', 132)" show-overflow-tooltip />
+                        <el-table-column label="生产工单" prop="workOrderCode" :width="getReplanOrderColumnWidthString('workOrderCode', 150)" :min-width="getReplanOrderColumnMinWidthString('workOrderCode', 132)" show-overflow-tooltip ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
                         <el-table-column label="产品" :width="getReplanOrderColumnWidthString('product', 190)" :min-width="getReplanOrderColumnMinWidthString('product', 170)" show-overflow-tooltip>
                           <template #default="{ row }"><span v-if="row.productName">{{ row.productName }}</span><ProductCodeLink v-else :code="row.productCode" empty-text="—" /></template>
                         </el-table-column>
@@ -870,7 +868,7 @@
                         empty-text="暂无工单拆分"
                         @header-dragend="handleReplanWorkOrderHeaderDragend"
                       >
-                        <el-table-column label="生产工单" prop="workOrderCode" :width="getReplanWorkOrderColumnWidthString('workOrderCode', 160)" :min-width="getReplanWorkOrderColumnMinWidthString('workOrderCode', 140)" />
+                        <el-table-column label="生产工单" prop="workOrderCode" :width="getReplanWorkOrderColumnWidthString('workOrderCode', 160)" :min-width="getReplanWorkOrderColumnMinWidthString('workOrderCode', 140)" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
                         <el-table-column label="工艺路线" :width="getReplanWorkOrderColumnWidthString('route', 180)" :min-width="getReplanWorkOrderColumnMinWidthString('route', 160)" show-overflow-tooltip>
                           <template #default="{ row }">{{ row.routeName || row.routeCode || '—' }}</template>
                         </el-table-column>
@@ -903,7 +901,7 @@
                     >
                       <template #title>
                         <div class="scheduler-workbench__algorithm-collapse-title">
-                          <strong>{{ workOrder.workOrderCode || '未编号工单' }}</strong>
+                          <strong><WorkOrderCodeLink :code="workOrder.workOrderCode" :work-order-id="workOrder.workOrderId" /></strong>
                           <span>{{ workOrder.routeName || workOrder.routeCode || '未命名路线' }}</span>
                           <el-tag v-if="workOrder.bottleneckProcessName" size="small" type="warning">
                             瓶颈：{{ workOrder.bottleneckProcessName }}
@@ -1019,7 +1017,7 @@
                         @header-dragend="handleProtectedTaskHeaderDragend"
                       >
                         <el-table-column label="任务" prop="taskCode" :width="getProtectedTaskColumnWidthString('taskCode', 150)" :min-width="getProtectedTaskColumnMinWidthString('taskCode', 130)" />
-                        <el-table-column label="工单" prop="workOrderCode" :width="getProtectedTaskColumnWidthString('workOrderCode', 150)" :min-width="getProtectedTaskColumnMinWidthString('workOrderCode', 130)" />
+                        <el-table-column label="工单" prop="workOrderCode" :width="getProtectedTaskColumnWidthString('workOrderCode', 150)" :min-width="getProtectedTaskColumnMinWidthString('workOrderCode', 130)" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
                         <el-table-column label="工序" prop="processName" :width="getProtectedTaskColumnWidthString('processName', 130)" :min-width="getProtectedTaskColumnMinWidthString('processName', 110)" />
                         <el-table-column label="工作站" prop="workstationName" :width="getProtectedTaskColumnWidthString('workstationName', 140)" :min-width="getProtectedTaskColumnMinWidthString('workstationName', 120)" />
                         <el-table-column label="保护原因" :width="getProtectedTaskColumnWidthString('protectionReason', 104)" :min-width="getProtectedTaskColumnMinWidthString('protectionReason', 96)">
@@ -1090,7 +1088,7 @@
                                   @header-dragend="handleMaterialContributionHeaderDragend"
                                 >
                                   <el-table-column label="排产订单" prop="scheduleOrderCode" :width="getMaterialContributionColumnWidthString('scheduleOrderCode', 160)" :min-width="getMaterialContributionColumnMinWidthString('scheduleOrderCode', 140)" />
-                                  <el-table-column label="生产工单" prop="workOrderCode" :width="getMaterialContributionColumnWidthString('workOrderCode', 160)" :min-width="getMaterialContributionColumnMinWidthString('workOrderCode', 140)" />
+                                  <el-table-column label="生产工单" prop="workOrderCode" :width="getMaterialContributionColumnWidthString('workOrderCode', 160)" :min-width="getMaterialContributionColumnMinWidthString('workOrderCode', 140)" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
                                   <el-table-column label="该订单需要" prop="requiredQty" :width="getMaterialContributionColumnWidthString('requiredQty', 140)" :min-width="getMaterialContributionColumnMinWidthString('requiredQty', 120)" align="right">
                                     <template #default="{ row: contribution }">
                                       {{ formatExplanationNumber(contribution.requiredQty) }}
@@ -1101,7 +1099,7 @@
                             </UnifiedListTemplate>
                           </template>
                         </el-table-column>
-                        <el-table-column label="物料编码" prop="materialCode" :width="getMaterialColumnWidthString('materialCode', 150)" :min-width="getMaterialColumnMinWidthString('materialCode', 130)" />
+                        <el-table-column label="物料编码" prop="materialCode" :width="getMaterialColumnWidthString('materialCode', 150)" :min-width="getMaterialColumnMinWidthString('materialCode', 130)" ><template #default="{ row }"><MaterialCodeLink :code="row.materialCode" /></template></el-table-column>
                         <el-table-column label="物料名称" prop="materialName" :width="getMaterialColumnWidthString('materialName', 180)" :min-width="getMaterialColumnMinWidthString('materialName', 160)" />
                         <el-table-column label="需要数量" prop="requiredQty" :width="getMaterialColumnWidthString('requiredQty', 120)" :min-width="getMaterialColumnMinWidthString('requiredQty', 108)" align="right">
                           <template #default="{ row }">{{ formatExplanationNumber(row.requiredQty) }}</template>
@@ -1152,7 +1150,7 @@
                             </el-tag>
                           </template>
                         </el-table-column>
-                        <el-table-column label="工单" prop="workOrderCode" :width="getIssueColumnWidthString('workOrderCode', 140)" :min-width="getIssueColumnMinWidthString('workOrderCode', 120)" />
+                        <el-table-column label="工单" prop="workOrderCode" :width="getIssueColumnWidthString('workOrderCode', 140)" :min-width="getIssueColumnMinWidthString('workOrderCode', 120)" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
                         <el-table-column label="工序" prop="processName" :width="getIssueColumnWidthString('processName', 130)" :min-width="getIssueColumnMinWidthString('processName', 110)" />
                         <el-table-column label="问题" prop="message" :min-width="getIssueColumnMinWidthString('message', 260)" show-overflow-tooltip />
                       </el-table>
@@ -1191,6 +1189,10 @@
 </template>
 
 <script setup lang="ts">
+import ProcessCodeLink from '@/components/ProcessCodeLink.vue'
+import RouteCodeLink from '@/components/RouteCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 

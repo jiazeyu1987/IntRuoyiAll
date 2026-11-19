@@ -18,9 +18,6 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderDossierFileMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
-import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
-import cn.iocoder.yudao.module.system.api.notify.dto.NotifySendSingleToUserIdempotentReqDTO;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesWorkTaskAuxiliaryAudit;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowIdempotency;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
@@ -62,8 +59,6 @@ public class MesPqcReleaseCorrectionService {
     private final MesProEdhrNonconformanceReviewService nonconformance;
     private final MesTeamLeaderActiveOrderReleaseApplicationService releaseApplications;
     private final GxpAuditService audit;
-    @jakarta.annotation.Resource private NotifyMessageSendApi notifyApi;
-    @jakarta.annotation.Resource private MesWorkTaskAuxiliaryAudit auxiliaryAudit;
     @jakarta.annotation.Resource private MesProEdhrNonconformanceReviewMapper reviewMapper;
     @jakarta.annotation.Resource private MesProEdhrRecordChangeEventMapper changeMapper;
 
@@ -197,22 +192,6 @@ public class MesPqcReleaseCorrectionService {
         task.setActionUrl("/user/profile?tab=workbench&releaseCorrectionTaskId=" + task.getId());
         require(tasks.updateById(new MesProEdhrWorkTaskDO().setId(task.getId()).setActionUrl(task.getActionUrl())) == 1,
                 "补正任务入口绑定失败");
-        var notice = new NotifySendSingleToUserIdempotentReqDTO();
-        notice.setUserId(task.getAssigneeUserId());
-        notice.setTemplateCode(switch (app.getApplicationStatus()) {
-            case "PQC_RELEASE_REJECTED" -> "MES_EDHR_PQC_CORRECTION_ASSIGNED";
-            case "MARKET_RELEASE_WITHDRAWN" -> "MES_EDHR_MARKET_WITHDRAW_CORRECTION_ASSIGNED";
-            case "MARKET_RELEASE_REJECTED" -> "MES_EDHR_MARKET_REJECT_CORRECTION_ASSIGNED";
-            default -> throw new IllegalStateException("正式补正申请状态不支持通知派发");
-        });
-        notice.setBusinessKey("MES_PQC_CORRECTION:" + task.getId() + ":USER:" + task.getAssigneeUserId());
-        notice.setTemplateParams(java.util.Map.of("workOrderCode", task.getWorkOrderCode(), "batchCode", task.getBatchCode(),
-                "reason", reason, "actionUrl", task.getActionUrl(), "workTaskId", task.getId().toString()));
-        auxiliaryAudit.notifications(task, () -> {
-            Long messageId = notifyApi.sendSingleMessageIdempotentlyToAdmin(notice);
-            require(messageId != null && messageId > 0, "PQC补正通知未取得正式消息回执");
-            return List.of(messageId);
-        });
         return task.getId();
     }
 

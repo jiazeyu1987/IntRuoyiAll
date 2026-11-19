@@ -25,7 +25,7 @@ export const SaleOrderApi = {
     return await request.get({ url: `/erp/sale-order/page`, params })
   },
 
-  getSaleOrder: async (id: number) => {
+  getSaleOrder: async (id: number | string) => {
     return await request.get({ url: `/erp/sale-order/get?id=` + id })
   },
 

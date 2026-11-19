@@ -80,9 +80,9 @@
   <!-- 列表 -->
   <ContentWrap>
     <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true">
-      <el-table-column label="工作站编码" align="center" prop="workstationCode" width="120" />
+      <el-table-column label="工作站编码" align="center" prop="workstationCode" width="120" ><template #default="{ row }"><WorkstationCodeLink :code="row.workstationCode" /></template></el-table-column>
       <el-table-column label="工作站名称" align="center" prop="workstationName" min-width="120" />
-      <el-table-column label="工单编码" align="center" prop="workOrderCode" width="140" />
+      <el-table-column label="工单编码" align="center" prop="workOrderCode" width="140" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
       <el-table-column label="工序名称" align="center" prop="processName" width="120" />
       <el-table-column label="发起人" align="center" prop="userNickname" width="100" />
       <el-table-column
@@ -158,6 +158,8 @@
 </template>
 
 <script setup lang="ts">
+import WorkstationCodeLink from '@/components/WorkstationCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'

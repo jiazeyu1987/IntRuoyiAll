@@ -24,7 +24,7 @@
       <template #content>
         <div v-if="selectedItem" class="leading-6">
           <div>编号：{{ selectedItem.code }}</div>
-          <div>工单：{{ selectedItem.workOrderCode || '-' }}</div>
+          <div>工单：<WorkOrderCodeLink :code="selectedItem.workOrderCode" :work-order-id="selectedItem.workOrderId" /></div>
           <div>批次：{{ selectedItem.batchCode || '-' }}</div>
           <div>产品：{{ selectedItem.itemName || '-' }}</div>
         </div>
@@ -44,6 +44,7 @@
 </template>
 
 <script setup lang="ts">
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { ProCardApi, ProCardVO } from '@/api/mes/pro/card'
 import { Search, CircleClose } from '@element-plus/icons-vue'
 import ProCardSelectDialog from './ProCardSelectDialog.vue'

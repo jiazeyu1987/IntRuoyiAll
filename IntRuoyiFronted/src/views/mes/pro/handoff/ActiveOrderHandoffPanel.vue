@@ -78,7 +78,7 @@
         <el-descriptions v-else-if="completedResult && completionSnapshot" :column="1" border>
           <el-descriptions-item label="原交接任务"><span data-handoff-completed-task-id>{{ completedResult.id }}</span></el-descriptions-item>
           <el-descriptions-item label="原周期"><span data-handoff-completed-cycle-id>{{ completedResult.activeOrderId }}</span></el-descriptions-item>
-          <el-descriptions-item label="冻结工单">{{ completionSnapshot.workOrderCode }} / {{ completedResult.workOrderId }}</el-descriptions-item>
+          <el-descriptions-item label="冻结工单"><WorkOrderCodeLink :code="completionSnapshot.workOrderCode" :work-order-id="completedResult.workOrderId" /> / {{ completedResult.workOrderId }}</el-descriptions-item>
           <el-descriptions-item label="冻结工序">{{ completionSnapshot.processName }} / {{ completedResult.routeProcessId }}</el-descriptions-item>
           <el-descriptions-item label="交接事项">{{ labels[completedResult.taskType] }}</el-descriptions-item>
           <el-descriptions-item label="原正式来源"><span data-handoff-completed-source>{{ completedResult.sourceType }} / {{ completedResult.sourceId }}</span></el-descriptions-item>
@@ -115,6 +115,7 @@
   </el-card>
 </template>
 <script setup lang="ts">
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { formatNotificationSentAt } from '@/utils/notificationTime'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 

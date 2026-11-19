@@ -29,7 +29,7 @@
         <el-table border :allow-drag-last-column="true" height="100%" v-loading="loading" :data="resolveRows(rows)" empty-text="没有偏差" row-key="id" @selection-change="handleSelectionChange" @sort-change="handleTemplateSortChange">
           <el-table-column type="selection" width="48" :selectable="isCriticalOpen" />
           <el-table-column prop="deviationCode" label="偏差编号" min-width="180" v-bind="sortColumnAttrs('deviationCode')" />
-          <el-table-column prop="workOrderCode" label="生产订单号" min-width="180" /><el-table-column prop="batchExecutionCode" label="关联批记录" min-width="180" />
+          <el-table-column prop="workOrderCode" label="生产订单号" min-width="180" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column><el-table-column prop="batchExecutionCode" label="关联批记录" min-width="180"><template #default="{ row }"><BatchExecutionCodeLink :code="row.batchExecutionCode" :batch-execution-id="row.batchExecutionId" /></template></el-table-column>
           <el-table-column prop="batchCode" label="批号" min-width="140" />
           <el-table-column prop="level" label="等级" width="100" v-bind="sortColumnAttrs('level')"><template #default="{ row }"><el-tag :type="row.level === 'CRITICAL' ? 'danger' : 'warning'">{{ row.level === 'CRITICAL' ? '重大' : '普通' }}</el-tag></template></el-table-column>
           <el-table-column prop="status" label="状态" width="100" v-bind="sortColumnAttrs('status')"><template #default="{ row }"><span :style="{ color: row.status === 'OPEN' ? 'var(--el-color-danger)' : 'var(--el-color-success)' }">{{ row.status === 'OPEN' ? '未处理' : '已处理' }}</span></template></el-table-column>
@@ -76,6 +76,9 @@
 </template>
 
 <script setup lang="ts">
+import { createSecureUuid } from '@/utils/uuid'
+import BatchExecutionCodeLink from '@/components/BatchExecutionCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import '@/views/mes/pro/edhr-batch/record-viewport.css'
@@ -214,7 +217,7 @@ const submitBatchNcr = async () => {
     qaReviewerUserId: batchNcrForm.qaReviewerUserId,
     batchExecutionId, activeOrderId, deviationIds: selectedCritical.value.map(row => row.id),
     nonconformanceReason: reason, remark: batchNcrForm.remark.trim() || undefined,
-    idempotencyKey: `EDHR_DEVIATION_NCR_SOURCE_${batchExecutionId ?? activeOrderId}_${Date.now()}`, signaturePassword: password
+    idempotencyKey: `EDHR_DEVIATION_NCR_SOURCE_${batchExecutionId ?? activeOrderId}_${createSecureUuid()}`, signaturePassword: password
   }
   let isCurrent = batchNcrGuard.capture()
   const submitSession = approvalInvalidation.syncSession()
@@ -257,7 +260,7 @@ const loadOrderOptions = async (search = '') => {
 }
 const openCreate = async () => {
   createError.value = ''
-  createForm.idempotencyKey = `EDHR_DEVIATION_${Date.now()}_${Math.random().toString(36).slice(2)}`
+  createForm.idempotencyKey = `EDHR_DEVIATION_${createSecureUuid()}`
   createForm.signaturePassword = ''
   createForm.categoryCodes = []
   createForm.workOrderId = undefined

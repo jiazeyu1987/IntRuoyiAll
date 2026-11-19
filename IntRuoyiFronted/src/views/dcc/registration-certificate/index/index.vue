@@ -478,6 +478,7 @@ import RegistrationCertificateRenewalDialog from '../renewal/RenewalDialog.vue'
 import RegistrationCertificateChangeDialog from '../change/ChangeDialog.vue'
 import RegistrationCertificateReminderConfigDialog from '../config/ReminderConfigDialog.vue'
 import { checkPermi, checkRole } from '@/utils/permission'
+import { createSecureUuid } from '@/utils/uuid'
 import {
   REGISTRATION_CERTIFICATE_REMINDER_FILTER_OPTIONS,
   REGISTRATION_CERTIFICATE_STATUS_OPTIONS,
@@ -890,7 +891,7 @@ const handleDeleteCertificate = async () => {
       throw error
     }
     const results = await Promise.allSettled(rows.map((row) =>
-      deleteRegistrationCertificate(row.certificateId, row.rowVersion, crypto.randomUUID())
+      deleteRegistrationCertificate(row.certificateId, row.rowVersion, createSecureUuid())
     ))
     const failures = results.flatMap((result, index) => result.status === 'rejected'
       ? [{ certificateNo: rows[index].certificateNo, reason: result.reason }]

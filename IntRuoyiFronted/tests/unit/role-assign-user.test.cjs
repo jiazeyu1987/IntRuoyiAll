@@ -5,6 +5,7 @@ const path = require('node:path')
 const vm = require('node:vm')
 const ts = require('typescript')
 const { ref, nextTick, h } = require('vue')
+const loadAudit = require('../helpers/load-permission-audit.cjs')
 
 const confirmationModule = { exports: {} }
 vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.resolve(__dirname,
@@ -29,7 +30,7 @@ async function setup(options = {}) {
   let reads = 0
   const context = {
     exports: {}, ref, nextTick, h,
-    crypto: { randomUUID: () => 'test-key' },
+    ...loadAudit(options.crypto),
     defineExpose() {}, defineEmits: () => e => events.push(e),
     useMessage: () => ({ confirm() {}, success: m => messages.push(m), info: m => messages.push(m), error: m => messages.push(m) }),
     confirmUserChange: confirmationModule.exports.confirmUserChange,
@@ -70,7 +71,8 @@ test('adds selected role, preserves existing roles, supplies audit evidence and 
   const p = await setup()
   await p.submitForm()
   assert.deepEqual(p.writes, [{ userId: 123, roleIds: [11, 12, 99], reason: '权限角色页面分配角色（ID:99）给用户（ID:123）',
-    idempotencyKey: 'SYSTEM-PERM-USER-ROLE-123-test-key' }])
+    idempotencyKey: p.writes[0].idempotencyKey }])
+  assert.match(p.writes[0].idempotencyKey, /^SYSTEM-PERM-USER-ROLE-123-[0-9a-f-]{36}$/)
   assert.deepEqual(p.events, ['success'])
   assert.equal(p.saving.value, false)
 })
@@ -80,6 +82,25 @@ test('already assigned users cause no permission write', async () => {
   await p.submitForm()
   assert.equal(p.writes.length, 0)
   assert.match(p.messages[0], /已拥有/)
+})
+
+test('HTTP secure random source supports role assignment without randomUUID', async () => {
+  const { webcrypto } = require('node:crypto')
+  const p = await setup({ crypto: { getRandomValues: bytes => webcrypto.getRandomValues(bytes) } })
+  await p.submitForm()
+  assert.equal(p.writes.length, 1)
+  assert.match(p.writes[0].idempotencyKey, /^SYSTEM-PERM-USER-ROLE-123-[0-9a-f-]{36}$/)
+})
+
+test('missing random source reports the cause, saves nothing and restores the selector', async () => {
+  const p = await setup({ crypto: {} })
+  await assert.rejects(p.submitForm(), /不支持安全随机数/)
+  assert.equal(p.writes.length, 0)
+  assert.equal(p.events.length, 0)
+  assert.equal(p.marks.length, 0)
+  assert.equal(p.saving.value, false)
+  assert.equal(p.messages.length, 1)
+  assert.match(p.messages[0], /不支持安全随机数.*后续分配已停止/)
 })
 
 test('cancelled confirmation causes no permission reads or writes', async () => {
@@ -228,7 +249,8 @@ test('unassign removes only the current role, records the action and clears its 
   await p.unassignUsers()
   assert.deepEqual(p.writes, [{ userId: 123, roleIds: [11, 12],
     reason: '权限角色页面解除用户（ID:123）的角色（ID:99）',
-    idempotencyKey: 'SYSTEM-PERM-USER-ROLE-123-test-key' }])
+    idempotencyKey: p.writes[0].idempotencyKey }])
+  assert.match(p.writes[0].idempotencyKey, /^SYSTEM-PERM-USER-ROLE-123-[0-9a-f-]{36}$/)
   assert.deepEqual(p.marks, [{ id: 123, assigned: false }])
   assert.equal(p.confirmationDialogs[0].title, '确认解除权限')
   assert.equal(p.confirmationDialogs[0].options.confirmButtonText, '确认解除')

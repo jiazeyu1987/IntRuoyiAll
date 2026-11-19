@@ -18,6 +18,7 @@ import { h } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import type { RoleVO } from '@/api/system/role'
 import * as PermissionApi from '@/api/system/permission'
+import { createPermissionAuditIdempotencyKey, PermissionAuditKeyError } from '@/utils/permissionAudit'
 import UserSelectDialogV2 from '@/views/system/user/components/UserSelectDialogV2.vue'
 import type { UserOption } from '@/views/system/user/components/userPicker'
 import { confirmUserChange } from '@/views/system/user/user-change-confirmation'
@@ -93,7 +94,7 @@ const changeUserRoles = async (rows: UserOption[], removing: boolean) => {
         reason: removing
           ? `权限角色页面解除用户（ID:${userId}）的角色（ID:${roleId}）`
           : `权限角色页面分配角色（ID:${roleId}）给用户（ID:${userId}）`,
-        idempotencyKey: `SYSTEM-PERM-USER-ROLE-${userId}-${crypto.randomUUID()}`
+        idempotencyKey: createPermissionAuditIdempotencyKey('USER-ROLE', userId)
       })
       assigned++
       pickerRef.value?.markRoleAssignment(userId, !removing)
@@ -105,7 +106,8 @@ const changeUserRoles = async (rows: UserOption[], removing: boolean) => {
     message.success(`成功${action} ${assigned} 人${skipped ? `，${skipped} 人${removing ? '未拥有' : '已拥有'}该角色，已跳过` : ''}`)
   } catch (error) {
     if (targetLabel) {
-      message.error(`为${targetLabel}${action}失败，已成功${action} ${assigned} 人，已跳过 ${skipped} 人；后续${action}已停止，请重试。`)
+      const detail = error instanceof PermissionAuditKeyError ? `：${error.message}` : ''
+      message.error(`为${targetLabel}${action}失败${detail}，已成功${action} ${assigned} 人，已跳过 ${skipped} 人；后续${action}已停止，请重试。`)
     }
     throw error
   } finally {

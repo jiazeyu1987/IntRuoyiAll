@@ -14,7 +14,7 @@
     </el-button>
     <!-- 列表 -->
     <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true" border>
-      <el-table-column label="设备编码" align="center" prop="machineryCode" min-width="120" />
+      <el-table-column label="设备编码" align="center" prop="machineryCode" min-width="120" ><template #default="{ row }"><MachineryCodeLink :code="row.machineryCode" /></template></el-table-column>
       <el-table-column label="设备名称" align="center" prop="machineryName" min-width="150" />
       <el-table-column label="品牌" align="center" prop="machineryBrand" min-width="100" />
       <el-table-column label="规格型号" align="center" prop="machinerySpecification" min-width="120" />
@@ -51,6 +51,7 @@
 </template>
 
 <script setup lang="ts">
+import MachineryCodeLink from '@/components/MachineryCodeLink.vue'
 import { DvCheckPlanMachineryApi, DvCheckPlanMachineryVO } from '@/api/mes/dv/checkplan/machinery'
 import DvMachinerySelect from '@/views/mes/dv/machinery/components/DvMachinerySelect.vue'
 

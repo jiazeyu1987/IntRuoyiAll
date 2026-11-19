@@ -3,7 +3,7 @@
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <div v-loading="loading">
       <el-descriptions v-if="task" :column="1" border>
-        <el-descriptions-item label="工单">{{ task.workOrderCode }}</el-descriptions-item>
+        <el-descriptions-item label="工单"><WorkOrderCodeLink :code="task.workOrderCode" /></el-descriptions-item>
         <el-descriptions-item label="资料类别">{{ task.categoryLabel }}</el-descriptions-item>
         <el-descriptions-item label="补件要求">{{ task.reason }}</el-descriptions-item>
         <el-descriptions-item label="状态">{{ taskStatusLabels[task.status] ?? task.status }}</el-descriptions-item>
@@ -17,6 +17,7 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import type { UploadRequestOptions } from 'element-plus'

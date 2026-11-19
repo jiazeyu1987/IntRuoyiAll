@@ -201,8 +201,8 @@
             />
           </template>
         </el-table-column>
-        <el-table-column label="批次编号" align="center" prop="code" width="150" />
-        <el-table-column label="物料编码" align="center" prop="itemCode" width="150" />
+        <el-table-column label="批次编号" align="center" prop="code" width="150"><template #default="{ row }"><BatchCodeLink :code="row.code" :batch-id="row.id" /></template></el-table-column>
+        <el-table-column label="物料编码" align="center" prop="itemCode" width="150" ><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
         <el-table-column label="物料名称" align="left" prop="itemName" min-width="140" />
         <el-table-column label="规格型号" align="center" prop="itemSpecification" width="120" />
         <el-table-column label="单位" align="center" prop="unitName" width="80" />
@@ -212,7 +212,7 @@
         <el-table-column label="客户名称" align="center" prop="clientName" width="110" />
         <el-table-column label="销售订单编号" align="center" prop="salesOrderCode" width="140" />
         <el-table-column label="采购订单编号" align="center" prop="purchaseOrderCode" width="140" />
-        <el-table-column label="工单编码" align="center" prop="workOrderCode" width="140" />
+        <el-table-column label="工单编码" align="center" prop="workOrderCode" width="140" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
         <el-table-column label="工作站编码" align="center" prop="workstationCode" width="120" />
         <el-table-column label="生产任务编号" align="center" prop="taskCode" width="140" />
         <el-table-column label="工具编号" align="center" prop="toolCode" width="120" />
@@ -253,6 +253,9 @@
 </template>
 
 <script setup lang="ts">
+import BatchCodeLink from '@/components/BatchCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { formatDate } from '@/utils/formatTime'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { BatchApi, BatchVO } from '@/api/mes/wm/batch'

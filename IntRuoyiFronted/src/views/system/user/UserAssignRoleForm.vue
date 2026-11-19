@@ -48,6 +48,7 @@
 </template>
 <script lang="ts" setup>
 import * as PermissionApi from '@/api/system/permission'
+import { createPermissionAuditIdempotencyKey, PermissionAuditKeyError } from '@/utils/permissionAudit'
 import * as UserApi from '@/api/system/user'
 import * as RoleApi from '@/api/system/role'
 import { confirmUserChange } from './user-change-confirmation'
@@ -131,12 +132,15 @@ const submitForm = async () => {
     const content = `目标账号：${formData.value.username}（ID:${data.userId}）\n角色：${labels(originalRoles)} → ${labels(data.roleIds)}\n变更原因：${data.reason}`
     if (!(await confirmUserChange(message.confirm, content))) return
     if (current !== generation || !dialogVisible.value) return
-    await PermissionApi.assignUserRole({ ...data, idempotencyKey: createPermissionAuditIdempotencyKey() })
+    await PermissionApi.assignUserRole({ ...data, idempotencyKey: createPermissionAuditIdempotencyKey('USER-ROLE', data.userId) })
     if (current !== generation || !dialogVisible.value) return
     message.success(t('common.updateSuccess'))
     dialogVisible.value = false
     // 发送操作成功的事件
     emit('success', true)
+  } catch (error) {
+    if (error instanceof PermissionAuditKeyError) message.error(error.message)
+    throw error
   } finally {
     if (current === generation) formLoading.value = false
   }
@@ -157,10 +161,4 @@ const resetForm = () => {
   formRef.value?.resetFields()
 }
 
-const createPermissionAuditIdempotencyKey = () => {
-  if (typeof crypto !== 'object' || typeof crypto.randomUUID !== 'function') {
-    throw new Error('当前浏览器不支持 crypto.randomUUID，无法生成权限审计幂等键')
-  }
-  return `SYSTEM-PERM-USER-ROLE-${formData.value.id}-${crypto.randomUUID()}`
-}
 </script>

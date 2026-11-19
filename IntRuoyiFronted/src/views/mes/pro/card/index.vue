@@ -73,10 +73,10 @@
           </el-button>
         </template>
       </el-table-column>
-      <el-table-column label="生产工单编号" align="center" prop="workOrderCode" width="140" />
+      <el-table-column label="生产工单编号" align="center" prop="workOrderCode" width="140" ><template #default="{ row }"><WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" /></template></el-table-column>
       <el-table-column label="工单名称" align="center" prop="workOrderName" min-width="150" />
       <el-table-column label="批次号" align="center" prop="batchCode" width="120" />
-      <el-table-column label="产品物料编码" align="center" prop="itemCode" width="120"><template #default="{ row }"><ProductCodeLink :code="row.itemCode" /></template></el-table-column>
+      <el-table-column label="产品物料编码" align="center" prop="itemCode" width="120"><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="产品物料名称" align="center" prop="itemName" min-width="120" />
       <el-table-column label="规格型号" align="center" prop="specification" width="120" />
       <el-table-column label="单位" align="center" prop="unitMeasureName" width="80" />
@@ -144,7 +144,8 @@
 </template>
 
 <script setup lang="ts">
-import ProductCodeLink from '@/components/ProductCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { DICT_TYPE } from '@/utils/dict'
 import download from '@/utils/download'

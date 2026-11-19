@@ -27,12 +27,12 @@
           />
         </template>
       </el-table-column>
-      <el-table-column label="产品物料编码" align="center" prop="itemCode" min-width="120"><template #default="{ row }"><ProductCodeLink :code="row.itemCode" /></template></el-table-column>
+      <el-table-column label="产品物料编码" align="center" prop="itemCode" min-width="120"><template #default="{ row }"><MaterialCodeLink :code="row.itemCode" /></template></el-table-column>
       <el-table-column label="产品物料名称" align="center" prop="itemName" min-width="140" />
       <el-table-column label="规格型号" align="center" prop="specification" min-width="120" />
       <el-table-column label="单位" align="center" prop="unitMeasureName" width="80" />
       <el-table-column label="入库数量" align="center" prop="quantity" width="100" />
-      <el-table-column label="批次号" align="center" prop="batchCode" min-width="120" />
+      <el-table-column label="批次号" align="center" prop="batchCode" min-width="120"><template #default="{ row }"><BatchCodeLink :code="row.batchCode" :batch-id="row.batchId" /></template></el-table-column>
       <el-table-column
         v-if="isUpdate || isStock"
         label="操作"
@@ -99,6 +99,7 @@
         <el-col :span="8">
           <el-form-item label="批次号">
             <el-input :model-value="formData.batchCode" disabled placeholder="选择库存后自动带出" />
+            <BatchCodeLink :code="formData.batchCode" :batch-id="formData.batchId" />
           </el-form-item>
         </el-col>
       </el-row>
@@ -134,7 +135,8 @@
 </template>
 
 <script setup lang="ts">
-import ProductCodeLink from '@/components/ProductCodeLink.vue'
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
+import BatchCodeLink from '@/components/BatchCodeLink.vue'
 import { WmProductReceiptLineApi, WmProductReceiptLineVO } from '@/api/mes/wm/productreceipt/line'
 import { WmMaterialStockVO } from '@/api/mes/wm/materialstock'
 import WmMaterialStockSelect from '@/views/mes/wm/materialstock/components/WmMaterialStockSelect.vue'

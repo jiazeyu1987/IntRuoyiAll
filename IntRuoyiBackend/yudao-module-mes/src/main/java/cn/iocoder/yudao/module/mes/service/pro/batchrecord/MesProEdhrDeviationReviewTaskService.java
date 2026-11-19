@@ -7,8 +7,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrDevi
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
-import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
-import cn.iocoder.yudao.module.system.api.notify.dto.NotifySendSingleToUserReqDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -42,8 +40,6 @@ public class MesProEdhrDeviationReviewTaskService {
     @Resource private MesProEdhrWorkTaskMapper taskMapper;
     @Resource private AdminUserApi adminUserApi;
     @Resource private PermissionApi permissionApi;
-    @Resource private NotifyMessageSendApi notifyApi;
-    @Resource private MesWorkTaskAuxiliaryAudit auxiliaryAudit;
 
     public void validateAssignee(String node, Long userId) {
         permission(node);
@@ -110,14 +106,6 @@ public class MesProEdhrDeviationReviewTaskService {
         if (taskMapper.insert(task) != 1 || task.getId() == null) {
             throw new IllegalStateException("偏差签署任务创建失败");
         }
-        var notification = new NotifySendSingleToUserReqDTO();
-        notification.setUserId(userId);
-        notification.setTemplateCode("MES_EDHR_DEVIATION_REVIEW_ASSIGNED");
-        notification.setTemplateParams(Map.of("taskTitle", taskTitle, "reason", reason,
-                "workOrderCode", Objects.toString(deviation.getWorkOrderCode(), ""),
-                "batchCode", Objects.toString(deviation.getBatchCode(), ""),
-                "actionUrl", task.getActionUrl(), "workTaskId", task.getId()));
-        auxiliaryAudit.notifications(task, () -> List.of(notifyApi.sendSingleMessageToAdmin(notification)));
     }
 
     public MesProEdhrWorkTaskDO require(Long deviationId, MesProEdhrDeviationHandlingDO handling,

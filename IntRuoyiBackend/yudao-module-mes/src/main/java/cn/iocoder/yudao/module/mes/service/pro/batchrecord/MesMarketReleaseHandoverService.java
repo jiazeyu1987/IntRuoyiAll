@@ -8,7 +8,6 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.*;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.*;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesMarketReleaseHandoverMapper.Row;
-import cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseTaskNotificationService;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.*;
 import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
@@ -35,7 +34,6 @@ public class MesMarketReleaseHandoverService {
     private final ApprovalAuthorityApi authority;
     private final GxpAuditService ledger;
     private final MesProEdhrOperationAuditService operationAudit;
-    private final MesReleaseTaskNotificationService notifications;
 
     public record UserOption(Long id,String name) {}
     public record Context(Long batchExecutionId,Long workTaskId,String version,boolean visible,boolean writable,
@@ -152,7 +150,7 @@ public class MesMarketReleaseHandoverService {
         authority.incrementLockedAuthorityRevision(tenant,revision.revision());
         taskService.syncMarketReleaseHandoverEntitlements(task,original);
         audit(row,before,reason.trim(),commandKey,recall,batch);
-        notifications.scheduleHandover(task,actor,row.getRecipientUserId(),row.getId(),recall,reason.trim(),row.getOriginalUserName());
+
         return context(batchId);
     }
 

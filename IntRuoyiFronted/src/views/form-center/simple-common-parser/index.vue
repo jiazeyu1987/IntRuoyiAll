@@ -467,6 +467,7 @@ import {
 } from '../parser/simplePqc'
 import { DvMachineryApi, type DvMachineryVO } from '@/api/mes/dv/machinery'
 import { getTenantId } from '@/utils/auth'
+import { createSecureUuid } from '@/utils/uuid'
 import {
   getSimpleParserProjects,
   type SimpleParserProject
@@ -676,7 +677,7 @@ function normalize() {
 }
 function addProcess() {
   draft.value!.processes.push({
-    processCode: `P-${crypto.randomUUID()}`,
+    processCode: `P-${createSecureUuid()}`,
     processName: '新工序',
     sort: draft.value!.processes.length + 1,
     items: []
@@ -686,7 +687,7 @@ function addProcess() {
 }
 function addItem() {
   process.value!.items.push({
-    itemCode: `I-${crypto.randomUUID()}`,
+    itemCode: `I-${createSecureUuid()}`,
     itemName: '',
     itemSort: process.value!.items.length + 1,
     standardText: '',

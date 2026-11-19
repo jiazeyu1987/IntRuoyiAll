@@ -12,7 +12,7 @@
       <Icon icon="ep:plus" class="mr-5px" /> 添加 BOM 物料
     </el-button>
     <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true" border>
-      <el-table-column label="物料编码" align="center" prop="bomItemCode" />
+      <el-table-column label="物料编码" align="center" prop="bomItemCode" ><template #default="{ row }"><MaterialCodeLink :code="row.bomItemCode" /></template></el-table-column>
       <el-table-column label="物料名称" align="center" prop="bomItemName" />
       <el-table-column label="规格型号" align="center" prop="bomItemSpecification" />
       <el-table-column label="单位" align="center" prop="unitMeasureName" width="80" />
@@ -78,6 +78,7 @@
 </template>
 
 <script setup lang="ts">
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { MdProductBomApi, MdProductBomVO } from '@/api/mes/md/item/productBom'
 import { MdItemVO } from '@/api/mes/md/item'
 import { DICT_TYPE } from '@/utils/dict'

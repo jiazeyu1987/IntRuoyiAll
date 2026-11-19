@@ -26,6 +26,16 @@ public class MesProRouteTreeController {
     public CommonResult<Long> group(@Valid @RequestBody GroupRequest request) {
         return success(service.createGroup(request.name, request.parentId, request.sourceRouteId));
     }
+    @PutMapping("/group-name")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:update')")
+    public CommonResult<Boolean> renameGroup(@Valid @RequestBody GroupNameRequest request) {
+        service.renameGroup(request.id, request.name); return success(true);
+    }
+    @DeleteMapping("/group")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:delete')")
+    public CommonResult<Boolean> deleteGroup(@RequestParam Long id) {
+        service.deleteGroup(id); return success(true);
+    }
     @PostMapping("/inherit")
     @PreAuthorize("@ss.hasPermission('mes:pro-route:create')")
     public CommonResult<Long> inherit(@RequestParam Long parentId, @Valid @RequestBody MesProRouteCreateReqVO request) {
@@ -53,6 +63,10 @@ public class MesProRouteTreeController {
         @NotBlank private String name;
         private Long parentId;
         private Long sourceRouteId;
+    }
+    @Data public static class GroupNameRequest {
+        @NotNull private Long id;
+        @NotBlank private String name;
     }
     @Data public static class MoveRequest {
         @NotNull private Long id;

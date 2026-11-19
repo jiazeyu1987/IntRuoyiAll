@@ -108,7 +108,7 @@
       </el-row>
       <el-table :data="quoteForm.lines" border size="small">
         <el-table-column label="项目行" prop="projectLineId" width="100" />
-        <el-table-column label="物料编码" prop="materialCode" width="130" />
+        <el-table-column label="物料编码" prop="materialCode" width="130" ><template #default="{ row }"><MaterialCodeLink :code="row.materialCode" /></template></el-table-column>
         <el-table-column label="物料名称" prop="materialName" min-width="160" />
         <el-table-column label="数量" prop="quantity" width="100" align="right" />
         <el-table-column label="单价" width="150">
@@ -185,7 +185,7 @@
     <el-card v-if="currentProject?.priceTrends?.length" class="mt-16px" shadow="never">
       <template #header>价格趋势</template>
       <div v-for="trend in currentProject.priceTrends" :key="trend.materialId" class="mb-16px last:mb-0">
-        <div class="mb-8px text-14px font-600">{{ trend.materialName }}（{{ trend.materialCode }}）</div>
+        <div class="mb-8px text-14px font-600">{{ trend.materialName }}（<MaterialCodeLink :code="trend.materialCode" />）</div>
         <el-table :data="trend.points" border size="small">
           <el-table-column label="项目编号" prop="projectNo" width="160" />
           <el-table-column label="供应商" prop="supplierName" min-width="140" />
@@ -209,6 +209,7 @@
 </template>
 
 <script setup lang="ts">
+import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import type { FormInstance, FormRules } from 'element-plus'
 import {

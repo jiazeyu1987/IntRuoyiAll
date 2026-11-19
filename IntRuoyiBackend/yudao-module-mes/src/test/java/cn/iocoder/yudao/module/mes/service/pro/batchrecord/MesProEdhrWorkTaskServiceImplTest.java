@@ -190,12 +190,7 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertTrue(fillTask.getActionUrl().contains("batchTaskId=" + routeTask.getId()));
         assertTrue(fillTask.getActionUrl().contains("workTaskId=" + fillTask.getId()));
 
-        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
-                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notifyCaptor.capture());
-        assertEquals(88L, notifyCaptor.getValue().getUserId());
-        assertEquals("MES_EDHR_FILL_TASK_ASSIGNED", notifyCaptor.getValue().getTemplateCode());
-        assertEquals(fillTask.getActionUrl(), notifyCaptor.getValue().getTemplateParams().get("actionUrl"));
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi);
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(88L);
@@ -231,10 +226,7 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
             assertTrue(task.getActionUrl().contains("workTaskId=" + task.getId()));
             assertEquals(task.getId(), workTaskService.createRecordChangeRework(700L, source.getExecutionId(), 8802L, "批准补录").getId());
         }
-        var notice = ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notice.capture());
-        assertEquals("MES_EDHR_RECORD_CHANGE_REWORK", notice.getValue().getTemplateCode());
-        assertEquals(99L, notice.getValue().getUserId());
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi);
     }
 
     @Test
@@ -276,7 +268,7 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void deviationTasksNotifyAssignedOwnerReassignAndComplete() {
+    void deviationTasksAssignReassignAndCompleteWithoutInboxMessages() {
         insertBatch(batchForInitialFill(3101L, 4001L).setStatus(10).setTenantId(122L));
         when(adminUserApi.getUser(2101L)).thenReturn(new AdminUserRespDTO().setId(2101L).setStatus(0));
         when(adminUserApi.getUser(2102L)).thenReturn(new AdminUserRespDTO().setId(2102L).setStatus(0));
@@ -296,7 +288,7 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertEquals(9901L, first.getBusinessScopeId());
         assertEquals(2101L, first.getAssigneeUserId());
         assertEquals(MesProEdhrWorkTaskStatus.TODO, first.getStatus());
-        verify(notifyMessageSendApi).sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class));
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi);
 
         MesProEdhrWorkTaskDO reassigned = workTaskService.assignDeviationTask(deviation,
                 MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE, 2102L, "接收偏差");
@@ -565,16 +557,7 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertEquals(Set.of(288L, 289L), request.getResolvedUserIds());
         assertTrue(request.getSourceDigest().contains("responsibilitySourceKey=ROUTE|5120|REPORT-PERM-001|78020"));
 
-        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
-                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi, times(2)).sendSingleMessageToAdmin(notifyCaptor.capture());
-        assertEquals(List.of(288L, 289L), notifyCaptor.getAllValues().stream()
-                .map(NotifySendSingleToUserReqDTO::getUserId)
-                .sorted()
-                .toList());
-        assertTrue(notifyCaptor.getAllValues().stream()
-                .allMatch(notify -> Objects.equals("MES_EDHR_FILL_TASK_ASSIGNED", notify.getTemplateCode())
-                        && Objects.equals(fillTask.getId(), notify.getTemplateParams().get("workTaskId"))));
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi);
     }
 
     @Test
@@ -1518,20 +1501,7 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
                 .filter(task -> "R1C2".equals(task.getSignatureCellKey()))
                 .findFirst()
                 .orElseThrow();
-        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
-                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi, times(3)).sendSingleMessageToAdmin(notifyCaptor.capture());
-        assertTrue(notifyCaptor.getAllValues().stream()
-                .anyMatch(notify -> Objects.equals(88L, notify.getUserId())
-                        && Objects.equals(roleCandidateTask.getId(), notify.getTemplateParams().get("workTaskId"))));
-        assertTrue(notifyCaptor.getAllValues().stream()
-                .anyMatch(notify -> Objects.equals(89L, notify.getUserId())
-                        && Objects.equals(roleCandidateTask.getId(), notify.getTemplateParams().get("workTaskId"))));
-        assertTrue(notifyCaptor.getAllValues().stream()
-                .anyMatch(notify -> Objects.equals(89L, notify.getUserId())
-                        && Objects.equals(singleCandidateTask.getId(), notify.getTemplateParams().get("workTaskId"))));
-        assertTrue(notifyCaptor.getAllValues().stream()
-                .allMatch(notify -> Objects.equals("MES_EDHR_REVIEW_TASK_ASSIGNED", notify.getTemplateCode())));
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi);
         ArgumentCaptor<SystemEntitlementRevokeReqDTO> captor =
                 ArgumentCaptor.forClass(SystemEntitlementRevokeReqDTO.class);
         verify(permissionApi).revokeEntitlementSource(captor.capture());
@@ -1586,7 +1556,7 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void createReviewTasks_deduplicatesRepeatedFrozenCandidateNotifyRecipients() {
+    void createReviewTasksPreservesFrozenCandidatesWithoutInboxMessages() {
         MesProEdhrWorkTaskDO fillTask = insertFillTask(514L, 2014L, "014");
         insertAssignmentRule(fillTask.getRouteProcessId(), MesProEdhrWorkTaskService.TASK_TYPE_REVIEW, 120);
 
@@ -1601,16 +1571,7 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
                             .setCandidateUserSnapshot("188,188,189"))).get(0);
         }
 
-        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
-                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi, times(2)).sendSingleMessageToAdmin(notifyCaptor.capture());
-        assertEquals(List.of(188L, 189L), notifyCaptor.getAllValues().stream()
-                .map(NotifySendSingleToUserReqDTO::getUserId)
-                .sorted()
-                .toList());
-        assertTrue(notifyCaptor.getAllValues().stream()
-                .allMatch(notify -> Objects.equals("MES_EDHR_REVIEW_TASK_ASSIGNED", notify.getTemplateCode())
-                        && Objects.equals(reviewTask.getId(), notify.getTemplateParams().get("workTaskId"))));
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi);
     }
 
     @Test
@@ -1965,8 +1926,7 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void processOverdueTasks_marksOnlyDueTodoAndDoingTasksAndSendsNotify() {
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any())).thenReturn(5001L);
+    void processOverdueTasks_marksOnlyDueTodoAndDoingTasksWithoutInboxMessages() {
         LocalDateTime now = LocalDateTime.of(2026, 6, 12, 10, 0);
         for (long id : new long[] {99}) when(adminUserApi.getUser(id))
                 .thenReturn(new AdminUserRespDTO().setId(id).setTenantId(122L).setStatus(0));
@@ -2008,12 +1968,11 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertTrue(overdueDoing.getOverdueReason().contains("逾期自动处理"));
         assertEquals(MesProEdhrWorkTaskStatus.TODO, workTaskMapper.selectById(futureTodo.getId()).getStatus());
         assertEquals(MesProEdhrWorkTaskStatus.DONE, workTaskMapper.selectById(doneTask.getId()).getStatus());
-        verify(notifyMessageSendApi, org.mockito.Mockito.times(2)).sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class));
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi);
     }
 
     @Test
-    void overdueCandidateSnapshotNotifiesEveryFrozenCandidateOnlyOnce() {
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any())).thenReturn(5001L);
+    void overdueCandidateTaskTransitionsOnlyOnceWithoutInboxMessages() {
         var now = LocalDateTime.now();
         var task = insertFillTask(701L, 2701L, "candidate-overdue")
                 .setAssigneeUserId(null).setCandidateUserSnapshot("701,702,701").setDueTime(now.minusMinutes(1));
@@ -2023,26 +1982,21 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
                 .thenReturn(new AdminUserRespDTO().setId(id).setTenantId(122L).setStatus(0));
         assertEquals(1, workTaskService.processOverdueTasks(now, 20));
         assertEquals(0, workTaskService.processOverdueTasks(now.plusMinutes(1), 20));
-        var sent = ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi, times(2)).sendSingleMessageToAdmin(sent.capture());
-        assertEquals(Set.of(701L,702L), sent.getAllValues().stream().map(NotifySendSingleToUserReqDTO::getUserId).collect(java.util.stream.Collectors.toSet()));
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi);
     }
 
     @Test
-    void overdueAssignedTaskNotifiesOnlyCurrentAssignee() {
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any())).thenReturn(5001L);
+    void overdueAssignedTaskTransitionsWithoutInboxMessages() {
         var now=LocalDateTime.now().withNano(0);
         var task=insertFillTask(704L,2704L,"assigned-overdue").setCandidateUserSnapshot("701,702").setDueTime(now.minusMinutes(1));
         workTaskMapper.updateById(task);
         when(adminUserApi.getUser(99L)).thenReturn(new AdminUserRespDTO().setId(99L).setTenantId(122L).setStatus(0));
         assertEquals(1,workTaskService.processOverdueTasks(now,20));
-        var sent=ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi).sendSingleMessageToAdmin(sent.capture()); assertEquals(99L,sent.getValue().getUserId());
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi);
     }
 
     @Test
     void frozenProductionTaskRetainsDeadlineWithoutReminderUntilUnfrozen() {
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any())).thenReturn(5001L);
         var now=LocalDateTime.now().withNano(0);
         var task=insertFillTask(705L,2705L,"frozen-overdue").setDueTime(now.minusMinutes(1));workTaskMapper.updateById(task);
         batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO().setId(1001L).setStatus(15));
@@ -2055,48 +2009,14 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void overdueForeignTenantCandidateFailsBeforeSending() {
-        var now = LocalDateTime.now();
-        var task = insertFillTask(703L, 2703L, "foreign-overdue").setDueTime(now.minusMinutes(1));
+    void overdueTransitionDoesNotDependOnInboxRecipientsOrTemplates() {
+        var now = LocalDateTime.now().withNano(0);
+        var task = insertFillTask(703L, 2703L, "overdue-without-inbox").setDueTime(now.minusMinutes(1));
         workTaskMapper.updateById(task);
-        when(adminUserApi.getUser(99L)).thenReturn(new AdminUserRespDTO().setId(99L).setTenantId(999L).setStatus(0));
-        assertThrows(ServiceException.class, () -> workTaskService.processOverdueTasks(now,20));
+        assertEquals(1, workTaskService.processOverdueTasks(now, 20));
+        assertEquals(MesProEdhrWorkTaskStatus.OVERDUE, workTaskMapper.selectById(task.getId()).getStatus());
+        assertEquals(0, workTaskService.processOverdueTasks(now.plusMinutes(1), 20));
         org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi);
-        assertEquals(MesProEdhrWorkTaskStatus.TODO, workTaskMapper.selectById(task.getId()).getStatus());
-    }
-
-    @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.NullSource
-    @org.junit.jupiter.params.provider.ValueSource(longs={0,-1})
-    void overdueMissingReceiptRollsBackStatusAndRemainsRetryable(Long invalidReceipt) {
-        var now=LocalDateTime.now().withNano(0);
-        var task=insertFillTask(706L,2706L,"missing-receipt").setDueTime(now.minusMinutes(1));
-        workTaskMapper.updateById(task);
-        when(adminUserApi.getUser(99L)).thenReturn(new AdminUserRespDTO().setId(99L).setTenantId(122L).setStatus(0));
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any())).thenReturn(invalidReceipt,5001L);
-        assertThrows(IllegalStateException.class,()->workTaskService.processOverdueTasks(now,20));
-        var failed=workTaskMapper.selectById(task.getId());
-        assertEquals(MesProEdhrWorkTaskStatus.TODO,failed.getStatus());
-        assertNull(failed.getOverdueAt());
-        assertEquals(task.getDueTime(),failed.getDueTime());
-        assertEquals(1,workTaskService.processOverdueTasks(now,20));
-        assertEquals(MesProEdhrWorkTaskStatus.OVERDUE,workTaskMapper.selectById(task.getId()).getStatus());
-        assertEquals(0,workTaskService.processOverdueTasks(now.plusMinutes(1),20));
-        verify(notifyMessageSendApi,times(2)).sendSingleMessageToAdmin(any());
-    }
-
-    @Test
-    void overdueDisabledTemplateExceptionRollsBackStatusBeforeRetry() {
-        var now=LocalDateTime.now().withNano(0);
-        var task=insertFillTask(707L,2707L,"disabled-template").setDueTime(now.minusMinutes(1));
-        workTaskMapper.updateById(task);
-        when(adminUserApi.getUser(99L)).thenReturn(new AdminUserRespDTO().setId(99L).setTenantId(122L).setStatus(0));
-        var disabled=cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
-                cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.NOTIFY_SEND_TEMPLATE_DISABLED);
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any())).thenThrow(disabled).thenReturn(5001L);
-        assertEquals(disabled,assertThrows(ServiceException.class,()->workTaskService.processOverdueTasks(now,20)));
-        assertEquals(MesProEdhrWorkTaskStatus.TODO,workTaskMapper.selectById(task.getId()).getStatus());
-        assertEquals(1,workTaskService.processOverdueTasks(now,20));
     }
 
     @Test
@@ -2158,15 +2078,11 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertTrue(archiveTask.getActionUrl().contains("/mes/pro/feedback/edhr-batch-execution/detail?id=1001"));
         assertTrue(archiveTask.getActionUrl().contains("workTaskId=" + archiveTask.getId()));
 
-        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
-                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notifyCaptor.capture());
-        assertEquals(188L, notifyCaptor.getValue().getUserId());
-        assertEquals("MES_EDHR_ARCHIVE_TASK_ASSIGNED", notifyCaptor.getValue().getTemplateCode());
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi);
     }
 
     @Test
-    void createReleaseApprovalTaskAfterSubmit_createsTodoNotifyActionUrlAndEntitlement() {
+    void createReleaseApprovalTaskAfterSubmit_createsTodoActionUrlAndEntitlementWithoutInboxMessage() {
         MesProEdhrBatchExecutionDO batch = batchForArchive(1002L, 4102L);
         insertRouteLevelAssignmentRule(batch.getRouteId(), MesProEdhrWorkTaskService.TASK_TYPE_RELEASE_APPROVE,
                 188L, 180);
@@ -2196,11 +2112,7 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertTrue(saved.getActionUrl().contains("focus=approval"));
         assertTrue(saved.getActionUrl().contains("releaseTransactionId=2002"));
 
-        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
-                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notifyCaptor.capture());
-        assertEquals(188L, notifyCaptor.getValue().getUserId());
-        assertEquals("MES_EDHR_RELEASE_APPROVE_TASK_ASSIGNED", notifyCaptor.getValue().getTemplateCode());
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi);
 
         ArgumentCaptor<SystemEntitlementSyncReqDTO> entitlementCaptor =
                 ArgumentCaptor.forClass(SystemEntitlementSyncReqDTO.class);
@@ -2503,7 +2415,7 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void reassignFillTask_sendsReassignmentNotifyWhenOwnerChanges() {
+    void reassignFillTaskChangesOwnerWithoutInboxMessage() {
         MesProEdhrBatchExecutionTaskDO batchTask = batchTask(3092L, 9192L, 5192L,
                 "REPORT-REASSIGN-003", "ROUTE_FORM", "光固I", 10)
                 .setBatchRecordVersionId(78092L);
@@ -2529,17 +2441,8 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         }
 
         MesProEdhrWorkTaskDO reassigned = workTaskMapper.selectById(fillTask.getId());
-        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
-                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notifyCaptor.capture());
-        NotifySendSingleToUserReqDTO notifyReq = notifyCaptor.getValue();
-        assertEquals(389L, notifyReq.getUserId());
-        assertEquals("MES_EDHR_FILL_TASK_REASSIGNED", notifyReq.getTemplateCode());
-        Map<String, Object> params = (Map<String, Object>) notifyReq.getTemplateParams();
-        assertEquals(reassigned.getActionUrl(), params.get("actionUrl"));
-        assertEquals(reassigned.getId(), params.get("workTaskId"));
-        assertEquals("规则变更后重新派发", params.get("reason"));
-        assertTrue(String.valueOf(params.get("actionUrl")).contains("workTaskId=" + reassigned.getId()));
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi);
+        assertEquals(389L, reassigned.getAssigneeUserId());
     }
 
     @Test

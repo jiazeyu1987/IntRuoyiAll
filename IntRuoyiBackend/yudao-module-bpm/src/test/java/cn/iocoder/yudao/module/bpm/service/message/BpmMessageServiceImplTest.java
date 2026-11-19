@@ -245,7 +245,7 @@ class BpmMessageServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void sendMessageWhenTaskAssigned_edhrProcess_usesNotifyInbox() {
+    void sendMessageWhenTaskAssigned_edhrProcess_doesNotSendInboxOrSubstituteSms() {
         BpmMessageSendWhenTaskCreatedReqDTO reqDTO = new BpmMessageSendWhenTaskCreatedReqDTO();
         reqDTO.setProcessInstanceId("proc-edhr-1");
         reqDTO.setProcessInstanceName("eDHR Approval V1");
@@ -255,62 +255,41 @@ class BpmMessageServiceImplTest extends BaseMockitoUnitTest {
         reqDTO.setTaskId("task-edhr-1");
         reqDTO.setTaskName("eDHR审批");
         reqDTO.setAssigneeUserId(916L);
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class))).thenReturn(9101L);
 
         messageService.sendMessageWhenTaskAssigned(reqDTO);
 
-        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
-                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notifyCaptor.capture());
-        assertEquals(916L, notifyCaptor.getValue().getUserId());
-        assertEquals("MES_EDHR_BPM_TASK_ASSIGNED", notifyCaptor.getValue().getTemplateCode());
-        assertEquals("eDHR Approval V1", notifyCaptor.getValue().getTemplateParams().get("processInstanceName"));
-        assertEquals("eDHR审批", notifyCaptor.getValue().getTemplateParams().get("taskName"));
-        verify(smsSendApi, never()).sendSingleSmsToAdmin(any(SmsSendSingleToUserReqDTO.class));
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi, smsSendApi);
     }
 
     @Test
-    void sendMessageWhenProcessInstanceApprove_edhrProcess_usesNotifyInbox() {
+    void sendMessageWhenProcessInstanceApprove_edhrProcess_doesNotSendInboxOrSubstituteSms() {
         BpmMessageSendWhenProcessInstanceApproveReqDTO reqDTO = new BpmMessageSendWhenProcessInstanceApproveReqDTO();
         reqDTO.setProcessInstanceId("proc-edhr-2");
         reqDTO.setProcessInstanceName("eDHR Approval V1");
         reqDTO.setProcessDefinitionKey(EDHR_PROCESS_DEFINITION_KEY);
         reqDTO.setStartUserId(611L);
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class))).thenReturn(9102L);
 
         messageService.sendMessageWhenProcessInstanceApprove(reqDTO);
 
-        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
-                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notifyCaptor.capture());
-        assertEquals(611L, notifyCaptor.getValue().getUserId());
-        assertEquals("MES_EDHR_BPM_APPROVED", notifyCaptor.getValue().getTemplateCode());
-        verify(smsSendApi, never()).sendSingleSmsToAdmin(any(SmsSendSingleToUserReqDTO.class));
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi, smsSendApi);
     }
 
     @Test
-    void sendMessageWhenProcessInstanceReject_edhrProcess_usesNotifyInbox() {
+    void sendMessageWhenProcessInstanceReject_edhrProcess_doesNotSendInboxOrSubstituteSms() {
         BpmMessageSendWhenProcessInstanceRejectReqDTO reqDTO = new BpmMessageSendWhenProcessInstanceRejectReqDTO();
         reqDTO.setProcessInstanceId("proc-edhr-3");
         reqDTO.setProcessInstanceName("eDHR Approval V1");
         reqDTO.setProcessDefinitionKey(EDHR_PROCESS_DEFINITION_KEY);
         reqDTO.setStartUserId(611L);
         reqDTO.setReason("退回补充");
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class))).thenReturn(9103L);
 
         messageService.sendMessageWhenProcessInstanceReject(reqDTO);
 
-        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
-                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notifyCaptor.capture());
-        assertEquals(611L, notifyCaptor.getValue().getUserId());
-        assertEquals("MES_EDHR_BPM_REJECTED", notifyCaptor.getValue().getTemplateCode());
-        assertEquals("退回补充", notifyCaptor.getValue().getTemplateParams().get("reason"));
-        verify(smsSendApi, never()).sendSingleSmsToAdmin(any(SmsSendSingleToUserReqDTO.class));
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi, smsSendApi);
     }
 
     @Test
-    void sendMessageWhenTaskTimeout_edhrProcess_usesNotifyInbox() {
+    void sendMessageWhenTaskTimeout_edhrProcess_doesNotSendInboxOrSubstituteSms() {
         BpmMessageSendWhenTaskTimeoutReqDTO reqDTO = new BpmMessageSendWhenTaskTimeoutReqDTO();
         reqDTO.setProcessInstanceId("proc-edhr-4");
         reqDTO.setProcessInstanceName("eDHR Approval V1");
@@ -318,20 +297,14 @@ class BpmMessageServiceImplTest extends BaseMockitoUnitTest {
         reqDTO.setTaskId("task-edhr-4");
         reqDTO.setTaskName("eDHR审批");
         reqDTO.setAssigneeUserId(916L);
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class))).thenReturn(9104L);
 
         messageService.sendMessageWhenTaskTimeout(reqDTO);
 
-        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
-                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notifyCaptor.capture());
-        assertEquals(916L, notifyCaptor.getValue().getUserId());
-        assertEquals("MES_EDHR_BPM_TASK_TIMEOUT", notifyCaptor.getValue().getTemplateCode());
-        verify(smsSendApi, never()).sendSingleSmsToAdmin(any(SmsSendSingleToUserReqDTO.class));
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi, smsSendApi);
     }
 
     @Test
-    void sendMessageWhenTaskAssigned_routeVersionProcess_usesNotifyInbox() {
+    void sendMessageWhenTaskAssigned_routeVersionProcess_doesNotSendInboxOrSubstituteSms() {
         BpmMessageSendWhenTaskCreatedReqDTO reqDTO = new BpmMessageSendWhenTaskCreatedReqDTO();
         reqDTO.setProcessInstanceId("proc-route-1");
         reqDTO.setProcessInstanceName("工艺路线版本 V20");
@@ -341,62 +314,41 @@ class BpmMessageServiceImplTest extends BaseMockitoUnitTest {
         reqDTO.setTaskId("task-route-1");
         reqDTO.setTaskName("工艺路线版本 115 V20");
         reqDTO.setAssigneeUserId(916L);
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class))).thenReturn(9201L);
 
         messageService.sendMessageWhenTaskAssigned(reqDTO);
 
-        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
-                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notifyCaptor.capture());
-        assertEquals(916L, notifyCaptor.getValue().getUserId());
-        assertEquals("MES_ROUTE_VERSION_BPM_TASK_ASSIGNED", notifyCaptor.getValue().getTemplateCode());
-        assertEquals("工艺路线版本 V20", notifyCaptor.getValue().getTemplateParams().get("processInstanceName"));
-        assertEquals("工艺路线版本 115 V20", notifyCaptor.getValue().getTemplateParams().get("taskName"));
-        verify(smsSendApi, never()).sendSingleSmsToAdmin(any(SmsSendSingleToUserReqDTO.class));
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi, smsSendApi);
     }
 
     @Test
-    void sendMessageWhenProcessInstanceApprove_routeVersionProcess_usesNotifyInbox() {
+    void sendMessageWhenProcessInstanceApprove_routeVersionProcess_doesNotSendInboxOrSubstituteSms() {
         BpmMessageSendWhenProcessInstanceApproveReqDTO reqDTO = new BpmMessageSendWhenProcessInstanceApproveReqDTO();
         reqDTO.setProcessInstanceId("proc-route-2");
         reqDTO.setProcessInstanceName("工艺路线版本 V20");
         reqDTO.setProcessDefinitionKey(ROUTE_VERSION_PROCESS_DEFINITION_KEY);
         reqDTO.setStartUserId(611L);
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class))).thenReturn(9202L);
 
         messageService.sendMessageWhenProcessInstanceApprove(reqDTO);
 
-        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
-                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notifyCaptor.capture());
-        assertEquals(611L, notifyCaptor.getValue().getUserId());
-        assertEquals("MES_ROUTE_VERSION_BPM_APPROVED", notifyCaptor.getValue().getTemplateCode());
-        verify(smsSendApi, never()).sendSingleSmsToAdmin(any(SmsSendSingleToUserReqDTO.class));
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi, smsSendApi);
     }
 
     @Test
-    void sendMessageWhenProcessInstanceReject_routeVersionProcess_usesNotifyInbox() {
+    void sendMessageWhenProcessInstanceReject_routeVersionProcess_doesNotSendInboxOrSubstituteSms() {
         BpmMessageSendWhenProcessInstanceRejectReqDTO reqDTO = new BpmMessageSendWhenProcessInstanceRejectReqDTO();
         reqDTO.setProcessInstanceId("proc-route-3");
         reqDTO.setProcessInstanceName("工艺路线版本 V20");
         reqDTO.setProcessDefinitionKey(ROUTE_VERSION_PROCESS_DEFINITION_KEY);
         reqDTO.setStartUserId(611L);
         reqDTO.setReason("工艺参数需补充");
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class))).thenReturn(9203L);
 
         messageService.sendMessageWhenProcessInstanceReject(reqDTO);
 
-        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
-                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notifyCaptor.capture());
-        assertEquals(611L, notifyCaptor.getValue().getUserId());
-        assertEquals("MES_ROUTE_VERSION_BPM_REJECTED", notifyCaptor.getValue().getTemplateCode());
-        assertEquals("工艺参数需补充", notifyCaptor.getValue().getTemplateParams().get("reason"));
-        verify(smsSendApi, never()).sendSingleSmsToAdmin(any(SmsSendSingleToUserReqDTO.class));
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi, smsSendApi);
     }
 
     @Test
-    void sendMessageWhenTaskTimeout_routeVersionProcess_usesNotifyInbox() {
+    void sendMessageWhenTaskTimeout_routeVersionProcess_doesNotSendInboxOrSubstituteSms() {
         BpmMessageSendWhenTaskTimeoutReqDTO reqDTO = new BpmMessageSendWhenTaskTimeoutReqDTO();
         reqDTO.setProcessInstanceId("proc-route-4");
         reqDTO.setProcessInstanceName("工艺路线版本 V20");
@@ -404,16 +356,10 @@ class BpmMessageServiceImplTest extends BaseMockitoUnitTest {
         reqDTO.setTaskId("task-route-4");
         reqDTO.setTaskName("工艺路线版本 115 V20");
         reqDTO.setAssigneeUserId(916L);
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class))).thenReturn(9204L);
 
         messageService.sendMessageWhenTaskTimeout(reqDTO);
 
-        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
-                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notifyCaptor.capture());
-        assertEquals(916L, notifyCaptor.getValue().getUserId());
-        assertEquals("MES_ROUTE_VERSION_BPM_TASK_TIMEOUT", notifyCaptor.getValue().getTemplateCode());
-        verify(smsSendApi, never()).sendSingleSmsToAdmin(any(SmsSendSingleToUserReqDTO.class));
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi, smsSendApi);
     }
 
     @Test

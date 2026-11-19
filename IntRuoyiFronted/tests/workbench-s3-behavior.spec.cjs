@@ -2,6 +2,30 @@ const assert=require('node:assert/strict')
 const test=require('node:test')
 const {fixture,deferred,tick,descriptor,dir,row,read,compile}=require('./helpers/workbench-s3-fixture.cjs')
 
+test('HTTP workbench reads use independent UUID v4 epochs without randomUUID',()=>{
+ const {webcrypto}=require('node:crypto')
+ const httpCrypto={getRandomValues:bytes=>webcrypto.getRandomValues(bytes)}
+ const f=fixture({crypto:httpCrypto})
+ try{
+  const first=f.context.beginWorkbenchRead(),second=f.context.beginWorkbenchRead()
+  const uuidV4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+  assert.match(first.contextEpoch,uuidV4)
+  assert.match(second.contextEpoch,uuidV4)
+  assert.notEqual(first.contextEpoch,second.contextEpoch)
+  assert.equal(f.context.isWorkbenchReadCurrent(first),true)
+  assert.equal(f.context.isWorkbenchReadCurrent(second),true)
+  f.context.invalidateWorkbenchContext('test invalidation')
+  assert.equal(f.context.isWorkbenchReadCurrent(first),false)
+  assert.equal(f.context.isWorkbenchReadCurrent(second),false)
+  const next=f.context.beginWorkbenchRead()
+  assert.equal(f.context.isWorkbenchReadCurrent(next),true)
+  assert.notEqual(next.contextEpoch,second.contextEpoch)
+  delete httpCrypto.getRandomValues
+  assert.throws(()=>f.context.beginWorkbenchRead(),/不支持安全随机数/)
+  assert.equal(f.requests.length,0)
+ }finally{f.scope.stop()}
+})
+
 test('empty authorized directory is distinguished from an authorized source with no tasks',async()=>{
  const f=fixture()
  assert.equal(f.page.todoEmptyText.value,'待办列表尚未加载成功，请重试')

@@ -6223,7 +6223,6 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
         ReflectionTestUtils.setField(tasks, "auxiliaryAudit", auxiliary);
         var notifications = mock(cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi.class);
         when(notifications.sendSingleMessageToAdmin(any())).thenReturn(9901L);
-        ReflectionTestUtils.setField(tasks, "notifyMessageSendApi", notifications);
         return tasks;
     }
 

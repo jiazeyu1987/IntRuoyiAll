@@ -139,7 +139,7 @@ class MesProEdhrWorkTaskDeviationProjectionTest {
     @org.junit.jupiter.params.provider.CsvSource({"DEVIATION_RECEIVE,,开展偏差调查", "DEVIATION_CORRECT,,完成偏差整改",
             "DEVIATION_VERIFY,CORRECTIVE_VERIFIER,完成偏差调查结果验证", "DEVIATION_SIGN,PREPARER,完成偏差处理记录编制",
             "DEVIATION_APPROVE,QUALITY_OWNER,完成质量负责人批准", "DEVIATION_CLOSE,CLOSE,完成偏差正式关闭"})
-    void overdueUsesFormalDutyInsteadOfReturnReason(String type, String node, String expectedTitle) {
+    void overduePreservesFormalDutyWithoutInboxNotice(String type, String node, String expectedTitle) {
         var task = task(type, "EDHR_DEVIATION").setBusinessScopeId(27L).setSignatureCellKey(node)
                 .setReason("退回原因：请补充证据").setCandidateUserSnapshot("12")
                 .setDueTime(java.time.LocalDateTime.of(2026, 11, 17, 9, 0));
@@ -151,15 +151,12 @@ class MesProEdhrWorkTaskDeviationProjectionTest {
         when(users.getUser(12L)).thenReturn(new AdminUserRespDTO().setId(12L).setTenantId(1L).setStatus(0));
         ReflectionTestUtils.setField(service, "adminUserApi", users);
         var notify = mock(cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi.class);
-        when(notify.sendSingleMessageToAdmin(any())).thenReturn(77L);
-        ReflectionTestUtils.setField(service, "notifyMessageSendApi", notify);
         doReturn(List.of(task)).when(mapper).selectDueActiveTasks(any(), anyInt());
         doReturn(1).when(mapper).updateToOverdueIfActive(any(), any(), any());
         assertEquals(1, service.processOverdueTasks(java.time.LocalDateTime.of(2026, 11, 17, 10, 0), 20));
-        verify(notify).sendSingleMessageToAdmin(argThat(message ->
-                "MES_EDHR_DEVIATION_WORK_TASK_OVERDUE".equals(message.getTemplateCode())
-                && expectedTitle.equals(message.getTemplateParams().get("taskTitle"))
-                && task.getReason().equals(message.getTemplateParams().get("reason"))));
+        verifyNoInteractions(notify);
+        assertEquals("OVERDUE", task.getStatus());
+        assertEquals("退回原因：请补充证据", task.getReason());
     }
 
     private MesProEdhrWorkTaskDO task(String taskType, String scopeType) {

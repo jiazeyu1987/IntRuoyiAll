@@ -76,7 +76,7 @@
       />
       <el-table-column label="销售订单编号" align="center" prop="salesOrderCode" min-width="140" />
       <el-table-column label="发票编号" align="center" prop="invoiceCode" min-width="120" />
-      <el-table-column label="客户编码" align="center" prop="clientCode" min-width="100" />
+      <el-table-column label="客户编码" align="center" prop="clientCode" min-width="100" ><template #default="{ row }"><PartnerCodeLink :code="row.clientCode" partner-type="client" /></template></el-table-column>
       <el-table-column label="客户名称" align="center" prop="clientName" min-width="120" />
       <el-table-column label="箱长度" align="center" prop="length" width="80" />
       <el-table-column label="箱宽度" align="center" prop="width" width="80" />
@@ -127,6 +127,7 @@
 </template>
 
 <script setup lang="ts">
+import PartnerCodeLink from '@/components/PartnerCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { dateFormatter2 } from '@/utils/formatTime'
 import { DICT_TYPE } from '@/utils/dict'

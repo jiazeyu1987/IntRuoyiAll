@@ -80,7 +80,7 @@
                 {{ row.batchCode }}
               </el-button>
               <span v-else>
-                {{ row.batchCode || '--' }}
+                <ProductionBatchCodeLink :code="row.batchCode" />
                 <el-tag v-if="row.contextStatus !== 'COMPLETE'" class="ml-6px" type="warning" size="small">
                   {{ resolveEvidenceLabel(row.contextStatus) }}
                 </el-tag>
@@ -117,7 +117,7 @@
             prop="executionCode"
             :min-width="getColumnMinWidthString('executionCode', 160)"
             v-bind="sortColumnAttrs('executionCode')"
-          />
+          ><template #default="{ row }"><ExecutionCodeLink :code="row.executionCode" :execution-id="row.executionId" /></template></el-table-column>
           <el-table-column
             v-if="isColumnVisible('actorName')"
             label="填写人"
@@ -296,9 +296,9 @@
       <el-descriptions-item label="原始执行ID">{{ detail.executionId }}</el-descriptions-item>
       <el-descriptions-item label="上下文状态">{{ resolveEvidenceLabel(detail.contextStatus) }}</el-descriptions-item>
       <el-descriptions-item label="表单名称">{{ detail.formName || detail.batchRecordReportId || '--' }}</el-descriptions-item>
-      <el-descriptions-item label="执行编号">{{ detail.executionCode || '--' }}</el-descriptions-item>
-      <el-descriptions-item label="批号">{{ detail.batchCode || '--' }}</el-descriptions-item>
-      <el-descriptions-item label="生产工单号">{{ detail.workOrderCode || '--' }}</el-descriptions-item>
+      <el-descriptions-item label="执行编号"><ExecutionCodeLink :code="detail.executionCode" :execution-id="detail.executionId" /></el-descriptions-item>
+      <el-descriptions-item label="批号"><ProductionBatchCodeLink :code="detail.batchCode" /></el-descriptions-item>
+      <el-descriptions-item label="生产工单号"><WorkOrderCodeLink :code="detail.workOrderCode" /></el-descriptions-item>
       <el-descriptions-item label="填写人">{{ detail.actorName || detail.actorId || '--' }}</el-descriptions-item>
       <el-descriptions-item label="填写时间">{{ formatFormLogDateTime(detail.changedAt) }}</el-descriptions-item>
     </el-descriptions>
@@ -406,6 +406,9 @@
 </template>
 
 <script setup lang="ts">
+import ExecutionCodeLink from '@/components/ExecutionCodeLink.vue'
+import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'

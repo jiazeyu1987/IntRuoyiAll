@@ -56,14 +56,14 @@
         <el-table-column label="产品名称" prop="productName" min-width="180" />
         <el-table-column label="路线" min-width="190">
           <template #default="{ row }">
-            <span class="cell-main">{{ row.routeCode }}</span>
+            <span class="cell-main"><RouteCodeLink :code="row.routeCode" :route-id="row.routeId" /></span>
             <span class="cell-sub">{{ row.routeName }}</span>
           </template>
         </el-table-column>
         <el-table-column label="序号" prop="sort" width="70" align="center" />
         <el-table-column label="工序" min-width="190">
           <template #default="{ row }">
-            <span class="cell-main">{{ row.processCode }}</span>
+            <span class="cell-main"><ProcessCodeLink :code="row.processCode" :process-id="row.processId" /></span>
             <span class="cell-sub">{{ row.processName }}</span>
           </template>
         </el-table-column>
@@ -76,13 +76,13 @@
         </el-table-column>
         <el-table-column label="工位" min-width="190">
           <template #default="{ row }">
-            <span class="cell-main">{{ row.workstationCode || '-' }}</span>
+            <span class="cell-main"><WorkstationCodeLink :code="row.workstationCode" /></span>
             <span class="cell-sub">{{ row.workstationName || '-' }}</span>
           </template>
         </el-table-column>
         <el-table-column label="设备" min-width="210">
           <template #default="{ row }">
-            <span class="cell-main">{{ row.machineryCode || '-' }}</span>
+            <span class="cell-main"><MachineryCodeLink :code="row.machineryCode" /></span>
             <span class="cell-sub">{{ row.machineryName || '-' }}</span>
           </template>
         </el-table-column>
@@ -140,6 +140,10 @@
 </template>
 
 <script setup lang="ts">
+import MachineryCodeLink from '@/components/MachineryCodeLink.vue'
+import WorkstationCodeLink from '@/components/WorkstationCodeLink.vue'
+import ProcessCodeLink from '@/components/ProcessCodeLink.vue'
+import RouteCodeLink from '@/components/RouteCodeLink.vue'
 import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { ProRouteResourceApi, ProRouteResourceVO } from '@/api/mes/pro/route/resource'

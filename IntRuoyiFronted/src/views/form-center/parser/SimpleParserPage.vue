@@ -573,6 +573,7 @@
 </template>
 
 <script setup lang="ts">
+import { createSecureUuid } from '@/utils/uuid'
 import {
   getSimpleParserProjects,
   getSimpleParserProject,
@@ -671,7 +672,7 @@ const busyText = computed(() =>
         ? '正在生成发布预览，请稍候…'
         : loadingText.value
 )
-const requestId = ref<string>(crypto.randomUUID()),
+const requestId = ref<string>(createSecureUuid()),
   publishPreview = ref<SimpleParserResult>(),
   published = ref<SimpleParserResult>(),
   pendingRequest = ref<SimpleParserRequest>()
@@ -839,7 +840,7 @@ watch(
   [processes, routeName, projectId, workshopId],
   () => {
     if (restoring || !recognition.value || published.value) return
-    requestId.value = crypto.randomUUID()
+    requestId.value = createSecureUuid()
     publishPreview.value = undefined
     pendingRequest.value = undefined
     publishError.value = ''
@@ -907,7 +908,7 @@ async function importWord(upload: UploadFile) {
     processes.value = restored
       ? restored.processes
       : result.processes.map((value) => ({
-          id: crypto.randomUUID(),
+          id: createSecureUuid(),
           sourceName: value.name,
           value: clone(value)
         }))
@@ -922,7 +923,7 @@ async function importWord(upload: UploadFile) {
       )
     filename.value = restored ? restored.filename : upload.raw.name
     routeName.value = restored ? restored.routeName : `${selectedProject.value!.projectName}工艺流程`
-    requestId.value = crypto.randomUUID()
+    requestId.value = createSecureUuid()
     selectedId.value = processes.value[0]?.id || ''
     mode.value = 'edit'
     publishPreview.value = undefined
@@ -1379,7 +1380,7 @@ async function restoreDraft() {
     processes.value = draft.processes
     filename.value = draft.filename
     routeName.value = draft.routeName || `${project.projectName}工艺流程`
-    requestId.value = draft.requestId || crypto.randomUUID()
+    requestId.value = draft.requestId || createSecureUuid()
     published.value = draft.published as SimpleParserResult | undefined
     publishPreview.value = published.value
     pendingRequest.value = undefined

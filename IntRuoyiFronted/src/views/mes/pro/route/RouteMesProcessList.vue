@@ -36,11 +36,11 @@
       </el-table-column>
       <el-table-column label="工序设置工序" min-width="190">
         <template #default="{ row }">
-          <span class="cell-main">{{ row.processCode || '-' }}</span>
+          <span class="cell-main"><ProcessCodeLink :code="row.processCode" empty-text="-" /></span>
           <span class="cell-sub">{{ row.processName || '-' }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="设备编码" prop="machineryCode" min-width="145" />
+      <el-table-column label="设备编码" prop="machineryCode" min-width="145" ><template #default="{ row }"><MachineryCodeLink :code="row.machineryCode" /></template></el-table-column>
       <el-table-column label="设备名称" prop="machineryName" min-width="170" />
       <el-table-column label="设备数量" prop="quantity" width="96" align="center" />
       <el-table-column label="单台产能/h" width="120" align="right">
@@ -76,6 +76,8 @@
 </template>
 
 <script setup lang="ts">
+import MachineryCodeLink from '@/components/MachineryCodeLink.vue'
+import ProcessCodeLink from '@/components/ProcessCodeLink.vue'
 import {
   ProRouteProcessApi,
   type ProRouteProcessMachineryVO,
