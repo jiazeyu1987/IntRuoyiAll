@@ -14,8 +14,16 @@ ELSE TRIM(f.title) END, '》', CHAR(10), CONCAT('文件编号：', CASE WHEN NUL
 FROM dcc_controlled_file_distribution_recipient p
 JOIN dcc_controlled_file_distribution d ON d.id = p.distribution_id AND d.tenant_id = #{q.tenantId} AND d.deleted = 0
 JOIN dcc_controlled_file f ON f.id = d.controlled_file_id AND f.tenant_id = #{q.tenantId} AND f.deleted = 0
+JOIN dcc_controlled_file_message_job j ON j.id = p.message_job_id AND j.tenant_id = #{q.tenantId} AND j.deleted = 0
+ AND j.business_type = 'DISTRIBUTION' AND j.business_id = d.id AND j.recipient_user_id = p.user_id
+ AND j.status = 'SENT' AND j.sent_at IS NOT NULL
 WHERE p.tenant_id = #{q.tenantId} AND p.deleted = 0 AND p.user_id = #{q.userId} AND p.acknowledged_at IS NULL
-AND d.distribution_medium = 'PUBLIC_FOLDER' AND f.status IN ('ACTIVE','SUPERSEDED','OBSOLETE')</sql>
+AND d.distribution_medium = 'PUBLIC_FOLDER' AND d.recovered_at IS NULL
+AND d.status IN ('PENDING','SENT','READ','ACKNOWLEDGED')
+AND f.status = 'ACTIVE' AND f.controlled_time IS NOT NULL AND f.activated_time IS NOT NULL
+AND f.distributed_time IS NOT NULL AND f.published_file_id IS NOT NULL
+AND NULLIF(TRIM(f.version_no), '') IS NOT NULL
+AND NULLIF(TRIM(f.process_instance_id), '') IS NOT NULL</sql>
 <select id="countDistribution" timeout="10" resultType="java.lang.Long"><include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.exactCount"><property name="baseRef" value="cn.iocoder.yudao.module.dcc.dal.mysql.file.DccWorkbenchTodoMapper.baseDistribution"/></include></select>
 <select id="chunkDistribution" timeout="10" resultType="cn.iocoder.yudao.module.dcc.workbench.DccDistributionWorkbenchRow"><bind name="chunkValidated" value="q.validatedChunk(after,fetchLimit)"/>
 SELECT r.* FROM (SELECT r.* FROM (<include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.normalizedProjection"><property name="baseRef" value="cn.iocoder.yudao.module.dcc.dal.mysql.file.DccWorkbenchTodoMapper.baseDistribution"/></include>) r <include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.where"/>) r

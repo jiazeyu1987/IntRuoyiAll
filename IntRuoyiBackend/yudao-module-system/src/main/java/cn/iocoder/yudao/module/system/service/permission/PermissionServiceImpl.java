@@ -511,14 +511,17 @@ public class PermissionServiceImpl implements PermissionService {
         List<MenuDO> menus = menuService.getMenuList(menuIds);
         Set<Long> auditorRoleIds = convertSet(roles, RoleDO::getId,
                 role -> role != null && EDHR_AUDITOR_ROLE_CODE.equals(role.getCode()));
+        Set<Long> projectCodeAdminRoleIds = convertSet(roles, RoleDO::getId,
+                role -> role != null && "dcc_project_code_admin".equals(role.getCode()));
         for (MenuDO menu : menus) {
             if (menu == null || !isLogPermission(menu.getPermission())) {
                 continue;
             }
-            // Only the eDHR auditor's log queries are assignable. Keep each grant tied to
-            // its role, so combining an auditor with another log role cannot bypass protection.
+            // 业务日志例外逐角色核对，不能通过混合角色放行其他日志授权。
             if (roleMenus.stream().anyMatch(grant -> Objects.equals(grant.getMenuId(), menu.getId())
-                    && !(auditorRoleIds.contains(grant.getRoleId()) && menu.getPermission().endsWith(":query")))) {
+                    && !(auditorRoleIds.contains(grant.getRoleId()) && menu.getPermission().endsWith(":query"))
+                    && !(projectCodeAdminRoleIds.contains(grant.getRoleId())
+                        && "dcc:controlled-file:log:query".equals(menu.getPermission())))) {
                 return true;
             }
         }

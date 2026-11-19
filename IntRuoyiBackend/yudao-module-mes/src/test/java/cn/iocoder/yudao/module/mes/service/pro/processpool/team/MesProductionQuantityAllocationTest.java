@@ -87,9 +87,21 @@ class MesProductionQuantityAllocationTest {
         verify(dependency("gxpAuditService",GxpAuditService.class)).append(argThat(audit->"402".equals(audit.getSignatureRecordId())));
         verify(dependency("completionService",MesTeamLeaderOrderProcessCompletionService.class)).reconcileAffectedAllocations(eq(event),argThat(rows->rows.stream().map(MesProcessPoolReportAllocationDO::getActiveOrderId).collect(java.util.stream.Collectors.toSet()).equals(Set.of(10L,11L))));
     }
-    @Test void correctionCannotDiscardQuantity(){
-        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->MesProductionDisplayedContextFixture.save(service,command("300","200")));
+    @Test void partialCorrectionKeepsUnallocatedRemainderAndOriginalReport(){
+        var original=event.getRawPayload();
+        var result=MesProductionDisplayedContextFixture.save(service,command("300","200"));
+        assertEquals(0,qty("500").compareTo(result.getTotalAllocatedQuantity()));
+        assertEquals(0,qty("100").compareTo(result.getUnallocatedQuantity()));
+        assertEquals(0,qty("600").compareTo(result.getTotalAllocatedQuantity().add(result.getUnallocatedQuantity())));
+        assertEquals(original,event.getRawPayload());
+        verify(dependency("eventMapper",MesProProcessPoolEventMapper.class),never()).updateById(any(MesProProcessPoolEventDO.class));
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"0,0","401,200"})
+    void correctionRejectsZeroOrMoreThanReportedQuantityBeforeWriting(String x,String y){
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->MesProductionDisplayedContextFixture.save(service,command(x,y)));
         verify(dependency("allocationMapper",MesProcessPoolReportAllocationMapper.class),never()).insertBatch(anyCollection());
+        verify(dependency("allocationMapper",MesProcessPoolReportAllocationMapper.class),never()).supersedeCurrentRows(anyCollection(),any());
     }
     @Test void anOldApprovedReviewCannotReplaceTheCorrectionSignature(){
         when(dependency("signatureService",MesProBatchRecordExecutionSignatureService.class).recordFieldChangeSignature(any()))

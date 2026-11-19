@@ -93,6 +93,23 @@ class DccApprovalTaskAdapterTest {
     }
 
     @Test
+    void myInitiatedIsDeclaredAndIncludesNativeProjectsWithoutLoadingFlowableFiles() {
+        assertTrue(adapter.getSupportedViewTypes().contains(ApprovalTaskViewType.MY_INITIATED));
+        var row = ApprovalTaskSummary.builder().id("project-1").moduleCode(ApprovalModuleCode.DCC)
+                .sourceTaskType(DccProjectProductTaskDelegate.REVIEW).sourceTaskId("project-1")
+                .initiatedAt(java.time.LocalDateTime.now()).build();
+        when(projectApplications.page(any())).thenReturn(new PageResult<>(List.of(row), 1L));
+        var page = adapter.page(ApprovalTaskQueryContext.of(100L, ApprovalTaskViewType.MY_INITIATED,
+                ApprovalModuleCode.DCC, null, 1, 20));
+        assertEquals(1L, page.getTotal());
+        assertEquals(List.of(row), page.getList());
+        org.mockito.Mockito.verifyNoInteractions(centerQuery, bpmTaskService, processInstanceService, controlledFileMapper);
+        var declaration = new cn.iocoder.yudao.module.bpm.approval.service.provider.ApprovalModuleIntegrationDeclarations()
+                .listRequiredProviders().stream().filter(d -> d.getModuleCode() == ApprovalModuleCode.DCC).findFirst().orElseThrow();
+        assertTrue(declaration.getRequiredViewTypes().contains(ApprovalTaskViewType.MY_INITIATED));
+    }
+
+    @Test
     void pageTodoReturnsEmptyPageWithoutLoadingProcessInstancesWhenTaskPageIsEmpty() {
         when(centerQuery.todo(any(), eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap()))
                 .thenReturn(new PageResult<>(List.of(), 23L));

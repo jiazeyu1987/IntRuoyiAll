@@ -44,6 +44,15 @@ public final class DccApprovalListFilterSql {
         f.put("capabilities","'AUDIT NOTIFICATION SIGNATURE_AUTHORIZATION TIMELINE'");
         return ApprovalListFilterSql.fields(f,false);
     }
+    public static Map<String,Field> projectInitiated() {
+        String t = "dcc_project_product_create_request.";
+        Map<String,String> f = base("'项目产品新建'", "CONCAT("+t+"project_name,' · ',"+t+"product_name)",
+                t+"project_code", t+"status", "'我发起的'", userLabel(t+"applicant_user_id",t+"tenant_id"),
+                "'--'", "NULL", "NULL", t+"submitted_time", "NULL", t+"submitted_time");
+        f.put("extraSummary", "CONCAT('项目代码 ',"+t+"project_code,' 当前审批节点 我发起的')");
+        f.put("capabilities", "'AUDIT NOTIFICATION TIMELINE'");
+        return ApprovalListFilterSql.fields(f, false);
+    }
     public static Map<String,Field> training(String node,Long actor) {
         String t="dcc_controlled_file.";
         Map<String,String> f=base("'文控上传线下培训记录'",t+"title",t+"file_number",t+"status",node,userLabel(t+"requester_id",t+"tenant_id"),userLabel(actor.toString(),t+"tenant_id"),"NULL","NULL",t+"approved_time","NULL",t+"submitted_time");

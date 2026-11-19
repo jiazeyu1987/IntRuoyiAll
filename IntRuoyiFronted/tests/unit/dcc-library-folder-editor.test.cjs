@@ -136,6 +136,85 @@ async function run() {
     assert.equal(instance.events.length, 0)
     instance.stop()
   })
+
+  function folderLibrary(api) {
+    const messages = []
+    const instance = setup(folderComponent, {
+      [apiPath]: api,
+      'element-plus': { ElMessage: Object.fromEntries(['success', 'error', 'warning'].map(type =>
+        [type, text => messages.push({ type, text })])) }
+    })
+    return { ...instance, messages }
+  }
+  await test('模板名称或修改原因为空时明确提示且不发送保存请求', async () => {
+    let writes = 0
+    const instance = folderLibrary({ getFolderTemplates: async () => [template(1, 'G44')],
+      saveFolderTemplate: async () => { writes++; return 1 } })
+    await instance.exposed.open(); instance.bindings.choose(template(1, 'G44'))
+    await instance.bindings.save()
+    assert.equal(writes, 0)
+    assert.match(instance.bindings.error.value, /修改或删除原因/)
+    assert.equal(instance.bindings.visible.value, true)
+    assert.equal(instance.messages.length, 0)
+    instance.bindings.form.changeReason = '调整目录'; instance.bindings.form.name = '  '
+    await instance.bindings.save()
+    assert.equal(writes, 0)
+    assert.match(instance.messages.at(-1).text, /模板名称/)
+    instance.stop()
+  })
+  await test('模板保存并重新读取后提示成功并关闭弹窗，保留模板身份并通知调用页面', async () => {
+    let saved = template(1, 'G44'), writes = 0
+    const instance = folderLibrary({ getFolderTemplates: async () => [saved], saveFolderTemplate: async payload => {
+      writes++; saved = { ...saved, name: payload.name, structureJson: JSON.stringify(payload.structure) }; return 1
+    } })
+    await instance.exposed.open(); instance.bindings.choose(saved)
+    instance.bindings.form.name = '新目录模板'; instance.bindings.form.changeReason = '调整目录'
+    await instance.bindings.save()
+    assert.equal(writes, 1)
+    assert.equal(instance.bindings.form.id, 1)
+    assert.equal(instance.bindings.templates.value[0].name, '新目录模板')
+    assert.equal(instance.messages.length, 1)
+    assert.equal(instance.messages[0].type, 'success')
+    assert.match(instance.messages[0].text, /已保存/)
+    assert.deepEqual(plain(instance.events), [['saved']])
+    assert.equal(instance.bindings.error.value, '')
+    assert.equal(instance.bindings.visible.value, false)
+    instance.stop()
+  })
+  await test('模板保存失败时显示错误，保留修改内容且不报告成功', async () => {
+    const instance = folderLibrary({ getFolderTemplates: async () => [template(1, 'G44')],
+      saveFolderTemplate: async () => { throw new Error('审计写入失败') } })
+    await instance.exposed.open(); instance.bindings.choose(template(1, 'G44'))
+    instance.bindings.form.changeReason = '调整目录'; instance.bindings.form.name = '保留修改'
+    await instance.bindings.save()
+    assert.match(instance.messages[0].text, /模板未保存：审计写入失败/)
+    assert.equal(instance.messages[0].type, 'error')
+    assert.equal(instance.bindings.form.name, '保留修改')
+    assert.equal(instance.bindings.visible.value, true)
+    assert.equal(instance.bindings.ready.value, true)
+    assert.equal(instance.events.length, 0)
+    instance.stop()
+  })
+  await test('模板已保存但刷新失败时明确区分结果，刷新期间禁止重复写入', async () => {
+    let reads = 0, writes = 0
+    const refresh = deferred()
+    const instance = folderLibrary({ getFolderTemplates: async () => ++reads === 1 ? [template(1, 'G44')] : refresh.promise,
+      saveFolderTemplate: async () => { writes++; return 1 } })
+    await instance.exposed.open(); instance.bindings.choose(template(1, 'G44'))
+    instance.bindings.form.changeReason = '调整目录'
+    const pending = instance.bindings.save()
+    await Promise.resolve(); await Promise.resolve()
+    await instance.bindings.save()
+    assert.equal(writes, 1)
+    refresh.reject(new Error('列表读取失败')); await pending
+    assert.equal(instance.messages.length, 1)
+    assert.equal(instance.messages[0].type, 'warning')
+    assert.match(instance.messages[0].text, /模板已保存，列表刷新失败：列表读取失败/)
+    assert.equal(instance.bindings.ready.value, false)
+    assert.equal(instance.bindings.visible.value, true)
+    assert.deepEqual(plain(instance.events), [['saved']])
+    instance.stop()
+  })
   await test('项目人工目录保存正式身份并不伪造模板来源', async () => {
     const calls = []
     const instance = setup(projectFolderEditor, {
@@ -248,6 +327,22 @@ async function run() {
     await instance.exposed.open('1');instance.bindings.form.name='禁止';instance.bindings.form.changeReason='禁止'
     await instance.bindings.save();await instance.exposed.openDelete('1','10');await instance.bindings.remove()
     assert.equal(calls.length,3)
+    instance.stop()
+  })
+  await test('正式项目负责人无全局菜单权限仍可保存，切换为非负责人后禁止保存',async()=>{
+    const calls=[]
+    const instance=setup(projectFolderEditor,{
+      [apiPath]:{getProjectFolders:async id=>folderRows(id),saveProjectFolder:async(project,data)=>{
+        calls.push([project,plain(data)]);return {...data,id:'11',projectCodeId:project,active:true}
+      }},
+      '@/utils/permission':{checkPermi:()=>false},'./project-folder-tree':loadFolderTree(),
+      'element-plus':{ElMessageBox:{confirm:async()=>undefined}}
+    },{projectIsLeader:true})
+    await instance.exposed.open('1');instance.bindings.form.name='负责人目录';instance.bindings.form.changeReason='负责人新增目录'
+    assert.equal(instance.bindings.canMaintain.value,true);await instance.bindings.save();assert.equal(calls.length,1)
+    instance.props.projectIsLeader=false
+    await instance.exposed.open('1');instance.bindings.form.name='禁止';instance.bindings.form.changeReason='禁止'
+    assert.equal(instance.bindings.canMaintain.value,false);await instance.bindings.save();assert.equal(calls.length,1)
     instance.stop()
   })
   if (cases.length) throw new Error(cases.length + ' component behavior tests failed')

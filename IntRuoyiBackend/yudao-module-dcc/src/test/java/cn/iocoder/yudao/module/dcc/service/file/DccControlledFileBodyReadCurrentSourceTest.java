@@ -299,6 +299,23 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
         verifyNoInteractions(previews,businessFiles,storage);
     }
 
+    @Test void withdrawnApplicantCanReadExactOriginalButDailyAndAnotherApplicantCannot() throws Exception {
+        selected.setStatus("WITHDRAWN");
+        when(processes.getProcessInstance("round-delayed")).thenReturn(null);
+        context = new DccControlledFileBodyReadContext(DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY,
+                "910", "A/2", "REVISION", "round-delayed", null);
+        events.selectById(800L).setPurpose(context.purpose());
+        when(storage.getFileContent(1L,"g07-source/exact-source.pdf")).thenReturn("approved-source".getBytes(StandardCharsets.UTF_8));
+        assertEquals("exact-source.pdf",query.getPreviewMetadata(99L,910L,context,audit).getFileName());
+        assertArrayEquals("approved-source".getBytes(StandardCharsets.UTF_8),readBinary().bytes());
+        assertServiceException(()->query.getPreviewMetadata(99L,910L,audit),CONTROLLED_FILE_ACCESS_DENIED);
+        when(processes.getHistoricProcessInstance("round-delayed").getStartUserId()).thenReturn("123");
+        assertServiceException(()->query.getPreviewMetadata(99L,910L,context,audit),CONTROLLED_FILE_ACCESS_DENIED);
+        verify(binaries,never()).selectById(200L);
+        verify(binaries,never()).selectById(300L);
+        verify(binaries,never()).selectById(400L);
+    }
+
     @Test void missingDelayedSourceFailsWithoutBorrowingAnyOtherArtifact() {
         selected.setSourceFileId(null);
         var error=assertThrows(IllegalStateException.class,() -> query.getPreviewMetadata(99L,910L,context,audit));
@@ -482,6 +499,41 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
         assertServiceException(this::readBinary,CONTROLLED_FILE_ACCESS_DENIED);
         verifyNoInteractions(storage,previews);
         assertEquals("new-current-round",selected.getProcessInstanceId());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"OBSOLETE", "SUPERSEDED"})
+    void archivedApplicantCanReadExactApplicationEvidenceButNotArchivedBody(String status) {
+        selected.setStatus(status);
+        when(processes.getProcessInstance("round-delayed")).thenReturn(null);
+        context=new DccControlledFileBodyReadContext(DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY,
+                "910","A/2","REVISION","round-delayed",null);
+        query.assertApplicationRoundReadable(99L,910L,"REVISION","round-delayed",context);
+        assertServiceException(()->query.getPreviewMetadata(99L,910L,context,audit),CONTROLLED_FILE_ACCESS_DENIED);
+        when(processes.getHistoricProcessInstance("round-delayed").getStartUserId()).thenReturn("88");
+        assertServiceException(()->query.assertApplicationRoundReadable(99L,910L,"REVISION","round-delayed",context),CONTROLLED_FILE_ACCESS_DENIED);
+        assertEquals(status,selected.getStatus());
+        verifyNoInteractions(storage,previews);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"actor", "scope", "tenant", "version", "round", "intent"})
+    void archivedApplicationEvidenceRejectsBorrowedIdentity(String mismatch) {
+        selected.setStatus("OBSOLETE");
+        context=new DccControlledFileBodyReadContext("intent".equals(mismatch)
+                ? DccControlledFileBodyReadContext.Intent.APPROVAL_TASK : DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY,
+                "910","version".equals(mismatch)?"A/1":"A/2","REVISION",
+                "round".equals(mismatch)?"other-round":"round-delayed","task-delayed");
+        var historicTask=mock(HistoricTaskInstance.class);
+        when(tasks.getHistoricTask("task-delayed")).thenReturn(historicTask);
+        when(historicTask.getId()).thenReturn("task-delayed");when(historicTask.getTenantId()).thenReturn("31");
+        when(historicTask.getProcessInstanceId()).thenReturn("round-delayed");when(historicTask.getProcessDefinitionId()).thenReturn("definition-v6");
+        when(historicTask.getAssignee()).thenReturn("actor".equals(mismatch)?"88":"99");
+        when(historicTask.getEndTime()).thenReturn(new java.util.Date(1L));
+        if("scope".equals(mismatch))when(assignments.isWithinAssignedFileScope(99L,910L)).thenReturn(false);
+        if("tenant".equals(mismatch))selected.setTenantId(32L);
+        assertThrows(RuntimeException.class,()->query.assertApplicationRoundReadable(99L,910L,"REVISION",context.bpmRound(),context));
+        verifyNoInteractions(storage,previews);
     }
 
     @Test void archivedHistoricalTaskRequiresDocumentControlAndReadsOnlyTheExactRetainedBody() throws Exception {

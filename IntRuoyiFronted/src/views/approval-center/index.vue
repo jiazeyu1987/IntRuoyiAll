@@ -259,52 +259,55 @@
                 fixed="right"
                 prop="actions"
                 :width="getApprovalColumnWidthString('actions', 180)"
+                :show-overflow-tooltip="false"
               >
                 <template #default="{ row }">
-                  <el-tooltip
-                    :disabled="canOpenView(row)"
-                    :content="resolveViewDisabledReason(row)"
-                    placement="top"
-                  >
-                    <span>
-                      <el-button
-                        link
-                        type="primary"
-                        data-approval-action="view"
-                        :disabled="!canOpenView(row)"
-                        @click="openModuleDetail(row)"
-                      >
-                        查看
-                      </el-button>
-                    </span>
-                  </el-tooltip>
-                  <el-button
-                    v-if="canReviewAction(row)"
-                    link
-                    type="primary"
-                    data-approval-action="review"
-                    :disabled="row.businessDeleted"
-                    @click="openReviewAction(row)"
-                  >
-                    {{ canReview(row) ? '审核' : '前往业务办理' }}
-                  </el-button>
-                  <el-tooltip
-                    :disabled="canOpenFlow(row)"
-                    :content="resolveFlowDisabledReason(row)"
-                    placement="top"
-                  >
-                    <span>
-                      <el-button
-                        link
-                        type="primary"
-                        data-approval-action="flow"
-                        :disabled="!canOpenFlow(row)"
-                        @click="openTimeline(row)"
-                      >
-                        流程
-                      </el-button>
-                    </span>
-                  </el-tooltip>
+                  <div class="approval-center__actions">
+                    <el-tooltip
+                      :disabled="canOpenView(row)"
+                      :content="resolveViewDisabledReason(row)"
+                      placement="top"
+                    >
+                      <span>
+                        <el-button
+                          link
+                          type="primary"
+                          data-approval-action="view"
+                          :disabled="!canOpenView(row)"
+                          @click="openModuleDetail(row)"
+                        >
+                          查看
+                        </el-button>
+                      </span>
+                    </el-tooltip>
+                    <el-button
+                      v-if="canReviewAction(row)"
+                      link
+                      type="primary"
+                      data-approval-action="review"
+                      :disabled="row.businessDeleted"
+                      @click="openReviewAction(row)"
+                    >
+                      {{ canReview(row) ? '审核' : '前往业务办理' }}
+                    </el-button>
+                    <el-tooltip
+                      :disabled="canOpenFlow(row)"
+                      :content="resolveFlowDisabledReason(row)"
+                      placement="top"
+                    >
+                      <span>
+                        <el-button
+                          link
+                          type="primary"
+                          data-approval-action="flow"
+                          :disabled="!canOpenFlow(row)"
+                          @click="openTimeline(row)"
+                        >
+                          流程
+                        </el-button>
+                      </span>
+                    </el-tooltip>
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
@@ -571,6 +574,7 @@ const APPROVAL_SOURCE_TASK_TYPE_LABELS: Record<string, string> = {
   DCC_CONTROLLED_FILE_TASK: '文控受控文件任务',
   EDHR_WORK_TASK: '电子批记录工作任务',
   MES_PRO_FEEDBACK: '生产报工复核任务',
+  DCC_PROJECT_PRODUCT_REQUEST: '项目产品新建',
   DCC_PROJECT_PRODUCT_REVIEW: '项目产品审核',
   DCC_PROJECT_PRODUCT_APPROVAL: '项目产品批准',
   DCC_OFFLINE_TRAINING_RECORD: '文控上传线下培训记录'
@@ -1599,7 +1603,7 @@ const findDccContextTagValue = (row: ApprovalTaskSummaryVO, patterns: RegExp[]) 
 }
 
 const resolveDccKeyFields = (row: ApprovalTaskSummaryVO) => {
-  if (row.sourceTaskType === 'DCC_PROJECT_PRODUCT_REVIEW' || row.sourceTaskType === 'DCC_PROJECT_PRODUCT_APPROVAL') {
+  if (['DCC_PROJECT_PRODUCT_REQUEST', 'DCC_PROJECT_PRODUCT_REVIEW', 'DCC_PROJECT_PRODUCT_APPROVAL'].includes(row.sourceTaskType)) {
     return [
       { label: '项目代码', value: normalizeApprovalDisplayText(row.businessCode) || EMPTY_APPROVAL_DISPLAY },
       { label: '当前审批节点', value: resolveNodeNameLabel(row) }
@@ -2005,6 +2009,17 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
 .approval-center__table-scope,
 .approval-center__table {
   width: 100%;
+}
+
+.approval-center__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.approval-center__actions :deep(.el-button) {
+  margin-left: 0;
 }
 
 .approval-center__primary {

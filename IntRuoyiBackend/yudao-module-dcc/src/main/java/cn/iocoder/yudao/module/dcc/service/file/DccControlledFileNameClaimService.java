@@ -56,7 +56,7 @@ public class DccControlledFileNameClaimService {
             throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
         if(originalName.codePointCount(0,originalName.length())>256 || originalName.indexOf('/')>=0 || originalName.indexOf('\\')>=0)
             throw new IllegalArgumentException("full source filename must be a basename of at most 256 characters");
-        if(claimMapper.countUnresolvedNames(tenant)!=0)throw new IllegalStateException("historical name claims require verified original source names");
+        requireHistoricalSourcesVerified(tenant);
         var reservation=reservationMapper.readName(tenant,originalName.getBytes(StandardCharsets.UTF_8));
         if(reservation!=null && Integer.valueOf(1).equals(reservation.getActive()) && "LEGACY_GROUP".equals(reservation.getReservationKind()))
             throw exception(CONTROLLED_FILE_NAME_EXISTS);
@@ -165,9 +165,7 @@ public class DccControlledFileNameClaimService {
         if (fileName.codePointCount(0, fileName.length()) > 256 || fileName.indexOf('/') >= 0 || fileName.indexOf('\\') >= 0) {
             throw new IllegalArgumentException("full source filename must be a basename of at most 256 characters");
         }
-        if (claimMapper.countUnresolvedNames(tenantId) != 0) {
-            throw new IllegalStateException("historical name claims require verified original source names");
-        }
+        requireHistoricalSourcesVerified(tenantId);
         if (projectId == null || leafId == null || StrUtil.isBlank(number) || number.length() > 128) {
             throw new IllegalArgumentException("complete formal number identity is required");
         }
@@ -327,6 +325,12 @@ public class DccControlledFileNameClaimService {
         var master = masterId == null ? null : masterMapper.selectByIdForUpdate(masterId);
         if (master == null || !Objects.equals(tenantId, master.getTenantId())) throw new IllegalArgumentException("master not in current tenant");
         return master;
+    }
+
+    private void requireHistoricalSourcesVerified(Long tenantId) {
+        if (claimMapper.countUnresolvedNames(tenantId) != 0) {
+            throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_HISTORICAL_SOURCE_VERIFICATION_REQUIRED);
+        }
     }
 
     private void assertTenant(Long tenantId) {

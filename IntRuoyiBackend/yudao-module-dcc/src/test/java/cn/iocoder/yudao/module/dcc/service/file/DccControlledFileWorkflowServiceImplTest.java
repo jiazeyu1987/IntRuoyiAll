@@ -2875,8 +2875,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void withdrawControlledFile_pendingDocControlReview_allowsWithdraw() {
-        assertWithdrawAllowed(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus());
+    void withdrawControlledFile_pendingDocControlReview_rejectsWithdraw() {
+        assertWithdrawRejected(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus());
     }
 
     @Test
@@ -2890,8 +2890,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void withdrawControlledFile_pendingDocControlApproval_allowsWithdraw() {
-        assertWithdrawAllowed(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus());
+    void withdrawControlledFile_pendingDocControlApproval_rejectsWithdraw() {
+        assertWithdrawRejected(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus());
     }
 
     @Test
@@ -5332,6 +5332,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 .build());
         DccControlledFileWithdrawReqVO reqVO = new DccControlledFileWithdrawReqVO();
         reqVO.setReason("stop");
+        reqVO.setProcessInstanceId("proc-1");
 
         workflowService.withdrawControlledFile(99L, 900L, reqVO);
 
@@ -5345,6 +5346,28 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 eq(99L), eq("stop"));
     }
 
+    private void assertWithdrawRejected(String status) {
+        when(controlledFileMapper.selectById(900L)).thenReturn(DccControlledFileDO.builder()
+                .id(900L).categoryId(10L).dccProjectCodeId(3000L).requesterId(99L)
+                .processInstanceId("proc-1").status(status).build());
+        var request = new DccControlledFileWithdrawReqVO();
+        request.setReason("修改申请"); request.setProcessInstanceId("proc-1");
+        assertServiceException(() -> workflowService.withdrawControlledFile(99L,900L,request), CONTROLLED_FILE_WITHDRAW_NOT_ALLOWED);
+        verify(bpmProcessInstanceService, never()).cancelProcessInstanceByStartUser(any(), any());
+    }
+
+    @Test void nativeResubmissionPreparesADraftAndDoesNotStartAnUnconfirmedRound() {
+        var withdrawn = DccControlledFileDO.builder().id(900L).tenantId(1L).requesterId(99L)
+                .status("WITHDRAWN").processDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD)
+                .processInstanceId("old-round").build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(withdrawn);
+        when(queryService.prepareApplicationRestart(99L,900L)).thenReturn(901L);
+        assertEquals(901L,workflowService.resubmitWithdrawnControlledFile(99L,900L));
+        verify(queryService).prepareApplicationRestart(99L,900L);
+        verifyNoInteractions(bpmProcessInstanceService);
+        verify(controlledFileMapper,never()).insert(any(DccControlledFileDO.class));
+    }
+
     @Test void nativeWithdrawalRejectsAControlledVersionReadAfterAcquiringTheMasterLock() {
         var initial=managerIteration(900L,"A/1","PENDING_DOC_CONTROL_REVIEW");
         initial.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD);initial.setProcessInstanceId("proc-old");
@@ -5352,7 +5375,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         var locked=managerIteration(900L,"A/1","CONTROLLED_PENDING_EFFECTIVE");
         locked.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD);locked.setProcessInstanceId("proc-old");
         doReturn(locked).when(controlledFileMapper).selectByIdAndTenantForUpdate(1L,900L);
-        var request=new DccControlledFileWithdrawReqVO();request.setReason("撤回申请");
+        var request=new DccControlledFileWithdrawReqVO();request.setReason("撤回申请");request.setProcessInstanceId("proc-old");
         assertServiceException(()->workflowService.withdrawControlledFile(99L,900L,request),CONTROLLED_FILE_WITHDRAW_NOT_ALLOWED);
         verify(bpmProcessInstanceService,never()).cancelProcessInstanceByStartUser(any(),any());
         verify(controlledFileMapper,never()).updateById(any(DccControlledFileDO.class));
@@ -5361,7 +5384,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         when(controlledFileMapper.selectById(900L)).thenReturn(DccControlledFileDO.builder().id(900L).categoryId(10L).dccProjectCodeId(3000L).requesterId(99L)
                 .processInstanceId("proc-old").status("PENDING_MATRIX_REVIEW").build());
         when(controlledFileMapper.updateById(any(DccControlledFileDO.class))).thenReturn(0);
-        var request=new DccControlledFileWithdrawReqVO();request.setReason("撤回申请");
+        var request=new DccControlledFileWithdrawReqVO();request.setReason("撤回申请");request.setProcessInstanceId("proc-old");
         assertThrows(IllegalStateException.class,()->workflowService.withdrawControlledFile(99L,900L,request));
         verify(platformAdapter,never()).recordWithdrawn(any(),any(),any());
     }

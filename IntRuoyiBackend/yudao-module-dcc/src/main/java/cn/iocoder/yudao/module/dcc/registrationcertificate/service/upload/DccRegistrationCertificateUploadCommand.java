@@ -22,7 +22,7 @@ public record DccRegistrationCertificateUploadCommand(
         String factsJson,
         List<MultipartFile> attachments,
         List<MultipartFile> productDescriptionFiles,
-        Long sourceRequestId, List<Long> retainedFileIds) {
+        Long sourceRequestId, List<Long> retainedFileIds, Long handlingTaskId) {
     public DccRegistrationCertificateUploadCommand(Long projectCodeId, Long companyId, String productName,
             String certificateNo, LocalDate firstObtainedDate, LocalDate effectiveDate, LocalDate expiryDate,
             String classification, Boolean entrustedProduction, Boolean selfProduction,
@@ -32,7 +32,7 @@ public record DccRegistrationCertificateUploadCommand(
                 new cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateDraftData(
                     companyId, null, productName, projectCodeId, firstObtainedDate, certificateNo, null,
                     effectiveDate, expiryDate, classification, null, null, null, null, null, null, null,
-                    entrustedProduction, selfProduction, entrustedEnterpriseIds, remark).factsJson(), List.of(), List.of(), null, List.of());
+                    entrustedProduction, selfProduction, entrustedEnterpriseIds, remark).factsJson(), List.of(), List.of(), null, List.of(), null);
     }
     public DccRegistrationCertificateUploadCommand {
         entrustedEnterpriseIds = entrustedEnterpriseIds == null ? null : List.copyOf(entrustedEnterpriseIds);

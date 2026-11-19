@@ -818,7 +818,7 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
 
 @media (min-width: 1181px) {
   .category-list-template :deep(.unified-list-template__multi-filter) {
-    flex: 1 1 620px;
+    flex: 0 1 auto;
     min-width: 0;
   }
 }

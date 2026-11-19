@@ -87,7 +87,7 @@ for (const [source, label] of [
   )
   assert.match(
     source,
-    /const ensureVisibleRuleRowsLoaded = async \(\) => \{[\s\S]*visibleCategoryIds[\s\S]*Promise\.all\(/,
+    /const ensureVisibleRuleRowsLoaded = async \(visibleIds = visibleCategoryIds\.value\) => \{[\s\S]*visibleIds\.filter[\s\S]*Promise\.all\(/,
     `${label} 页签必须只为当前可见页类别按需加载规则`
   )
   assert.doesNotMatch(

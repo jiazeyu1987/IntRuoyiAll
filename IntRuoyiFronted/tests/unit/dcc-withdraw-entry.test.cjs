@@ -18,6 +18,26 @@ const declaration = name => {
 const transpile = source => ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
 }).outputText
+
+test('obsolete withdrawal uses DCC business permission and the selected exact application round', async () => {
+  const calls = []
+  const ports = {
+    exports: {}, route: { fullPath: '/detail/10?application=1' }, controlledFileId: vue.ref('10'),
+    activeObsoleteAction: vue.ref({ bpmProcessInstanceId: 'obsolete-round' }), obsoleteCancelLoading: vue.ref(false),
+    message: { prompt: async () => ({ value: '  核对后重办  ' }), success: value => calls.push(value),
+      warning: value => { throw new Error(value) }, error: value => { throw new Error(value) } },
+    withdrawObsoleteApplication: async (...args) => calls.push(args), reloadAll: async () => calls.push('reload'),
+    isDialogCancelled: () => false, resolveReadSideErrorMessage: error => error.message
+  }
+  vm.runInNewContext(transpile(declaration('cancelActiveObsoleteAction')
+    + '\nexports.cancel=cancelActiveObsoleteAction;'), ports)
+  await ports.exports.cancel()
+  assert.equal(calls[0][0], '10')
+  assert.equal(calls[0][1].processInstanceId, 'obsolete-round')
+  assert.equal(calls[0][1].reason, '核对后重办')
+  assert.equal(calls.at(-1), 'reload')
+  assert.equal(ports.activeObsoleteAction.value, null)
+})
 const projection = { exports: {} }
 vm.runInNewContext(transpile(fs.readFileSync('src/api/form-center/actionProjection.ts', 'utf8')), projection)
 const lifecycle = { exports: {}, require: () => projection.exports }
@@ -30,11 +50,13 @@ function host(overrides = {}) {
     isWorkingBrowserDetailCurrent: vue.ref(true), checkPermi: () => true,
     fileStatus: vue.ref('PENDING_MATRIX_REVIEW'), currentUserId: vue.ref(71), approvalTodoTask: vue.ref(null),
     fileDetail: vue.ref({ id: '10', requesterId: 71,
+      processInstanceId: 'round-1',
       actionProjection: { canWithdraw: true, allowedActions: ['WITHDRAW'], actionLocked: true } }),
+    detailReadSelectionState: vue.ref({ selection: { bpmRound: 'round-1' } }),
     ...lifecycle.exports,
     withdrawLoading: vue.ref(false), controlledFileId: vue.ref('10'), route: { fullPath: '/detail/10' },
     ensureDetailActionAllowed: () => true,
-    message: { confirm: async () => {}, success: value => successes.push(value), error: value => errors.push(value) },
+    message: { prompt: async () => ({ value: '填写的撤回原因' }), success: value => successes.push(value), error: value => errors.push(value) },
     withdrawControlledFile: async (...args) => calls.push(args), reloadAll: async () => calls.push('reload'),
     isDialogCancelled: error => error === 'cancel', resolveReadSideErrorMessage: error => error.message,
     ...overrides
@@ -101,7 +123,10 @@ test('withdrawal fails closed for other users, missing permission/projection, st
     { fileDetail: vue.ref({ id: '10', requesterId: 71 }) },
     { fileDetail: vue.ref({ id: '10', requesterId: 71,
       actionProjection: { canWithdraw: true, allowedActions: [] } }) },
-    { isWorkingBrowserDetailCurrent: vue.ref(false) }, { fileStatus: vue.ref('ACTIVE') }
+    { isWorkingBrowserDetailCurrent: vue.ref(false) }, { fileStatus: vue.ref('ACTIVE') },
+    { detailReadSelectionState: vue.ref({ selection: { bpmRound: 'old-round' } }) },
+    ...['PENDING_DOC_CONTROL_REVIEW','PENDING_DOC_CONTROL_APPROVAL','PENDING_APPLICANT_TRAINING_RECORD']
+      .map(status => ({ fileStatus: vue.ref(status) }))
   ]) {
     const h = host(overrides)
     assert.equal(h.canWithdraw.value, false)
@@ -112,9 +137,7 @@ test('withdrawal fails closed for other users, missing permission/projection, st
 
 test('initiator can withdraw partial and replacement revisions throughout supported pending stages', async () => {
   for (const versionChangeType of ['MINOR', 'MAJOR']) {
-    for (const status of ['PENDING_SUPERVISOR_REVIEW', 'PENDING_DOC_CONTROL_REVIEW',
-      'PENDING_MATRIX_REVIEW', 'PENDING_MATRIX_APPROVAL', 'PENDING_DOC_CONTROL_APPROVAL',
-      'PENDING_APPLICANT_TRAINING_RECORD']) {
+    for (const status of ['PENDING_SUPERVISOR_REVIEW', 'PENDING_MATRIX_REVIEW', 'PENDING_MATRIX_APPROVAL']) {
       const h = host({ fileStatus: vue.ref(status) })
       h.ports.fileDetail.value.changeType = 'REVISION'
       h.ports.fileDetail.value.versionChangeType = versionChangeType
@@ -130,7 +153,7 @@ test('initiator retains withdrawal when also the department lead and countersign
   for (const [requesterId, userId] of [[910516, 910516], ['910516', 910516], [910516, '910516'],
     ['9007199254740993', '9007199254740993']]) {
     const h = host({ currentUserId: vue.ref(userId), fileDetail: vue.ref({
-      id: '10', requesterId, departmentLeaderId: requesterId, actualSignoffUserIds: [requesterId],
+      id: '10', requesterId, processInstanceId: 'round-1', departmentLeaderId: requesterId, actualSignoffUserIds: [requesterId],
       actionProjection: { canWithdraw: true, allowedActions: ['WITHDRAW'], actionLocked: true }
     }) })
     for (const mode of ['viewer', 'trace', 'approval'])
@@ -166,17 +189,19 @@ test('confirmation submits the current application and refreshes; cancel, naviga
   const h = host()
   await h.withdraw()
   assert.equal(h.calls[0][0], '10')
-  assert.equal(h.calls[0][1].reason, '提交人主动撤回')
+  assert.equal(h.calls[0][1].reason, '填写的撤回原因')
+  assert.equal(h.calls[0][1].processInstanceId, 'round-1')
   assert.equal(h.calls[1], 'reload')
   assert.equal(h.successes.length, 1)
   assert.equal(h.ports.withdrawLoading.value, false)
   for (const outcome of ['cancel', 'navigate', 'denied', 'switch-user', 'server']) {
     const h = host()
-    h.ports.message.confirm = async () => {
+    h.ports.message.prompt = async () => {
       if (outcome === 'cancel') throw 'cancel'
       if (outcome === 'navigate') h.ports.controlledFileId.value = '11'
       if (outcome === 'denied') h.ports.fileDetail.value.actionProjection.allowedActions = []
       if (outcome === 'switch-user') h.ports.currentUserId.value = 72
+      return { value: '填写的撤回原因' }
     }
     if (outcome === 'server') h.ports.withdrawControlledFile = async () => { throw new Error('撤回被拒绝') }
     await h.withdraw()

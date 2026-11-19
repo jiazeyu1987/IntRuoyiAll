@@ -14,7 +14,7 @@ test('actual rejected upload and revision checkin entry restores saved descripti
       checkinAttachmentState: vue.ref({ uploading: false, cleaning: false }),
       checkinTarget: vue.ref(), checkinForm: { changeDescription: 'stale', remark: 'stale', needTraining: false },
       checkinDialogVisible: vue.ref(false), isValidBrowserOptionId: id => id === '20',
-      isCheckedOutByCurrentUser: () => true, requireCheckinTrainingDefault: file => file.needTraining,
+      getCheckoutActionBlockReason: () => '', isCheckedOutByCurrentUser: () => true, requireCheckinTrainingDefault: file => file.needTraining,
       message: { error: error => { throw Error(error) }, warning: error => { throw Error(error) } },
       resetCheckinDialog: () => Object.assign(state.checkinForm, { changeDescription: '', remark: '', needTraining: false }) }
     vm.runInNewContext(ts.transpileModule(source.slice(from, end) + '\nexports.open=handleCheckin',

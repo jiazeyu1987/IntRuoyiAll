@@ -13,13 +13,13 @@ import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUti
 public class DccProjectFolderMaintenanceController {
     @Resource private DccProjectFolderMaintenanceService service;
     @PutMapping("/{projectId}/folders")
-    @PreAuthorize("@ss.hasPermission('dcc:project-code:update')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<DccProjectFolderDO> save(@PathVariable Long projectId,@RequestBody DccProjectFolderMaintenanceService.Save input) {
         return success(service.save(getLoginUserId(),projectId,input));
     }
     public record Delete(boolean confirmed,String changeReason) {}
     @DeleteMapping("/{projectId}/folders/{folderId}")
-    @PreAuthorize("@ss.hasPermission('dcc:project-code:update')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<Boolean> delete(@PathVariable Long projectId,@PathVariable Long folderId,@RequestBody Delete input) {
         service.delete(getLoginUserId(),projectId,folderId,input!=null && input.confirmed(),input==null?null:input.changeReason());
         return success(true);

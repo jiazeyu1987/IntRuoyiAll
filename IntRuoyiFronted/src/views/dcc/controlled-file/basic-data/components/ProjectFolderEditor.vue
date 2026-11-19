@@ -25,8 +25,8 @@ import { getProjectFolders, saveProjectFolder, deleteProjectFolder, saveLibraryF
 import { checkPermi } from '@/utils/permission'
 import { ElMessageBox } from 'element-plus'
 import { buildProjectFolderTree } from './project-folder-tree'
-const props = defineProps<{ libraryScope?: 'QMS' | 'GENERAL'; libraryCanEdit?: boolean }>()
-const canMaintain = computed(() => props.libraryScope ? props.libraryCanEdit === true : checkPermi(['dcc:project-code:update']))
+const props = defineProps<{ libraryScope?: 'QMS' | 'GENERAL'; libraryCanEdit?: boolean; projectIsLeader?: boolean }>()
+const canMaintain = computed(() => props.libraryScope ? props.libraryCanEdit === true : props.projectIsLeader === true || checkPermi(['dcc:project-code:update']))
 const emit = defineEmits<{ saved: [projectId: number | string, folder: ProjectFolder]; deleted: [projectId: number | string, folderId: number | string] }>()
 const visible = ref(false), loading = ref(false), saving = ref(false), ready = ref(false), error = ref('')
 const projectId = ref<number | string>(), rows = ref<ProjectFolder[]>([])

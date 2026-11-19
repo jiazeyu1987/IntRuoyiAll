@@ -196,26 +196,28 @@ test('remark-only checkin remains legal and sends no invented source or placemen
   assert.equal(calls.writes[0][1].versionChangeType,'MINOR');assert.equal(calls.writes[0][1].uploadTicket,undefined);assert.equal(calls.writes[0][1].sessionId,undefined)
 })
 
-test('actual checkout actions show and execute only for the checkout actor, including when another user is OWNER', async () => {
+test('actual checkout entries follow checkout state but only the checkout actor can check in or cancel, including OWNER', async () => {
   const ast=parse(source).descriptor.template.ast,buttons=[]
   const walk=node=>{if(node.type===1 && node.props.some(p=>p.type===6 && p.name==='data-testid' && ['dcc-controlled-browser-checkin','dcc-controlled-browser-cancel-checkout','dcc-controlled-browser-checkout'].includes(p.value?.content)))buttons.push(node.loc.source);for(const child of node.children||[])walk(child)}
   walk(ast);assert.equal(buttons.length,3)
   for(const role of ['actor','other','OWNER']){
     const {state,calls}=stateFor();let cancellations=0
+    state.checkPermi=()=>true
+    state.canEditVersion=()=>true
     state.userStore.getUser.id=role==='actor'?USER:'88'
     state.ElMessageBox={prompt:async()=>({value:'cancel own checkout'})};state.cancelCheckoutControlledFile=async()=>{cancellations++;return {id:FILE}}
     state.applyCheckoutProjection=()=>{}
-    vm.runInContext(ts.transpileModule(block('isCheckedOutByCurrentUser','canEditVersion')+'\n'+block('handleCancelCheckout','handleBrowserRowCommand')+'\nexports.actor=isCheckedOutByCurrentUser;exports.cancel=handleCancelCheckout',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,state)
+    vm.runInContext(ts.transpileModule(block('isCheckedOutByCurrentUser','canEditVersion')+'\n'+block('getCheckoutActionBlockReason','browserMutationIdempotencyKeys')+'\n'+block('handleCancelCheckout','handleBrowserRowCommand')+'\nexports.actor=isCheckedOutByCurrentUser;exports.cancel=handleCancelCheckout',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,state)
     state.isCheckedOutByCurrentUser=state.exports.actor
     const values={row:{},getSelectedVersion:()=>state.checkinTarget.value,isCheckedOutByCurrentUser:state.exports.actor,
-      canCheckoutVersion:()=>role==='OWNER',checkoutLoadingId:undefined,handleCheckout(){},handleCheckin(){},handleCancelCheckout(){}}
+      isValidBrowserOptionId:state.isValidBrowserOptionId,canCheckoutVersion:()=>role==='OWNER',checkoutLoadingId:undefined,handleCheckout(){},handleCheckin(){},handleCancelCheckout(){}}
     const declarations=Object.keys(values).map(k=>`const ${k}=values.${k}`).join(';')
     const compiled=compileScript(parse(`<template><div>${buttons.join('')}</div></template><script setup>const values=__values;${declarations}</script>`).descriptor,{id:'real-checkout-actions',inlineTemplate:true}).content
     const exported={};new Function('exports','require','__values',ts.transpileModule(compiled,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(exported,()=>vue,values)
     const renderer=vue.createRenderer({createElement:type=>({type,children:[],props:{}}),createText:text=>({text}),createComment:()=>({}),insert:(n,p)=>p.children.push(n),remove(){},setText:(n,t)=>n.text=t,setElementText:(n,t)=>n.text=t,patchProp:(n,k,_v,v)=>n.props[k]=v,parentNode:()=>null,nextSibling:()=>null})
     const app=renderer.createApp(exported.default);app.component('el-button',{setup:(_,{slots,attrs})=>()=>vue.h('button',attrs,slots.default?.())})
     const root={children:[]};app.mount(root);const visible=[];const collect=n=>{if(n.props?.['data-testid'])visible.push(n.props['data-testid']);for(const child of n.children||[])collect(child)};collect(root)
-    try{assert.deepEqual(visible.sort(),role==='actor'?['dcc-controlled-browser-cancel-checkout','dcc-controlled-browser-checkin']:[])}finally{app.unmount()}
+    try{assert.deepEqual(visible.sort(),['dcc-controlled-browser-cancel-checkout','dcc-controlled-browser-checkin'])}finally{app.unmount()}
     await state.exports.submit();await state.exports.cancel(state.checkinTarget.value)
     assert.equal(calls.writes.length,role==='actor'?1:0);assert.equal(cancellations,role==='actor'?1:0)
   }

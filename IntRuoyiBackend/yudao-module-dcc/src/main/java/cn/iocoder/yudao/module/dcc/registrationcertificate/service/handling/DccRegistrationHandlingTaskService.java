@@ -162,14 +162,30 @@ public class DccRegistrationHandlingTaskService {
         if(ids.size()!=1)return false;var task=task(ids.get(0),false);handler(actor,"UPLOAD");
         return Objects.equals(actor,task.responsibleUserId())||!clock.now().isAfter(task.dueAt());
     }
+    public Long resolveUploadTaskId(Long sourceRequestId,Long handlingTaskId) {
+        if(sourceRequestId==null)return handlingTaskId;
+        var ids=jdbc.queryForList("SELECT task_id FROM dcc_registration_handling_attempt WHERE tenant_id=? AND request_id=?",Long.class,tenant(),sourceRequestId);
+        if(ids.isEmpty())return handlingTaskId;
+        if(handlingTaskId!=null&&!Objects.equals(handlingTaskId,ids.get(0)))throw invalidParamException("重新提交的办理任务与原申请不一致");
+        return ids.get(0);
+    }
     /** Called only inside the actual upload/renewal submit transaction, after request persistence. */
     @Transactional(rollbackFor=Exception.class)
-    public void bindRequest(Long tenantId,Long actor,Long projectId,Long certificateId,Long requestId,String kind) {
-        tenant(tenantId);handler(actor,kind);
-        String predicate="UPLOAD".equals(kind)?"project_code_id=?":"certificate_id=?";Object object="UPLOAD".equals(kind)?projectId:certificateId;
-        if(object==null)return;
-        var ids=jdbc.queryForList("SELECT id FROM dcc_registration_handling_task WHERE tenant_id=? AND task_kind=? AND "+predicate+" AND status IN ('OPEN','SUBMITTED') FOR UPDATE",Long.class,tenant(),kind,object);
-        if(ids.isEmpty())return;if(ids.size()!=1)throw invalidParamException("存在多个未完成注册证办理任务，请核对原任务");var task=task(ids.get(0),true);
+    public void bindRequest(Long tenantId,Long actor,Long projectId,Long certificateId,Long requestId,String kind,Long handlingTaskId) {
+        tenant(tenantId);
+        Task task;
+        if("UPLOAD".equals(kind)) {
+            // 绑定项目不代表领取该项目的办理任务，只有明确的任务入口或原申请关联才绑定。
+            if(handlingTaskId==null)return;
+            task=task(handlingTaskId,true);
+            if(!"UPLOAD".equals(task.taskKind())||!Objects.equals(projectId,task.projectCodeId()))throw invalidParamException("办理任务与实际上传项目不一致");
+        } else {
+            if(certificateId==null)return;
+            var ids=jdbc.queryForList("SELECT id FROM dcc_registration_handling_task WHERE tenant_id=? AND task_kind=? AND certificate_id=? AND status IN ('OPEN','SUBMITTED') FOR UPDATE",Long.class,tenant(),kind,certificateId);
+            if(ids.isEmpty())return;if(ids.size()!=1)throw invalidParamException("存在多个未完成注册证办理任务，请核对原任务");
+            task=task(ids.get(0),true);
+        }
+        handler(actor,kind);
         var attempt=jdbc.queryForList("SELECT task_id,handler_id FROM dcc_registration_handling_attempt WHERE tenant_id=? AND request_id=?",tenant(),requestId);
         if(!attempt.isEmpty()){if(Objects.equals(((Number)attempt.get(0).get("task_id")).longValue(),task.id())&&Objects.equals(((Number)attempt.get(0).get("handler_id")).longValue(),actor))return;throw invalidParamException("注册证申请已绑定其他任务或办理人");}
         if(!Objects.equals(actor,task.assignedUserId())||!"OPEN".equals(task.status())||(!Objects.equals(actor,task.responsibleUserId())&&clock.now().isAfter(task.dueAt())))throw invalidParamException("本任务仅限当前授权办理人在授权期限内提交，请联系原负责人");

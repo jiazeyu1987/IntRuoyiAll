@@ -231,8 +231,8 @@ export interface ControlledFileProjectCodeRecognitionRespVO {
   recognitionStatus:
     | 'SUCCESS'
     | 'NO_MATCH'
-    | 'UNKNOWN_DCC_BASIC_DATA'
-    | 'UNRECOGNIZED_PROJECT_NAME'
+    | 'UNKNOWN_DCC'
+    | 'NAME_MISMATCH'
   dccProjectCodeId?: number | null
   projectName?: string | null
   projectCode?: string | null
@@ -251,6 +251,7 @@ export interface ExternalFileReviewSubmitReqVO
 }
 
 export interface ControlledFileWithdrawReqVO {
+  processInstanceId: string
   reason: string
 }
 
@@ -2486,7 +2487,11 @@ export const confirmControlledFileRecognitionMigrationImport = async (
 export const recognizeControlledFileProjectCode = async (
   id: number | string
 ): Promise<ControlledFileProjectCodeRecognitionRespVO> => {
-  return await request.post({ url: `/dcc/controlled-files/${id}/recognize-project-code` })
+  return await request.post({
+    url: `/dcc/controlled-files/${id}/recognize-project-code`,
+    // Content recognition may run for the backend's 120-second CLI limit.
+    timeout: 150000
+  })
 }
 
 export const createControlledFileBatchRecognitionTask = async (
@@ -2518,6 +2523,10 @@ export const stopControlledFileBatchRecognitionTask = async (
 
 export const withdrawControlledFile = async (id: number | string, data: ControlledFileWithdrawReqVO) => {
   return await request.post({ url: `/dcc/controlled-files/${id}/withdraw`, data })
+}
+
+export const withdrawObsoleteApplication = async (id: number | string, data: ControlledFileWithdrawReqVO) => {
+  return await request.post({ url: `/dcc/controlled-files/${id}/obsolete-withdraw`, data })
 }
 
 export const deleteWithdrawnControlledFile = async (id: number | string): Promise<boolean> => {

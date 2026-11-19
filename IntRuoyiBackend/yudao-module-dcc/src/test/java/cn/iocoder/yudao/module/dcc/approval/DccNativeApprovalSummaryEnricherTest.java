@@ -66,6 +66,15 @@ class DccNativeApprovalSummaryEnricherTest {
         assertEquals("MY_INITIATED", row.getBusinessStatus());
         assertEquals("/bpm/process-instance/detail", row.getDetailRoute());
         assertEquals(Map.of("id", "original-process"), row.getDetailQuery());
+        assertEquals("/dcc/controlled-file/detail/10", row.getDecisionDetailRoute());
+        assertEquals("1", row.getDecisionDetailQuery().get("application"));
+        var context = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(
+                new String(java.util.Base64.getUrlDecoder().decode((String) row.getDecisionDetailQuery().get("bodyReadContext")),
+                        java.nio.charset.StandardCharsets.UTF_8), Map.class);
+        assertEquals("APPROVAL_HISTORY", context.get("intent"));
+        assertEquals("original-process", context.get("bpmRound"));
+        assertEquals("B/7", context.get("expectedVersionNo"));
+        assertEquals(key.contains("revision") ? "REVISION" : "UPLOAD", context.get("applicationType"));
         assertEquals(Set.of("OPEN_DETAIL"), row.getAvailableActions());
         assertEquals(false, row.getBusinessDeleted());
         verify(files).selectByIdIncludingDeleted(10L);

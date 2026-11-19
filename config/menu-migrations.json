@@ -1,6 +1,12 @@
 {
   "changes": [
     {
+      "source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/permission/PermissionServiceImpl.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:log:query",
+      "reason": "复用项目代码管理员既有文控日志查询权限，仅修复该业务角色分配时的日志拦截；不新增菜单、权限、角色菜单或租户套餐授权。"
+    },
+    {
       "source": "IntRuoyiFronted/src/views/mes/pro/route/components/RouteDeviceGroups.vue",
       "kind": "permission",
       "value": "mes:pro-route:version-update",

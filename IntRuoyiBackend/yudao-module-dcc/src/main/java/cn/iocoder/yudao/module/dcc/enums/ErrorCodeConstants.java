@@ -7,6 +7,9 @@ import cn.iocoder.yudao.framework.common.exception.ErrorCode;
  */
 public interface ErrorCodeConstants {
 
+    ErrorCode CONTROLLED_FILE_HISTORICAL_SOURCE_VERIFICATION_REQUIRED = new ErrorCode(1_080_000_372,
+            "历史源文件的归属或原始文件名核验未通过，暂时无法完成重名校验；请联系管理员核对历史文件归属与核验证据后重试");
+
     ErrorCode FILE_DIRECTORY_NOT_EXISTS = new ErrorCode(1_080_000_000, "Controlled file directory does not exist");
     ErrorCode FILE_CATEGORY_NOT_EXISTS = new ErrorCode(1_080_000_001, "Controlled file category does not exist");
     ErrorCode FILE_DIRECTORY_PARENT_NOT_EXISTS = new ErrorCode(1_080_000_002, "Controlled file parent directory does not exist");
@@ -21,6 +24,10 @@ public interface ErrorCodeConstants {
     ErrorCode CONTROLLED_FILE_WITHDRAW_NOT_ALLOWED = new ErrorCode(1_080_000_010, "Current controlled file cannot be withdrawn");
     ErrorCode CONTROLLED_FILE_CATEGORY_DISABLED = new ErrorCode(1_080_000_011, "Controlled file category is disabled");
     ErrorCode CONTROLLED_FILE_ACCESS_DENIED = new ErrorCode(1_080_000_012, "当前账号无权访问此受控文件，请核对文件权限或审批任务");
+    ErrorCode CONTROLLED_FILE_TYPE_UPLOAD_FORBIDDEN = new ErrorCode(1_080_000_370,
+            "当前账号无权上传“{}”类型的文件，请选择已授权的文件类型，或联系文控管理员申请授权。");
+    ErrorCode CONTROLLED_FILE_TYPE_STORAGE_INVALID = new ErrorCode(1_080_000_371,
+            "文件类型“{}”未配置有效且唯一的存储目录，请联系文控管理员维护。");
     ErrorCode CONTROLLED_FILE_STAMP_TYPE_UNSUPPORTED = new ErrorCode(1_080_000_013, "Controlled file type does not support finalization");
     ErrorCode CONTROLLED_FILE_STAMP_GENERATION_FAILED = new ErrorCode(1_080_000_014, "Controlled file finalization failed");
     ErrorCode CONTROLLED_FILE_STAMP_RETRY_NOT_ALLOWED = new ErrorCode(1_080_000_015, "Current controlled file cannot retry finalization");
@@ -635,4 +642,6 @@ public interface ErrorCodeConstants {
             "文件类别（{}）缺少可用的公共审批矩阵，请在类别审批矩阵中配置启用且已生效的公共规则；本次申请自定义审批配置不能替代公共规则");
     ErrorCode CONTROLLED_FILE_CHECKIN_SOURCE_NAME_MISMATCH = new ErrorCode(1_080_000_370,
             "检入不允许更改源文件名（含扩展名），原文件名：{}，本次文件名：{}");
+    ErrorCode REGISTRATION_CERTIFICATE_PRODUCT_NAME_MISMATCH = new ErrorCode(1_080_000_369,
+            "产品中文名称与所选项目绑定产品不一致，请填写：{}");
 }

@@ -112,18 +112,7 @@ class DccControlledFileDetailAuthorizationGuard {
                         || !Objects.equals(task.getAssignee(), userId.toString())) bodyDenied();
             }
             case APPROVAL_HISTORY -> {
-                requireReadableProject(userId, file);
-                var round = requireExactBodyRound(file, context);
-                if (context.taskId() == null) {
-                    if (!Objects.equals(round.startUserId(), userId.toString())) bodyDenied();
-                } else {
-                    var task = bpmTaskService.getHistoricTask(context.taskId());
-                    if (task == null || task.getEndTime() == null || !Objects.equals(task.getId(), context.taskId())
-                            || !Objects.equals(task.getTenantId(), file.getTenantId().toString())
-                            || !Objects.equals(task.getProcessInstanceId(), context.bpmRound())
-                            || !Objects.equals(task.getProcessDefinitionId(), round.definitionId())
-                            || !Objects.equals(task.getAssignee(), userId.toString())) bodyDenied();
-                }
+                requireApplicationHistoryRead(userId, file, context);
             }
             case TRAINING_APPLICATION -> {
                 requireReadableProject(userId, file);
@@ -132,6 +121,29 @@ class DccControlledFileDetailAuthorizationGuard {
                         || !DccOfflineTrainingRecordService.isNativeWaitingFile(file)
                         || !offlineTraining.canReadTrainingBody(userId, file)) bodyDenied();
             }
+        }
+    }
+
+    /** Application evidence remains readable after archival; this does not authorize archived body access. */
+    void requireApplicationHistoryRead(Long userId, DccControlledFileDO file, DccControlledFileBodyReadContext context) {
+        if (file == null || file.getId() == null || Boolean.TRUE.equals(file.getDeleted())
+                || !Objects.equals(file.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || !hasAuthenticatedActor(userId, file)
+                || context.intent() != DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY) bodyDenied();
+        context.requireFile(file.getId(), file.getVersionNo());
+        if (!permissionSupport.isLibrary(file.getDccProjectCodeId())
+                && !assignmentScopeService.isWithinAssignedFileScope(userId, file.getId())) bodyDenied();
+        requireReadableProject(userId, file);
+        var round = requireExactBodyRound(file, context);
+        if (context.taskId() == null) {
+            if (!Objects.equals(round.startUserId(), userId.toString())) bodyDenied();
+        } else {
+            var task = bpmTaskService.getHistoricTask(context.taskId());
+            if (task == null || task.getEndTime() == null || !Objects.equals(task.getId(), context.taskId())
+                    || !Objects.equals(task.getTenantId(), file.getTenantId().toString())
+                    || !Objects.equals(task.getProcessInstanceId(), context.bpmRound())
+                    || !Objects.equals(task.getProcessDefinitionId(), round.definitionId())
+                    || !Objects.equals(task.getAssignee(), userId.toString())) bodyDenied();
         }
     }
 

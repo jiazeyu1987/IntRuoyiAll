@@ -69,7 +69,8 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     private static final Set<String> FORM_CENTER_OBSOLETE_ACTIONS = PROCESS_IN_MODULE_ACTIONS;
     private static final Set<ApprovalTaskViewType> SUPPORTED_VIEWS = Set.of(
             ApprovalTaskViewType.TODO,
-            ApprovalTaskViewType.DONE
+            ApprovalTaskViewType.DONE,
+            ApprovalTaskViewType.MY_INITIATED
     );
     private static final Set<ApprovalTaskCapability> CAPABILITIES = Set.of(
             ApprovalTaskCapability.TIMELINE,
@@ -155,6 +156,8 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
         PageResult<ApprovalTaskSummary> files=switch(context.getViewType()) {
             case TODO -> pageTodo(headContext);
             case DONE -> pageDone(headContext);
+            // Flowable file instances are already supplied by the BPM provider.
+            case MY_INITIATED -> new PageResult<>(List.of(), 0L);
             default -> throw new IllegalArgumentException("APPROVAL_VIEW_TYPE_UNSUPPORTED: "+context.getViewType());
         };
         long total=Math.addExact(files.getTotal(),Math.addExact(projects.getTotal(),training.getTotal()));

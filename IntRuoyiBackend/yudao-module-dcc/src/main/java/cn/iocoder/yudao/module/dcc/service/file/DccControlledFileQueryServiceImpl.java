@@ -540,6 +540,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private BusinessFileAccessService businessFileAccessService;
     @Resource
     private BpmTaskService bpmTaskService;
+    @Resource
+    private DccApplicantCancellationGuard applicantCancellationGuard;
     @Resource private DccApplicationHistoryGuard applicationHistoryGuard;
 
     @Override public List<Map<String,Object>> getArchiveProjects(Long actor) {
@@ -999,7 +1001,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         DccControlledFileDO file = controlledFileMapper.selectById(id);
         if (file == null) throw exception(CONTROLLED_FILE_NOT_EXISTS);
         Objects.requireNonNull(context, "explicit detail read context").requireFile(id, file.getVersionNo());
-        detailAuthorizationGuard.requireBodyRead(userId, file, context);
+        requireApplicationReadAccess(userId, file, context);
         // Do not bind the root context to history traversal: every history row has its own exact ID.
         DccControlledFileRespVO response = toRespVO(userId, file, true,
                 directoryAccessPermissionService.hasDirectoryManagementPermission(userId), buildEnabledDirectoryMap(), context);
@@ -1638,7 +1640,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     }
 
     private void requireApplicationReadAccess(Long userId, DccControlledFileDO file, DccControlledFileBodyReadContext context) {
-        if (context != null) {
+        if (context != null && context.intent() == DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY) {
+            detailAuthorizationGuard.requireApplicationHistoryRead(userId, file, context);
+        } else if (context != null) {
             detailAuthorizationGuard.requireBodyRead(userId, file, context);
         } else if (userId == null || !canAccessDetail(userId, file)) {
             throw exception(CONTROLLED_FILE_ACCESS_DENIED);
@@ -1939,7 +1943,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if(context==null || !Objects.equals(context.applicationType(),applicationType)
                 || bpmRound==null || !Objects.equals(context.bpmRound(),bpmRound))
             throw exception(CONTROLLED_FILE_ACCESS_DENIED);
-        detailAuthorizationGuard.requireBodyRead(userId,requireRelationIdentity(id),context);
+        requireApplicationReadAccess(userId,requireRelationIdentity(id),context);
     }
     @Override public void assertRelationNameVisible(Long userId,Long id) {
         var file=requireRelationIdentity(id);
@@ -3983,6 +3987,16 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     }
 
     private Long resolvePreviewReferenceId(DccControlledFileDO file) {
+        if (DccControlledFileStatusEnum.WITHDRAWN.getStatus().equals(file.getStatus())) {
+            var context = bodyReadContext.get();
+            if (context == null || context.intent() != DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY) return null;
+            context.requireFile(file.getId(), file.getVersionNo());
+            if (!Objects.equals(context.bpmRound(), file.getProcessInstanceId()))
+                throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+            if (file.getSourceFileId() == null)
+                throw new IllegalStateException("撤回申请的原正文缺失");
+            return file.getSourceFileId();
+        }
         if (DccControlledFileStatusEnum.PENDING_DELAYED_EFFECTIVE_CONFIRM.getStatus().equals(file.getStatus())) {
             var context = bodyReadContext.get();
             if (context == null || !Set.of(DccControlledFileBodyReadContext.Intent.AUTHORING,
@@ -4458,14 +4472,15 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setDirectoryPath(resolveDirectoryPath(file.getDirectoryId(), directoryMap));
         respVO.setTitle(file.getTitle());
         respVO.setFileName(file.getFileName());
-        PreviewArtifactProjection previewProjection = authorizedRootContext == null
+        boolean archivedBodyDenied = DccArchiveAccessService.isArchived(file) && !archiveAccess.canRead(userId, file);
+        PreviewArtifactProjection previewProjection = authorizedRootContext == null || archivedBodyDenied
                 ? resolvePreviewArtifactProjection(file)
                 : withBodyReadContext(userId, file.getId(), authorizedRootContext, () -> resolvePreviewArtifactProjection(file));
         FileDO previewFile = previewProjection.file();
         respVO.setContentType(previewFile == null ? null : previewFile.getType());
         respVO.setPreviewKind(previewFile == null ? null
                 : DccControlledFilePreviewKindEnum.resolve(previewFile.getName(), previewFile.getType()).getCode());
-        respVO.setPreviewUnavailableReason(previewProjection.unavailableReason());
+        respVO.setPreviewUnavailableReason(archivedBodyDenied ? "文件已归档，可查看本次申请及审批记录；正文须具备归档文件查看权限。" : previewProjection.unavailableReason());
         respVO.setFileNumber(file.getFileNumber());
         respVO.setPublishedArtifactAvailable(hasFileRecord(file.getPublishedFileId()));
         respVO.setStampedArtifactAvailable(hasFileRecord(file.getStampedFileId()));
@@ -4545,7 +4560,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setRejectReason(file.getRejectReason());
         respVO.setFinalizationError(file.getFinalizationError());
         fillCheckoutProjection(respVO, file);
-        respVO.setCanPreview(previewFile != null && (authorizedRootContext != null || canReadHistoricalVersion(userId, file, null)
+        respVO.setCanPreview(!archivedBodyDenied && previewFile != null && (authorizedRootContext != null || canReadHistoricalVersion(userId, file, null)
                 || canReadBinary(userId, file, DccAccessTypeEnum.PREVIEW, hasDirectoryManagementPermission)));
         DccDownloadPolicyDecision downloadDecision = decideDownloadBinary(userId, file, hasDirectoryManagementPermission);
         respVO.setCanDownload(downloadDecision.allowed());
@@ -4920,7 +4935,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         boolean superseded = DccControlledFileStatusEnum.SUPERSEDED.getStatus().equals(status);
         boolean working = DccControlledFileStatusEnum.WORKING.getStatus().equals(status);
         boolean readyToPublish = DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(status);
-        boolean pendingWithdrawable = isWithdrawableWorkflowStatus(status);
+        boolean pendingWithdrawable = DccApplicantCancellationGuard.WITHDRAWABLE_STATUSES.contains(status)
+                && StrUtil.isNotBlank(file.getProcessInstanceId())
+                && !applicantCancellationGuard.hasEnteredDocControl(file.getProcessInstanceId());
         boolean pendingOpenCandidate = isOpenCandidateActionStatus(status);
         FormActionInstanceDO obsoleteFormPending = obsoleteControlled ? formActionPendingService.findOpenObsoleteAction(file.getId()) : null;
         boolean obsoleteApprovalPending = obsoleteFormPending != null;
@@ -4943,7 +4960,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 && Boolean.TRUE.equals(canPublish)) {
             allowedActions.add(ACTION_PUBLISH);
         }
-        if (pendingWithdrawable && requester && permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.EDIT)) {
+        if (pendingWithdrawable && requester && permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.UPLOAD)) {
             allowedActions.add(ACTION_WITHDRAW);
         }
         if (DccControlledFileStatusEnum.PENDING_APPLICANT_TRAINING_RECORD.getStatus().equals(status)
@@ -4973,7 +4990,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 : active ? null : resolveActionLockReason(status));
         projection.setAllowedActions(allowedActions);
         projection.setCanWithdraw((pendingWithdrawable && requester
-                && permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.EDIT))
+                && permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.UPLOAD))
                 || (obsoleteApprovalPending && userId != null && userId.equals(obsoleteFormPending.getApplicantUserId())));
         projection.setPendingRequestId(obsoleteApprovalPending ? obsoleteFormPending.getId()
                 : (pendingOpenCandidate ? file.getId() : null));
@@ -5648,6 +5665,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 || DccControlledFileVersionPolicy.hasRetainedControlledBodyStatus(file.getStatus())
                 || DccControlledFileStatusEnum.WORKING.getStatus().equals(file.getStatus())
                 || DccControlledFileStatusEnum.REJECTED.getStatus().equals(file.getStatus())
+                || DccControlledFileStatusEnum.WITHDRAWN.getStatus().equals(file.getStatus())
                 || DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus().equals(file.getStatus())
                 || DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())
                 || DccControlledFileStatusEnum.PENDING_DELAYED_EFFECTIVE_CONFIRM.getStatus().equals(file.getStatus())
@@ -5672,6 +5690,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         return isPendingPreviewStatus(file.getStatus())
                 || DccControlledFileStatusEnum.PENDING_DELAYED_EFFECTIVE_CONFIRM.getStatus().equals(file.getStatus())
                 || DccControlledFileStatusEnum.REJECTED.getStatus().equals(file.getStatus())
+                || DccControlledFileStatusEnum.WITHDRAWN.getStatus().equals(file.getStatus())
                 || DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus().equals(file.getStatus())
                 ? "受审源文件不存在或已被删除"
                 : "正式预览文件不存在或已被删除";

@@ -74,6 +74,10 @@ export class ProjectBrowserState {
     referenceIdentity(tenantId); referenceIdentity(actorId)
   }
   get contextKey() { return JSON.stringify([this.tenantId, this.project?.id, this.folder?.folderId]) }
+  get canMaintainFolders() {
+    return Boolean(this.project?.status === 'ENABLE' && isEnabledTargetProjectLeader(
+      { id: this.actorId, status: this.actorEnabled ? 0 : 1 }, this.project))
+  }
   get canReference() {
     return Boolean(this.project && this.folder && isEnabledTargetProjectLeader(
       { id: this.actorId, status: this.actorEnabled ? 0 : 1 }, this.project))
@@ -139,7 +143,7 @@ export class ProjectBrowserState {
   }
   async loadFiles() {
     const token = ++this.filesSequence
-    this.loading = true; this.error = ''; this.rows = []; this.references = []; this.total = 0; this.usage = {}
+    this.loading = true; this.error = ''; this.rows = []; this.references = []; this.usage = {}
     const queryKeyword = this.keyword
     try {
       if (this.scope === 'project' && !this.project) throw new Error('请先选择项目')

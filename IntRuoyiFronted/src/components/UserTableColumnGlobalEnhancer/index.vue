@@ -128,11 +128,16 @@ let scrollListenerAttached = false
 let resizeTableKey: string | undefined
 
 const panels = computed(() =>
-  Array.from(tableMap.values()).filter((table) => table.tableEl.isConnected && table.columns.length > 0)
+  isTargetRoute()
+    ? Array.from(tableMap.values()).filter((table) => table.tableEl.isConnected && table.columns.length > 0)
+    : []
 )
 
 const isTargetRoute = () => {
   const path = route.path || window.location.pathname
+  if (path.startsWith('/dcc/controlled-file/detail/') && route.query.handling === 'approval') {
+    return false
+  }
   return TARGET_ROUTE_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
 }
 

@@ -661,7 +661,7 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
 }
 
 .scheme-d-basic-data-page--dcc-file-type-taxonomy :deep(.unified-list-template__multi-filter) {
-  flex: 1 1 520px;
+  flex: 0 1 auto;
   min-width: 0;
 }
 

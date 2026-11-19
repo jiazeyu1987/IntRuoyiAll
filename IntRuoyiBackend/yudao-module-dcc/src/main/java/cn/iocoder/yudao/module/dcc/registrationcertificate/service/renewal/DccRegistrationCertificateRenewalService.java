@@ -234,7 +234,7 @@ public class DccRegistrationCertificateRenewalService {
                         .build();
         requestFile.setTenantId(command.tenantId());
         requireSingle(requestFileMapper.insert(requestFile), REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
-        registrationHandlingTasks.bindRequest(command.tenantId(), command.actorId(), certificate.getProjectCodeId(), certificate.getId(), request.getId(), "RENEWAL");
+        registrationHandlingTasks.bindRequest(command.tenantId(), command.actorId(), certificate.getProjectCodeId(), certificate.getId(), request.getId(), "RENEWAL", null);
         return new DccRegistrationCertificateRenewalSubmitResult(
                 request.getId(), certificate.getId(), businessFile.getId(), request.getStatus());
     }

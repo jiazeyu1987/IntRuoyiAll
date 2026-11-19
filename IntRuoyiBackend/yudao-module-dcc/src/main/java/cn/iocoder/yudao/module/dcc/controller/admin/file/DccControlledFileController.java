@@ -855,7 +855,7 @@ public class DccControlledFileController {
     }
 
     @PostMapping("/{id:\\d+}/resubmit")
-    @Operation(summary = "Resubmit one withdrawn controlled file as a new BPM workflow")
+    @Operation(summary = "Prepare withdrawn native application for review and confirmation")
     @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<Long> resubmitWithdrawnControlledFile(@PathVariable("id") Long id) {
         return success(workflowService.resubmitWithdrawnControlledFile(getLoginUserId(), id));
@@ -1370,6 +1370,15 @@ public class DccControlledFileController {
                 @Valid cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileObsoleteReworkSourceReqVO source) {
         return success(source.hasSource() ? obsoleteService.getObsoleteReworkSource(getLoginUserId(),id,source)
                 : obsoleteService.getObsoleteApplicationDraft(getLoginUserId(),id));
+    }
+
+    @PostMapping("/{id:\\d+}/obsolete-withdraw")
+    @Operation(summary = "Withdraw the applicant's exact obsolete application")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:query')")
+    public CommonResult<Boolean> withdrawObsoleteApplication(@PathVariable("id") Long id,
+            @Valid @RequestBody DccControlledFileWithdrawReqVO reqVO) {
+        obsoleteService.withdrawObsoleteApplication(getLoginUserId(), id, reqVO);
+        return success(true);
     }
 
     @PostMapping("/{id:\\d+}/obsolete")

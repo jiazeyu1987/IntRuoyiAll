@@ -58,6 +58,16 @@ const listedReference = (status = 'ACTIVE', canPreview = false) => ({
     projectFolderId: '61', projectFolderName: '来源目录', fileName: '引用.pdf', fileNumber: 'REF', versionNo: 'A/1', status,
     controlled: status === 'ACTIVE', pendingEffect: false, executable: status === 'ACTIVE', canPreview }
 })
+
+test('folder maintenance recognizes only the current enabled formal project leader without requiring a folder',()=>{
+ const {state}=fixture();state.actorEnabled=true
+ state.project={id:'5',status:'ENABLE',projectLeaderUserId:'9'}
+ assert.equal(state.canMaintainFolders,true);assert.equal(state.folder,undefined)
+ state.project={id:'6',status:'ENABLE',projectLeaderUserId:'8'};assert.equal(state.canMaintainFolders,false)
+ state.project={id:'5',status:'DISABLE',projectLeaderUserId:'9'};assert.equal(state.canMaintainFolders,false)
+ state.project={id:'5',status:'ENABLE',projectLeader:'9',projectLeaderUserId:null};assert.equal(state.canMaintainFolders,false)
+ state.project={id:'5',status:'ENABLE',projectLeaderUserId:'9'};state.actorEnabled=false;assert.equal(state.canMaintainFolders,false)
+})
 test('destination viewer sees existing active and retained references without source name permission', async () => {
   for (const status of ['ACTIVE', 'SUPERSEDED', 'OBSOLETE']) {
     const { state, sourcePermissionReads } = fixture([], [listedReference(status)])

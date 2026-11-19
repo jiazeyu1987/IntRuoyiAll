@@ -99,6 +99,30 @@ public class DccControlledFileObsoleteServiceImpl implements DccControlledFileOb
     @Resource private DccObsoleteFormExecutionPreparationService executionPreparation;
     private record DraftContext(DccControlledFileDO file,cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO form,int number,
             cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectApplicationAttributesDO attributes) { }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void withdrawObsoleteApplication(Long userId, Long id,
+            cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileWithdrawReqVO reqVO) {
+        requireAuthenticatedApplicant(userId);
+        var file = controlledFileMapper.selectById(id);
+        Long tenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        if (file == null || !java.util.Objects.equals(file.getTenantId(), tenant)) throw exception(CONTROLLED_FILE_NOT_EXISTS);
+        if (!permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.OBSOLETE))
+            throw exception(CONTROLLED_FILE_OBSOLETE_NOT_ALLOWED);
+        var forms = obsoleteForms.selectOwnershipByTenantAndProcessId(tenant, reqVO.getProcessInstanceId());
+        if (forms == null || forms.size() != 1) throw exception(CONTROLLED_FILE_OBSOLETE_NOT_ALLOWED);
+        var form = forms.get(0);
+        if (!java.util.Objects.equals(form.getObjectId(), id.toString())
+                || !java.util.Objects.equals(form.getObjectVersion(), file.getVersionNo())
+                || !java.util.Objects.equals(form.getApplicantUserId(), userId)
+                || !"DCC".equals(form.getSystemCode()) || !"CONTROLLED_FILE".equals(form.getObjectType())
+                || !"OBSOLETE".equals(form.getActionCode())) throw exception(CONTROLLED_FILE_OBSOLETE_NOT_ALLOWED);
+        // The BPM business guard locks and rechecks the exact round and live stage before cancellation.
+        obsoleteProcessService.cancelProcessInstanceByStartUser(userId,
+                new cn.iocoder.yudao.module.bpm.controller.admin.task.vo.instance.BpmProcessInstanceCancelReqVO()
+                        .setId(reqVO.getProcessInstanceId()).setReason(reqVO.getReason()));
+    }
     @Override
     // Reading a draft locks its form and reserved round to prevent concurrent submission.
     @Transactional(rollbackFor=Exception.class)

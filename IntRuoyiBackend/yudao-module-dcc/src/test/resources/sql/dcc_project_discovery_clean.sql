@@ -1,0 +1,10 @@
+DELETE FROM mes_pro_route_product;
+DELETE FROM mes_pro_route_version;
+DELETE FROM mes_pro_route;
+DELETE FROM mes_md_item;
+DELETE FROM mes_pro_batch_record_report;
+DELETE FROM mes_pro_batch_record_version;
+DELETE FROM mes_pro_batch_record_definition;
+DELETE FROM mes_qa_inspection_regulation_version;
+DELETE FROM mes_qa_inspection_regulation;
+DELETE FROM mdm_product;
