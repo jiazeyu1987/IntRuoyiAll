@@ -444,7 +444,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
   <el-dialog
     v-model="importVisible"
     class="scheme-d-form-control"
-    title="DCC基础数据导入"
+    title="基础数据导入"
     width="1080px"
     data-testid="dcc-project-code-import-dialog"
   >
@@ -646,7 +646,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
       class="mb-12px"
       type="info"
       :closable="false"
-      title="审批通过后生成 DCC 项目代码并绑定 MDM 产品"
+      title="审批通过后生成项目代码并绑定 MDM 产品"
       show-icon
     />
     <el-alert
@@ -669,7 +669,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
       <el-table-column prop="projectName" label="项目名称" min-width="180" show-overflow-tooltip />
       <el-table-column prop="projectCode" label="项目代码" min-width="140" show-overflow-tooltip />
       <el-table-column prop="productNameCn" label="产品中文名" min-width="160" show-overflow-tooltip />
-      <el-table-column prop="dccProductCode" label="DCC 产品编号" min-width="150" show-overflow-tooltip />
+      <el-table-column prop="dccProductCode" label="产品编号" min-width="150" show-overflow-tooltip />
       <el-table-column label="操作" width="110" fixed="right">
         <template #default="{ row }">
           <el-button
@@ -713,7 +713,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
       <el-form-item label="产品编码" prop="productCode">
         <el-input v-model="productOnboardingFormData.productCode" placeholder="请输入 MDM 产品编码" />
       </el-form-item>
-      <el-form-item label="DCC 产品编号" prop="dccProductCode">
+      <el-form-item label="产品编号" prop="dccProductCode">
         <el-input v-model="productOnboardingFormData.dccProductCode" placeholder="14 位字母或数字" />
       </el-form-item>
       <el-form-item label="产品中文名" prop="productNameCn">
@@ -737,8 +737,8 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
       <el-form-item label="目标项目代码" prop="projectCode">
         <el-input v-model="productOnboardingFormData.projectCode" placeholder="审批通过后生成的项目代码" />
       </el-form-item>
-      <el-form-item label="DCC 类别" prop="category">
-        <el-input v-model="productOnboardingFormData.category" placeholder="请输入 DCC 类别" />
+      <el-form-item label="类别" prop="category">
+        <el-input v-model="productOnboardingFormData.category" placeholder="请输入类别" />
       </el-form-item>
       <el-form-item label="项目组负责人" prop="projectLeader">
         <el-input v-model="productOnboardingFormData.projectLeader" placeholder="请输入项目组负责人" />
@@ -787,7 +787,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
   <el-drawer
     v-model="detailDrawerVisible"
     class="scheme-d-basic-data-page scheme-d-basic-data-page--dcc-project-code scheme-d-form-control"
-    title="DCC基础条目"
+    title="基础条目"
     size="96%"
     data-testid="dcc-project-code-detail-drawer"
     @close="closeProjectCodeDetail"
@@ -3437,7 +3437,7 @@ const handleExportBatchAiCategoryFailures = async () => {
       recognitionStatus: 'FAILED',
       batchRecognitionTaskId: taskId
     })
-    download.excel(data, 'DCC批量AI分类失败明细.xlsx')
+    download.excel(data, '批量AI分类失败明细.xlsx')
   } catch (error) {
     message.error(`导出批量AI分类失败明细失败：${resolveAiCategoryErrorMessage(error)}`)
     throw error
@@ -3550,7 +3550,7 @@ const handleAutoClassifyUnclassifiedAssociatedFiles = async () => {
   }
   const targetOptions = associatedAutoClassifyTargetOptions.value
   if (targetOptions.length === 0) {
-    message.error('没有可用于归类的正式文件类型，请先维护 DCC 文件分类树')
+    message.error('没有可用于归类的正式文件类型，请先维护文件分类树')
     return
   }
   try {
@@ -3568,7 +3568,7 @@ const handleAutoClassifyUnclassifiedAssociatedFiles = async () => {
     for (const file of filesToClassify) {
       const target = resolveBestAssociatedAutoClassifyTarget(file, targetOptions)
       if (!target) {
-        throw new Error('没有可用于归类的正式文件类型，请先维护 DCC 文件分类树')
+        throw new Error('没有可用于归类的正式文件类型，请先维护文件分类树')
       }
       const payload = buildDccAssociatedFileAutoClassifyPayload(file, target)
       await updateControlledFileMetadata(file.id, payload)

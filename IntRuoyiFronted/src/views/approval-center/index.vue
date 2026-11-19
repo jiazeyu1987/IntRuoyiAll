@@ -235,7 +235,7 @@
               </el-table-column>
               <el-table-column
                 v-if="isApprovalColumnVisible('time')"
-                label="时间"
+                label="时间（北京时间）"
                 prop="time"
                 :width="getApprovalColumnWidthString('time', 190)"
                 v-bind="sortColumnAttrs('time')"
@@ -466,7 +466,7 @@ import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter
 
 import { ElMessage } from 'element-plus'
 import { edhrReadDisplay, bpmMissingPermissionReason, canProcessBpmInModule, bpmModuleDecisionLocation, compactApprovalCapabilities, APPROVAL_CAPABILITIES_DEFAULT_WIDTH } from './approvalReadDisplay'
-import { formatDate } from '@/utils/formatTime'
+import { formatBusinessDateTime } from '@/utils/businessTime'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   useUserTableColumns,
@@ -1684,31 +1684,7 @@ const resolveApprovalRemark = (row: ApprovalTaskSummaryVO) => {
 }
 
 const formatApprovalTime = (value?: string | number | Date | null) => {
-  if (!value) {
-    return '--'
-  }
-  const date = normalizeApprovalTime(value)
-  if (!date || Number.isNaN(date.getTime())) {
-    return `时间格式异常：${String(value)}`
-  }
-  return formatDate(date, 'YYYY-MM-DD HH:mm:ss')
-}
-
-const normalizeApprovalTime = (value: string | number | Date) => {
-  if (value instanceof Date) {
-    return value
-  }
-  if (typeof value === 'number') {
-    return new Date(value)
-  }
-  const trimmed = value.trim()
-  if (!trimmed) {
-    return undefined
-  }
-  if (/^\d+$/.test(trimmed)) {
-    return new Date(Number(trimmed))
-  }
-  return new Date(trimmed)
+  return formatBusinessDateTime(value)
 }
 
 const formatEdhrTime = (value?: string) => value ? formatApprovalTime(value) : '未记录'

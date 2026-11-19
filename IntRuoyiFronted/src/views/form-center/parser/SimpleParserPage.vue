@@ -6,7 +6,7 @@
   >
     <SimpleParserHeader
       v-model:project-id="projectId"
-      title="简易解析"
+      title="生产编制"
       import-accept=".doc,.docx"
       :projects="projects"
       :project-loading="projectLoading"
@@ -964,7 +964,7 @@ async function exportWord() {
     const href = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = href
-    link.download = `${(content.routeName.trim() || '简易解析').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')}.docx`
+    link.download = `${(content.routeName.trim() || '生产编制').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')}.docx`
     document.body.appendChild(link)
     link.click()
     link.remove()

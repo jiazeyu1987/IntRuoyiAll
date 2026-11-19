@@ -247,6 +247,50 @@ class ErpKingdeeSaleOrderSyncServiceImplTest {
         verify(syncRecordMapper, never()).insert(any(ErpKingdeeSaleOrderSyncRecordDO.class));
     }
 
+    @Test
+    void fullHistoricalOrderWithoutPricingUnitRetainsPriceAndSourceSnapshot() {
+        var source = buildSaleOrder();
+        source.getLines().get(0).setPriceUnitName(null);
+        source.getLines().get(0).setPriceUnitQuantity(BigDecimal.ZERO);
+        when(saleOrderClient.fetchAllSaleOrders(kingdeeProperties)).thenReturn(List.of(source));
+        when(customerSyncRecordMapper.selectBySourceCustomerNumber("C000637"))
+                .thenReturn(new ErpKingdeeCustomerSyncRecordDO().setCustomerId(10L));
+        when(productMapper.selectByBarCode("MAT-001")).thenReturn(new ErpProductDO().setId(20L).setUnitId(40L));
+        when(saleOrderService.createSaleOrder(any(ErpSaleOrderSaveReqVO.class))).thenReturn(501L);
+        var result = syncService.syncAllWithUpdates();
+        assertEquals(1, result.getCreatedCount());
+        var request = ArgumentCaptor.forClass(ErpSaleOrderSaveReqVO.class);
+        verify(saleOrderService).createSaleOrder(request.capture());
+        assertEquals(new BigDecimal("840.7"), request.getValue().getItems().get(0).getProductPrice());
+        assertEquals(40L, request.getValue().getItems().get(0).getProductUnitId());
+        var record = ArgumentCaptor.forClass(ErpKingdeeSaleOrderSyncRecordDO.class);
+        verify(syncRecordMapper).insert(record.capture());
+        var payload = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(
+                record.getValue().getRawPayload(), ErpKingdeeSaleOrder.class);
+        org.junit.jupiter.api.Assertions.assertNull(payload.getLines().get(0).getPriceUnitName());
+        assertEquals(new BigDecimal("840.7"), payload.getLines().get(0).getPrice());
+    }
+
+    @Test
+    void targetedHistoricalBillUpdatesExistingOrderAndSourceSnapshot() {
+        var source = buildSaleOrder();
+        when(saleOrderClient.fetchSaleOrdersByBillNo(kingdeeProperties, "908XSDD00103"))
+                .thenReturn(List.of(source));
+        when(syncRecordMapper.selectBySourceKey(ErpKingdeeSaleOrder.FORM_ID, "348963"))
+                .thenReturn(new ErpKingdeeSaleOrderSyncRecordDO().setId(301L).setSaleOrderId(501L));
+        when(saleOrderService.getSaleOrder(501L)).thenReturn(
+                new cn.iocoder.yudao.module.erp.dal.dataobject.sale.ErpSaleOrderDO()
+                        .setId(501L).setStatus(ErpAuditStatus.PROCESS.getStatus()));
+        when(customerSyncRecordMapper.selectBySourceCustomerNumber("C000637"))
+                .thenReturn(new ErpKingdeeCustomerSyncRecordDO().setCustomerId(10L));
+        when(productMapper.selectByBarCode("MAT-001")).thenReturn(new ErpProductDO().setId(20L).setUnitId(40L));
+        assertEquals(1, syncService.syncByCode("908XSDD00103"));
+        verify(saleOrderService).updateSaleOrder(any(ErpSaleOrderSaveReqVO.class));
+        verify(syncRecordMapper).updateById(any(ErpKingdeeSaleOrderSyncRecordDO.class));
+        verify(saleOrderClient, never()).fetchAllSaleOrders(any());
+        verify(saleOrderClient, never()).fetchSaleOrdersModifiedBetween(any(), any(), any());
+    }
+
     private static ErpKingdeeSaleOrder buildSaleOrder() {
         ErpKingdeeSaleOrder.Line line = new ErpKingdeeSaleOrder.Line();
         line.setUnitName("PCS");

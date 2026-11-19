@@ -122,16 +122,15 @@ class KingdeeProductItemSyncJobTest {
         when(products.syncProducts()).thenReturn(productResult);
         MesKingdeeItemSyncResult itemResult = new MesKingdeeItemSyncResult();
         itemResult.addCreated();
-        when(items.syncItemsByProductCodes(any(Collection.class))).thenReturn(itemResult);
+        when(items.syncCurrentErpProducts()).thenReturn(itemResult);
         when(runtime.executeSync(any(ErpKingdeeSyncCommand.class), any(ErpKingdeeSyncTask.class)))
                 .thenAnswer(invocation -> ((ErpKingdeeSyncTask) invocation.getArgument(1)).run(
                         ErpKingdeeSyncContext.builder().windowEnd(LocalDateTime.now()).build()));
 
         String result = new KingdeeProductItemSyncJob(products, items, runtime).executeFullSync();
 
-        ArgumentCaptor<Collection<String>> codes = ArgumentCaptor.forClass(Collection.class);
-        verify(items).syncItemsByProductCodes(codes.capture());
-        assertEquals(List.of("MAT-PREVIOUSLY-COMMITTED"), List.copyOf(codes.getValue()));
+        verify(items).syncCurrentErpProducts();
+        verify(items, never()).syncItemsByProductCodes(any(Collection.class));
         assertTrue(result.contains("itemsCreated=1"));
         verify(items, never()).syncItems();
     }

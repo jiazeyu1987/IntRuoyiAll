@@ -56,6 +56,8 @@ export interface CraftImpact {
 }
 export interface CraftChange {
   id: number
+  approvalScope?: 'ROUTE' | 'BATCH'
+  approvalRequestId?: number
   craftId?: number
   changeType: string
   status: string

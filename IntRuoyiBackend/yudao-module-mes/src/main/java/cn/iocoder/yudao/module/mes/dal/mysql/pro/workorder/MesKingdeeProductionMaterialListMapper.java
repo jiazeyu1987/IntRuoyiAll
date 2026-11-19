@@ -21,6 +21,25 @@ import java.util.List;
 @Mapper
 public interface MesKingdeeProductionMaterialListMapper extends BaseMapperX<MesKingdeeProductionMaterialListDO> {
 
+    // Keep the display and column-filter expressions identical. Evaluate the
+    // summary outside the grouped derived table so pagination can defer it.
+    String PRODUCTION_ORDER_SUMMARY_SQL = """
+            (SELECT JSON_UNQUOTE(CONCAT(CHAR(34), REPLACE(
+                SUBSTRING(CAST(mja.parts AS CHAR), 3, CHAR_LENGTH(CAST(mja.parts AS CHAR))-4),
+                CONCAT(CHAR(34), ', ', CHAR(34)), '、'), CHAR(34)))
+             FROM (SELECT (SELECT JSON_ARRAYAGG(i.production_order_no)
+                OVER (ORDER BY i.production_order_no ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+                FROM mes_kingdee_production_material_list i
+                WHERE i.source_bill_no=summary.source_bill_no AND i.tenant_id=summary.tenant_id
+                  AND i.deleted=0 AND i.production_order_no IS NOT NULL AND i.production_order_no != ''
+                  AND NOT EXISTS (SELECT 1 FROM mes_kingdee_production_material_list earlier
+                    WHERE earlier.source_bill_no=i.source_bill_no AND earlier.tenant_id=i.tenant_id
+                      AND earlier.deleted=0 AND earlier.id < i.id AND earlier.production_order_no=i.production_order_no)
+                LIMIT 1) parts) mja)
+            """;
+
+    int refreshWorkOrderLinks(@Param("tenantId") Long tenantId);
+
     IPage<MesKingdeeProductionMaterialListGroupRespVO> selectGroupPage(
             IPage<MesKingdeeProductionMaterialListGroupRespVO> page,
             @Param("reqVO") MesKingdeeProductionMaterialListPageReqVO reqVO,
@@ -128,7 +147,7 @@ public interface MesKingdeeProductionMaterialListMapper extends BaseMapperX<MesK
                 java.util.Map.entry("lineCount", cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.number("summary.line_count")),
                 java.util.Map.entry("sourceModifyTime", cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.dateTime("summary.source_modify_time")),
                 java.util.Map.entry("lastSyncTime", cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.dateTime("summary.last_sync_time")),
-                java.util.Map.entry("productionOrderSummary", cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.text("CONCAT(COALESCE(summary.production_order_summary, ''), ' ', COALESCE(summary.production_order_summary, '无'), ' ', summary.production_order_count)"))
+                java.util.Map.entry("productionOrderSummary", cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.text("CONCAT(COALESCE(" + PRODUCTION_ORDER_SUMMARY_SQL + ", ''), ' ', COALESCE(" + PRODUCTION_ORDER_SUMMARY_SQL + ", '无'), ' ', summary.production_order_count)"))
         ));
     }
 }

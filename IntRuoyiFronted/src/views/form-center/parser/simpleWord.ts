@@ -25,7 +25,7 @@ function validate(value: SimpleWordContent): SimpleWordContent {
     typeof value.routeName !== 'string' ||
     !Array.isArray(value.processes)
   )
-    throw new Error('Word 中的简易解析数据无效')
+    throw new Error('Word 中的生产编制数据无效')
   const ids = new Set<string>()
   for (const process of value.processes) {
     if (
@@ -72,7 +72,7 @@ function documentLines(content: SimpleWordContent) {
     `产品名称：${content.recognition.product.name || ''}`,
     `产品编号：${content.recognition.product.code || ''}`,
     `源文件：${content.filename}`,
-    '本文件可通过简易解析的“导入 Word”恢复导出时的编辑内容。请保留原文件；外部修改后不能用于完整恢复。'
+    '本文件可通过生产编制的“导入 Word”恢复导出时的编辑内容。请保留原文件；外部修改后不能用于完整恢复。'
   ]
   content.processes.forEach((process, index) => {
     lines.push(
@@ -171,13 +171,13 @@ export async function readSimpleWord(bytes: ArrayBuffer): Promise<SimpleWordCont
         `^<\\?xml version="1.0" encoding="UTF-8"\\?><snapshot xmlns="${snapshotNamespace}">([A-Za-z0-9+/=]+)</snapshot>$`
       )
     )
-  if (!match) throw new Error('Word 中的简易解析数据损坏，请重新导出')
+  if (!match) throw new Error('Word 中的生产编制数据损坏，请重新导出')
   const payload = JSON.parse(
     new TextDecoder('utf-8', { fatal: true }).decode(
       Uint8Array.from(atob(match[1]), (char) => char.charCodeAt(0))
     )
   )
-  if (payload.version !== 1) throw new Error('不支持此简易解析 Word 版本')
+  if (payload.version !== 1) throw new Error('不支持此生产编制 Word 版本')
   const document = zip.file('word/document.xml')
   if (!document || payload.documentHash !== (await digest(document.asText())))
     throw new Error('Word 正文已修改或损坏，请导入未经外部修改的导出文件')

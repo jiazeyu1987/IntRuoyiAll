@@ -70,6 +70,17 @@ public class DccRegistrationCertificateCommandService {
                 metadata, context, certificateId, expectedRowVersion, expectedSnapshotRevision));
     }
 
+    public Long deleteCertificate(Long tenantId, Long actorId, String idempotencyKey, String requestTraceId,
+                                  Long certificateId, Integer expectedRowVersion) {
+        DccRegistrationCertificateCommandMetadata metadata = metadata(
+                tenantId, actorId, idempotencyKey, requestTraceId, "CERTIFICATE_DELETE",
+                DccRegistrationCertificateCommandFingerprint.deleteCertificate(certificateId, expectedRowVersion));
+        DccRegistrationCertificateCommandContext context =
+                new DccRegistrationCertificateCommandContext(null, certificateId);
+        return execute(metadata, context, () -> transactionService.deleteCertificate(
+                metadata, context, certificateId, expectedRowVersion));
+    }
+
     public Long formalize(Long tenantId, Long actorId, String idempotencyKey, String requestTraceId,
                           Long certificateId, Integer expectedRowVersion, Integer expectedSnapshotRevision,
                           Long businessFileId) {

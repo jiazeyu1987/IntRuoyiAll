@@ -45,7 +45,7 @@
               :loading="qaRegulationLoading"
             >
               <Icon icon="ep:document" />
-              QA检验规程
+              检验规程
             </el-button>
           </template>
         </el-upload>
@@ -133,7 +133,7 @@
       <section class="form-parser-frontline-preview">
         <div class="form-parser-panel-head">
           <div>
-            <div class="form-parser-panel-title">一线生产预览</div>
+            <div class="form-parser-panel-title">生产作业预览</div>
             <div class="form-parser-panel-subtitle">{{ lastResult.sourceFileName }}</div>
           </div>
         </div>

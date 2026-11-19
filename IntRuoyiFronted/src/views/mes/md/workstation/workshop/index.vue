@@ -1,10 +1,7 @@
 <template>
-
-
   <ContentWrap>
     <UnifiedListTemplate
-      @query="handleQuery"
-      @reset="resetQuery"
+      single-line-toolbar
       table-key="mes.md.workshop.main"
       :query-model="queryParams"
       :total="total"
@@ -17,49 +14,6 @@
       :show-column-settings="false"
       :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
     >
-      <template #filters>
-        <el-form
-          class="-mb-15px edhr-single-line-query"
-          :model="queryParams"
-          ref="queryFormRef"
-          :inline="true"
-          label-width="68px"
-        >
-          <el-form-item label="车间编码" prop="code">
-            <el-input
-              v-model="queryParams.code"
-              placeholder="请输入车间编码"
-              clearable
-              @keyup.enter="handleQuery"
-              class="!w-240px"
-            />
-          </el-form-item>
-          <el-form-item label="车间名称" prop="name">
-            <el-input
-              v-model="queryParams.name"
-              placeholder="请输入车间名称"
-              clearable
-              @keyup.enter="handleQuery"
-              class="!w-240px"
-            />
-          </el-form-item>
-          <el-form-item label="状态" prop="status">
-            <el-select
-              v-model="queryParams.status"
-              placeholder="请选择状态"
-              clearable
-              class="!w-240px"
-            >
-              <el-option
-                v-for="dict in getIntDictOptions(DICT_TYPE.COMMON_STATUS)"
-                :key="dict.value"
-                :label="dict.label"
-                :value="dict.value"
-              />
-            </el-select>
-          </el-form-item>
-        </el-form>
-      </template>
       <template #actions>
         <el-button
           type="primary"
@@ -119,7 +73,7 @@
         <!-- 分页 -->
       </template>
     </UnifiedListTemplate>
-</ContentWrap>
+  </ContentWrap>
 
   <!-- 表单弹窗：添加/修改 -->
   <WorkshopForm ref="formRef" @success="getList" />
@@ -130,10 +84,9 @@ import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import { isSearchFormInputEmpty } from '@/utils/search'
 import { MdWorkshopApi, MdWorkshopVO } from '@/api/mes/md/workstation/workshop'
 import WorkshopForm from './WorkshopForm.vue'
-import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
+import { DICT_TYPE } from '@/utils/dict'
 
 defineOptions({ name: 'MesMdWorkshop' })
 
@@ -146,12 +99,8 @@ const total = ref(0) // 列表的总页数
 const queryParams = reactive({
   listFilters: undefined as string | undefined,
   pageNo: 1,
-  pageSize: 10,
-  code: undefined,
-  name: undefined,
-  status: undefined
+  pageSize: 10
 })
-const queryFormRef = ref() // 搜索的表单
 
 /** 查询列表 */
 let getListRequestSequence = 0
@@ -167,22 +116,6 @@ const getList = async () => {
   } finally {
     if (requestId === getListRequestSequence)     loading.value = false
   }
-}
-
-/** 搜索按钮操作 */
-const handleQuery = (skipEmptyReset = false) => {
-  if (skipEmptyReset !== true && isSearchFormInputEmpty(queryFormRef, queryParams)) {
-    resetQuery()
-    return
-  }
-  queryParams.pageNo = 1
-  getList()
-}
-
-/** 重置按钮操作 */
-const resetQuery = () => {
-  queryFormRef.value.resetFields()
-  handleQuery(true)
 }
 
 /** 添加/修改操作 */
@@ -256,32 +189,3 @@ const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
   { key: 'code', label: '车间编码', type: 'text', getValue: (row) => [row.code].join(' ') }
 ]
 </script>
-
-<style scoped>
-@media (min-width: 1181px) {
-  .edhr-single-line-query {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 12px;
-    align-items: center;
-  }
-  .edhr-single-line-query > :deep(.el-form-item) {
-    flex: 1 1 0;
-    min-width: 0;
-    margin-right: 0;
-  }
-  .edhr-single-line-query > :deep(.el-form-item:last-child) {
-    flex: 0 0 auto;
-  }
-  .edhr-single-line-query :deep(.el-form-item__content) {
-    min-width: 0;
-    flex-wrap: nowrap;
-  }
-  .edhr-single-line-query :deep(.el-input),
-  .edhr-single-line-query :deep(.el-select),
-  .edhr-single-line-query :deep(.el-date-editor) {
-    width: 100% !important;
-    min-width: 0;
-  }
-}
-</style>

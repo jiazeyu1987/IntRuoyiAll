@@ -38,7 +38,7 @@ const showroomRoutes: AppRouteRecordRaw[] = [
         path: 'product',
         component: showroomAdminView,
         name: 'ShowroomAdminProduct',
-        meta: { title: '产品管理', icon: 'ep:goods', noCache: true, canTo: true }
+        meta: { title: '展品管理', icon: 'ep:goods', noCache: true, canTo: true }
       },
       {
         path: 'company/version-center/:companyId(\\d+)',
@@ -89,7 +89,7 @@ const showroomRoutes: AppRouteRecordRaw[] = [
         component: showroomAdminView,
         name: 'ShowroomAdminApproval',
         meta: {
-          title: '审批处理',
+          title: '展厅审批',
           icon: 'ep:checked',
           hidden: true,
           noCache: true,

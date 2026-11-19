@@ -1,3 +1,5 @@
+import { formatRegistrationCertificateDateTime } from './dateTimeDisplay'
+
 const CERTIFICATE_TYPE_LABELS: Record<string, string> = {
   DOMESTIC: '国内',
   CE: 'CE',
@@ -17,22 +19,5 @@ export const formatApplicationCertificateType = (value?: string | null) =>
 export const formatApplicationFileReview = (value?: string | null) =>
   value ? FILE_REVIEW_LABELS[value] ?? '文件审批状态异常' : '未返回文件审批状态'
 
-const businessTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
-  timeZone: 'Asia/Shanghai',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hourCycle: 'h23'
-})
-
-export const formatApplicationSubmittedAt = (value?: number | string | null) => {
-  if (value === undefined || value === null || value === '') return '未返回提交时间'
-  if (typeof value === 'string' && !/^\d+$/.test(value)) return '提交时间格式异常'
-  const date = new Date(Number(value))
-  if (Number.isNaN(date.getTime())) return '提交时间格式异常'
-  const parts = Object.fromEntries(businessTimeFormatter.formatToParts(date).map(part => [part.type, part.value]))
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`
-}
+export const formatApplicationSubmittedAt = (value?: number | string | null) =>
+  formatRegistrationCertificateDateTime(value, '未返回提交时间', '提交时间格式异常')

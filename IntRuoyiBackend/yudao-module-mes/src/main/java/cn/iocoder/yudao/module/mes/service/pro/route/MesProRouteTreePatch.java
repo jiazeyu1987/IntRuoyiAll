@@ -16,6 +16,9 @@ public final class MesProRouteTreePatch {
             "sharedSourceSnapshots");
     private static final Set<String> REFERENCES = Set.of("routeProcessId", "sourceRouteProcessId",
             "targetRouteProcessId", "predecessorRouteProcessId", "nextRouteProcessId", "clientRouteProcessId");
+    private static final Set<String> SYSTEM_FIELDS = Set.of("id", "routeId", "routeVersionId",
+            "graphVersion", "configVersion", "creator", "updater", "createBy", "updateBy",
+            "createTime", "updateTime", "tenantId", "deleted");
     private MesProRouteTreePatch() {}
 
     public static JSONObject inherit(JSONObject template, JSONObject target) {
@@ -126,7 +129,7 @@ public final class MesProRouteTreePatch {
     }
 
     private static Object patch(Object before, Object after, Object child, String path) {
-        if (Objects.equals(before, after)) return cloneValue(child);
+        if (sameBusinessValue(before, after, path)) return cloneValue(child);
         if (after instanceof JSONObject next) {
             JSONObject old = before instanceof JSONObject value ? value : new JSONObject(true);
             if (child == null && !old.isEmpty())
@@ -134,10 +137,11 @@ public final class MesProRouteTreePatch {
             JSONObject local = child instanceof JSONObject value ? value : new JSONObject(true);
             JSONObject result = copy(local);
             for (String key : next.keySet()) {
-                if (Set.of("id", "routeId", "routeVersionId", "graphVersion", "configVersion", "createTime", "updateTime").contains(key)) continue;
+                if (SYSTEM_FIELDS.contains(key) || displayEnrichment(path, key, old.get(key), next.get(key))) continue;
                 result.put(key, patch(old.get(key), next.get(key), local.get(key), path + "." + key));
             }
-            for (String key : old.keySet()) if (!next.containsKey(key)) result.remove(key);
+            for (String key : old.keySet()) if (!next.containsKey(key) && !SYSTEM_FIELDS.contains(key)
+                    && !displayEnrichment(path, key, old.get(key), null)) result.remove(key);
             return result;
         }
         if (after instanceof JSONArray next) {
@@ -156,13 +160,37 @@ public final class MesProRouteTreePatch {
             }
             for (Map.Entry<String, Object> entry : nextMap.entrySet()) if (!localMap.containsKey(entry.getKey())) {
                 if (oldMap.containsKey(entry.getKey())) {
-                    if (!Objects.equals(oldMap.get(entry.getKey()), entry.getValue()))
+                    if (!sameBusinessValue(oldMap.get(entry.getKey()), entry.getValue(), path + "[" + entry.getKey() + "]"))
                         throw invalid("下属流程缺少待修改工序或绑定：" + path + " " + entry.getKey());
                 } else result.add(cloneValue(entry.getValue()));
             }
             return result;
         }
         return cloneValue(after);
+    }
+
+    /** 保存时补充的展示信息和审计字段不构成父级同步项。画布坐标由各流程保留。 */
+    private static boolean sameBusinessValue(Object before, Object after, String path) {
+        if (Objects.equals(before, after) || "flowGraph.layouts".equals(path)) return true;
+        if (before instanceof JSONObject old && after instanceof JSONObject next) {
+            Set<String> keys = new HashSet<>(old.keySet()); keys.addAll(next.keySet());
+            for (String key : keys) {
+                if (SYSTEM_FIELDS.contains(key) || displayEnrichment(path, key, old.get(key), next.get(key))) continue;
+                if (!sameBusinessValue(old.get(key), next.get(key), path + "." + key)) return false;
+            }
+            return true;
+        }
+        if (before instanceof JSONArray old && after instanceof JSONArray next && old.size() == next.size()) {
+            for (int i = 0; i < old.size(); i++)
+                if (!sameBusinessValue(old.get(i), next.get(i), path + "[" + i + "]")) return false;
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean displayEnrichment(String path, String key, Object before, Object after) {
+        return path.startsWith("flowGraph.nodes[") && Set.of("processName", "processCode").contains(key)
+                && (before == null || after == null);
     }
 
     private static String arrayKey(String path, JSONArray... arrays) {
@@ -276,6 +304,14 @@ public final class MesProRouteTreePatch {
                 if (REFERENCES.contains(key) && item != null) {
                     if (!references.containsKey(String.valueOf(item))) throw invalid("工序引用无法匹配：" + item);
                     item = restoring ? references.get(String.valueOf(item)) : "P:" + references.get(String.valueOf(item));
+                } else if ("processId".equals(key) && item != null) {
+                    // 编辑器以字符串传递长整型 ID；恢复候选快照时保持正式身份的数值类型。
+                    try {
+                        item = Long.parseLong(String.valueOf(item));
+                    } catch (NumberFormatException exception) {
+                        throw invalid("工序标识无效：" + item);
+                    }
+                    if ((Long) item <= 0) throw invalid("工序标识无效：" + item);
                 } else item = normalize(item, references, restoring);
                 result.put(outputKey, item);
             }

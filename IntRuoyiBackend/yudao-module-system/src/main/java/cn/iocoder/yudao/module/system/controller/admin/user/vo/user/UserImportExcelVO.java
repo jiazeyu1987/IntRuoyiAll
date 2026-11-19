@@ -27,6 +27,10 @@ public class UserImportExcelVO {
     @ExcelProperty("部门编号")
     private Long deptId;
 
+    /** 导出用户文件中的部门名称；正式导入时在目标租户内匹配或创建。 */
+    @cn.idev.excel.annotation.ExcelIgnore
+    private String deptName;
+
     @ExcelProperty("用户邮箱")
     private String email;
 

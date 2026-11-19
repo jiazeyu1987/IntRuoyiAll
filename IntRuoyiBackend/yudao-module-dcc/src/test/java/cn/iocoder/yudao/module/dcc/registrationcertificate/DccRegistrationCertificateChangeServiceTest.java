@@ -97,6 +97,16 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void deletedCertificateCannotStartAnotherChange() {
+        seedCurrentCertificate();
+        jdbcTemplate.update("UPDATE dcc_registration_certificate SET deleted=1 WHERE id=1001");
+        assertCode(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_NOT_EXISTS.getCode(),
+                () -> service.applyChange(command("deleted-change", 3, Map.of("PRODUCT_NAME", "Product B"),
+                        null, null, null, null)));
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_change WHERE certificate_id=1001"));
+    }
+
+    @Test
     void submittedChangeWaitsForApprovalBeforeUpdatingSelectedDisplayFields() {
         seedCurrentCertificate();
 

@@ -145,6 +145,10 @@
         </el-button>
       </el-form-item>
       <el-form-item><RecentFullSyncButton sync-type="SALE_ORDER" /></el-form-item>
+      <el-form-item>
+        <SyncByCodeButton sync-type="SALE_ORDER" code-label="单据编号"
+          success-message="销售订单列表已刷新。" :on-synced="getList" />
+      </el-form-item>
     </el-form>
   </ContentWrap>
 
@@ -272,6 +276,7 @@
 
 <script setup lang="ts">
 import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
+import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { dateFormatter2 } from '@/utils/formatTime'

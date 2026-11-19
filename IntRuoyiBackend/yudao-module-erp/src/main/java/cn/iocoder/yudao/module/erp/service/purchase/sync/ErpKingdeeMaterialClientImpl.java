@@ -270,7 +270,13 @@ public class ErpKingdeeMaterialClientImpl implements ErpKingdeeMaterialClient {
             throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "BD_MATERIAL row field count mismatch");
         }
         ErpKingdeeMaterial material = new ErpKingdeeMaterial();
-        material.setMaterialNumber(requiredText(row, 0, "FNumber"));
+        JsonNode numberNode = row.get(0);
+        String materialNumber = numberNode == null || numberNode.isNull() ? null : numberNode.asText();
+        if (StrUtil.isBlank(materialNumber)) {
+            throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "FNumber is blank");
+        }
+        // FNumber is an identity. Source codes with spaces must remain distinct.
+        material.setMaterialNumber(materialNumber);
         material.setMaterialName(requiredText(row, 1, "FName"));
         material.setSpecification(optionalText(row, 2));
         material.setCategoryCode(requiredText(row, 3, "FCategoryID.FNumber"));

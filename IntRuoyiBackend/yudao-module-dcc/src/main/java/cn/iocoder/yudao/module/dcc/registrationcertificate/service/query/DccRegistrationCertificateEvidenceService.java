@@ -7,6 +7,8 @@ import java.util.Map;
 /** Read only after the caller has passed the selected version's detail authorization. */
 @Service
 public class DccRegistrationCertificateEvidenceService {
+    @jakarta.annotation.Resource
+    private org.flowable.engine.HistoryService historyService;
     private final JdbcTemplate jdbc;
     public DccRegistrationCertificateEvidenceService(JdbcTemplate jdbc) { this.jdbc=jdbc; }
     public Map<String,Object> getEvidence(Long tenantId,Long certificateId,Long versionId) {
@@ -49,6 +51,28 @@ public class DccRegistrationCertificateEvidenceService {
              ORDER BY r.requested_at DESC,r.id DESC
             """,tenantId,certificateId,versionId,versionId);
         for (var application : applications) {
+            // Task-local opinions are the authoritative audit trail for both existing and new applications.
+            Object processId = application.get("bpmProcessInstanceId");
+            var reviews = new java.util.ArrayList<Map<String, Object>>();
+            if (processId != null) {
+                var tasks = historyService.createHistoricTaskInstanceQuery()
+                        .processInstanceId(String.valueOf(processId)).taskTenantId(String.valueOf(tenantId))
+                        .finished().includeTaskLocalVariables().orderByHistoricTaskInstanceEndTime().asc().list();
+                for (var task : tasks) {
+                    var variables = task.getTaskLocalVariables();
+                    Object status = variables.get("TASK_STATUS");
+                    if (!Integer.valueOf(2).equals(status) && !Integer.valueOf(3).equals(status)) continue;
+                    var review = new java.util.LinkedHashMap<String, Object>();
+                    review.put("taskId", task.getId());
+                    review.put("taskName", task.getName());
+                    review.put("reviewerUserId", task.getAssignee());
+                    review.put("completedAt", task.getEndTime());
+                    review.put("status", status);
+                    review.put("reason", variables.get("TASK_REASON"));
+                    reviews.add(review);
+                }
+            }
+            application.put("reviews", reviews);
             Object bindingJson=application.get("approvalDetailJson");
             if(bindingJson!=null) {
                 var binding=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(String.valueOf(bindingJson),Map.class);

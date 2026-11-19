@@ -1,39 +1,57 @@
 <template>
   <div class="tree-publish-preview">
-    <el-alert :title="'「' + preview.groupName + '」统一提交审核，涉及 ' + preview.affected.length + ' 个下属节点。审核通过后整批发布。'"
-      type="info" :closable="false" />
-    <el-alert v-for="blocker in preview.blockers" :key="blocker" :title="blocker" type="error" :closable="false" class="mt-8px" />
-    <h4>父节点本次修改</h4>
-    <el-collapse>
-      <el-collapse-item v-for="(change, index) in displayChanges(preview.changes)" :key="index" :title="fieldLabel(change.field)">
-        <div class="tree-publish-preview__compare"><div><strong>修改前</strong><pre>{{ format(change.before) }}</pre></div><div><strong>修改后</strong><pre>{{ format(change.after) }}</pre></div></div>
+    <el-alert v-for="blocker in blockers" :key="blocker.message" :title="blocker.message" type="error" :closable="false" class="mb-12px">
+      <span v-if="blocker.names.length">{{ blocker.names.length }} 个子节点</span>
+    </el-alert>
+    <p v-if="matrixRows.length" class="tree-publish-preview__legend">红色为将覆盖的内容</p>
+    <el-table v-if="preview.affected.length" :data="matrixRows" border max-height="440" class="tree-publish-preview__matrix"
+      aria-label="子节点覆盖确认表" :empty-text="preview.blockers.length ? '存在冲突，暂无法计算覆盖内容' : '无子节点配置变更'">
+      <el-table-column label="覆盖内容" fixed="left" width="160"><template #default="{ row }">{{ fieldLabel(row.field) }}</template></el-table-column>
+      <el-table-column v-for="node in matrixNodes" :key="String(node.routeId)" :min-width="240">
+        <template #header>
+          <span>{{ node.name }}</span>
+          <el-tag v-if="node.blocker" type="warning" size="small" class="ml-4px">无法同步</el-tag>
+        </template>
+        <template #default="{ row }">
+          <span v-if="node.blocker" class="tree-publish-preview__blocked">无法同步</span>
+          <template v-else-if="row.cells.has(String(node.routeId))">
+            <details v-for="(change, index) in row.cells.get(String(node.routeId))" :key="index" class="tree-publish-preview__cell-change">
+              <summary :aria-label="node.name + '：' + fieldLabel(change.field) + '，将覆盖'">
+                <span class="tree-publish-preview__field">{{ fieldLabel(change.field) }}</span>
+                <span class="tree-publish-preview__before">{{ summary(change.before) }}</span>
+                <span aria-hidden="true"> → </span>
+                <span class="tree-publish-preview__overwrite">{{ summary(change.after) }}</span>
+              </summary>
+              <div><strong>修改前</strong><pre>{{ format(change.before) }}</pre></div>
+              <div class="tree-publish-preview__overwrite"><strong>覆盖后</strong><pre>{{ format(change.after) }}</pre></div>
+            </details>
+          </template>
+          <span v-else class="tree-publish-preview__unchanged">保持原值</span>
+        </template>
+      </el-table-column>
+    </el-table>
+    <el-collapse v-if="parentChanges.length" class="mt-12px">
+      <el-collapse-item :title="'父节点修改（' + parentChanges.length + ' 项）'">
+        <div v-for="(change, index) in parentChanges" :key="index" class="tree-publish-preview__detail">
+          <strong>{{ fieldLabel(change.field) }}</strong>
+          <div class="tree-publish-preview__compare"><div><span>修改前</span><pre>{{ format(change.before) }}</pre></div><div><span>修改后</span><pre>{{ format(change.after) }}</pre></div></div>
+        </div>
       </el-collapse-item>
     </el-collapse>
-    <h4>下属流程最终差异</h4>
-    <el-table :data="preview.affected" max-height="320">
-      <el-table-column type="expand"><template #default="{ row }">
-        <div v-for="(change, index) in displayChanges(row.changes || [])" :key="index" class="tree-publish-preview__detail">
-          <strong>{{ fieldLabel(change.field) }}</strong>
-          <div class="tree-publish-preview__compare"><pre>{{ format(change.before) }}</pre><pre>{{ format(change.after) }}</pre></div>
-        </div>
-        <p v-if="!displayChanges(row.changes || []).length">本次配置值相同，仍按整批要求发布新版本。</p>
-      </template></el-table-column>
-      <el-table-column prop="name" label="下属节点" min-width="160" />
-      <el-table-column prop="versionNo" label="当前版本" width="95" />
-      <el-table-column label="发布后工序" min-width="200"><template #default="{ row }">{{ row.afterProcesses?.join(' → ') || row.blocker }}</template></el-table-column>
-    </el-table>
-    <el-form-item v-if="!readOnly" label="变更原因" required class="mt-16px">
-      <el-input :model-value="reason" @update:model-value="$emit('update:reason', $event)" type="textarea" placeholder="填写本次统一修改原因" aria-label="树形统一变更原因" />
+    <p v-if="!parentChanges.length && !matrixRows.length && !blockers.length && !preview.affected.length">无业务配置变更</p>
+    <el-form-item v-if="!readOnly && !preview.blockers.length" label="变更原因" required class="mt-16px">
+      <el-input :model-value="reason" @update:model-value="$emit('update:reason', $event)" type="textarea" placeholder="填写变更原因" aria-label="树形统一变更原因" />
     </el-form-item>
-    <p>保留子流程未被本次修改覆盖的个性化内容；已有生产记录使用其冻结版本。</p>
   </div>
 </template>
 <script setup lang="ts">
 import type { TreeChange, TreePreview } from '@/api/mes/pro/route/tree'
-defineProps<{ preview: TreePreview; reason: string; readOnly?: boolean }>()
+import { computed } from 'vue'
+import { buildRouteTreePublishMatrix } from './routeTreePublishMatrix'
+const props = defineProps<{ preview: TreePreview; reason: string; readOnly?: boolean }>()
 defineEmits<{ 'update:reason': [value: string] }>()
 const labels: Record<string, string> = {
-  configSnapshots: '工艺配置', flowGraph: '工序关系', nodes: '工序节点', edges: '工序连线',
+  configSnapshots: '工艺配置', flowGraph: '工序结构', nodes: '工序节点', edges: '工序连线',
   layouts: '工序布局', productionProcessConfigs: '生产工序配置', scheduleConfigs: '排产配置',
   batchUseConfigs: '批记录配置', scheduleUseConfigs: '工序开始配置', routeName: '名称', name: '名称',
   lossCoefficient: '损耗系数', routeStartProductionLeaders: '生产组长配置',
@@ -42,6 +60,7 @@ const labels: Record<string, string> = {
   overagePercent: '允许超量比例（%）', productionQuantityFactor: '生产系数',
   parameterRules: '设备参数', deviceSelectionGroups: '设备选择组', lossReasons: '损耗原因',
   processName: '工序名称', processCode: '工序编码', sort: '顺序', lowerLimit: '下限', upperLimit: '上限',
+  keyFlag: '关键工序', checkFlag: '检验工序', routeProcessWorkstationId: '工位',
   defaultValue: '默认值', parameterName: '参数名称', parameterCode: '参数编码', unit: '单位',
   deviceGroupName: '设备组名称', deviceGroupKey: '设备组标识', selectionMode: '设备选择方式',
   deviceIds: '设备', formBindings: '表单槽位', formTemplateName: '表单名称', bindingName: '绑定名称',
@@ -50,20 +69,39 @@ const labels: Record<string, string> = {
 }
 const internalFields = new Set(['id', 'routeId', 'routeVersionId', 'routeFlowConfigId', 'routeProcessId', 'clientRouteProcessId',
   'sourceRouteProcessId', 'targetRouteProcessId', 'routeProcessSort', 'sourceSort', 'targetSort',
-  'graphVersion', 'configVersion', 'createTime', 'updateTime'])
+  'graphVersion', 'configVersion', 'createTime', 'updateTime', 'creator', 'updater', 'deleted', 'tenantId'])
 // 图编辑器的临时操作和校验结果不属于审核人维护的配置；正式工序、连线仍逐项展示。
 const graphMetadata = new Set(['cyclePaths', 'invalidEdgeIds', 'invalidRouteProcessIds',
   'routeProcessCreates', 'routeProcessDeletes', 'routeProcessUpdates', 'routeProcessIdMap',
   'valid', 'validationMessages', 'validationStatus'])
 const objectValue = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
+const clean = (value: unknown): unknown => Array.isArray(value) ? value.map(clean) : objectValue(value)
+  ? Object.fromEntries(Object.keys(value).filter(key => !internalFields.has(key)).sort().map(key => [key, clean(value[key])])) : value
+const processLabels = computed(() => {
+  const result = new Map<string, string>()
+  const visit = (value: unknown) => {
+    if (Array.isArray(value)) { value.forEach(visit); return }
+    if (!objectValue(value)) return
+    if (value.processName || value.processCode) {
+      const label = String(value.processName || value.processCode)
+      for (const key of ['processId', 'routeProcessId']) if (value[key] != null) result.set(String(value[key]), label)
+    }
+    Object.values(value).forEach(visit)
+  }
+  const changes = [...props.preview.changes, ...props.preview.affected.flatMap(node => node.changes || [])]
+  changes.forEach(change => { visit(change.before); visit(change.after) })
+  return result
+})
 const displayChanges = (changes: TreeChange[]): TreeChange[] => changes.flatMap(change => {
   if (internalFields.has(change.field.split('.').at(-1)!)) return []
+  if (change.field === 'configSnapshots.flowGraph.layouts') return []
   if (change.field.startsWith('configSnapshots.flowGraph.') && graphMetadata.has(change.field.split('.')[2])) return []
   const compare = (before: unknown, after: unknown, field: string): TreeChange[] => {
-    if (JSON.stringify(before) === JSON.stringify(after)) return []
+    if (JSON.stringify(clean(before)) === JSON.stringify(clean(after))) return []
     if (objectValue(before) && objectValue(after)) {
       return [...new Set([...Object.keys(before), ...Object.keys(after)])]
-        .filter(key => !internalFields.has(key))
+        .filter(key => !internalFields.has(key) && !(field.startsWith('configSnapshots.flowGraph.nodes.')
+          && ['processName', 'processCode'].includes(key) && (before[key] == null || after[key] == null)))
         .flatMap(key => compare(before[key], after[key], `${field}.${key}`))
     }
     if (Array.isArray(before) && Array.isArray(after)) {
@@ -76,26 +114,64 @@ const displayChanges = (changes: TreeChange[]): TreeChange[] => changes.flatMap(
         const next = new Map(after.map(item => [key(item), item]))
         return [...new Set([...old.keys(), ...next.keys()])].flatMap(id => {
           const item = next.get(id) || old.get(id)
-          const label = item.processName || item.parameterName || item.parameterCode || item.deviceGroupName || item.reasonName || item.bindingName || '配置项'
+          const label = item.processName || processLabels.value.get(String(item.processId ?? item.routeProcessId))
+            || item.parameterName || item.parameterCode || item.deviceGroupName || item.reasonName || item.bindingName || '配置项'
           return compare(old.get(id), next.get(id), `${field}.${label}`)
         })
       }
     }
-    return [{ field, before, after }]
+    return [{ field, before: clean(before), after: clean(after) }]
   }
   return compare(change.before, change.after, change.field)
 })
-const fieldLabel = (path: string) => path.split('.').map(key => labels[key] || key).join(' / ')
+const parentChanges = computed(() => displayChanges(props.preview.changes))
+const matrixNodes = computed(() => props.preview.affected
+  .map(row => ({ ...row, changes: displayChanges(row.changes || []) })))
+const matrixRows = computed(() => buildRouteTreePublishMatrix(matrixNodes.value))
+const blockers = computed(() => {
+  const groups = new Map<string, string[]>()
+  for (const raw of props.preview.blockers) {
+    const row = props.preview.affected.find(item => item.blocker && raw === `${item.name}：${item.blocker}`)
+    const detail = row?.blocker || raw
+    const missingProcess = /^下属流程缺少待修改工序或绑定：flowGraph\.nodes (\d+)$/.exec(detail)
+    const processName = missingProcess && processLabels.value.get(missingProcess[1])
+    const message = missingProcess ? `缺少对应工序${processName ? `「${processName}」` : ''}，无法同步`
+      : /^下属流程缺少待修改工序或绑定：/.test(detail) ? '缺少对应配置或绑定，无法同步'
+      : detail.startsWith('配置不完整：') && detail.includes('reasonCode=PROCESS_ID_INVALID')
+        ? '工序配置标识无效，无法同步' : detail
+    const names = groups.get(message) || []
+    if (row && !names.includes(row.name)) names.push(row.name)
+    groups.set(message, names)
+  }
+  return [...groups].map(([message, names]) => ({ message, names }))
+})
+const fieldLabel = (path: string) => path.split('.').filter(key => !['configSnapshots', 'nodes'].includes(key))
+  .map(key => processLabels.value.get(key) || labels[key] || key).join(' / ')
 const format = (value: unknown): string => {
   const readable = (item: unknown): unknown => Array.isArray(item) ? item.map(readable) : objectValue(item)
-    ? Object.fromEntries(Object.entries(item).filter(([key]) => !internalFields.has(key)).map(([key, val]) => [labels[key] || key, readable(val)])) : item
-  return value == null ? '未设置' : typeof value === 'object' ? JSON.stringify(readable(value), null, 2) : String(value)
+    ? Object.fromEntries(Object.entries(item).filter(([key]) => !internalFields.has(key) && key !== 'processId').map(([key, val]) => [labels[key] || key, readable(val)])) : item
+  return value == null || value === '' ? '未设置' : typeof value === 'boolean' ? (value ? '是' : '否')
+    : typeof value === 'object' ? JSON.stringify(readable(value), null, 2) : String(value)
+}
+const summary = (value: unknown) => {
+  const text = format(value).replace(/\s+/g, ' ')
+  return text.length > 70 ? `${text.slice(0, 70)}…` : text
 }
 </script>
 <style scoped>
-:global(.route-tree-publish-message) { width: min(1100px, 94vw); max-width: 1100px; }
+:global(.route-tree-publish-message) { width: min(1400px, 94vw); max-width: 1400px; }
+:global(.route-tree-publish-message .el-message-box__message) { flex: 1; min-width: 0; }
 .tree-publish-preview { max-height: 70vh; overflow: auto; }
-.tree-publish-preview__compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.tree-publish-preview__compare { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
 .tree-publish-preview pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; font-size: 12px; background: var(--el-fill-color-light); padding: 12px; }
 .tree-publish-preview__detail { padding: 12px; }
+.tree-publish-preview__legend { margin: 0 0 12px; color: var(--el-text-color-secondary); font-size: 12px; }
+.tree-publish-preview__matrix :deep(.cell) { overflow-wrap: anywhere; }
+.tree-publish-preview__cell-change + .tree-publish-preview__cell-change { margin-top: 12px; }
+.tree-publish-preview__cell-change summary { cursor: pointer; }
+.tree-publish-preview__field { display: block; font-size: 12px; }
+.tree-publish-preview__before { color: var(--el-text-color-secondary); }
+.tree-publish-preview__overwrite { color: var(--el-color-danger); font-weight: 600; }
+.tree-publish-preview__unchanged { color: var(--el-text-color-placeholder); }
+.tree-publish-preview__blocked { color: var(--el-color-warning-dark-2); }
 </style>

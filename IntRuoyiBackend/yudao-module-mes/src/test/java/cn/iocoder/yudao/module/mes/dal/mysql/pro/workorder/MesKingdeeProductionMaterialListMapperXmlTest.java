@@ -1,6 +1,15 @@
 package cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder;
 
 import org.junit.jupiter.api.Test;
+import com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor;
+import com.baomidou.mybatisplus.extension.plugins.handler.TenantLineHandler;
+import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.LongValue;
+import org.apache.ibatis.builder.xml.XMLMapperBuilder;
+import org.apache.ibatis.mapping.BoundSql;
+import org.apache.ibatis.session.Configuration;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.kingdee.MesKingdeeProductionMaterialListPageReqVO;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -8,13 +17,84 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class MesKingdeeProductionMaterialListMapperXmlTest {
 
     private static final Path MAPPER_XML = Path.of("src", "main", "resources", "mapper", "pro", "workorder",
             "MesKingdeeProductionMaterialListMapper.xml");
+
+    @Test
+    void groupPage_shouldRenderDeferredSummaryAndKeepTenantScope() throws IOException {
+        var request = new MesKingdeeProductionMaterialListPageReqVO();
+        BoundSql bound = groupSql(request, new QueryWrapper<>());
+        String sql = bound.getSql();
+        assertTrue(sql.indexOf("JSON_ARRAYAGG") < sql.indexOf("SELECT\n                base.source_bill_no"), sql);
+        assertFalse(sql.contains("summary.production_order_summary"), sql);
+        String scoped = tenantInterceptor().parserSingle(sql, null);
+        for (String alias : new String[]{"base", "matched", "i", "earlier"}) {
+            assertTrue(scoped.contains(alias + ".tenant_id = 186"), scoped);
+        }
+        Files.createDirectories(Path.of("target", "erp-material-query"));
+        Files.writeString(Path.of("target", "erp-material-query", "default.sql"), scoped, StandardCharsets.UTF_8);
+    }
+
+    @Test
+    void groupPage_exactCodeAndSummaryColumnFilter_shouldRenderTogether() throws IOException {
+        var request = new MesKingdeeProductionMaterialListPageReqVO();
+        request.setSyncCode("881PPBOM00000440");
+        request.setListFilters("[{\"key\":\"productionOrderSummary\",\"operator\":\"contains\",\"value\":\"881MO099824\"}]");
+        BoundSql bound = groupSql(request, MesKingdeeProductionMaterialListMapper.groupFilters(request));
+        assertEquals(3, bound.getParameterMappings().size());
+        assertTrue(bound.getSql().contains("base.source_bill_no = ?"));
+        assertFalse(bound.getSql().contains("summary.production_order_summary"));
+        String scoped = tenantInterceptor().parserSingle(bound.getSql(), null);
+        assertTrue(scoped.replaceAll("\\s+", "").contains("JSON_ARRAYAGG(i.production_order_no)"), scoped);
+        Files.createDirectories(Path.of("target", "erp-material-query"));
+        Files.writeString(Path.of("target", "erp-material-query", "filtered.sql"), scoped, StandardCharsets.UTF_8);
+    }
+
+    private static BoundSql groupSql(MesKingdeeProductionMaterialListPageReqVO request,
+                                     QueryWrapper<Object> filters) throws IOException {
+        Configuration configuration = new Configuration();
+        try (var input = Files.newInputStream(MAPPER_XML)) {
+            new XMLMapperBuilder(input, configuration, MAPPER_XML.toString(), configuration.getSqlFragments()).parse();
+        }
+        return configuration.getMappedStatement(MesKingdeeProductionMaterialListMapper.class.getName()
+                + ".selectGroupPage").getBoundSql(Map.of("reqVO", request, "ew", filters));
+    }
+
+    private static TenantLineInnerInterceptor tenantInterceptor() {
+        return new TenantLineInnerInterceptor(new TenantLineHandler() {
+            @Override
+            public Expression getTenantId() {
+                return new LongValue(186);
+            }
+        });
+    }
+
+    @Test
+    void refreshWorkOrderLinks_shouldPassRuntimeTenantSqlParser() throws IOException {
+        String mapperXml = Files.readString(MAPPER_XML, StandardCharsets.UTF_8);
+        String sql = selectSql(mapperXml, "refreshWorkOrderLinks", "update")
+                .replaceAll("<update[^>]*>|</update>", "")
+                .replace("#{tenantId}", "?").replace("&lt;", "<").replace("&gt;", ">");
+        var interceptor = new TenantLineInnerInterceptor(new TenantLineHandler() {
+            @Override
+            public Expression getTenantId() {
+                return new LongValue(186);
+            }
+        });
+        String scoped = interceptor.parserMulti(sql, null);
+        assertTrue(scoped.contains("CAST(w.code AS BINARY)"), scoped);
+        assertTrue(scoped.contains("m.tenant_id = 186"), scoped);
+        assertTrue(scoped.contains("w.tenant_id = ? AND w.deleted = 0"), scoped);
+        assertTrue(scoped.contains("WHERE tenant_id = ? AND deleted = 0 GROUP BY"), scoped);
+    }
 
     @Test
     void selectGroupPage_shouldFilterMatchedBillsButAggregateWholeBill() throws IOException {

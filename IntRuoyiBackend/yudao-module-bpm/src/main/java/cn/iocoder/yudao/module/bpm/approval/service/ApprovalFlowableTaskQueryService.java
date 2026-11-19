@@ -207,6 +207,18 @@ public class ApprovalFlowableTaskQueryService {
         var p=parameters(context,"BPM",false);p.put("taskId",taskId);p.put("registrationOnly",true);verify(p);
         return mapper.count(p)==1;
     }
+    /** Same current-task authority as the inbox, scoped to exactly one process. */
+    @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
+    public boolean hasCurrentProcessTaskAuthority(String processInstanceId, Long actor) {
+        if (actor == null || processInstanceId == null || processInstanceId.isBlank()) return false;
+        var context=ApprovalTaskQueryContext.of(actor,ApprovalTaskViewType.TODO,
+                cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode.BPM,null,1,1,false);
+        var p=parameters(context,"BPM",false);
+        p.put("processInstanceId",processInstanceId);
+        verify(p);
+        return mapper.count(p)>0;
+    }
+
     static <T> List<T> exactOrder(List<String> ids,List<T> rows,java.util.function.Function<T,String> identity) {
         var byId=new HashMap<String,T>();
         for(T row:Objects.requireNonNull(rows,"APPROVAL_QUERY_SOURCE_ROWS_REQUIRED"))

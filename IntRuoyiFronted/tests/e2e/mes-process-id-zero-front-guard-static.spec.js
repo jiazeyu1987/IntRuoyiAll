@@ -43,8 +43,8 @@ for (const [label, source] of [
 
 assertPattern(
   workstationApi,
-  /const normalizePositiveIdParam = \(value: unknown\) =>[\s\S]*Number\.isFinite\(parsed\) && parsed > 0 \? parsed : undefined/,
-  'workstation API must normalize non-positive processId before request'
+  /const normalizePositiveIdParam = \(value: unknown\) =>[\s\S]*typeof value === 'string'[\s\S]*return .*\.test\(text\) \? text : undefined[\s\S]*Number\.isSafeInteger\(value\) && value > 0/,
+  'workstation API must preserve Long strings and normalize non-positive processId before request'
 )
 assertIncludes(
   workstationApi,

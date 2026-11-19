@@ -335,7 +335,7 @@
         :closable="false"
         class="mt-8px"
       />
-      <template>
+      <div>
         <p>工艺名称：{{ impact.beforeName }} → {{ impact.afterName }}</p>
         <el-table :data="parameterDiff" class="mt-12px" max-height="260">
           <el-table-column label="参数" prop="name" /><el-table-column
@@ -354,7 +354,7 @@
             <template #default="{ row }"><div v-for="node in row.nodes" :key="node.routeProcessId">{{ node.workshopName || '未关联车间' }} / {{ node.processName || node.processId }}</div></template>
           </el-table-column>
         </el-table>
-      </template>
+      </div>
     </template>
     <el-alert
       v-if="impactError"
@@ -865,10 +865,14 @@ async function showHistory(change: CraftChange) {
   }
 }
 const route = useRoute()
+const props = defineProps<{ id?: string }>()
 async function openRequestedChange() {
-  const id = route.query.changeId
+  const id = props.id || route.query.changeId
   if (typeof id !== 'string' || !id) return
-  const change = changes.value.find((item) => String(item.id) === id)
+  const approvalRequest = props.id ? /^BUSINESS_APPROVAL:([1-9]\d*)$/.exec(props.id) : null
+  const change = changes.value.find((item) => approvalRequest
+    ? item.approvalScope === 'BATCH' && String(item.approvalRequestId) === approvalRequest[1]
+    : String(item.id) === id)
   if (!change) {
     error.value = '变更记录不存在或无权查看'
     return
@@ -877,7 +881,7 @@ async function openRequestedChange() {
   await showHistory(change)
 }
 onMounted(async () => { await load(); await openRequestedChange() })
-watch(() => route.query.changeId, openRequestedChange)
+watch(() => props.id || route.query.changeId, openRequestedChange)
 
 
 </script>

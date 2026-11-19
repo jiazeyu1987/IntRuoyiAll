@@ -31,6 +31,10 @@ public class DccRegistrationCertificateBusinessEventNotifier {
         this.changeConfirmationService = require(changeConfirmationService, "changeConfirmationService");
     }
 
+    public void validateChangeConfirmationRecipients(Long tenantId) {
+        configService.resolveChangeConfirmationRecipientUserIds(tenantId);
+    }
+
     public void notifyNewCertificateFormalized(Long tenantId, Long ownerCompanyId, Long certificateId,
                                                Long versionId, Long actorId, String eventKey,
                                                String productName, String certificateNo,

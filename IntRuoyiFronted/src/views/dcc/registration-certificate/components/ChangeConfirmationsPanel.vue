@@ -4,10 +4,10 @@
     <el-table v-else :data="records" empty-text="暂无变更通知记录">
       <el-table-column prop="versionId" label="版本记录" />
       <el-table-column prop="recipientUserId" label="接收人账号ID" />
-      <el-table-column prop="sentAt" label="发送时间" :formatter="dateTimeValueFormatter" />
-      <el-table-column label="确认记录">
+      <el-table-column prop="sentAt" label="发送时间（北京时间）" :formatter="registrationCertificateDateTimeFormatter" />
+      <el-table-column label="确认记录（北京时间）">
         <template #default="{ row }">
-          <span v-if="row.confirmedAt">已确认：{{ formatDateTimeValue(row.confirmedAt) }}</span>
+          <span v-if="row.confirmedAt">已确认：{{ formatRegistrationCertificateDateTime(row.confirmedAt) }}</span>
           <el-button v-else-if="messageId" type="primary" :loading="saving" @click="confirm">
             确认已知悉本次变更
           </el-button>
@@ -20,7 +20,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { dateTimeValueFormatter, formatDateTimeValue } from '@/utils/formatTime'
+import { registrationCertificateDateTimeFormatter, formatRegistrationCertificateDateTime } from '../shared/dateTimeDisplay'
 import { listChangeConfirmations, getMyChangeConfirmation, confirmMyCertificateChange,
   type ChangeConfirmation } from '@/api/dcc/registrationCertificate/changeConfirmations'
 

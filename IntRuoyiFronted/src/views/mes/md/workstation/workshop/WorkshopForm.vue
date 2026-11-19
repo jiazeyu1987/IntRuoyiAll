@@ -40,7 +40,6 @@
           <el-form-item label="负责人" prop="chargeUserId">
             <UserSelectV2
               v-model="formData.chargeUserId"
-              :user-options="userList"
               placeholder="请选择人员"
               class="!w-1/1"
             />
@@ -74,7 +73,7 @@
       <el-button v-if="isDetail && formData.id" type="primary" plain @click="handleBarcode">
         查看条码
       </el-button>
-      <el-button v-if="!isDetail" @click="submitForm" type="primary" :disabled="formLoading">
+      <el-button v-if="!isDetail" @click="submitForm" type="primary" :disabled="formLoading || !formReady">
         确 定
       </el-button>
       <el-button @click="dialogVisible = false">取 消</el-button>
@@ -90,19 +89,16 @@ import { MdWorkshopApi, MdWorkshopVO } from '@/api/mes/md/workstation/workshop'
 import { CommonStatusEnum } from '@/utils/constants'
 import { MesAutoCodeRuleCode, BarcodeBizTypeEnum } from '@/views/mes/utils/constants'
 import { AutoCodeRecordApi } from '@/api/mes/md/autocode/record'
-import * as PostApi from '@/api/system/post'
-import * as UserApi from '@/api/system/user'
 import { BarcodeDetail } from '@/views/mes/wm/barcode/components'
 
 defineOptions({ name: 'WorkshopForm' })
-
-const WORKSHOP_DIRECTOR_POST_CODE = 'WORKSHOP_DIRECTOR'
 
 const { t } = useI18n() // 国际化
 const message = useMessage() // 消息弹窗
 
 const dialogVisible = ref(false) // 弹窗的是否展示
 const formLoading = ref(false) // 表单的加载中
+const formReady = ref(false) // 车间详情加载成功后允许保存
 const formType = ref('') // 表单的类型：create - 新增；update - 修改；detail - 详情
 const isDetail = computed(() => formType.value === 'detail') // 是否详情模式（只读）
 const dialogTitle = computed(() => {
@@ -113,7 +109,6 @@ const dialogTitle = computed(() => {
   }
   return titles[formType.value] || formType.value
 })
-const userList = ref<UserApi.UserVO[]>([]) // 用户列表
 const formData = ref({
   id: undefined,
   code: undefined,
@@ -132,45 +127,6 @@ const formRef = ref() // 表单 Ref
 const barcodeDetailRef = ref() // 条码详情弹窗 Ref
 
 /** 查看条码 */
-const loadChargeUserList = async () => {
-  const postQuery: PageParam & { code: string } = {
-    pageNo: 1,
-    pageSize: 20,
-    code: WORKSHOP_DIRECTOR_POST_CODE
-  }
-  const postPage = await PostApi.getPostPage(postQuery)
-  const workshopDirectorPost = postPage.list?.find(
-    (post) => post.code === WORKSHOP_DIRECTOR_POST_CODE && post.status === CommonStatusEnum.ENABLE
-  )
-  if (!workshopDirectorPost?.id) {
-    throw new Error(
-      `车间负责人岗位 ${WORKSHOP_DIRECTOR_POST_CODE} 不存在或未启用，请先创建并启用该岗位`
-    )
-  }
-  const allUsers: UserApi.UserVO[] = []
-  const pageSize = 200
-  let pageNo = 1
-  let total = 0
-  do {
-    const userQuery: PageParam & { status: number } = {
-      pageNo,
-      pageSize,
-      status: CommonStatusEnum.ENABLE
-    }
-    const userPage = await UserApi.getUserPage(userQuery)
-    total = userPage.total || 0
-    allUsers.push(...(userPage.list || []))
-    pageNo += 1
-  } while (allUsers.length < total)
-  const filteredUsers = allUsers
-    .filter((user) => (user.postIds || []).map((postId) => Number(postId)).includes(workshopDirectorPost.id!))
-    .sort((left, right) => (left.nickname || '').localeCompare(right.nickname || ''))
-  if (filteredUsers.length === 0) {
-    throw new Error(`车间负责人岗位 ${WORKSHOP_DIRECTOR_POST_CODE} 下没有启用用户，请先分配用户`)
-  }
-  userList.value = filteredUsers
-}
-
 const handleBarcode = () => {
   barcodeDetailRef.value?.openByBusiness(
     formData.value.id!, BarcodeBizTypeEnum.WORKSHOP, formData.value.code, formData.value.name
@@ -189,16 +145,16 @@ const open = async (type: string, id?: number) => {
   dialogVisible.value = true
   formType.value = type
   resetForm()
-  // 加载用户列表
-  await loadChargeUserList()
-  // 修改时，设置数据
-  if (id) {
-    formLoading.value = true
-    try {
+  formReady.value = false
+  formLoading.value = true
+  try {
+    // 修改时先加载详情，避免详情读取失败后保存不完整数据。
+    if (id) {
       formData.value = await MdWorkshopApi.getWorkshop(id)
-    } finally {
-      formLoading.value = false
     }
+    formReady.value = true
+  } finally {
+    formLoading.value = false
   }
 }
 defineExpose({ open }) // 提供 open 方法，用于打开弹窗

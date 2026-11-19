@@ -1,5 +1,5 @@
 <template>
-  <doc-alert title="【设备】点检保养项目、点检保养方案" url="https://doc.iocoder.cn/mes/dv/check-plan/" />
+  <doc-alert title="【设备】维保项目、维保方案" url="https://doc.iocoder.cn/mes/dv/check-plan/" />
 
   <ContentWrap>
     <UnifiedListTemplate
@@ -340,7 +340,7 @@ const handleDelete = async (id: number) => {
 /** 启用按钮操作 */
 const handleEnable = async (id: number) => {
   try {
-    await message.confirm('确认启用该点检保养方案？启用后将不可修改或删除。')
+    await message.confirm('确认启用该维保方案？启用后将不可修改或删除。')
     await DvCheckPlanApi.enableCheckPlan(id)
     message.success('启用成功')
     await getList()
@@ -350,7 +350,7 @@ const handleEnable = async (id: number) => {
 /** 停用按钮操作 */
 const handleDisable = async (id: number) => {
   try {
-    await message.confirm('确认停用该点检保养方案？')
+    await message.confirm('确认停用该维保方案？')
     await DvCheckPlanApi.disableCheckPlan(id)
     message.success('停用成功')
     await getList()
@@ -363,7 +363,7 @@ const handleExport = async () => {
     await message.exportConfirm()
     exportLoading.value = true
     const data = await DvCheckPlanApi.exportCheckPlan(queryParams)
-    download.excel(data, '点检保养方案.xls')
+    download.excel(data, '维保方案.xls')
   } catch {
   } finally {
     exportLoading.value = false

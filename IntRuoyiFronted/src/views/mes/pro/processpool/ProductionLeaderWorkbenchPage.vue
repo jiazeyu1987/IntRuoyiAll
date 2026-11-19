@@ -10,7 +10,7 @@
       leader-type="PRODUCTION"
       :show-leader-type-tabs="false"
       :show-production-module-tabs="true"
-      :title="isPackagingLeader ? '包装组长' : '生产组长'"
+      :title="isPackagingLeader ? '包装组长' : '生产班长'"
       :subtitle="isPackagingLeader
         ? '查看本租户全部活跃工单，审核自己员工的报工，并办理整单完工'
         : '查看生产一线原始数据、员工切换、FIFO 分配和异常记录'"

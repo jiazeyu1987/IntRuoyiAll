@@ -9,6 +9,10 @@ public interface MesKingdeeItemSyncService {
     @Valid
     MesKingdeeItemSyncResult syncItems();
 
+    /** Refresh every current ERP material without disabling other MES materials. */
+    @Valid
+    MesKingdeeItemSyncResult syncCurrentErpProducts();
+
     @Valid
     MesKingdeeItemSyncResult syncItemsByProductCodes(Collection<String> productCodes);
 

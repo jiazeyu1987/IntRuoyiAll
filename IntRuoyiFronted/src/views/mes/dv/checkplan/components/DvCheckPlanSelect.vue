@@ -1,9 +1,9 @@
 <!--
-  MES 点检保养方案选择器：只读输入框 + 点击弹窗选择
+  MES 维保方案选择器：只读输入框 + 点击弹窗选择
 
   交互：显示为只读 el-input，点击打开弹窗（单选模式）进行选择
   Props:
-    modelValue  — 绑定的点检保养方案 ID（v-model）
+    modelValue  — 绑定的维保方案 ID（v-model）
     disabled    — 是否禁用
     clearable   — 是否允许清空（鼠标悬停时显示清除图标）
     placeholder — 占位文字

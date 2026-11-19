@@ -117,4 +117,49 @@ class MesKingdeeItemSyncServiceImplTest {
 
     }
 
+    @Test
+    void syncCurrentErpProducts_keepsDistinctRawCodesAndDoesNotDisableOtherItems() {
+        var raw = new ErpProductDO().setId(1L).setBarCode(" PR6004005")
+                .setName("Raw source material").setUnitId(10L).setStatus(1);
+        var canonical = new ErpProductDO().setId(2L).setBarCode("PR6004005")
+                .setName("Different source material").setUnitId(10L).setStatus(0);
+        when(productMapper.selectList()).thenReturn(List.of(raw, canonical));
+        when(productUnitService.getProductUnitMap(any(Collection.class)))
+                .thenReturn(Map.of(10L, new ErpProductUnitDO().setId(10L).setName("Pcs")));
+        when(itemMapper.selectListByCodes(any(Collection.class))).thenReturn(List.of());
+        when(itemTypeMapper.selectByParentIdAndCode(MesMdItemTypeDO.PARENT_ID_ROOT,
+                MesKingdeeItemSyncServiceImpl.DEFAULT_ITEM_TYPE_CODE))
+                .thenReturn(new MesMdItemTypeDO().setId(20L));
+        when(unitMeasureMapper.selectByCode("Pcs"))
+                .thenReturn(new MesMdUnitMeasureDO().setId(30L));
+
+        var result = syncService.syncCurrentErpProducts();
+
+        assertEquals(2, result.getCreatedCount());
+        assertEquals(0, result.getDisabledCount());
+        var captured = ArgumentCaptor.forClass(MesMdItemDO.class);
+        org.mockito.Mockito.verify(itemMapper, org.mockito.Mockito.times(2)).insert(captured.capture());
+        assertEquals(List.of(" PR6004005", "PR6004005"),
+                captured.getAllValues().stream().map(MesMdItemDO::getCode).toList());
+        assertEquals(List.of(1, 0),
+                captured.getAllValues().stream().map(MesMdItemDO::getStatus).toList());
+        verify(itemMapper, never()).selectListAll();
+    }
+
+    @Test
+    void syncItemsByProductCodes_preservesLeadingWhitespaceInSourceIdentity() {
+        when(productMapper.selectListByBarCodes(any(Collection.class))).thenReturn(List.of());
+        when(productUnitService.getProductUnitMap(any(Collection.class))).thenReturn(Map.of());
+        when(itemMapper.selectListByCodes(any(Collection.class))).thenReturn(List.of());
+        when(itemTypeMapper.selectByParentIdAndCode(MesMdItemTypeDO.PARENT_ID_ROOT,
+                MesKingdeeItemSyncServiceImpl.DEFAULT_ITEM_TYPE_CODE))
+                .thenReturn(new MesMdItemTypeDO().setId(20L));
+
+        syncService.syncItemsByProductCodes(List.of(" PR6004005", "PR6004005"));
+
+        ArgumentCaptor<Collection<String>> codes = ArgumentCaptor.forClass(Collection.class);
+        verify(productMapper).selectListByBarCodes(codes.capture());
+        assertEquals(List.of(" PR6004005", "PR6004005"), List.copyOf(codes.getValue()));
+    }
+
 }

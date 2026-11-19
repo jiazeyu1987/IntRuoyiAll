@@ -19,7 +19,7 @@
       data-team-leader-type-tabs
       @tab-change="handleLeaderTypeChange"
     >
-      <el-tab-pane label="生产组长" name="PRODUCTION" />
+      <el-tab-pane label="生产班长" name="PRODUCTION" />
       <el-tab-pane label="PQC 组长" name="PQC" />
     </el-tabs>
     <div
@@ -1775,8 +1775,8 @@
               <div class="team-leader-workbench__active-order-code-cell">
                 <span
                   data-team-leader-active-order-work-order-code
+                  :title="row.abnormal ? `${row.workOrderCode}\n${row.abnormalReason}` : row.workOrderCode"
                   :class="{ 'team-leader-workbench__abnormal-work-order-id': row.abnormal }"
-                  :title="row.abnormal ? row.abnormalReason : undefined"
                 >
                   {{ row.workOrderCode }}
                 </span>
@@ -12051,16 +12051,31 @@ const allColumnDisplayFilters1: ListColumnFilterDefinition[] = [
 
 .team-leader-workbench__active-order-code-cell {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
   min-width: 0;
 }
 
 .team-leader-workbench__active-order-code-cell > span:first-child {
+  width: 100%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.team-leader-workbench__active-order-code-cell :deep(.el-tag) {
+  flex-shrink: 0;
+  max-width: 100%;
+  height: auto;
+  min-height: 24px;
+  white-space: normal;
+}
+
+.team-leader-workbench__active-order-code-cell :deep(.el-tag__content) {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .team-leader-workbench__active-order-process-detail.is-quantity-conflict {

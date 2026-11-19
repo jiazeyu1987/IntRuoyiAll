@@ -5,7 +5,7 @@
     <section class="qa-parser-json-editor">
       <header class="qa-parser-panel-head">
         <div>
-          <div class="qa-parser-panel-title">QA检验规程 JSON编辑</div>
+          <div class="qa-parser-panel-title">检验规程 JSON编辑</div>
           <div class="qa-parser-panel-subtitle">{{ qaLastDownloadName }}</div>
         </div>
         <div class="qa-parser-panel-actions">
@@ -60,7 +60,7 @@
     <section class="qa-parser-pqc-preview">
       <header class="qa-parser-panel-head">
         <div>
-          <div class="qa-parser-panel-title">一线PQC预览</div>
+          <div class="qa-parser-panel-title">检验填报预览</div>
           <div class="qa-parser-panel-subtitle">
             {{ qaPreviewJson.regulationName }}（{{ qaPreviewJson.regulationCode }}） ·
             {{ qaPreviewJson.versionNo }} · {{ qaPreviewJson.effectiveDate }}
@@ -371,14 +371,14 @@ const applyQaEditedJson = () => {
     qaPreviewJson.value = mapping
     resetQaJsonSearchPosition()
     initializeQaPreviewState(mapping)
-    message.success('已应用 QA JSON 到右侧一线PQC预览')
+    message.success('已应用 QA JSON 到右侧检验填报预览')
   } catch (error) {
     message.error(resolveQaParseErrorMessage(error, 'QA JSON 应用失败'))
   }
 }
 
 const handleQaPublishPlaceholder = () => {
-  message.info('QA检验规程发布功能待实现')
+  message.info('检验规程发布功能待实现')
 }
 
 const downloadQaCurrentJson = () => {
@@ -390,7 +390,7 @@ const downloadQaCurrentJson = () => {
     new Blob([stringifyQaRecognitionJson(qaPreviewJson.value)], {
       type: 'application/json;charset=utf-8'
     }),
-    qaLastDownloadName.value || 'QA检验规程.json'
+    qaLastDownloadName.value || '检验规程.json'
   )
 }
 

@@ -27,13 +27,14 @@ export const submitRouteVersionWithTreeReview = async (version: ProRouteVersionV
   const preview = await RouteTreeApi.preview(version.id)
   const reason = ref('')
   await ElMessageBox({
-    title: '父节点统一修改 · 审核影响确认',
+    title: `${preview.groupName} · 发布差异确认`,
     message: () => h(RouteTreePublishPreview, {
       preview, reason: reason.value, 'onUpdate:reason': (value: string) => { reason.value = value }
     }),
     customClass: 'route-tree-publish-message',
     showCancelButton: true,
-    confirmButtonText: preview.blockers.length ? '存在冲突，暂不可提交' : '提交一次审核',
+    confirmButtonText: '确认覆盖并提交审核',
+    showConfirmButton: !preview.blockers.length,
     cancelButtonText: '返回修改',
     closeOnClickModal: false,
     beforeClose: (action, _instance, done) => {

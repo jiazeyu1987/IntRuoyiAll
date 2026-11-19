@@ -11,6 +11,7 @@ import java.io.InputStream;
 import java.util.*;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.*;
 
 @Component
@@ -34,13 +35,17 @@ public class UserDingTalkImportExcelParser {
             DataFormatter formatter = new DataFormatter();
             Map<String, Integer> headerIndexMap = new LinkedHashMap<>();
             for (int index = headerRow.getFirstCellNum(); index < headerRow.getLastCellNum(); index++) {
-                headerIndexMap.put(normalize(formatter.formatCellValue(headerRow.getCell(index))), index);
+                String header = normalize(formatter.formatCellValue(headerRow.getCell(index)));
+                if (!header.isEmpty() && headerIndexMap.putIfAbsent(header, index) != null) {
+                    throw invalidParamException("钉钉导入表头重复：" + header);
+                }
             }
             if (!headerIndexMap.keySet().containsAll(REQUIRED_HEADERS)) {
                 throw exception(USER_DING_TALK_IMPORT_HEADERS_MISSING);
             }
 
             List<UserDingTalkImportExcelVO> rows = new ArrayList<>();
+            Set<String> employeeIds = new HashSet<>();
             for (int rowIndex = sheet.getFirstRowNum() + 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
                 Row row = sheet.getRow(rowIndex);
                 if (row == null) {
@@ -65,6 +70,12 @@ public class UserDingTalkImportExcelParser {
                     continue;
                 }
                 validateRow(item);
+                if (isBlank(item.getEmployeeUserId())) {
+                    throw invalidParamException("钉钉导入第" + (rowIndex + 1) + "行缺少员工UserID");
+                }
+                if (!employeeIds.add(item.getEmployeeUserId())) {
+                    throw invalidParamException("钉钉导入员工UserID重复：" + item.getEmployeeUserId());
+                }
                 rows.add(item);
             }
             if (rows.isEmpty()) {
@@ -74,7 +85,9 @@ public class UserDingTalkImportExcelParser {
         } catch (cn.iocoder.yudao.framework.common.exception.ServiceException ex) {
             throw ex;
         } catch (Exception ex) {
-            throw exception(USER_DING_TALK_IMPORT_HEADERS_MISSING);
+            var error = invalidParamException("钉钉导入文件无法读取，请核对文件格式及内容");
+            error.initCause(ex);
+            throw error;
         }
     }
 

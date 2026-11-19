@@ -92,9 +92,12 @@ public class ErpKingdeeSaleOrderClientImpl implements ErpKingdeeSaleOrderClient 
         int startRow = 0;
         int pageLimit = Math.min(PAGE_LIMIT, properties.getSaleOrder().getQueryLimit());
         Map<String, ErpKingdeeSaleOrder> orderMap = new LinkedHashMap<>();
+        Long lastFid = null;
+        Long lastEntryId = null;
         while (true) {
             long started = System.nanoTime();
-            JsonNode rows = executeBillQuery(properties, cookieHeader, startRow, pageLimit, fullHistory);
+            JsonNode rows = executeBillQuery(properties, cookieHeader, fullHistory ? 0 : startRow,
+                    pageLimit, fullHistory, null, lastFid, lastEntryId);
             if (!rows.isArray()) {
                 throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "SAL_SaleOrder response is not an array");
             }
@@ -112,8 +115,19 @@ public class ErpKingdeeSaleOrderClientImpl implements ErpKingdeeSaleOrderClient 
                                     + ", response=" + StrUtil.maxLength(row.toString(), 800));
                 }
                 String fid = requiredText(row, 0, "FID");
+                if (fullHistory) {
+                    long sourceFid = numericSourceKey(row, 0, "FID");
+                    long sourceEntryId = numericSourceKey(row, 24, "FSaleOrderEntry_FEntryID");
+                    if (lastFid != null && (sourceFid > lastFid
+                            || (sourceFid == lastFid && sourceEntryId <= lastEntryId))) {
+                        throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID,
+                                "sale order source cursor did not advance: fid=" + fid + ", entryId=" + sourceEntryId);
+                    }
+                    lastFid = sourceFid;
+                    lastEntryId = sourceEntryId;
+                }
                 ErpKingdeeSaleOrder order = orderMap.computeIfAbsent(fid, key -> buildOrder(row));
-                order.getLines().add(buildLine(row));
+                addUniqueLine(order, row);
             }
             if (rows.size() < pageLimit) {
                 break;
@@ -121,6 +135,28 @@ public class ErpKingdeeSaleOrderClientImpl implements ErpKingdeeSaleOrderClient 
             startRow += rows.size();
         }
         return new ArrayList<>(orderMap.values());
+    }
+
+    @Override
+    public List<ErpKingdeeSaleOrder> fetchSaleOrdersByBillNo(ErpKingdeeProperties properties, String billNo) {
+        properties.validateSaleOrderSyncConfig();
+        if (StrUtil.isBlank(billNo)) {
+            throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "sale order bill number is blank");
+        }
+        String cookieHeader = login(properties);
+        int startRow = 0;
+        int pageLimit = Math.min(PAGE_LIMIT, properties.getSaleOrder().getQueryLimit());
+        Map<String, ErpKingdeeSaleOrder> orders = new LinkedHashMap<>();
+        while (true) {
+            JsonNode rows = executeBillQuery(properties, cookieHeader, startRow, pageLimit, true, billNo);
+            if (!rows.isArray()) {
+                throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "SAL_SaleOrder response is not an array");
+            }
+            addRowsToOrders(rows, orders, false);
+            if (rows.size() < pageLimit) break;
+            startRow += rows.size();
+        }
+        return new ArrayList<>(orders.values());
     }
 
     @Override
@@ -178,12 +214,31 @@ public class ErpKingdeeSaleOrderClientImpl implements ErpKingdeeSaleOrderClient 
                                       int startRow,
                                       int limit,
                                       boolean fullHistory) {
+        return executeBillQuery(properties, cookieHeader, startRow, limit, fullHistory, null);
+    }
+
+    private JsonNode executeBillQuery(ErpKingdeeProperties properties, String cookieHeader,
+                                      int startRow, int limit, boolean fullHistory, String billNo) {
+        return executeBillQuery(properties, cookieHeader, startRow, limit, fullHistory, billNo, null, null);
+    }
+
+    private JsonNode executeBillQuery(ErpKingdeeProperties properties, String cookieHeader,
+                                      int startRow, int limit, boolean fullHistory, String billNo,
+                                      Long lastFid, Long lastEntryId) {
         LocalDate today = LocalDate.now();
         LocalDate startDate = today.minusDays(properties.getSaleOrder().getQueryDays());
         LocalDate nextDay = today.plusDays(1);
         String filterString = "(FBillNo <> '') and (FMaterialId.FNumber <> '')";
         if (!fullHistory) {
             filterString = "(FDate >= '" + startDate + "' and FDate < '" + nextDay + "') and " + filterString;
+        }
+        if (billNo != null) {
+            filterString += " and (FBillNo = '" + billNo.replace("'", "''") + "')";
+        }
+        if (lastFid != null) {
+            // Stable identity pagination avoids live inserts shifting every later offset.
+            filterString += " and (FID < " + lastFid + " or (FID = " + lastFid
+                    + " and FSaleOrderEntry_FEntryID > " + lastEntryId + "))";
         }
 
         Map<String, Object> query = new LinkedHashMap<>();
@@ -205,6 +260,17 @@ public class ErpKingdeeSaleOrderClientImpl implements ErpKingdeeSaleOrderClient 
             throw exception(KINGDEE_PURCHASE_ORDER_REQUEST_FAIL, responseJson.toString());
         }
         return responseJson;
+    }
+
+    private long numericSourceKey(JsonNode row, int index, String field) {
+        String value = requiredText(row, index, field);
+        try {
+            long key = Long.parseLong(value);
+            if (key > 0) return key;
+        } catch (NumberFormatException invalid) {
+            throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "invalid source identity " + field + ": " + value);
+        }
+        throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "invalid source identity " + field + ": " + value);
     }
 
     private JsonNode executeIncrementalBillQuery(ErpKingdeeProperties properties,
@@ -248,8 +314,25 @@ public class ErpKingdeeSaleOrderClientImpl implements ErpKingdeeSaleOrderClient 
                 order.setSourceModifyTime(parseDateTime(requiredText(row, INDEX_SOURCE_MODIFY_TIME, "FModifyDate"),
                         "FModifyDate"));
             }
-            order.getLines().add(buildLine(row));
+            addUniqueLine(order, row);
         }
+    }
+
+    private void addUniqueLine(ErpKingdeeSaleOrder order, JsonNode row) {
+        ErpKingdeeSaleOrder.Line line = buildLine(row);
+        for (ErpKingdeeSaleOrder.Line existing : order.getLines()) {
+            if (!existing.getEntryId().equals(line.getEntryId())) continue;
+            if (!existing.equals(line)) {
+                throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID,
+                        "sale order entry changed during pagination: fid=" + order.getFid()
+                                + ", entryId=" + line.getEntryId());
+            }
+            org.slf4j.LoggerFactory.getLogger(ErpKingdeeSaleOrderClientImpl.class).warn(
+                    "Repeated source sale entry returned by pagination: fid={}, entryId={}",
+                    order.getFid(), line.getEntryId());
+            return;
+        }
+        order.getLines().add(line);
     }
 
     private ErpKingdeeSaleOrder buildOrder(JsonNode row) {
@@ -281,7 +364,8 @@ public class ErpKingdeeSaleOrderClientImpl implements ErpKingdeeSaleOrderClient 
         line.setTaxPercent(parseDecimal(requiredText(row, 13, "FEntryTaxRate"), "FEntryTaxRate"));
         line.setTotalAmount(parseDecimal(requiredText(row, 14, "FAllAmount"), "FAllAmount"));
         line.setUnitName(requiredText(row, 15, "FUnitId.FName"));
-        line.setPriceUnitName(requiredText(row, 26, "FPriceUnitId.FName"));
+        JsonNode priceUnit = row.get(26);
+        line.setPriceUnitName(priceUnit == null || priceUnit.isNull() ? null : priceUnit.asText());
         line.setPriceUnitQuantity(parseDecimal(requiredText(row, 27, "FPriceUnitQty"), "FPriceUnitQty"));
         line.setTaxAmount(parseDecimal(requiredText(row, 16, "FEntryTaxAmount"), "FEntryTaxAmount"));
         line.setNetAmount(parseDecimal(requiredText(row, 17, "FAmount"), "FAmount"));

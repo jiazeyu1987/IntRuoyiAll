@@ -59,6 +59,9 @@ export interface ErpProductionMaterialListDetailVO {
 
 // ERP 生产用料清单 API
 export const ErpProductionMaterialListApi = {
+  refreshWorkOrderLinks: async (): Promise<number> => {
+    return await request.post({ url: '/erp/production-material-list/refresh-work-order-links', timeout: 600000 })
+  },
   // 查询 ERP 生产用料清单分页
   getPage: async (params: any, options: { ignoreErrorMessage?: boolean } = {}) => {
     return await request.get({

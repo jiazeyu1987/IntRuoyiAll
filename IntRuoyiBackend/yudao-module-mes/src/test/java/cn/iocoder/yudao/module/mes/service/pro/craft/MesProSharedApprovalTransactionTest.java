@@ -41,6 +41,9 @@ class MesProSharedApprovalTransactionTest {
     private MesProRouteControlledContentAdapter audit;
     private MesProRouteVersionMapper versions;
     private BpmProcessInstanceApi bpm;
+    private MesProCraftService batchGroup;
+    private MesProCraftChangeDO batchChange;
+    private MesProCraftChangeMapper batchChanges;
     private final MesProRouteSnapshotCanonicalizer canonicalizer = new MesProRouteSnapshotCanonicalizer();
 
     @BeforeEach
@@ -88,6 +91,8 @@ class MesProSharedApprovalTransactionTest {
                 "101", version(101).getRouteSnapshotSha256(), "102", version(102).getRouteSnapshotSha256(),
                 "101:source", version(1).getRouteSnapshotSha256(), "102:source", version(2).getRouteSnapshotSha256())));
         var changes = mock(MesProCraftChangeMapper.class);
+        batchChange = change;
+        batchChanges = changes;
         when(changes.selectById(1L)).thenAnswer(c -> { change.setStatus(phase(1)); return change; });
         when(changes.updateById(any(MesProCraftChangeDO.class))).thenAnswer(c ->
                 jdbc.update("update change_state set phase=? where id=1", ((MesProCraftChangeDO)c.getArgument(0)).getStatus()));
@@ -110,6 +115,7 @@ class MesProSharedApprovalTransactionTest {
                 "lifecycle", lifecycleProvider, "sharedChanges", sharedProvider, "platform", audit,
                 "bpmApi", bpm);
         MesProCraftService group = transactional(groupTarget);
+        batchGroup = group;
         projection = mock(MesProRouteVersionPublishProjectionServiceImpl.class);
         when(projection.projectCandidate(any())).thenAnswer(c -> {
             MesProRouteVersionDO v = c.getArgument(0);
@@ -143,6 +149,44 @@ class MesProSharedApprovalTransactionTest {
     }
 
     @AfterEach void cleanup() { TenantContextHolder.clear(); }
+
+    private MesProBatchChangeApprovalExecutor prepareBatch() {
+        batchChange.setApprovalScope("BATCH");
+        jdbc.update("update change_state set phase='PREPARING' where id=1");
+        for (long id : List.of(101L,102L)) {
+            var v=version(id);v.setLifecycleStatus("DRAFT");v.setApprovalProcessInstanceId(null);
+            jdbc.update("update route_version set body=? where id=?",JSON.toJSONString(v),id);
+        }
+        jdbc.update("delete from audit");
+        var target=new MesProBatchChangeApprovalExecutor();
+        wire(target,"crafts",batchGroup,"changes",batchChanges,"versions",versions,"platform",audit);
+        return transactional(target);
+    }
+    private BusinessApprovalRequest batchRequest() {
+        var context=BusinessApprovalContext.builder().tenantId(1L).dataDomain("MES").systemCode("MES")
+                .objectType("ROUTE_BATCH_CHANGE").objectId("1").objectState("PREPARING").actionCode("PUBLISH")
+                .applicantUserId(7L).variables(Map.of("changeFingerprint",MesProBatchChangeApprovalExecutor.fingerprint(batchChange))).build();
+        return BusinessApprovalRequest.builder().requestId(501L).tenantId(1L).context(context).processInstanceId("batch-instance").build();
+    }
+    @Test void oneBatchApprovalPublishesBothRoutesInTheSameTransaction() {
+        var batch=prepareBatch();var request=batchRequest();
+        batch.markPending(request.getContext(),request);
+        assertOldPublishedState();
+        assertEquals("APPLIED",batch.executeApproved(request.getContext(),request,8L).getResultState());
+        assertEquals("ACTIVE",version(101).getLifecycleStatus());assertEquals("ACTIVE",version(102).getLifecycleStatus());
+        assertEquals("new master",phase(2));assertEquals(2,auditCount("PUBLISHED"));
+    }
+    @Test void batchSecondProjectionFailureRollsBackBothApprovalTransitionsAndPublication() {
+        var batch=prepareBatch();var request=batchRequest();
+        batch.markPending(request.getContext(),request);
+        doThrow(new IllegalStateException("second projection failed")).when(projection)
+                .projectCandidate(argThat(v->v.getId()==102L));
+        assertThrows(IllegalStateException.class,()->batch.executeApproved(request.getContext(),request,8L));
+        assertOldPublishedState();assertEquals("PENDING",phase(1));
+        assertEquals("PENDING_APPROVAL",version(101).getLifecycleStatus());
+        assertEquals("PENDING_APPROVAL",version(102).getLifecycleStatus());
+        assertEquals(0,auditCount("APPROVED"));assertEquals(0,auditCount("PUBLISHED"));
+    }
 
     @Test void waitsForEveryApprovalThenPublishesTogetherAndIgnoresDuplicateEvents() {
         BusinessApprovalRequest first = event(101, BpmProcessInstanceStatusEnum.APPROVE);

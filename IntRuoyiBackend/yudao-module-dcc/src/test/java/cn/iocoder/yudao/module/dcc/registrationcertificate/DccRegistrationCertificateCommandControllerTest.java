@@ -50,6 +50,12 @@ class DccRegistrationCertificateCommandControllerTest {
         assertPermission(delete, "dcc:registration-certificate:delete-draft");
         assertIdempotencyHeader(delete, 1);
 
+        Method deleteCertificate = DccRegistrationCertificateCommandController.class.getDeclaredMethod(
+                "deleteCertificate", Long.class, String.class, Integer.class, jakarta.servlet.http.HttpServletRequest.class);
+        assertEquals("/{id}", deleteCertificate.getAnnotation(DeleteMapping.class).value()[0]);
+        assertPermission(deleteCertificate, "dcc:registration-certificate:delete");
+        assertIdempotencyHeader(deleteCertificate, 1);
+
         Method formalize = DccRegistrationCertificateCommandController.class.getDeclaredMethod(
                 "formalize", Long.class, String.class, DccRegistrationCertificateFormalizeReqVO.class, jakarta.servlet.http.HttpServletRequest.class);
         assertEquals("/{id}/formalize", formalize.getAnnotation(PostMapping.class).value()[0]);

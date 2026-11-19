@@ -12,7 +12,7 @@
   </el-button>
   <Dialog
     v-model="dialogVisible"
-    title="DCC 产品目录导入"
+    title="产品目录导入"
     width="420"
     :close-on-click-modal="false"
     :close-on-press-escape="!importing"
@@ -112,7 +112,7 @@ const exportWorkbook = async () => {
   exporting.value = true
   try {
     const data = await request.download({ url: '/dcc/product-catalog/workbook/export' })
-    download.excel(data, 'DCC产品目录及绑定关系.xlsx')
+    download.excel(data, '产品目录及绑定关系.xlsx')
   } finally {
     exporting.value = false
   }

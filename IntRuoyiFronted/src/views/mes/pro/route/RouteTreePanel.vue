@@ -1,7 +1,6 @@
 <template>
   <ContentWrap v-loading="loading" class="route-tree">
     <div class="route-tree__toolbar">
-      <div><strong>工艺流程树</strong><p>分组统一维护共性，具体流程保留个性化配置。</p></div>
       <el-button @click="load">刷新</el-button>
       <el-button v-hasPermi="['mes:pro-route:create']" type="primary" @click="openGroup()">新增顶级分组</el-button>
     </div>
@@ -28,10 +27,6 @@
           <el-tag type="success">{{ selected.activeRouteVersionNo }}</el-tag>
           <el-tag v-if="selected.pendingStatus" type="warning">{{ statusLabel(selected.pendingStatus) }}</el-tag>
         </div>
-        <p v-if="selected.nodeType === 'GROUP'">修改后预览全部下属流程的变更，一次审核，统一发布新版本。</p>
-        <p v-else>单独修改只影响本流程；父级后续修改对应字段时，仍会覆盖该字段。</p>
-        <el-alert v-if="selected.different" title="该节点与直接父节点的工序组成或顺序不同，保留已确认的个性化配置。"
-          type="warning" :closable="false" />
         <div class="route-tree__actions">
           <el-button type="primary" v-hasPermi="['mes:pro-route:version-create']" @click="emit('edit', selected)">修改配置</el-button>
           <el-button @click="emit('view', selected.id)">查看配置</el-button>
@@ -42,20 +37,30 @@
             <el-button v-hasPermi="['mes:pro-route:update']" @click="openMove(true)">添加已有流程</el-button>
           </template>
           <el-button v-hasPermi="['mes:pro-route:update']" @click="openMove(false)">移动归属</el-button>
+          <el-button v-if="selected.different" @click="openDifference">差异分析</el-button>
         </div>
-        <h3>直接下级</h3>
-        <el-table :data="selected.children || []" @row-click="selected = $event" empty-text="暂无直接下级">
-          <el-table-column prop="name" label="名称" />
-          <el-table-column label="类型" width="110"><template #default="{ row }">{{ row.nodeType === 'GROUP' ? '分组' : '流程' }}</template></el-table-column>
-          <el-table-column prop="activeRouteVersionNo" label="已发布版本" width="120" />
-          <el-table-column label="工序结构" width="130"><template #default="{ row }">{{ row.different ? '有差异' : '与父级一致' }}</template></el-table-column>
-        </el-table>
-        <el-alert class="mt-16px" title="移动只改变归属，不改配置或历史批记录；新流程继承父节点已发布配置。"
-          type="info" :closable="false" />
+        <div v-if="isFlowLeaf" v-loading="bindingsLoading" class="route-tree__bindings" aria-label="流程绑定信息">
+          <h3>绑定信息</h3>
+          <el-alert v-if="bindingsError" :title="bindingsError" type="error" :closable="false" />
+          <el-descriptions v-else-if="bindings" :column="1" border>
+            <el-descriptions-item label="项目代码">{{ bindings.dccProjectCode || '未绑定项目' }}</el-descriptions-item>
+            <el-descriptions-item label="产品编码"><span class="route-tree__product-codes">{{ bindings.productCodes || '未绑定产品' }}</span></el-descriptions-item>
+          </el-descriptions>
+        </div>
+        <template v-else>
+          <h3>直接下级</h3>
+          <el-table :data="selected.children || []" @row-click="selected = $event" empty-text="暂无直接下级">
+            <el-table-column prop="name" label="名称" />
+            <el-table-column label="类型" width="110"><template #default="{ row }">{{ row.nodeType === 'GROUP' ? '分组' : '流程' }}</template></el-table-column>
+            <el-table-column prop="activeRouteVersionNo" label="已发布版本" width="120" />
+            <el-table-column label="工序结构" width="130"><template #default="{ row }">{{ row.different ? '有差异' : '与父级一致' }}</template></el-table-column>
+          </el-table>
+        </template>
       </section>
       <el-empty v-else description="选择分组或具体工艺流程" />
     </div>
   </ContentWrap>
+  <RouteTreeDifference v-if="comparison" v-model="differenceVisible" :node="comparison.node" :parent="comparison.parent" />
   <Dialog v-model="groupVisible" title="新增工艺分组" width="540px">
     <el-form label-width="110px">
       <el-form-item label="分组名称" required><el-input v-model="group.name" aria-label="分组名称" /></el-form-item>
@@ -100,14 +105,47 @@
 <script setup lang="ts">
 import { ElMessageBox } from 'element-plus'
 import { RouteTreeApi, type RouteTreeNode } from '@/api/mes/pro/route/tree'
-import type { MesRouteId, ProRouteVO } from '@/api/mes/pro/route'
+import { ProRouteApi, type MesRouteId, type ProRouteVO } from '@/api/mes/pro/route'
 import RouteProjectSelect from './RouteProjectSelect.vue'
+import RouteTreeDifference from './RouteTreeDifference.vue'
 import MdWorkshopSelect from '@/views/mes/md/workstation/components/MdWorkshopSelect.vue'
 import { isRouteConfirmCancel, resolveRouteOperationErrorMessage } from './routeError'
 const emit = defineEmits<{ edit: [row: ProRouteVO]; view: [id?: number]; versions: [row: ProRouteVO]; changed: [] }>()
 const message = useMessage()
 const rows = ref<RouteTreeNode[]>([]), selected = ref<RouteTreeNode>(), loading = ref(false), saving = ref(false), error = ref('')
 const filter = ref(''), treeRef = ref()
+const differenceVisible = ref(false)
+const comparison = shallowRef<{ node: RouteTreeNode; parent: RouteTreeNode }>()
+watch(selected, () => { differenceVisible.value = false })
+const openDifference = () => {
+  const node = selected.value
+  const parent = rows.value.find(row => String(row.id) === String(node?.parentId))
+  if (!node?.different || !parent) {
+    message.error('未找到可比较的直接父节点，请刷新后重试')
+    return
+  }
+  comparison.value = { node, parent }
+  differenceVisible.value = true
+}
+const isFlowLeaf = computed(() => selected.value?.nodeType === 'FLOW' && !selected.value.children?.length)
+const bindings = ref<ProRouteVO>(), bindingsLoading = ref(false), bindingsError = ref('')
+watch(selected, async (node, _previous, onCleanup) => {
+  let cancelled = false
+  onCleanup(() => { cancelled = true })
+  bindings.value = undefined
+  bindingsError.value = ''
+  bindingsLoading.value = false
+  if (!node || !isFlowLeaf.value || node.id == null) return
+  bindingsLoading.value = true
+  try {
+    const detail: ProRouteVO = await ProRouteApi.getRoute(node.id)
+    if (!cancelled) bindings.value = detail
+  } catch (failure) {
+    if (!cancelled) bindingsError.value = resolveRouteOperationErrorMessage(failure, '加载流程绑定信息失败，请刷新后重试')
+  } finally {
+    if (!cancelled) bindingsLoading.value = false
+  }
+})
 const tree = computed(() => {
   const nodes = new Map(rows.value.map(row => [String(row.id), { ...row, children: [] as RouteTreeNode[] }]))
   const roots: RouteTreeNode[] = []
@@ -186,14 +224,15 @@ defineExpose({ load })
 
 <style scoped>
 .route-tree__toolbar, .route-tree__heading, .route-tree__actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.route-tree__toolbar > div { flex: 1; }
-.route-tree p { color: var(--el-text-color-secondary); }
+.route-tree__toolbar { justify-content: flex-end; }
 .route-tree__layout { display: grid; grid-template-columns: minmax(260px, 32%) 1fr; min-height: 480px; margin-top: 20px; }
 .route-tree aside { border-right: 1px solid var(--el-border-color-lighter); padding-right: 20px; overflow: auto; max-height: 70vh; }
 .route-tree section { padding-left: 24px; min-width: 0; }
 .route-tree__node { display: flex; align-items: center; gap: 8px; }
 .route-tree__heading h2 { font-size: 20px; margin: 0; }
 .route-tree__actions { margin: 24px 0; }
+.route-tree__bindings { min-height: 150px; }
+.route-tree__product-codes { overflow-wrap: anywhere; }
 :deep(.el-tree) { margin-top: 12px; }
 :deep(.el-tree-node__content) { min-height: 36px; }
 @media (max-width: 800px) { .route-tree__layout { grid-template-columns: 1fr; } .route-tree section { padding: 20px 0 0; } }

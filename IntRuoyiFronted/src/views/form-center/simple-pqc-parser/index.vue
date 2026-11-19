@@ -3,7 +3,7 @@
     <div ref="projectEditor">
       <SimpleParserHeader
         v-model:project-id="projectId"
-        title="简易PQC解析"
+        title="检验编制"
         import-accept=".doc,.docx"
         :projects="projects"
         :busy="busy"

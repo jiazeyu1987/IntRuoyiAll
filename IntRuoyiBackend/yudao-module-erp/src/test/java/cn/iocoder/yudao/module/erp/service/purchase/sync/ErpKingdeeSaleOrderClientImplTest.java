@@ -19,6 +19,90 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class ErpKingdeeSaleOrderClientImplTest {
 
+    private static String pageRow(String entryId, int quantity) {
+        return "[348963,\"X'S\",\"2020-01-01T00:00:00\",\"C\",\"A\",\"A\",\"C001\",\"Customer\",\"MAT\",\"Material\","
+                + quantity + ",10,11.3,13,113,\"PCS\",13,100,\"\",0,0,100,13,113,\""
+                + entryId + "\",\"\",\"PCS\",10]";
+    }
+
+    @Test
+    void identicalSourceEntryRepeatedAcrossPagesIsStoredOnce() {
+        var rest = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(rest).build();
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ValidateUser")))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.SET_COOKIE, "session=test"));
+        for (int i = 0; i < 2; i++) {
+            server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                    .andRespond(withSuccess("[" + pageRow("101", 10) + "]", MediaType.APPLICATION_JSON));
+        }
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+        var properties = buildProperties("https://k3.example.com/K3Cloud");
+        properties.getSaleOrder().setQueryLimit(1);
+        var orders = new ErpKingdeeSaleOrderClientImpl(rest).fetchSaleOrders(properties);
+        assertEquals(1, orders.get(0).getLines().size());
+        server.verify();
+    }
+
+    @Test
+    void sameSourceEntryWithChangedFieldsFailsVisibly() {
+        var rest = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(rest).build();
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ValidateUser")))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.SET_COOKIE, "session=test"));
+        for (int quantity : new int[]{10, 11}) {
+            server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                    .andRespond(withSuccess("[" + pageRow("101", quantity) + "]", MediaType.APPLICATION_JSON));
+        }
+        var properties = buildProperties("https://k3.example.com/K3Cloud");
+        properties.getSaleOrder().setQueryLimit(1);
+        var error = org.junit.jupiter.api.Assertions.assertThrows(
+                cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> new ErpKingdeeSaleOrderClientImpl(rest).fetchSaleOrders(properties));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("entry changed during pagination"));
+        server.verify();
+    }
+
+    @Test
+    void targetedBillQueryEscapesQuoteAndReadsCompleteHistoricalBill() {
+        var rest = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(rest).build();
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ValidateUser")))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.SET_COOKIE, "session=test"));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("FBillNo+%3D+%27X%27%27S%27")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FDate+%3E%3D"))))
+                .andRespond(withSuccess("[" + pageRow("101", 10) + "]", MediaType.APPLICATION_JSON));
+        var orders = new ErpKingdeeSaleOrderClientImpl(rest)
+                .fetchSaleOrdersByBillNo(buildProperties("https://k3.example.com/K3Cloud"), "X'S");
+        assertEquals("X'S", orders.get(0).getBillNo());
+        assertEquals(2020, orders.get(0).getBillDate().getYear());
+        server.verify();
+    }
+
+    @Test
+    void historicalSourceWithoutPricingUnitKeepsNullAndSourcePrice() {
+        var rest = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(rest).build();
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.AuthService.ValidateUser.common.kdsvc"))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.SET_COOKIE, "session=test"));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
+                .andRespond(withSuccess("""
+                [[110824,"881XSDD07479","2018-12-01T00:00:00","C","A","A","C001","Customer","MAT-001","Material",10,840.7,950,13,9500,"PCS",1093,8407,"",0,0,8407,1093,9500,"101","",null,0]]
+                """, MediaType.APPLICATION_JSON));
+        var orders = new ErpKingdeeSaleOrderClientImpl(rest).fetchAllSaleOrders(buildProperties("https://k3.example.com/K3Cloud"));
+        assertEquals(1, orders.size());
+        var line = orders.get(0).getLines().get(0);
+        org.junit.jupiter.api.Assertions.assertNull(line.getPriceUnitName());
+        assertEquals(new java.math.BigDecimal("840.7"), line.getPrice());
+        assertEquals(java.math.BigDecimal.ZERO, line.getPriceUnitQuantity());
+        server.verify();
+    }
+
     @Test
     void malformedPageIncludesSourceErrorAndOffset() {
         var rest = new RestTemplate();
@@ -105,6 +189,53 @@ class ErpKingdeeSaleOrderClientImplTest {
         assertEquals("B", orders.get(0).getCloseStatus());
         assertEquals("A", orders.get(0).getCancelStatus());
         assertEquals(LocalDateTime.of(2026, 1, 1, 9, 0, 0), orders.get(0).getSourceModifyTime());
+        server.verify();
+    }
+
+    @Test
+    void fullHistoryUsesStableIdentityCursorAcrossOrderAndEntryBoundaries() {
+        var rest = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(rest).build();
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ValidateUser")))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.SET_COOKIE, "session=test"));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("%22StartRow%22%3A0")))
+                .andRespond(withSuccess("[" + pageRow("101", 10) + "]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("FID+%3C+348963+or+%28FID+%3D+348963+and+FSaleOrderEntry_FEntryID+%3E+101")))
+                .andExpect(content().string(containsString("%22StartRow%22%3A0")))
+                .andRespond(withSuccess("[" + pageRow("102", 10) + "]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("FSaleOrderEntry_FEntryID+%3E+102")))
+                .andRespond(withSuccess("[" + pageRow("1", 10).replace("348963", "348962") + "]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("FID+%3C+348962")))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+        var properties = buildProperties("https://k3.example.com/K3Cloud");
+        properties.getSaleOrder().setQueryLimit(1);
+        var orders = new ErpKingdeeSaleOrderClientImpl(rest).fetchAllSaleOrders(properties);
+        assertEquals(2, orders.size());
+        assertEquals(2, orders.get(0).getLines().size());
+        assertEquals("348962", orders.get(1).getFid());
+        server.verify();
+    }
+
+    @Test
+    void fullHistoryRejectsSourceIgnoringTheIdentityCursor() {
+        var rest = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(rest).build();
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ValidateUser")))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.SET_COOKIE, "session=test"));
+        for (int i=0;i<2;i++) server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andRespond(withSuccess("[" + pageRow("101", 10) + "]", MediaType.APPLICATION_JSON));
+        var properties = buildProperties("https://k3.example.com/K3Cloud");
+        properties.getSaleOrder().setQueryLimit(1);
+        var error = org.junit.jupiter.api.Assertions.assertThrows(
+                cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> new ErpKingdeeSaleOrderClientImpl(rest).fetchAllSaleOrders(properties));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("source cursor did not advance"));
         server.verify();
     }
 

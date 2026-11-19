@@ -136,8 +136,10 @@ test('ERP guards every mutation before requests; permitted cron/status update re
     InfraJobStatusEnum: { NORMAL: 1, STOP: 2 },
     JobApi: { updateJobStatus: async (...args) => calls.push(['status', ...args]), updateJob: async job => calls.push(['update', job]) },
     ErpKingdeeConfigApi: {}, ErpKingdeeSyncApi: {}, formatDateTimeValue: x => x, toDateTimeValue: x => x
-  }, 'handleSave, handleSaveConnection, handleRunOnce, handleRunIncremental, handleRunFull, updateJobForAutoSync, form, dailyCronExpression')
-  for (const action of ['handleSave', 'handleSaveConnection', 'handleRunOnce', 'handleRunIncremental', 'handleRunFull']) await h.instance[action]({ syncType: 'PRODUCT' })
+  }, 'handleSave, handleSaveConnection, handleRunOnce, handleRunSync, updateJobForAutoSync, form, dailyCronExpression')
+  for (const action of ['handleSave', 'handleSaveConnection', 'handleRunOnce']) await h.instance[action]({ syncType: 'PRODUCT' })
+  await h.instance.handleRunSync({ syncType: 'PRODUCT' }, 'INCREMENTAL')
+  await h.instance.handleRunSync({ syncType: 'PRODUCT' }, 'FULL')
   assert.equal(calls.length, 5)
   assert.ok(calls.every(call => call[0] === 'error'))
   calls.length = 0

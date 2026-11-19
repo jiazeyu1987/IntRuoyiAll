@@ -26,7 +26,7 @@
       <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
       <template #tip>
         <div class="el-upload__tip text-center">
-          <span>支持钉钉在职员工 xls、xlsx 文件，含员工UserID、姓名、1至7级部门及部门主管；邮箱、工号、主部门ID可不提供。缺少主部门ID时按完整部门路径识别。</span>
+          <span>支持钉钉在职员工 xls、xlsx 文件，含员工UserID、姓名、1至7级部门及部门主管；邮箱、工号、主部门ID可不提供。缺少主部门ID时按完整部门路径识别。仅初始化用户、部门和部门负责人；人员直属主管需单独设置，重复导入不更新人员部门或岗位。</span>
         </div>
       </template>
     </el-upload>
@@ -85,13 +85,13 @@ const submitForm = async () => {
   try {
     const previewData = new FormData()
     previewData.append('file', file.raw)
-    await UserApi.importDingTalkUserPreview(previewData)
+    const preview = await UserApi.importDingTalkUserPreview(previewData)
     if (!dialogVisible.value || generation !== dialogGeneration || fileList.value[0] !== file ||
         getTenantId() !== tenant || getVisitTenantId() !== visitTenant || getAccessToken() !== token) {
       formLoading.value = false
       return
     }
-    const confirmed = await confirmUserImport(file.raw)
+    const confirmed = await confirmUserImport(file.raw, preview)
     if (!confirmed || !dialogVisible.value || generation !== dialogGeneration ||
         fileList.value[0] !== file || getTenantId() !== tenant || getVisitTenantId() !== visitTenant || getAccessToken() !== token) {
       formLoading.value = false

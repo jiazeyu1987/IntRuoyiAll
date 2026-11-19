@@ -141,6 +141,59 @@ class MesProRouteTreePatchTest {
         assertFalse(graph(result).containsKey("routeProcessCreates"));
         assertFalse(graph(result).containsKey("routeProcessUpdates"));
     }
+    @Test void editorEnrichmentDoesNotRequireUnchangedProcessesToExistInChild() {
+        JSONObject before = route(10, 1, 2), after = copy(before), child = route(20, 3, 4);
+        for (JSONObject node : graph(after).getJSONArray("nodes").toJavaList(JSONObject.class)) {
+            node.put("processName", "粗洗工序"); node.put("processCode", "GX-" + node.getLong("processId"));
+        }
+        config(after, 1).put("creator", "admin"); config(after, 1).put("updater", "admin");
+        graph(after).put("layouts", JSON.parseArray("[{routeProcessId:101,x:50,y:100}]"));
+        JSONObject result = MesProRouteTreePatch.apply(before, after, child);
+        assertEquals(copy(child), copy(result), "仅补充名称、审计字段和坐标时，不修改子流程或制造缺失工序冲突");
+    }
+    @Test void realProcessChangesStillBlockWhenEditorAlsoEnrichesNames() {
+        JSONObject before = route(10, 1, 2), after = copy(before);
+        graph(after).getJSONArray("nodes").getJSONObject(1).put("processName", "粗洗工序");
+        config(after, 2).put("overagePercent", 4);
+        assertTrue(assertThrows(RuntimeException.class,
+                () -> MesProRouteTreePatch.apply(before, after, route(20, 1))).getMessage()
+                .contains("缺少待修改工序或绑定"));
+    }
+    @Test void businessChangePreservesChildAuditFieldsAndProductBindings() {
+        JSONObject before = route(10, 1), after = copy(before), child = route(20, 1);
+        config(before, 1).put("creator", "parent-old");
+        config(after, 1).put("updater", "parent-new");
+        config(after, 1).put("overagePercent", 4);
+        config(child, 1).put("creator", "child-creator"); config(child, 1).put("updater", "child-updater");
+        child.getJSONObject("configSnapshots").put("products", JSON.parseArray("[{itemId:300}]"));
+        JSONObject result = MesProRouteTreePatch.apply(before, after, child);
+        assertEquals(4, config(result, 1).getIntValue("overagePercent"));
+        assertEquals("child-creator", config(result, 1).getString("creator"));
+        assertEquals("child-updater", config(result, 1).getString("updater"));
+        assertEquals(child.getJSONObject("configSnapshots").get("products"), result.getJSONObject("configSnapshots").get("products"));
+        assertEquals("R20", result.getString("routeCode"));
+    }
+    @Test void editorStringProcessIdsAreRestoredAsExactLongIdentities() {
+        long process = 2117828464390516946L;
+        JSONObject before = route(10, process), after = copy(before), child = route(20, process);
+        for (JSONObject root : List.of(after, child)) {
+            config(root, process).put("processId", String.valueOf(process));
+            config(root, process).put("parameterRules", JSON.parseArray("[{deviceId:7,parameterCode:'P',processId:'" + process + "'}]"));
+        }
+        config(after, process).put("overagePercent", 4);
+        JSONObject result = MesProRouteTreePatch.apply(before, after, child);
+        assertEquals(process, config(result, process).get("processId"));
+        assertEquals(process, config(result, process).getJSONArray("parameterRules").getJSONObject(0).get("processId"));
+        var validation = new MesProRouteSnapshotCanonicalizer().validateCandidate(20L, result.toJSONString());
+        assertTrue(validation.ready(), validation.blockers().toString());
+        assertInstanceOf(String.class, config(child, process).get("processId"), "不得原地改写历史快照");
+    }
+    @Test void invalidProcessIdentityIsNotSilentlyCoerced() {
+        JSONObject before = route(10, 1), after = copy(before);
+        config(after, 1).put("processId", "1.5");
+        assertTrue(assertThrows(RuntimeException.class,
+                () -> MesProRouteTreePatch.apply(before, after, route(20, 1))).getMessage().contains("工序标识无效"));
+    }
     private static JSONObject route(long routeId, long... processes) {
         JSONObject root = new JSONObject(true), configs = new JSONObject(true), graph = new JSONObject(true);
         root.put("routeId", routeId); root.put("routeCode", "R" + routeId); root.put("configSnapshots", configs);

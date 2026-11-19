@@ -1,7 +1,7 @@
 <template>
   <div class="pqc-leader-workbench-page" data-pqc-leader-workbench-page>
     <ContentWrap v-if="isPackagingLeader">
-      <h1 class="m-0 text-18px font-semibold">PQC包装组长</h1>
+      <h1 class="m-0 text-18px font-semibold">包装检验</h1>
       <p class="mb-0 mt-8px text-14px text-[var(--el-text-color-secondary)]">
         查看本租户全部在制活跃订单，管理自己的检验人员并复核其提交
       </p>
@@ -11,7 +11,7 @@
       leader-type="PQC"
       :show-leader-type-tabs="false"
       :show-pqc-module-tabs="true"
-      :title="isPackagingLeader ? 'PQC包装组长' : 'PQC组长'"
+      :title="isPackagingLeader ? '包装检验' : '检验组长'"
       subtitle="查看和复核 PQC 检验员提交、项目明细与过程检验汇集状态"
     />
   </div>

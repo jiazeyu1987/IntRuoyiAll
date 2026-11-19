@@ -177,6 +177,7 @@ public class DccRegistrationCertificateChangeService {
                 command.expectedRowVersion());
         validateFactsReplacement(state.snapshot(), command.structuredValues());
         ensureNoOpenChangeApproval(command.tenantId(), command.certificateId());
+        businessEventNotifier.validateChangeConfirmationRecipients(command.tenantId());
         Long eventId = insertLifecycleEvent(command, state, state.snapshotId(), EVENT_CHANGE_SUBMITTED,
                 payloadHash, selection.itemTypes());
         Long changeId = insertPendingChange(command, state, eventId, selection.itemTypes());
@@ -464,7 +465,7 @@ public class DccRegistrationCertificateChangeService {
                             ON v.id = c.current_version_id AND v.tenant_id = c.tenant_id
                           JOIN dcc_registration_certificate_snapshot s
                             ON s.id = c.current_snapshot_id AND s.tenant_id = c.tenant_id
-                         WHERE c.tenant_id = ? AND c.id = ?
+                         WHERE c.tenant_id = ? AND c.id = ? AND c.deleted = 0
                          FOR UPDATE
                         """, (rs, rowNum) -> new CertificateState(
                         rs.getLong("owner_company_id"),

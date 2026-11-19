@@ -9,8 +9,21 @@ const read = file => readFileSync(path.join(root, file), 'utf8')
 const compile = source => ts.transpileModule(source, {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
 }).outputText
-const display = {}
-Function('exports', compile(read('src/views/dcc/registration-certificate/shared/applicationDisplay.ts')))(display)
+const loadDisplay = (name) => {
+  const exports = {}
+  Function('exports', 'require', compile(read(`src/views/dcc/registration-certificate/shared/${name}.ts`)))(
+    exports, dependency => {
+      if(dependency==='@/utils/businessTime'){
+        const businessTime={};Function('exports',compile(read('src/utils/businessTime.ts')))(businessTime);return businessTime
+      }
+      return loadDisplay(dependency.replace('./', ''))
+    }
+  )
+  return exports
+}
+const display = loadDisplay('applicationDisplay')
+const { formatRegistrationCertificateDateTime, registrationCertificateDateTimeFormatter } = loadDisplay('dateTimeDisplay')
+const { formatRegistrationCertificateChangeType, formatRegistrationCertificateChangeValue } = loadDisplay('changeDisplay')
 
 test('application labels keep file-review states separate and format Beijing time across host zones', () => {
   assert.equal(display.formatApplicationCertificateType('DOMESTIC'), '国内')
@@ -24,6 +37,8 @@ test('application labels keep file-review states separate and format Beijing tim
       process.env.TZ = zone
       assert.equal(display.formatApplicationSubmittedAt(1794933475000), '2026-11-18 00:37:55')
       assert.equal(display.formatApplicationSubmittedAt('1794882709000'), '2026-11-17 10:31:49')
+      assert.equal(formatRegistrationCertificateDateTime(1794933475000), '2026-11-18 00:37:55')
+      assert.equal(registrationCertificateDateTimeFormatter({}, {}, 1794934500000), '2026-11-18 00:55:00')
     }
   } finally {
     if (originalZone === undefined) delete process.env.TZ
@@ -31,6 +46,30 @@ test('application labels keep file-review states separate and format Beijing tim
   }
   assert.equal(display.formatApplicationSubmittedAt('bad'), '提交时间格式异常')
   assert.equal(display.formatApplicationSubmittedAt(null), '未返回提交时间')
+})
+
+test('registration history renders frozen facts and production relation with business labels', () => {
+  const value = (data) => JSON.stringify({ value: typeof data === 'string' ? data : JSON.stringify(data) })
+  const domestic = value({ certificateType: 'DOMESTIC', certificateStatus: 'VALID', ownProduct: true,
+    certificateNo: 'SIM-001', projectProduct: { productName: '按压式压力泵', productCode: '0313170202', bindings: [{ relationId: 12 }] },
+    remark: '变更后备注' })
+  const result = formatRegistrationCertificateChangeValue('CERTIFICATE_INFORMATION', domestic)
+  assert.equal(formatRegistrationCertificateChangeType('CERTIFICATE_INFORMATION'), '注册证信息')
+  assert.match(result, /注册证类型：国内\n是否瑛泰产品：是/)
+  assert.match(result, /关联产品：按压式压力泵/)
+  assert.match(result, /证件状态：有效\n备注：变更后备注/)
+  assert.doesNotMatch(result, /DOMESTIC|VALID|bindings|\{|记录解析失败/)
+  const ce = value({ certificateType: 'CE', certificateStatus: 'SUSPENDED', ownProduct: false,
+    ceCertificates: [{ revision: '2', certificateNo: 'CE-02', issueDate: '2026-11-18' }] })
+  assert.match(formatRegistrationCertificateChangeValue('CERTIFICATE_INFORMATION', ce), /证件状态：暂停[\s\S]*Rev. 2 \/ 证书编号：CE-02/)
+  const enterpriseJson = JSON.stringify([{ enterpriseName: '模拟受托企业' }])
+  assert.equal(formatRegistrationCertificateChangeValue('PRODUCTION_RELATION', value([true, false, enterpriseJson])),
+    '委托生产：是\n自行生产：否\n受托企业：模拟受托企业')
+  assert.match(formatRegistrationCertificateChangeValue('PRODUCTION_ADDRESS', JSON.stringify({
+    value: '新地址', entrustedProduction: true, selfProduction: false, entrustedEnterprisesJson: enterpriseJson
+  })), /^生产地址：新地址\n委托生产：是/)
+  assert.equal(formatRegistrationCertificateChangeValue('OTHER_CONTENT', value('保留说明')), '保留说明')
+  assert.match(formatRegistrationCertificateChangeValue('CERTIFICATE_INFORMATION', value('{invalid')), /^记录解析失败/)
 })
 
 const source = read('src/views/dcc/registration-certificate/detail/index.vue').split('<script setup lang="ts">')[1].split('</script>')[0]

@@ -74,8 +74,8 @@ export function createPqcWord(
     paragraph(`生效日期：${draft.effectiveDate ?? ''}`),
     paragraph(
       common
-        ? '本文件包含完整编辑数据，可在简易通用解析中通过“导入 Word”还原，无需选择项目代码。'
-        : '本文件包含完整编辑数据，可在简易PQC解析中选择原产品，通过“导入检验规程”还原。'
+        ? '本文件包含完整编辑数据，可在通用编制中通过“导入 Word”还原，无需选择项目代码。'
+        : '本文件包含完整编辑数据，可在检验编制中选择原产品，通过“导入检验规程”还原。'
     ),
     paragraph(
       `末检适用：${draft.finalInspectionApplicable ? '是' : '否'}；不适用依据：${draft.finalInspectionNotApplicableReason ?? ''}`
@@ -172,7 +172,7 @@ export function readPqcWord(
     snapshot.format !== expectedFormat ||
     (snapshot.draft?.ownerModule && snapshot.draft.ownerModule !== ownerModule)
   )
-    throw new Error('规程类型不一致，请在对应的简易PQC解析或简易通用解析页面导入')
+    throw new Error('规程类型不一致，请在对应的检验编制或通用编制页面导入')
   if (snapshot.tenantId !== tenantId)
     throw new Error('此 Word 属于其他租户，不能还原设备及产品绑定')
   if (ownerModule === 'MES_QA' && snapshot.draft?.dccProjectCodeId !== projectId)

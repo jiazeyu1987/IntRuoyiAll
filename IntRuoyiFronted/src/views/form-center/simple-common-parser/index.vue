@@ -4,7 +4,7 @@
       v-model:project-id="projectId"
       :requires-project="false"
       show-project
-      title="简易通用解析"
+      title="通用编制"
       import-accept=".doc,.docx"
       :projects="projects"
       :project-loading="projectLoading"

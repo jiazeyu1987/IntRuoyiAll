@@ -197,48 +197,6 @@ WHERE NOT EXISTS (
     SELECT 1 FROM act_ge_bytearray b WHERE b.ID_ = tenant_scope.bytearray_id
 );
 
-UPDATE act_ge_bytearray b
-JOIN (
-    SELECT 'rbc-approval-model-src-tenant-1' AS bytearray_id,
-           @route_version_approval_bpmn_tenant_1 AS bpmn_xml
-    UNION ALL
-    SELECT 'rbc-approval-bpmn-tenant-1' AS bytearray_id,
-           @route_version_approval_bpmn_tenant_1 AS bpmn_xml
-    UNION ALL
-    SELECT 'rbc-approval-model-src-tenant-122' AS bytearray_id,
-           @route_version_approval_bpmn_tenant_122 AS bpmn_xml
-    UNION ALL
-    SELECT 'rbc-approval-bpmn-tenant-122' AS bytearray_id,
-           @route_version_approval_bpmn_tenant_122 AS bpmn_xml
-) seed
-  ON seed.bytearray_id = b.ID_
-SET b.BYTES_ = CONVERT(seed.bpmn_xml USING BINARY),
-    b.REV_ = COALESCE(b.REV_, 0) + 1
-WHERE LOCATE('submittedBy', CONVERT(b.BYTES_ USING utf8mb4)) > 0
-   OR LOCATE('candidateStrategy', CONVERT(b.BYTES_ USING utf8mb4)) = 0
-   OR LOCATE('BPMNDiagram', CONVERT(b.BYTES_ USING utf8mb4)) = 0
-   OR (
-       b.ID_ IN ('rbc-approval-model-src-tenant-122', 'rbc-approval-bpmn-tenant-122')
-       AND LOCATE('<flowable:candidateStrategy>10</flowable:candidateStrategy>', CONVERT(b.BYTES_ USING utf8mb4)) > 0
-       AND LOCATE(CAST(@route_version_admin_role_id_tenant_122 AS CHAR), CONVERT(b.BYTES_ USING utf8mb4)) > 0
-   );
-
-UPDATE act_re_model m
-JOIN (
-    SELECT 'rbc-approval-model-tenant-1' AS model_id,
-           CONCAT('{"icon":null,"description":"MES route batch change approval","type":10,"formType":20,"formId":null,"formCustomCreatePath":"/mes/pro/craft","formCustomViewPath":"/mes/pro/craft","visible":false,"startUserIds":null,"startDeptIds":null,"managerUserIds":[', @route_version_admin_user_id_tenant_1, '],"sort":1784083200000,"allowCancelRunningProcess":null,"allowWithdrawTask":null,"processIdRule":null,"autoApprovalType":null,"titleSetting":{"enable":true,"title":"工艺路线批量变更 {changeId}"},"summarySetting":{"enable":true,"summary":["changeId","affectedRouteCount","changeReason"]},"processBeforeTriggerSetting":null,"processAfterTriggerSetting":null,"taskBeforeTriggerSetting":null,"taskAfterTriggerSetting":null,"printTemplateSetting":null}') AS meta_info
-    UNION ALL
-    SELECT 'rbc-approval-model-tenant-122' AS model_id,
-           CONCAT('{"icon":null,"description":"MES route batch change approval","type":10,"formType":20,"formId":null,"formCustomCreatePath":"/mes/pro/craft","formCustomViewPath":"/mes/pro/craft","visible":false,"startUserIds":null,"startDeptIds":null,"managerUserIds":[', @route_version_admin_user_id_tenant_122, '],"sort":1784083200000,"allowCancelRunningProcess":null,"allowWithdrawTask":null,"processIdRule":null,"autoApprovalType":null,"titleSetting":{"enable":true,"title":"工艺路线批量变更 {changeId}"},"summarySetting":{"enable":true,"summary":["changeId","affectedRouteCount","changeReason"]},"processBeforeTriggerSetting":null,"processAfterTriggerSetting":null,"taskBeforeTriggerSetting":null,"taskAfterTriggerSetting":null,"printTemplateSetting":null}') AS meta_info
-) seed
-  ON seed.model_id = m.ID_
-SET m.META_INFO_ = seed.meta_info,
-    m.LAST_UPDATE_TIME_ = NOW(3),
-    m.REV_ = COALESCE(m.REV_, 0) + 1
-WHERE m.KEY_ = 'mes-route-batch-change-approval-v1'
-  AND (LOCATE('"managerUserIds":null', m.META_INFO_) > 0
-       OR LOCATE('"managerUserIds":[', m.META_INFO_) = 0);
-
 INSERT INTO act_re_procdef (
     ID_, REV_, CATEGORY_, NAME_, KEY_, VERSION_, DEPLOYMENT_ID_, RESOURCE_NAME_, DGRM_RESOURCE_NAME_,
     DESCRIPTION_, HAS_START_FORM_KEY_, HAS_GRAPHICAL_NOTATION_, SUSPENSION_STATE_, TENANT_ID_,
@@ -262,11 +220,6 @@ WHERE NOT EXISTS (
     WHERE p.KEY_ = 'mes-route-batch-change-approval-v1'
       AND p.TENANT_ID_ = tenant_scope.tenant_id_text
 );
-
-UPDATE act_re_procdef
-SET HAS_GRAPHICAL_NOTATION_ = 1
-WHERE KEY_ = 'mes-route-batch-change-approval-v1'
-  AND TENANT_ID_ IN ('1', '122');
 
 INSERT INTO bpm_process_definition_info (
     process_definition_id, model_id, model_type, category, icon, description, form_type, form_id,

@@ -216,14 +216,23 @@
                   <el-button
                     type="warning"
                     link
-                    :loading="fullSyncingType === row.syncType"
+                    :loading="syncingType === row.syncType && syncingMode === 'FULL'"
                     :disabled="
                       !canRunSync ||
-                      Boolean(fullSyncingType)
+                      Boolean(syncingType)
                     "
-                    @click="handleRunFull(row)"
+                    @click="handleRunSync(row, 'FULL')"
                   >
                     全量同步
+                  </el-button>
+                  <el-button
+                    type="primary"
+                    link
+                    :loading="syncingType === row.syncType && syncingMode === 'INCREMENTAL'"
+                    :disabled="!canRunSync || Boolean(syncingType)"
+                    @click="handleRunSync(row, 'INCREMENTAL')"
+                  >
+                    增量同步
                   </el-button>
                 </template>
               </el-table-column>
@@ -565,7 +574,8 @@ const saving = ref(false)
 const connectionSaving = ref(false)
 const runLoading = ref(false)
 const runningJobLoading = ref(false)
-const fullSyncingType = ref('')
+const syncingType = ref('')
+const syncingMode = ref<'FULL' | 'INCREMENTAL'>('FULL')
 const loadError = ref('')
 const jobsLoaded = ref(false)
 const latestRunsLoaded = ref(false)
@@ -691,7 +701,7 @@ const syncTableRows = computed<ProfileErpSyncTableRow[]>(() =>
 )
 
 const isSyncRowSelectable = () =>
-  !loading.value && !saving.value && !fullSyncingType.value
+  !loading.value && !saving.value && !syncingType.value
 
 const formatLatestSyncStatus = (latestRun?: ErpKingdeeSyncRunVO) => {
   if (!latestRunsLoaded.value) return latestRunsError.value ? '运行事实查询失败' : '运行事实未知'
@@ -1036,25 +1046,31 @@ const waitForSubmittedRun = async (
   return false
 }
 
-const handleRunFull = async (row: ProfileErpSyncTableRow) => {
+const handleRunSync = async (row: ProfileErpSyncTableRow, mode: 'FULL' | 'INCREMENTAL') => {
   if (!requireCapability(canRunSync.value)) return
-  fullSyncingType.value = row.syncType
+  syncingType.value = row.syncType
+  syncingMode.value = mode
+  const modeName = mode === 'FULL' ? '全量' : '增量'
   try {
     const previousRunId = latestRunBySyncType.value[row.syncType]?.id
     const submittedAt = Date.now()
-    await ErpKingdeeSyncApi.runFullSync(row.syncType)
+    if (mode === 'FULL') {
+      await ErpKingdeeSyncApi.runFullSync(row.syncType)
+    } else {
+      await ErpKingdeeSyncApi.runIncrementalSync(row.syncType)
+    }
     const runVisible = await waitForSubmittedRun(row.syncType, previousRunId, submittedAt)
     if (runVisible) {
-      ElMessage.success(`已提交 ${row.erpTableName} 单表 ERP 全量同步任务`)
+      ElMessage.success(`已提交 ${row.erpTableName} 单表 ERP ${modeName}同步任务`)
     } else {
       ElMessage.warning(
-        `已提交 ${row.erpTableName} 全量同步，但运行记录尚未生成，请检查调度任务状态`
+        `已提交 ${row.erpTableName} ${modeName}同步，但运行记录尚未生成，请检查调度任务状态`
       )
     }
   } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '全量同步失败'))
+    ElMessage.error(resolveErrorMessage(error, `${modeName}同步失败`))
   } finally {
-    fullSyncingType.value = ''
+    syncingType.value = ''
   }
 }
 

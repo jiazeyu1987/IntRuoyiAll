@@ -54,6 +54,36 @@ class MesProRouteResourceTransferServiceTest {
             }
         } finally { cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear(); }
     }
+    @Test void objectSnapshotCollectionsSurviveActualExportAndWorkbookReadback() throws Exception {
+        Map<String, Object> route = new LinkedHashMap<>();
+        for (String column : MesProRouteTransferSchema.TABLES.get("mes_pro_route").columns()) route.put(column, null);
+        route.put("id", 101L); route.put("code", "ROUTE-001");
+        Map<String, Object> version = new LinkedHashMap<>();
+        for (String column : MesProRouteTransferSchema.TABLES.get("mes_pro_route_version").columns()) version.put(column, null);
+        version.put("id", 201L); version.put("route_id", 101L);
+        version.put("route_snapshot_json", "{\"configSnapshots\":{\"products\":{},\"productBoms\":{},\"scheduleConfigs\":{}}}");
+        var jdbc = org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class, call -> {
+            if (call.getMethod().getName().equals("queryForList")) {
+                String sql = call.getArgument(0);
+                if (sql.contains("WHERE id=?")) return List.of(sql.contains("FROM mes_pro_route_version ") ? version : route);
+                if (sql.contains("FROM mes_pro_route_version ")) return List.of(201L);
+                return List.of();
+            }
+            return org.mockito.Answers.RETURNS_DEFAULTS.answer(call);
+        });
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "jdbc", jdbc);
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(186L);
+        try (Workbook workbook = new XSSFWorkbook(); var bytes = new java.io.ByteArrayOutputStream()) {
+            service.writeResources(workbook, List.of(101L));
+            workbook.write(bytes);
+            try (Workbook reopened = WorkbookFactory.create(new java.io.ByteArrayInputStream(bytes.toByteArray()))) {
+                JSONObject restored = service.readResources(reopened).get("mes_pro_route_version:201");
+                JSONObject configs = JSON.parseObject(restored.getString("route_snapshot_json")).getJSONObject("configSnapshots");
+                for (String key : List.of("products", "productBoms", "scheduleConfigs")) assertTrue(configs.getJSONObject(key).isEmpty());
+                assertNotNull(restored.getString("route_snapshot_sha256"));
+            }
+        } finally { cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear(); }
+    }
     private static JSONObject process() {
         JSONObject row = new JSONObject(true);
         for (String column : MesProRouteTransferSchema.TABLES.get("mes_pro_process").columns()) row.put(column, null);

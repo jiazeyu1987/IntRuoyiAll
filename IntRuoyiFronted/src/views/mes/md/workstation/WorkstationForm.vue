@@ -265,7 +265,7 @@ const handleLocationChange = async (locationId?: number) => {
 }
 
 /** 打开弹窗 */
-const open = async (type: string, id?: number) => {
+const open = async (type: string, id?: number | string) => {
   dialogVisible.value = true
   dialogTitle.value = t('action.' + type)
   formType.value = type

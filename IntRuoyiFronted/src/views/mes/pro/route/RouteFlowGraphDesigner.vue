@@ -3096,8 +3096,12 @@ const buildProcessDetailTextLink = (
 }
 
 const normalizePositiveProcessId = (value?: number | string | null) => {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+  // 工作站跳转保留 Long 工序编号，避免在进入列表前丢失精度。
+  if (typeof value === 'string') {
+    const text = value.trim()
+    return /^[1-9]\d*$/.test(text) ? text : undefined
+  }
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : undefined
 }
 
 const buildWorkstationProcessQuery = (processId?: number | string | null) => {

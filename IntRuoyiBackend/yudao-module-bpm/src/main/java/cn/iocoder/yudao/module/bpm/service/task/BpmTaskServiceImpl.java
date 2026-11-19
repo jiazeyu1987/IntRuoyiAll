@@ -633,6 +633,9 @@ public class BpmTaskServiceImpl implements BpmTaskService {
             processVariables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_LAST_APPROVER_USER_ID, userId);
         }
 
+        // 与最终审批人一同保存本次真实意见，供流程结束事件留档；空意见同样覆盖前一节点意见。
+        processVariables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_REASON, reqVO.getReason());
+
         // 4. 校验并处理 APPROVE_USER_SELECT 当前审批人，选择下一节点审批人的逻辑
         Map<String, Object> variables = validateAndSetNextAssignees(task.getTaskDefinitionKey(), processVariables,
                 bpmnModel, reqVO.getNextAssignees(), instance);

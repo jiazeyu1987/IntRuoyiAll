@@ -1,6 +1,10 @@
 package cn.iocoder.yudao.module.mes.service.pro.craft;
 
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalOrchestrator;
+import org.springframework.beans.factory.ObjectProvider;
+import org.mockito.ArgumentCaptor;
 import cn.iocoder.yudao.module.bpm.businessapproval.model.*;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.craft.MesProCraftChangeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
@@ -60,6 +64,23 @@ class MesProBatchChangeApprovalExecutorTest {
         request=BusinessApprovalRequest.builder().requestId(80L).tenantId(1L).context(context).processInstanceId("one-process").build();
     }
     @AfterEach void clear(){TenantContextHolder.clear();}
+    @Test @SuppressWarnings("unchecked") void thousandCandidatesSubmitExactlyOneBusinessApprovalRequest() {
+        populate(1000);
+        var approvals=mock(BusinessApprovalOrchestrator.class);
+        ObjectProvider<BusinessApprovalOrchestrator> provider=mock(ObjectProvider.class);
+        when(provider.getObject()).thenReturn(approvals);
+        ReflectionTestUtils.setField(executor,"orchestrator",provider);
+        try(var security=mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(7L);
+            executor.submit(9L);
+        }
+        var captured=ArgumentCaptor.forClass(BusinessApprovalContext.class);
+        verify(approvals,times(1)).submit(captured.capture());
+        assertEquals("ROUTE_BATCH_CHANGE",captured.getValue().getObjectType());
+        assertEquals("9",captured.getValue().getObjectId());
+        assertEquals(1000,captured.getValue().getVariables().get("affectedRouteCount"));
+        assertEquals(MesProBatchChangeApprovalExecutor.fingerprint(change),captured.getValue().getVariables().get("changeFingerprint"));
+    }
     @Test void thousandRoutesShareOneRequestAndOneInstanceUntilOneApprovalPublishesAll() {
         populate(1000);executor.precheck(context);executor.markPending(context,request);
         assertEquals(80L,change.getApprovalRequestId());assertEquals("PENDING",change.getStatus());

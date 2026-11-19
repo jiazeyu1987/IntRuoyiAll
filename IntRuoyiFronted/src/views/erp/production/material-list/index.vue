@@ -28,6 +28,9 @@
         <SyncByCodeButton sync-type="PRODUCTION_MATERIAL_LIST" code-label="单据编号" :on-synced="handleCodeSynced" />
         <el-button v-if="queryParams.syncCode" plain @click="clearCodeSyncFilter">显示全部</el-button>
         <RecentFullSyncButton sync-type="PRODUCTION_MATERIAL_LIST" />
+        <el-button v-hasPermi="['erp:data-material:operate']" :loading="refreshingWorkOrderLinks" @click="refreshWorkOrderLinks">
+          更新工单关联
+        </el-button>
       </template>
       <template #table="{ resolveRows }">
         <el-table
@@ -392,6 +395,18 @@ const detailFilters: TableQuickFilterDefinition[] = [
 defineOptions({ name: 'ErpProductionMaterialList' })
 
 const message = useMessage()
+const refreshingWorkOrderLinks = ref(false)
+const refreshWorkOrderLinks = async () => {
+  if (refreshingWorkOrderLinks.value) return
+  refreshingWorkOrderLinks.value = true
+  try {
+    const updated = await ErpProductionMaterialListApi.refreshWorkOrderLinks()
+    message.success(`已更新 ${updated} 条用料清单的工单关联`)
+    await getList()
+  } finally {
+    refreshingWorkOrderLinks.value = false
+  }
+}
 const route = useRoute()
 const router = useRouter()
 const listRequest = useLatestListRequest()

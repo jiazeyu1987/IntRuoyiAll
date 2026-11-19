@@ -466,6 +466,18 @@ export const deleteRegistrationCertificateDraft = async (
   })
 }
 
+export const deleteRegistrationCertificate = async (
+  id: number | string,
+  expectedRowVersion: number,
+  idempotencyKey: string
+) => {
+  return await request.delete<number | string>({
+    url: `/dcc/registration-certificates/${id}`,
+    params: { expectedRowVersion },
+    headers: { 'Idempotency-Key': idempotencyKey }
+  })
+}
+
 export const formalizeRegistrationCertificate = async (
   id: number | string,
   data: DccRegistrationCertificateFormalizeReqVO,

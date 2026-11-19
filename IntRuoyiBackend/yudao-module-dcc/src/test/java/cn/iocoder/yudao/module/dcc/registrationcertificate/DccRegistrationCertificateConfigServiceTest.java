@@ -54,7 +54,7 @@ class DccRegistrationCertificateConfigServiceTest extends BaseDbUnitTest {
 
     private static Map<String, List<Long>> recipients() {
         return Map.of("T_30", List.of(101L, 102L), "T_8", List.of(102L),
-                "T_2", List.of(103L), "T_1", List.of(104L));
+                "T_2", List.of(103L), "T_1", List.of(104L), "CHANGE_CONFIRMATION", List.of(104L));
     }
 
     @Test

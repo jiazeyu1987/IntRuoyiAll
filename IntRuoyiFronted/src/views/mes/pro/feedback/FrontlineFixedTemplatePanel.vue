@@ -2256,7 +2256,7 @@ const selectedProductionOrderQuantityLabel = computed(() =>
 
 const formatProductionSubmittedQuantity = (quantity: number) => {
   if (!Number.isFinite(quantity) || quantity < 0) {
-    throw new Error(`一线生产工序已提交数量无效：${quantity}`)
+    throw new Error(`生产作业工序已提交数量无效：${quantity}`)
   }
   return String(quantity)
 }
@@ -5275,10 +5275,10 @@ const handlePqcFullscreenToggle = async () => {
 const enterProductionFullscreen = async () => {
   const panel = frontlinePanelRef.value
   if (!panel) {
-    throw new Error('一线生产填写最大化区域尚未加载。')
+    throw new Error('生产作业填写最大化区域尚未加载。')
   }
   if (typeof panel.requestFullscreen !== 'function') {
-    throw new Error('当前浏览器不支持一线生产填写最大化。')
+    throw new Error('当前浏览器不支持生产作业填写最大化。')
   }
   await panel.requestFullscreen()
   syncPqcFullscreenState()
@@ -5290,7 +5290,7 @@ const exitProductionFullscreen = async () => {
     return
   }
   if (typeof document.exitFullscreen !== 'function') {
-    throw new Error('当前浏览器不支持退出一线生产填写最大化。')
+    throw new Error('当前浏览器不支持退出生产作业填写最大化。')
   }
   await document.exitFullscreen()
   syncPqcFullscreenState()
@@ -5604,7 +5604,7 @@ const handleNavigatePqcProcess = async (direction: -1 | 1) => {
 
 const handleSelectEmployee = async (employee: FrontlineEmployeeCandidateVO) => {
   if (isPqcMode.value && !isCurrentLoginEmployee(employee)) {
-    showFrontlineError('一线PQC员工必须使用当前登录账号。')
+    showFrontlineError('过程检验员工必须使用当前登录账号。')
     return
   }
   if (isPqcMode.value && pqcSelectedTaskReadonly.value) {
@@ -6367,7 +6367,7 @@ const assertFrontlineFormalSubmitContext = (formalContext: FrontlineFormalSubmit
 const buildFrontlineProductionSubmitIdempotencyKey = () => {
   const submitIdempotencyKey = `frontline-submit-${productionSubmitDraftKey.value}`
   if (submitIdempotencyKey.length > FRONTLINE_PRODUCTION_IDEMPOTENCY_KEY_MAX_LENGTH) {
-    throw new Error('一线生产提交幂等键超过服务端长度限制，无法提交。')
+    throw new Error('生产作业提交幂等键超过服务端长度限制，无法提交。')
   }
   return submitIdempotencyKey
 }
@@ -7329,7 +7329,7 @@ const initializePqcReturnedSelection = async () => {
       String(option.returnedSubmission.row.eventId) === String(route.query.eventId) &&
       String(option.returnedSubmission.row.rejectedReviewId) === String(route.query.rejectedReviewId)
     ).map(option => ({ process, option })))
-  if (matches.length !== 1) throw new Error('原检验已重新提交或退回轮次已变化，请从一线PQC打开订单查看。')
+  if (matches.length !== 1) throw new Error('原检验已重新提交或退回轮次已变化，请从检验填报打开订单查看。')
   const { process, option } = matches[0]
   invalidateFrontlinePqcProcessCacheForActiveOrder(deviceState, order.activeOrderId)
   await handleSelectActiveOrder(order)

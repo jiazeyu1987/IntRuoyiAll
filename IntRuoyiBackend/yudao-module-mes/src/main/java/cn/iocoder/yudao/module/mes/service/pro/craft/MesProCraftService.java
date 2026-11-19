@@ -31,7 +31,6 @@ public class MesProCraftService {
     @Resource private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
     @Resource private ObjectProvider<MesProRouteCandidateConfigService> candidateConfig;
     @Resource private ObjectProvider<MesProRouteVersionWorkflowService> workflow;
-    @Resource private ObjectProvider<MesProRouteVersionBusinessApprovalSubmitService> submitService;
     @Resource private ObjectProvider<MesProBatchChangeApprovalExecutor> batchApproval;
     @Resource private ObjectProvider<MesProRouteVersionLifecycleService> lifecycle;
     @Resource private MesProRouteControlledContentAdapter platform;

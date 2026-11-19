@@ -40,6 +40,7 @@ public class BpmSupervisorHandoverService {
             BpmTaskCandidateStrategyEnum.START_USER_DEPT_LEADER.getStrategy(),
             BpmTaskCandidateStrategyEnum.START_USER_DEPT_LEADER_MULTI.getStrategy(),
             BpmTaskCandidateStrategyEnum.FORM_DEPT_LEADER.getStrategy());
+    @Resource private cn.iocoder.yudao.module.bpm.framework.flowable.core.candidate.BpmTaskCandidateInvoker candidateInvoker;
     @Resource private TaskService taskService;
     @Resource private RuntimeService runtimeService;
     @Resource private RepositoryService repositoryService;
@@ -106,7 +107,7 @@ public class BpmSupervisorHandoverService {
             throw exception(HANDOVER_REJECTED, "接收人不能与原处理人相同");
         }
         var process = runtimeService.createProcessInstanceQuery().processInstanceId(task.getProcessInstanceId())
-                .processInstanceTenantId(tenant.toString()).singleResult();
+                .processInstanceTenantId(tenant.toString()).includeProcessVariables().singleResult();
         if (process == null || Objects.equals(process.getStartUserId(), target.getId().toString())) {
             throw exception(HANDOVER_REJECTED, "接收人不能是申请人，或流程已结束");
         }
@@ -119,6 +120,12 @@ public class BpmSupervisorHandoverService {
             if (!Objects.equals(relation.getSupervisorUserId(), target.getId())) {
                 throw exception(HANDOVER_REJECTED, "员工的直属主管已变化，请重新读取后办理交接");
             }
+        }
+        var model = repositoryService.getBpmnModel(task.getProcessDefinitionId());
+        Set<Long> eligible = candidateInvoker.calculateUsersByActivity(model, task.getTaskDefinitionKey(),
+                Long.valueOf(process.getStartUserId()), task.getProcessDefinitionId(), process.getProcessVariables());
+        if (eligible == null || !eligible.contains(target.getId())) {
+            throw exception(HANDOVER_REJECTED, "接收人不具备当前审批节点的主管或候选资格，请先维护组织授权");
         }
         var actor = adminUserApi.getUser(actorId);
         if (actor == null) throw exception(HANDOVER_REJECTED, "操作人不存在");

@@ -174,6 +174,87 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testImportExportedUsers_createsMissingDepartmentOnceAndPersistsUsers() throws Exception {
+        when(deptService.createDept(any())).thenAnswer(invocation -> {
+            var request = invocation.getArgument(0,
+                    cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptSaveReqVO.class);
+            DeptDO dept = new DeptDO().setName(request.getName()).setParentId(request.getParentId())
+                    .setStatus(request.getStatus()).setSort(request.getSort());
+            deptMapper.insert(dept);
+            return dept.getId();
+        });
+        when(passwordEncoder.encode(TEST_INIT_PASSWORD)).thenReturn("encoded-password");
+        var controller = new cn.iocoder.yudao.module.system.controller.admin.user.UserController();
+        ReflectionTestUtils.setField(controller, "userService", userService);
+        var result = controller.importExcel(exportedDepartmentFile(), false).getData();
+        assertEquals(List.of("departmentuser01", "departmentuser02"), result.getCreateUsernames());
+        assertTrue(result.getFailureUsernames().isEmpty());
+        var departments = deptMapper.selectList();
+        assertEquals(1, departments.size());
+        var dept = departments.get(0);
+        assertEquals("来料检IQC", dept.getName());
+        assertEquals(DeptDO.PARENT_ID_ROOT, dept.getParentId());
+        assertEquals(CommonStatusEnum.ENABLE.getStatus(), dept.getStatus());
+        assertEquals(dept.getId(), userMapper.selectByUsername("departmentuser01").getDeptId());
+        assertEquals(dept.getId(), userMapper.selectByUsername("departmentuser02").getDeptId());
+        verify(deptService, times(1)).createDept(any());
+    }
+
+    @Test
+    public void testImportExportedUsers_creationFailureRollsBackDepartmentsAndUsers() {
+        when(deptService.createDept(any())).thenAnswer(invocation -> {
+            DeptDO dept = new DeptDO().setName("来料检IQC").setParentId(0L).setSort(0).setStatus(0);
+            deptMapper.insert(dept);
+            return dept.getId();
+        });
+        when(passwordEncoder.encode(TEST_INIT_PASSWORD)).thenThrow(new IllegalStateException("encode failed"));
+        var controller = new cn.iocoder.yudao.module.system.controller.admin.user.UserController();
+        ReflectionTestUtils.setField(controller, "userService", userService);
+        assertThrows(IllegalStateException.class, () -> controller.importExcel(exportedDepartmentFile(), false));
+        assertTrue(deptMapper.selectList().isEmpty());
+        assertTrue(userMapper.selectList().isEmpty());
+    }
+
+    @Test
+    public void testImportExportedUsers_ambiguousDepartmentsRejectBeforeWrites() {
+        when(deptService.getDeptList(any(cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptListReqVO.class)))
+                .thenReturn(List.of(new DeptDO().setId(80L).setName("来料检IQC"),
+                        new DeptDO().setId(81L).setName("来料检IQC")));
+        var controller = new cn.iocoder.yudao.module.system.controller.admin.user.UserController();
+        ReflectionTestUtils.setField(controller, "userService", userService);
+        var error = assertThrows(ServiceException.class,
+                () -> controller.importExcel(exportedDepartmentFile(), false));
+        assertTrue(error.getMessage().contains("存在重名"));
+        verify(deptService, never()).createDept(any());
+        assertTrue(userMapper.selectList().isEmpty());
+    }
+
+    @Test
+    public void testImportExportedUsers_skippedExistingAccountDoesNotCreateDepartment() throws Exception {
+        AdminUserDO existing = randomAdminUserDO(user -> {
+            user.setUsername("departmentuser01");
+            user.setCanonicalUsername("departmentuser01");
+            user.setTenantId(1L);
+        });
+        userMapper.insert(existing);
+        var row = UserImportExcelVO.builder().username("departmentuser01").nickname("操作员")
+                .deptName("新部门").build();
+        var result = userService.importUserList(List.of(row), false);
+        assertEquals(USER_USERNAME_EXISTS.getMsg(), result.getFailureUsernames().get("departmentuser01"));
+        verify(deptService, never()).createDept(any());
+        assertEquals(existing.getDeptId(), userMapper.selectById(existing.getId()).getDeptId());
+    }
+
+    private org.springframework.mock.web.MockMultipartFile exportedDepartmentFile() {
+        var output = new ByteArrayOutputStream();
+        cn.idev.excel.FastExcelFactory.write(output).sheet("数据").doWrite(List.of(
+                List.of("用户名称", "用户昵称", "部门名称", "用户编号"),
+                List.of("departmentuser01", "操作员甲", "来料检IQC", "9908100250"),
+                List.of("departmentuser02", "操作员乙", "来料检IQC", "9908100251")));
+        return new org.springframework.mock.web.MockMultipartFile("file", output.toByteArray());
+    }
+
+    @Test
     public void testCreatUser_success() {
         // 准备参数
         UserSaveReqVO reqVO = randomPojo(UserSaveReqVO.class, o -> {
@@ -1359,6 +1440,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     public void testImportUserList_01() {
         // 准备参数
         UserImportExcelVO importUser = randomPojo(UserImportExcelVO.class, o -> {
+            o.setDeptName(null); // 编号模板不携带部门名称
             o.setEmail(randomEmail());
             o.setMobile(randomMobile());
         });
@@ -1381,6 +1463,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     public void testImportUserList_02() {
         // 准备参数
         UserImportExcelVO importUser = randomPojo(UserImportExcelVO.class, o -> {
+            o.setDeptName(null); // 编号模板不携带部门名称
             o.setStatus(randomEle(CommonStatusEnum.values()).getStatus()); // 保证 status 的范围
             o.setSex(randomEle(SexEnum.values()).getSex()); // 保证 sex 的范围
             o.setEmail(randomEmail());
@@ -1417,6 +1500,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         userMapper.insert(dbUser);
         // 准备参数
         UserImportExcelVO importUser = randomPojo(UserImportExcelVO.class, o -> {
+            o.setDeptName(null); // 编号模板不携带部门名称
             o.setStatus(randomEle(CommonStatusEnum.values()).getStatus()); // 保证 status 的范围
             o.setSex(randomEle(SexEnum.values()).getSex()); // 保证 sex 的范围
             o.setUsername(dbUser.getUsername());
@@ -1452,6 +1536,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         userMapper.insert(dbUser);
         // 准备参数
         UserImportExcelVO importUser = randomPojo(UserImportExcelVO.class, o -> {
+            o.setDeptName(null); // 编号模板不携带部门名称
             o.setStatus(randomEle(CommonStatusEnum.values()).getStatus()); // 保证 status 的范围
             o.setSex(randomEle(SexEnum.values()).getSex()); // 保证 sex 的范围
             o.setUsername(dbUser.getUsername());
@@ -1483,6 +1568,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         });
         userMapper.insert(dbUser);
         UserImportExcelVO importUser = randomPojo(UserImportExcelVO.class, o -> {
+            o.setDeptName(null); // 编号模板不携带部门名称
             o.setStatus(randomEle(CommonStatusEnum.values()).getStatus());
             o.setSex(randomEle(SexEnum.values()).getSex());
             o.setUsername("caseuser");
