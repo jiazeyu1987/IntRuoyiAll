@@ -61,7 +61,7 @@ test('both modes share ordered fields, masked password and busy controls; Vue te
   assert.match(dialog, /label="电子签名" required/)
   assert.match(signatureStyles, /\.action-signature-confirm--approve\s*\{[^}]*--el-button-bg-color: #008f7a/s)
   assert.match(dialog, /action-signature-flow--reject/)
-  for (const text of ['审批意见（选填）', '驳回原因（必填）', '请输入审批意见', '请填写具体的驳回原因，便于申请人修改', '请输入所选签名方式的六位 PIN 码或密码', 'type="password"', '确认批准并签名', '确认驳回并签名', '提交中', "'danger' : 'primary'"]) assert.ok(dialog.includes(text), text)
+  for (const text of ['审批意见（选填）', '驳回原因（必填）', '请输入审批意见', '请填写具体的驳回原因，便于申请人修改', 'SignatureCredentialInput', '确认批准并签名', '确认驳回并签名', '提交中', "'danger' : 'primary'"]) assert.ok(dialog.includes(text), text)
   assert.match(dialog, /:disabled="actionDialog.submitting"/)
   for (const prop of ['close-on-click-modal', 'close-on-press-escape', 'show-close']) assert.ok(dialog.includes(`:${prop}="!actionDialog.submitting"`))
   const result = compileTemplate({ source: descriptor.template.content, filename: 'detail/index.vue', id: 'issue14' })
@@ -120,10 +120,13 @@ test('each signing dialog places opinion before masked required signature and co
     const dialog = source.slice(start, source.indexOf('</el-dialog>', start))
     assert.ok(dialog.indexOf(`v-model="${name}.form.${opinion}"`) < dialog.indexOf(`v-model="${name}.form.password"`))
     assert.match(dialog, /label="电子签名" required/)
-    assert.match(dialog, /type="password"/)
+    assert.match(dialog, new RegExp(String.raw`<SignatureCredentialInput\s+v-model="${name}\.form\.password"`))
     assert.ok(dialog.indexOf(`@click="${submit}"`) < dialog.indexOf(`@click="${close}"`))
     assert.ok(dialog.includes(`:disabled="${name}.submitting"`))
   }
+  const credentialTemplate = parse(fs.readFileSync('src/components/SignatureCredentialInput/SignatureCredentialInput.vue', 'utf8')).descriptor.template.content
+  assert.ok(credentialTemplate.includes(":type=\"disableAutofill ? 'text' : 'password'\""))
+  assert.match(credentialTemplate, /<PinCodeInput complete-only/)
   assert.match(source, /\.dcc-signature-dialog \.el-dialog__footer\s*{[^}]*justify-content: space-between/s)
 })
 

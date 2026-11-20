@@ -4808,6 +4808,168 @@
       "kind": "permission",
       "value": "dcc:controlled-file:log:query",
       "reason": "复用项目代码管理员既有文控日志查询权限，仅修复该业务角色分配时的日志拦截；不新增菜单、权限、角色菜单或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteTreePanel.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:version-submit",
+      "reason": "工艺流程树发布入口复用既有 mes:pro-route:version-submit 提交权限，并同时核对 mes:pro-route:version-query、正式草稿和发布阻断项；权限定义沿用 IntRuoyiBackend/sql/mysql/20260716_mes_route_version_permission_menu.sql，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:create",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:business-approval-policy:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:disable",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:business-approval-policy:disable 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:publish",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:business-approval-policy:publish 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:query",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:business-approval-policy:query 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "bpm:category:create",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:category:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "bpm:model:create",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:model:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "bpm:model:deploy",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:model:deploy 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "bpm:model:query",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:model:query 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "system:permission:assign-role-data-scope",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 system:permission:assign-role-data-scope 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "system:permission:assign-role-menu",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 system:permission:assign-role-menu 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "system:role-category:create",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 system:role-category:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "system:role:create",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 system:role:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "system:role:export",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 system:role:export 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "system:role:update",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 system:role:update 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteTreeProducts.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:update",
+      "reason": "工艺流程树产品绑定内部组件复用既有 mes:pro-route:update 权限，读取正式版本并通过既有候选版本产品绑定接口增删关联；从原工艺流程页面进入，不新增独立菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteTreeProducts.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:version-create",
+      "reason": "工艺流程树产品绑定内部组件复用既有 mes:pro-route:version-create 权限，读取正式版本并通过既有候选版本产品绑定接口增删关联；从原工艺流程页面进入，不新增独立菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteTreeProducts.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:version-query",
+      "reason": "工艺流程树产品绑定内部组件复用既有 mes:pro-route:version-query 权限，读取正式版本并通过既有候选版本产品绑定接口增删关联；从原工艺流程页面进入，不新增独立菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:create",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:business-approval-policy:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:disable",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:business-approval-policy:disable 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:publish",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:business-approval-policy:publish 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:query",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:business-approval-policy:query 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "bpm:category:create",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:category:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "bpm:model:create",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:model:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "bpm:model:deploy",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:model:deploy 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "bpm:model:query",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:model:query 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "system:role-category:create",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 system:role-category:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
     }
   ]
 }

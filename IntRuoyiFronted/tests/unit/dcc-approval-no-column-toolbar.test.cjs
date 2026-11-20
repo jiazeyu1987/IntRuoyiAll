@@ -11,13 +11,16 @@ const source = fs.readFileSync(filename, 'utf8')
 function harness() {
   const route = vue.reactive({ path: '/dcc/controlled-file/detail/10', query: {} })
   const code = source.slice(source.indexOf('const TARGET_ROUTE_PREFIXES'), source.indexOf('const normalizeText'))
+    + source.slice(source.indexOf('const referenceColumnControls ='), source.indexOf('const tabLocalPopoverStyle ='))
   return new Function('computed', 'reactive', 'useRoute', ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
     + '; return { route, panels, tableMap, isTargetRoute }')(vue.computed, vue.reactive, () => route)
 }
 
-test('all DCC approval tasks suppress column controls while ordinary lists retain them', () => {
+test('DCC approval tasks suppress column controls while existing list toolbars retain them', () => {
   const h = harness()
-  h.tableMap.set('existing', { tableEl: { isConnected: true }, columns: [{}] })
+  const toolbar = {}
+  h.tableMap.set('existing', { tableEl: { isConnected: true, matches: selector => selector === '.project-folder-file-table',
+    closest: () => ({ querySelector: selector => selector === '[data-dcc-reference-column-controls]' ? toolbar : undefined }) }, columns: [{}] })
   assert.equal(h.panels.value.length, 1)
   // Task identity and backend stage do not affect the approval-wide exclusion.
   for (const taskId of ['supervisor', 'assignment', 'signoff', 'approval', 'document-control']) {

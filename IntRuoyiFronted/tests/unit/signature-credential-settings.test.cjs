@@ -17,16 +17,17 @@ const body = ast.statements.filter(statement => !ts.isImportDeclaration(statemen
 const code = ts.transpileModule(body, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
 
 function settings(type = 'PIN', write = async () => {}) {
-  const calls = [], scope = vue.effectScope()
+  const calls = [], events = [], scope = vue.effectScope(), window = new EventTarget()
+  window.addEventListener('signature-settings-changed', event => events.push(event.type))
   const bindings = {
-    ref: vue.ref, watch: vue.watch, onMounted: () => {},
+    ref: vue.ref, watch: vue.watch, onMounted: () => {}, window, Event,
     useRouter: () => ({ push() {} }), useMessage: () => ({ success() {} }),
     getSignatureSettings: async () => ({ credentialType: type }),
     updateSignatureSettings: async data => { calls.push(data); await write(data) }
   }
   const state = scope.run(() => Function(...Object.keys(bindings), code +
     ';return { credentialType, newPin, confirmPin, password, error, saving, load, save };')(...Object.values(bindings)))
-  return { ...state, calls, stop: () => scope.stop() }
+  return { ...state, calls, events, stop: () => scope.stop() }
 }
 
 test('PIN fields and password entry follow the selected signature method', () => {
@@ -59,6 +60,7 @@ test('password mode never validates or submits an inactive PIN', async t => {
   s.newPin.value = '123'; s.confirmPin.value = '999'; s.password.value = 'unit-only'
   await s.save()
   assert.equal(s.error.value, '')
+  assert.deepEqual(s.events, ['signature-settings-changed'])
   assert.deepEqual(s.calls, [{ credentialType: 'PASSWORD', password: 'unit-only' }])
 })
 
@@ -81,6 +83,7 @@ test('both modes require login password and show rejected saves as failures', as
     assert.equal(s.error.value, '请输入当前登录密码')
     s.password.value = 'unit-only'; await s.save()
     assert.equal(s.error.value, '登录密码不正确')
+    assert.deepEqual(s.events, [])
     assert.equal(s.saving.value, false); assert.equal(s.password.value, '')
   }
 })
