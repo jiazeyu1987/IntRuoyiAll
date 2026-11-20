@@ -22,9 +22,11 @@ test('release migration updates existing shared template with neutral certificat
  assert.doesNotMatch(rendered,/国内/)
  assert.match(sql,/IF NOT EXISTS[\s\S]*content[\s\S]*SIGNAL SQLSTATE/)
 })
-test('initial setup uses the same neutral template contract',()=>{
+test('fresh installation retains history and applies the neutral successor in order',()=>{
  const initial=fs.readFileSync('../IntRuoyiBackend/sql/mysql/20260901_dcc_registration_certificate_business_event_notify_template.sql','utf8')
- assert.doesNotMatch(initial,/国内注册证/)
- const expected=sql.match(/`content` = '([^']+)'/)[1]
- assert.ok(initial.includes(expected))
+ assert.match(initial,/国内注册证/)
+ assert.match(sql,/dependsOn=20260901_dcc_registration_certificate_business_event_notify_template;/)
+ const catalog=JSON.parse(fs.readFileSync('../IntRuoyiBackend/sql/mysql/release-sources.json','utf8'))
+ assert.ok(catalog.migrations.includes('20260901_dcc_registration_certificate_business_event_notify_template.sql'))
+ assert.ok(catalog.migrations.includes('20261120_dcc_registration_certificate_neutral_event_notify_template.sql'))
 })

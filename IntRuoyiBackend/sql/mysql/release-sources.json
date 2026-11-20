@@ -1230,7 +1230,9 @@
     "20261118_registration_certificate_delete_menu.sql",
     "20261119_edhr_navigation_names.sql",
     "20261119_mdm_dcc_menu_names.sql",
-    "20261119_unique_navigation_names.sql"
+    "20261119_unique_navigation_names.sql",
+    "20261120_mes_schedule_order_menu_forward.sql",
+    "20261120_dcc_registration_certificate_neutral_event_notify_template.sql"
   ],
   "migrationScopes": [
     {
@@ -1427,6 +1429,10 @@
     }
   ],
   "excludedSources": [
+    {
+      "file": "20261117_tenant_file_ownership_prepare.sql",
+      "reason": "Orphan staged file-isolation migration: prerequisite 20261112_tenant_file_configuration and tenant-isolated runtime were deliberately removed by release integration 56a46097a. Preserve this source for that separately scoped feature; it cannot execute against the current unchanged file ownership model or without verified ownership evidence."
+    },
     {
       "file": "20260822_mes_process_pool_active_order_completion_receipt_rollback.sql",
       "reason": "Manual rollback only; never execute during application upgrade."
