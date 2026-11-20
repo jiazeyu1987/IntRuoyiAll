@@ -52,29 +52,7 @@ export interface BusinessApprovalPolicySwitchModeReqVO {
 
 const BASE_URL = '/business-approval/policies'
 
-export interface BusinessApprovalPolicyTransfer {
-  schemaVersion: 2
-  format: 'BUSINESS_APPROVAL_POLICIES'
-  policies: Omit<BusinessApprovalPolicyVO, 'id' | 'updatedTime'>[]
-  processes: BusinessApprovalProcessTransfer[]
-}
-
-export interface BusinessApprovalProcessTransfer {
-  key: string
-  name: string
-  category: Record<string, unknown>
-  bpmnXml: string
-  metaInfo: Record<string, unknown>
-  roles: { code: string; name: string; category: Record<string, unknown> }[]
-  startUsernames: string[]
-}
-
 export const BusinessApprovalPolicyApi = {
-  exportPolicies: (isRequestContextCurrent: () => boolean) => request.get<BusinessApprovalPolicyTransfer>({
-    url: `${BASE_URL}/export`, isRequestContextCurrent
-  }),
-  importPolicies: (data: BusinessApprovalPolicyTransfer, isRequestContextCurrent: () => boolean) =>
-    request.post<number>({ url: `${BASE_URL}/import`, data, isRequestContextCurrent, skipAuthRefreshReplay: true }),
   getPolicyPage: async (params: BusinessApprovalPolicyPageReqVO) => {
     return await request.get<PageResult<BusinessApprovalPolicyVO[]>>({ url: BASE_URL, params })
   },

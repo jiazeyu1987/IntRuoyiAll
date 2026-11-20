@@ -3,6 +3,8 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.file.*;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSignatureSummaryRespVO;
 import org.flowable.task.api.history.HistoricTaskInstance;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import java.time.LocalDateTime;
 import java.util.*;
 import static org.mockito.Mockito.*;
@@ -13,6 +15,32 @@ class DccNodeRecordProjectionTest {
     HistoricTaskInstance task(String id,String stage){var t=mock(HistoricTaskInstance.class);when(t.getId()).thenReturn(id);when(t.getProcessInstanceId()).thenReturn("bpm");when(t.getTenantId()).thenReturn("1");when(t.getTaskDefinitionKey()).thenReturn(stage);when(t.getName()).thenReturn(stage);return t;}
     DccControlledFileSignatureSummaryRespVO signed(long id,String task){var s=new DccControlledFileSignatureSummaryRespVO();s.setId(id);s.setTaskId(task);s.setProcessInstanceId("bpm");s.setVersionNo("A/1");s.setActorId(99L);s.setActionType("APPROVE");s.setSignedAt(LocalDateTime.of(2026,10,14,19,0).plusMinutes(id));return s;}
     @Test void sameActorActualSignoffAndFinalApprovalAreSeparateRecords(){var a=signed(1,"signoff");var b=signed(2,"approve");var rows=DccApplicationNodeRecordProjection.project(file(),"bpm",List.of(a,b),List.of(task("signoff","MATRIX_REVIEW"),task("approve","MATRIX_APPROVAL")),List.of());assertEquals(2,rows.size());assertEquals(99L,rows.get(0).actorId());assertEquals(99L,rows.get(1).actorId());assertNotEquals(rows.get(0).taskId(),rows.get(1).taskId());}
+    DccControlledFileTaskAssigneeSnapshotDO assignment(DccControlledFileSignatureSummaryRespVO signature){
+        return DccControlledFileTaskAssigneeSnapshotDO.builder().id(81L).tenantId(1L).controlledFileId(20L).processInstanceId("bpm")
+                .bpmTaskId(signature.getTaskId()).stageCode("MATRIX_REVIEW").assignmentSignatureId(signature.getId())
+                .leaderUserId(signature.getActorId()).assigneeUserId(12L).assigneeName("实际会签人").departmentName("义务部门")
+                .assignedTime(signature.getSignedAt().plusSeconds(1)).build();
+    }
+    @ParameterizedTest @ValueSource(longs={-60,0,1,60})
+    void exactAssignmentBindingDoesNotUseTimeEqualityOrTimeTolerance(long seconds){
+        var s=signed(1,"signoff");s.setActionType("ASSIGN");var a=assignment(s);
+        a.setAssignedTime(s.getSignedAt().plusSeconds(seconds));var originalTime=a.getAssignedTime();
+        var row=DccApplicationNodeRecordProjection.project(file(),"bpm",List.of(s),List.of(task("signoff","MATRIX_REVIEW")),List.of(a)).get(0);
+        assertEquals(1L,row.signatureId());assertEquals(12L,row.assignmentTarget().userId());
+        assertEquals("实际会签人",row.assignmentTarget().nickname());assertEquals(s.getSignedAt(),row.occurredAt());
+        assertEquals(originalTime,a.getAssignedTime());assertEquals(2,row.confirmedFields().size());
+    }
+    @ParameterizedTest @ValueSource(strings={"signature","duplicate","tenant","file","round","task","stage","actor","deleted","assignee","time"})
+    void assignmentStillRequiresUniqueExactIdentityEvenWhenNamesAndTimesMatch(String invalid){
+        var s=signed(1,"signoff");s.setActionType("ASSIGN");var a=assignment(s);a.setAssignedTime(s.getSignedAt());
+        switch(invalid){case "signature"->a.setAssignmentSignatureId(2L);case "tenant"->a.setTenantId(2L);
+            case "file"->a.setControlledFileId(21L);case "round"->a.setProcessInstanceId("other-round");
+            case "task"->a.setBpmTaskId("other-task");case "stage"->a.setStageCode("MATRIX_APPROVAL");
+            case "actor"->a.setLeaderUserId(100L);case "deleted"->a.setDeleted(true);
+            case "assignee"->a.setAssigneeUserId(null);case "time"->a.setAssignedTime(null);}
+        assertThrows(IllegalStateException.class,()->DccApplicationNodeRecordProjection.project(file(),"bpm",List.of(s),
+                List.of(task("signoff","MATRIX_REVIEW")),"duplicate".equals(invalid)?List.of(a,a):List.of(a)));
+    }
     @Test void rejectsForeignTenantRoundTaskVersionAndRepeatedSignature(){
         var t=task("one","MATRIX_REVIEW");var s=signed(1,"one");
         when(t.getTenantId()).thenReturn("2");assertThrows(IllegalStateException.class,()->DccApplicationNodeRecordProjection.project(file(),"bpm",List.of(s),List.of(t),List.of()));

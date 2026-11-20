@@ -1,12 +1,15 @@
 <template>
-  <el-table border stripe class="project-folder-file-table"
+  <el-table
+    border
+    stripe
+    class="project-folder-file-table"
     :data="resolveRows ? resolveRows(rows) : rows"
     :row-key="(row) => row.key"
     v-loading="loading"
     highlight-current-row
     @current-change="selectRow"
   >
-    <el-table-column label="选择" width="60"
+    <el-table-column v-if="canReference" label="选择" width="60"
       ><template #default="{ row }"
         ><el-radio
           v-if="row.reference && canReference"
@@ -17,31 +20,50 @@
         ></template
       ></el-table-column
     >
-    <el-table-column label="文件名称" min-width="180"
+    <el-table-column label="文件" min-width="260" align="left"
       ><template #default="{ row }">
-        <span
-          class="project-file-name"
-          :class="{ 'is-referenced': row.referenced }"
-          :data-testid="
-            row.reference ? 'dcc-project-reference-file-name' : 'dcc-project-browser-file-name'
-          "
-          >{{ row.file.fileName }}</span
+        <div class="project-file-identity">
+          <span
+            class="project-file-name"
+            :class="{ 'is-referenced': row.referenced }"
+            :data-testid="
+              row.reference ? 'dcc-project-reference-file-name' : 'dcc-project-browser-file-name'
+            "
+            >{{ row.file.fileName }}</span
+          >
+          <span class="project-file-number">编号：{{ row.file.fileNumber }}</span>
+        </div>
+      </template></el-table-column
+    >
+    <el-table-column label="来源位置" min-width="190" align="left"
+      ><template #default="{ row }">
+        <span class="project-file-location"
+          >{{ row.reference?.sourceProjectName || row.file.projectName || '未记录' }} /
+          {{ row.file.folderName || '未记录' }}</span
         >
       </template></el-table-column
     >
-    <el-table-column prop="file.fileNumber" label="编号" min-width="110" />
-    <el-table-column label="所属项目" min-width="120"
-      ><template #default="{ row }">{{
-        row.reference?.sourceProjectName || row.file.projectName || '未记录'
-      }}</template></el-table-column
-    >
-    <el-table-column prop="file.folderName" label="来源文件夹" min-width="100" />
     <el-table-column prop="file.versionNo" label="版本" width="100">
-      <template #default="{ row }">{{ getDccVersionDisplayText(row.file.versionNo) }}</template>
+      <template #default="{ row }">
+        <span class="project-file-version">{{ getDccVersionDisplayText(row.file.versionNo) }}</span>
+        <span v-if="row.reference" class="project-file-version-note">固定引用版本</span>
+      </template>
     </el-table-column>
-    <el-table-column label="状态" min-width="120"
-      ><template #default="{ row }">{{ statusLabel(row.file.status) }}</template></el-table-column
-    >
+    <el-table-column label="状态" min-width="160"
+      ><template #default="{ row }">
+        <div class="project-file-status">
+          <span>{{ statusLabel(row.file.status) }}</span>
+          <ArchiveDownloadEntry
+            :file-id="row.file.controlledFileId"
+            :version-no="row.file.versionNo"
+            :file-name="row.file.fileName"
+            :file-number="row.file.fileNumber"
+            :status="row.file.status"
+            :reference-project-id="row.reference?.reference.projectId"
+            :reference-folder-id="row.reference?.reference.folderId"
+          />
+        </div> </template
+    ></el-table-column>
     <el-table-column v-if="!readOnly" label="引用情况" min-width="180"
       ><template #default="{ row }">
         <DccReferenceBadge
@@ -63,45 +85,52 @@
         >
       </template></el-table-column
     >
-    <el-table-column label="操作" min-width="205"
+    <el-table-column label="操作" min-width="230"
       ><template #default="{ row }">
-        <ArchiveDownloadEntry :file-id="row.file.controlledFileId" :version-no="row.file.versionNo" :file-name="row.file.fileName" :file-number="row.file.fileNumber" :status="row.file.status" :reference-project-id="row.reference?.reference.projectId" :reference-folder-id="row.reference?.reference.folderId" />
-        <template v-if="row.reference">
-          <el-button
-            link
-            data-testid="dcc-project-reference-preview"
-            :disabled="loading || Boolean(readingReferenceId) || row.file.canPreview !== true"
-            @click="emit('read-reference', row.reference, 'preview')"
-            >浏览</el-button
-          >
-          <el-button
-            link
-            data-testid="dcc-project-reference-trace"
-            :disabled="loading || Boolean(readingReferenceId)"
-            @click="emit('read-reference', row.reference, 'trace')"
-            >只读追溯</el-button
-          >
-        </template>
-        <template v-else>
-          <el-button v-if="canDownload" link @click="emit('download',row.file)">下载原件</el-button>
-          <el-button
-            link
-            :disabled="loading || !row.file.canPreview"
-            @click="emit('preview', row.file)"
-            >浏览</el-button
-          >
-          <el-button
-            v-if="!readOnly"
-            link
-            data-testid="dcc-project-file-relations"
-            :disabled="loading"
-            @click="emit('relations', row.file)"
-            >关联</el-button
-          >
-          <el-button v-if="canManage ? canManage(row.file) : !readOnly" link :disabled="loading" @click="emit('operation', row.file)"
-            >操作面板</el-button
-          >
-        </template>
+        <div class="project-file-actions">
+          <template v-if="row.reference">
+            <el-button
+              link
+              data-testid="dcc-project-reference-preview"
+              :disabled="loading || Boolean(readingReferenceId) || row.file.canPreview !== true"
+              @click="emit('read-reference', row.reference, 'preview')"
+              >浏览</el-button
+            >
+            <el-button
+              link
+              data-testid="dcc-project-reference-trace"
+              :disabled="loading || Boolean(readingReferenceId)"
+              @click="emit('read-reference', row.reference, 'trace')"
+              >只读追溯</el-button
+            >
+          </template>
+          <template v-else>
+            <el-button v-if="canDownload" link @click="emit('download', row.file)"
+              >下载原件</el-button
+            >
+            <el-button
+              link
+              :disabled="loading || !row.file.canPreview"
+              @click="emit('preview', row.file)"
+              >浏览</el-button
+            >
+            <el-button
+              v-if="!readOnly"
+              link
+              data-testid="dcc-project-file-relations"
+              :disabled="loading"
+              @click="emit('relations', row.file)"
+              >关联</el-button
+            >
+            <el-button
+              v-if="canManage ? canManage(row.file) : !readOnly"
+              link
+              :disabled="loading"
+              @click="emit('operation', row.file)"
+              >操作面板</el-button
+            >
+          </template>
+        </div>
       </template></el-table-column
     >
   </el-table>
@@ -160,6 +189,45 @@ const selectRow = (row?: FolderFileRow | null) => emit('select-reference', row?.
 }
 .project-file-name {
   overflow-wrap: anywhere;
+}
+.project-file-identity,
+.project-file-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+}
+.project-file-number,
+.project-file-version-note {
+  color: var(--el-text-color-secondary);
+  overflow-wrap: anywhere;
+}
+.project-file-version {
+  white-space: nowrap;
+}
+.project-file-version-note {
+  display: block;
+  font-size: 12px;
+}
+.project-file-location {
+  overflow-wrap: anywhere;
+}
+.project-file-status :deep(.el-tag) {
+  height: auto;
+  max-width: 100%;
+  padding: 4px 6px;
+  white-space: normal;
+  line-height: 1.5;
+}
+.project-file-status :deep(.el-tag__content) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.project-file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
 }
 .project-file-name.is-referenced {
   color: #b85a00;

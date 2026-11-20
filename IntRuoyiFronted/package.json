@@ -385,7 +385,8 @@
     "vue3-signature": "^0.2.4",
     "vuedraggable": "^4.1.0",
     "web-storage-cache": "^1.1.1",
-    "xml-js": "^1.6.11"
+    "xml-js": "^1.6.11",
+    "docx-preview": "0.4.1"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.0.1",

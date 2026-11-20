@@ -72,6 +72,7 @@ class DccCatalogPackageServiceTest {
         jdbc.update("INSERT INTO dcc_registration_certificate(id,owner_company_id,product_master_id,project_code_id,current_version_id,current_snapshot_id,status,tenant_id) VALUES(1,'2','1','1','1','1','ACTIVE',10)");
         jdbc.update("INSERT INTO dcc_registration_certificate_version(id,certificate_id,version_no,certificate_no,status,tenant_id) VALUES(1,'1','1','REG001','CURRENT',10)");
         jdbc.update("INSERT INTO dcc_registration_certificate_snapshot(id,version_id,revision_no,entrusted_enterprises_json,facts_json,tenant_id) VALUES(1,'1','1','[{\"enterpriseId\":1,\"enterpriseName\":\"关联公司\"}]','{\"certificateType\":\"DOMESTIC\",\"certificateNo\":\"REG001\",\"ownProduct\":true}',10)");
+        jdbc.update("UPDATE dcc_registration_certificate_snapshot SET product_name='产品' WHERE tenant_id=10");
         jdbc.update("INSERT INTO dcc_registration_certificate_snapshot_entrusted(id,snapshot_id,enterprise_id,tenant_id) VALUES(1,'1','1',10)");
         jdbc.update("INSERT INTO dcc_data_relation(id,product_catalog_id,project_code_id,registration_certificate_id,tenant_id) VALUES(1,'1','1','1',10)");
     }
@@ -251,6 +252,7 @@ class DccCatalogPackageServiceTest {
         jdbc.update("INSERT INTO dcc_registration_certificate(id,owner_company_id,project_code_id,current_version_id,status,tenant_id) VALUES(2,'4','2','2','ACTIVE',10),(3,'3','3','3','ACTIVE',11)");
         jdbc.update("INSERT INTO dcc_registration_certificate_version(id,certificate_id,version_no,certificate_no,status,tenant_id) VALUES(2,'2','1','REG002','CURRENT',10),(3,'3','1','OTHER','CURRENT',11)");
 
+        jdbc.update("INSERT INTO dcc_registration_certificate_snapshot(id,version_id,revision_no,product_name,facts_json,tenant_id) VALUES(2,'2','1','产品二','{\"certificateType\":\"DOMESTIC\"}',10)");
         var data = read(service.exportWorkbook());
         assertEquals(Set.of("2", "4"), data.stream().filter(s -> s.name().equals("授权公司")).findFirst().orElseThrow().rows().stream()
             .map(row -> row.get("id")).collect(java.util.stream.Collectors.toSet()));
@@ -357,6 +359,36 @@ class DccCatalogPackageServiceTest {
         assertEquals("其他租户", jdbc.queryForObject("SELECT name FROM mdm_enterprise WHERE id=3", String.class));
         assertTrue(service.exportWorkbook().length > 0);
         verifyNoInteractions(scope);
+    }
+    @Test void exportsAndReimportsCeAndFdaWithoutDomesticCertificateNumber() throws Exception {
+        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
+        for (String type : List.of("CE", "FDA")) {
+            TenantContextHolder.setTenantId(10L);
+            jdbc.update("UPDATE dcc_registration_certificate SET status='DRAFT',current_version_id=NULL,current_snapshot_id=NULL WHERE tenant_id=10");
+            jdbc.update("UPDATE dcc_registration_certificate_version SET status='DRAFT',certificate_no=NULL WHERE tenant_id=10");
+            String facts = type.equals("CE")
+                ? "{\"certificateType\":\"CE\",\"ceCertificates\":[{\"revision\":\"Rev.1\",\"certificateNo\":null}]}"
+                : "{\"certificateType\":\"FDA\",\"submissionType\":\"EXEMPT\",\"kpNumber\":null}";
+            jdbc.update("UPDATE dcc_registration_certificate_snapshot SET product_name='海外产品',facts_json=? WHERE tenant_id=10", facts);
+            byte[] workbook = service.exportWorkbook();
+            var sheets = read(workbook);
+            assertTrue(row(sheets, "注册证").get("certificate_key").contains(type));
+            assertNull(row(sheets, "注册证版本").get("certificate_no"));
+            assertEquals(0, service.importWorkbook(workbook).get("created"));
+            long destination = type.equals("CE") ? 12L : 13L;
+            TenantContextHolder.setTenantId(destination);
+            assertEquals(10, service.importWorkbook(workbook).get("created"));
+            assertEquals(0, service.importWorkbook(workbook).get("created"));
+            assertNull(jdbc.queryForObject("SELECT certificate_no FROM dcc_registration_certificate_version WHERE tenant_id=?", String.class, destination));
+            assertEquals(facts, jdbc.queryForObject("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE tenant_id=?", String.class, destination));
+            assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_data_relation WHERE tenant_id=?", Integer.class, destination));
+            row(sheets, "注册证").put("certificate_key", "forged-key");
+            assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(sheets)));
+        }
+    }
+    @Test void rejectsDomesticCertificateWithoutNumber() {
+        jdbc.update("UPDATE dcc_registration_certificate_version SET certificate_no=NULL WHERE tenant_id=10");
+        assertTrue(assertThrows(IllegalArgumentException.class, () -> service.exportWorkbook()).getMessage().contains("国内注册证"));
     }
     @Test void preservesBitFlagsOnCrossTenantInsertAndRepeatedUpdate() throws Exception {
         when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);

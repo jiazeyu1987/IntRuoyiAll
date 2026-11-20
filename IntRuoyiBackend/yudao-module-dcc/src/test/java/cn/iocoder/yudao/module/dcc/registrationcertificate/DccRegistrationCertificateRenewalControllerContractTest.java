@@ -75,9 +75,9 @@ class DccRegistrationCertificateRenewalControllerContractTest {
         assertField("expectedRowVersion", Integer.class, true, true);
         assertField("currentVersionId", Long.class, true, true);
         assertField("approvalDate", LocalDate.class, true, false);
-        assertField("effectiveDate", LocalDate.class, true, false);
+        assertField("effectiveDate", LocalDate.class, false, false);
         assertField("expiryDate", LocalDate.class, true, false);
-        assertField("categoryChanged", Boolean.class, true, false);
+        assertField("categoryChanged", Boolean.class, false, false);
         assertField("certificateNo", String.class, false, false);
         assertField("classification", String.class, false, false);
         assertField("file", MultipartFile.class, true, false);

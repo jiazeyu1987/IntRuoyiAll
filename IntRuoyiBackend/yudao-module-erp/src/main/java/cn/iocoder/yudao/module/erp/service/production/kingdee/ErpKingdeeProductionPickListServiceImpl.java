@@ -3,6 +3,9 @@ package cn.iocoder.yudao.module.erp.service.production.kingdee;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.common.pojo.PageParam;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
@@ -24,6 +27,8 @@ import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,6 +54,7 @@ public class ErpKingdeeProductionPickListServiceImpl
     @Override
     public PageResult<ErpProductionPickListRespVO> getPage(
             ErpProductionPickListPageReqVO pageReqVO) {
+        PickListFilters filters = splitOrderFilters(pageReqVO);
         List<Long> productionPickListIds = null;
         if (StrUtil.isNotBlank(pageReqVO.getProductionOrderNo())) {
             productionPickListIds = productionPickListItemMapper
@@ -57,8 +63,22 @@ public class ErpKingdeeProductionPickListServiceImpl
                 return PageResult.empty();
             }
         }
+        // Each order condition matches a bill's lines independently; intersect bill IDs,
+        // so two order conditions may be satisfied by different lines of the same bill.
+        for (PageParam orderFilter : filters.orderFilters()) {
+            List<Long> matchedIds = productionPickListItemMapper.selectPickListIdsByOrderFilter(orderFilter);
+            if (productionPickListIds == null) {
+                productionPickListIds = new ArrayList<>(matchedIds);
+            } else {
+                productionPickListIds = new ArrayList<>(productionPickListIds);
+                productionPickListIds.retainAll(new HashSet<>(matchedIds));
+            }
+            if (productionPickListIds.isEmpty()) {
+                return PageResult.empty();
+            }
+        }
         PageResult<ErpKingdeeProductionPickListDO> pageResult =
-                productionPickListMapper.selectPageByProductionPickListIds(pageReqVO,
+                productionPickListMapper.selectPageByProductionPickListIds(filters.headerRequest(),
                         productionPickListIds);
         if (CollUtil.isEmpty(pageResult.getList())) {
             return PageResult.empty(pageResult.getTotal());
@@ -81,6 +101,36 @@ public class ErpKingdeeProductionPickListServiceImpl
                     .toList()));
         });
     }
+
+    private PickListFilters splitOrderFilters(ErpProductionPickListPageReqVO request) {
+        if (StrUtil.isBlank(request.getListFilters())) {
+            return new PickListFilters(request, List.of());
+        }
+        // Validate every condition before querying, including filters following an empty match.
+        var fields = new HashMap<>(ErpKingdeeProductionPickListMapper.listFilterFields());
+        fields.putAll(ErpKingdeeProductionPickListItemMapper.orderFilterFields());
+        ListFilterQueryUtils.wrapper(request, fields);
+        var headerConditions = JsonNodeFactory.instance.arrayNode();
+        List<PageParam> orderFilters = new ArrayList<>();
+        for (var condition : JsonUtils.parseTree(request.getListFilters())) {
+            if ("productionOrderNos".equals(condition.get("key").asText())) {
+                PageParam filter = new PageParam();
+                filter.setListFilters(JsonNodeFactory.instance.arrayNode().add(condition).toString());
+                orderFilters.add(filter);
+            } else {
+                headerConditions.add(condition);
+            }
+        }
+        if (orderFilters.isEmpty()) {
+            return new PickListFilters(request, List.of());
+        }
+        var headerRequest = BeanUtils.toBean(request, ErpProductionPickListPageReqVO.class);
+        headerRequest.setListFilters(headerConditions.isEmpty() ? null : headerConditions.toString());
+        return new PickListFilters(headerRequest, orderFilters);
+    }
+
+    private record PickListFilters(ErpProductionPickListPageReqVO headerRequest,
+                                   List<PageParam> orderFilters) { }
 
     private String joinDistinct(List<String> values) {
         return values.stream()

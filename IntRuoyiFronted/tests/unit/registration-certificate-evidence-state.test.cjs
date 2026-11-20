@@ -9,6 +9,8 @@ const factsModule={};new Function('exports',transpile(fs.readFileSync('src/views
 const businessTimeModule={};new Function('exports',transpile(fs.readFileSync('src/utils/businessTime.ts','utf8')))(businessTimeModule)
 const dateTimeModule={};new Function('exports','require',transpile(fs.readFileSync('src/views/dcc/registration-certificate/shared/dateTimeDisplay.ts','utf8')))(dateTimeModule,id=>{assert.equal(id,'@/utils/businessTime');return businessTimeModule})
 const changeModule={};new Function('exports','require',transpile(fs.readFileSync('src/views/dcc/registration-certificate/shared/changeDisplay.ts','utf8')))(changeModule,id=>{if(id==='./facts')return factsModule;throw Error('unexpected display import '+id)})
+const stageNameModule={};new Function('exports',transpile(fs.readFileSync('src/views/dcc/controlled-file/shared/stage-name.ts','utf8')))(stageNameModule)
+const processDisplayModule={};new Function('exports','require',transpile(fs.readFileSync('src/views/bpm/processInstance/detail/display-name.ts','utf8')))(processDisplayModule,id=>{assert.equal(id,'@/views/dcc/controlled-file/shared/stage-name');return stageNameModule})
 const drain=async()=>{for(let i=0;i<30;i++)await Promise.resolve();await vue.nextTick()}
 function mount(path,props,api={}){
  const source=fs.readFileSync('src/views/dcc/registration-certificate/'+path,'utf8')
@@ -17,6 +19,7 @@ function mount(path,props,api={}){
  const exports={},messages=[]
  new Function('exports','require','useMessage',transpile(script.content))(exports,id=>{
   if(id==='vue')return vue
+  if(id==='@/views/bpm/processInstance/detail/display-name')return processDisplayModule
   if(id==='@/api/dcc/registrationCertificate')return api
   if(id==='@/utils')return {generateUUID:()=> 'test-key'}
   if(id.endsWith('/facts'))return factsModule
@@ -46,6 +49,7 @@ test('historical submission displays frozen facts, readable supplemental and pre
  try{await drain();const facts={certificateType:'CE',ownProduct:false,classification:'IIa',expiryDate:'2030-01-01'}
  const row={id:10,status:'REJECTED',reviewerName:'注册负责人',detailJson:JSON.stringify({draft:{factsJson:JSON.stringify(facts),modelSpecification:'当次型号'},approvalDate:'2026-10-30'}),approvalDetailJson:JSON.stringify({reviewerUserId:22,reviewComment:'补充型号'}),files:[{id:3,status:'REJECTED',originalName:'原批件.pdf'}]}
  c.state.inspect(row);assert.deepEqual(c.state.submissionFacts,facts);assert.equal(c.state.submissionDraft.modelSpecification,'当次型号');assert.equal(c.state.approval.reviewComment,'补充型号');assert.equal(c.state.selected.files[0].status,'REJECTED');assert.equal(c.state.showSubmission,true)
+ assert.equal(c.state.resolveProcessNodeDisplayName(undefined,'Registration certificate access approval'),'注册证访问审批');assert.equal(c.state.resolveProcessNodeDisplayName('REG_CERT_ACCESS_APPROVAL','raw English'),'注册证访问审批')
  const changed=c.state.formatRegistrationCertificateChangeValue('CERTIFICATE_INFORMATION',JSON.stringify({value:JSON.stringify({...facts,certificateHolder:'客户',certificateStatus:'SUSPENDED',ceCertificates:[{revision:'2',certificateNo:'CE002',issueDate:'2026-10-30'}]})}));assert.match(changed,/证件持证主体：客户/);assert.match(changed,/证书Rev.记录：Rev. 2 \/ 证书编号：CE002 \/ 签发日期：2026-10-30/);assert.match(changed,/证件状态：暂停/);assert.equal(c.state.formatRegistrationCertificateChangeValue('MODEL_SPECIFICATION',JSON.stringify({value:'型号2'})),'型号2');assert.doesNotMatch(changed,/factsJson|certificateStatus|SUSPENDED|\{"/)
  }finally{c.app.unmount()}
 })

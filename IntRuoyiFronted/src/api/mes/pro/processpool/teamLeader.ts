@@ -823,6 +823,8 @@ export interface TeamLeaderActiveOrderRespVO {
   productionCoefficient?: number | string
   productionProgressPercent: number | string
   inspectionProgressPercent: number | string
+  formalProductionReviewComplete?: boolean
+  releaseApplyBlockReason?: string
   activeStatus: string
   businessStatus?: string
   pendingNonconformanceReviews?: {

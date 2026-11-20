@@ -76,6 +76,33 @@ class DccControlledFileDetailAuthorizationGuardTest extends BaseMockitoUnitTest 
         assertFalse(guard.isAllowed(99L,file,false,null));
     }
 
+    @Test void currentTrainingParticipantReadsMetadataBeforeEffectiveFileAssignment() {
+        g07Actor(); var file=g07File(DccOfflineTrainingRecordService.STATUS);
+        file.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD);
+        when(offlineTraining.canReadProgress(99L,file)).thenReturn(true);
+        org.mockito.Mockito.lenient().when(assignmentScopeService.isWithinAssignedFileScope(99L,910L)).thenReturn(false);
+        assertTrue(guard.isAllowed(99L,file,false,null));
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> guard.requireBodyRead(99L,file,g07Context(
+                        DccControlledFileBodyReadContext.Intent.TRAINING_APPLICATION,"round-exact",null)));
+    }
+
+    @Test void unrelatedActorCannotUseCurrentTrainingMetadataGrant() {
+        g07Actor(); var file=g07File(DccOfflineTrainingRecordService.STATUS);
+        file.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD);
+        file.setRequesterId(88L);
+        when(assignmentScopeService.isWithinAssignedFileScope(99L,910L)).thenReturn(false);
+        assertFalse(guard.isAllowed(99L,file,false,null));
+    }
+
+    @Test void currentTrainingMetadataRequiresAuthenticatedTenantActor() {
+        g07Actor(); var file=g07File(DccOfflineTrainingRecordService.STATUS);
+        file.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD);
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        when(assignmentScopeService.isWithinAssignedFileScope(99L,910L)).thenReturn(false);
+        assertFalse(guard.isAllowed(99L,file,false,null));
+    }
+
     @InjectMocks
     private DccControlledFileDetailAuthorizationGuard guard;
 
@@ -318,6 +345,44 @@ class DccControlledFileDetailAuthorizationGuardTest extends BaseMockitoUnitTest 
                 () -> guard.requireBodyRead(99L,file,context));
     }
 
+    @Test void currentStarterReadsOwnPendingApplicationOutsideEffectiveFileAssignments() {
+        g07Actor(); var file=g07File("PENDING_SUPERVISOR_REVIEW"); g07Round(file,true);
+        org.mockito.Mockito.lenient().when(assignmentScopeService.isWithinAssignedFileScope(99L,910L)).thenReturn(false);
+        var context=g07Context(DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY,"round-exact",null);
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> guard.requireBodyRead(99L,file,context));
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> guard.requireApplicationHistoryRead(99L,file,context));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"differentRequester","differentStarter","projectRevoked"})
+    void currentStarterGrantCannotReplaceOtherApplicationOrProjectAuthority(String reason) {
+        g07Actor(); var file=g07File("PENDING_SUPERVISOR_REVIEW");
+        if (!reason.equals("projectRevoked")) g07Round(file,true);
+        org.mockito.Mockito.lenient().when(assignmentScopeService.isWithinAssignedFileScope(99L,910L)).thenReturn(false);
+        switch(reason) {
+            case "differentRequester" -> file.setRequesterId(88L);
+            case "differentStarter" -> when(bpmProcessInstanceService.getHistoricProcessInstance("round-exact").getStartUserId()).thenReturn("88");
+            case "projectRevoked" -> when(projectAccessService.listReadableProjectIds(99L)).thenReturn(java.util.List.of());
+        }
+        var context=g07Context(DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY,"round-exact",null);
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> guard.requireApplicationHistoryRead(99L,file,context));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"completed","differentCurrentRound","archived"})
+    void exactStarterRetainsApplicationEvidenceAfterWorkflowOrFileChanges(String state) {
+        g07Actor(); var file=g07File("ACTIVE"); g07Round(file,false);
+        if (state.equals("differentCurrentRound")) file.setProcessInstanceId("another-round");
+        if (state.equals("archived")) file.setStatus("OBSOLETE");
+        org.mockito.Mockito.lenient().when(assignmentScopeService.isWithinAssignedFileScope(99L,910L)).thenReturn(false);
+        var context=g07Context(DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY,"round-exact",null);
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> guard.requireApplicationHistoryRead(99L,file,context));
+        if (state.equals("archived")) assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> guard.requireBodyRead(99L,file,context));
+        else org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> guard.requireBodyRead(99L,file,context));
+    }
+
     @Test void g07_historyRetainsSelectedRoundAndRequiresItsRealParticipant() {
         g07Actor(); var file=g07File("ACTIVE"); g07Round(file,false);
         file.setProcessInstanceId("new-round");
@@ -337,6 +402,7 @@ class DccControlledFileDetailAuthorizationGuardTest extends BaseMockitoUnitTest 
 
     @Test void g07_trainingHasItsOwnBoundRoundGrantAndCannotBeUsedForDailyRead() {
         g07Actor();var file=g07File("PENDING_APPLICANT_TRAINING_RECORD");
+        when(assignmentScopeService.isWithinAssignedFileScope(99L,910L)).thenReturn(false);
         file.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.REVISION);g07Round(file,true);
         when(offlineTraining.canReadTrainingBody(99L,file)).thenReturn(true);
         var context=g07Context(DccControlledFileBodyReadContext.Intent.TRAINING_APPLICATION,"round-exact",null);
@@ -346,6 +412,16 @@ class DccControlledFileDetailAuthorizationGuardTest extends BaseMockitoUnitTest 
         when(offlineTraining.canReadTrainingBody(99L,file)).thenReturn(false);
         org.junit.jupiter.api.Assertions.assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
                 ()->guard.requireBodyRead(99L,file,context));
+    }
+
+    @Test void trainingBodyCannotUseAnEarlierRoundWithoutEffectiveFileAssignment() {
+        g07Actor(); var file=g07File("PENDING_APPLICANT_TRAINING_RECORD");
+        file.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.REVISION); g07Round(file,true);
+        file.setProcessInstanceId("new-round");
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> guard.requireBodyRead(99L,file,g07Context(
+                        DccControlledFileBodyReadContext.Intent.TRAINING_APPLICATION,"round-exact",null)));
+        org.mockito.Mockito.verify(offlineTraining,org.mockito.Mockito.never()).canReadTrainingBody(99L,file);
     }
 
     @org.junit.jupiter.params.ParameterizedTest

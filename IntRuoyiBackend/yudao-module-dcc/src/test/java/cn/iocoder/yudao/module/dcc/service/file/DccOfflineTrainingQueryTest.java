@@ -23,6 +23,27 @@ import static org.mockito.ArgumentMatchers.*;
 class DccOfflineTrainingQueryTest {
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
 
+    @Test void effectiveEditorNeedsNoSeparateTrainingGrantOrAssignment() {
+        TenantContextHolder.setTenantId(123L);
+        var categories=mock(DccControlledFileCategoryPermissionSupport.class);
+        var users=mock(AdminUserApi.class);
+        var permissions=mock(PermissionApi.class);
+        var fileScope=mock(DccControlledFileAssignmentScopeService.class);
+        var account=new AdminUserRespDTO();account.setId(7L);account.setTenantId(123L);account.setStatus(0);
+        when(users.getUser(7L)).thenReturn(account);
+        when(permissions.hasAnyPermissions(7L,"dcc:controlled-file:query")).thenReturn(true);
+        var file=new cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO();
+        file.setId(30L);file.setTenantId(123L);file.setRequesterId(7L);file.setCategoryId(3L);file.setDccProjectCodeId(10L);
+        when(categories.hasFilePermission(file,7L,DccFileCategoryPermissionActionEnum.EDIT)).thenReturn(true);
+        var service=new DccOfflineTrainingRecordService();
+        ReflectionTestUtils.setField(service,"users",users);ReflectionTestUtils.setField(service,"permissions",permissions);
+        ReflectionTestUtils.setField(service,"categories",categories);ReflectionTestUtils.setField(service,"fileScope",fileScope);
+        assertEquals(java.util.List.of(7L),service.requireConfiguredRecipients(file));
+        verifyNoInteractions(fileScope);
+        when(categories.hasFilePermission(file,7L,DccFileCategoryPermissionActionEnum.EDIT)).thenReturn(false);
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->service.requireConfiguredRecipients(file));
+    }
+
     @Test void countOnlyAppliesActorAclAndColumnPredicatesWithoutLoadingAllCandidates() {
         TenantContextHolder.setTenantId(123L);
         var files=mock(DccControlledFileMapper.class);

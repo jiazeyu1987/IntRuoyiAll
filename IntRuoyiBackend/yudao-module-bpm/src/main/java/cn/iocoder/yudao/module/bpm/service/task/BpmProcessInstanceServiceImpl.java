@@ -134,6 +134,9 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
     @Resource
     private BpmProcessIdRedisDAO processIdRedisDAO;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private List<BpmApplicantCancellationGuard> applicantCancellationGuards = List.of();
+
     // ========== Query 查询相关方法 ==========
 
     @jakarta.annotation.Resource
@@ -1027,6 +1030,7 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
 
     @Override
     @DataPermission(enable = false) // 关闭数据权限，避免查询不到用户数据。相关案例：https://gitee.com/zhijiantianya/yudao-cloud/issues/ID1UYA
+    @Transactional(rollbackFor = Exception.class)
     public void cancelProcessInstanceByStartUser(Long userId, @Valid BpmProcessInstanceCancelReqVO cancelReqVO) {
         // 1.1 校验流程实例存在
         ProcessInstance instance = getProcessInstance(cancelReqVO.getId());
@@ -1050,6 +1054,13 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
             throw exception(PROCESS_INSTANCE_CANCEL_CHILD_FAIL_NOT_ALLOW);
         }
 
+        for (BpmApplicantCancellationGuard guard : applicantCancellationGuards) {
+            guard.validate(userId, instance, cancelReqVO.getReason());
+        }
+        // Business guards acquire the same locks as approval; re-read after any concurrent approval.
+        if (getProcessInstance(instance.getId()) == null) {
+            throw exception(PROCESS_INSTANCE_CANCEL_FAIL_NOT_EXISTS);
+        }
         // 2. 取消流程
         updateProcessInstanceCancel(cancelReqVO.getId(),
                 BpmReasonEnum.CANCEL_PROCESS_INSTANCE_BY_START_USER.format(cancelReqVO.getReason()), userId);

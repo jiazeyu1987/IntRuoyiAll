@@ -1,0 +1,1311 @@
+{
+  "settings": [
+    {
+      "number": "LAOWU",
+      "zoom": "1",
+      "selectedLabel": "100%"
+    },
+    {
+      "number": "LAOWU",
+      "zoom": "1.25",
+      "selectedLabel": "125%"
+    },
+    {
+      "number": "123456",
+      "zoom": "1",
+      "selectedLabel": "100%"
+    },
+    {
+      "number": "123456",
+      "zoom": "1.25",
+      "selectedLabel": "125%"
+    },
+    {
+      "number": "CHINA",
+      "zoom": "1",
+      "selectedLabel": "100%"
+    },
+    {
+      "number": "CHINA",
+      "zoom": "1.25",
+      "selectedLabel": "125%"
+    }
+  ],
+  "samples": [
+    {
+      "number": "LAOWU",
+      "zoom": "1",
+      "tab": "概览",
+      "dpr": 1,
+      "innerWidth": 1440,
+      "scrollWidth": 1440,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "问题汇总 10-29.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 1215,
+          "width": 81
+        },
+        {
+          "text": "更多",
+          "right": 1303,
+          "width": 80
+        },
+        {
+          "text": "更多操作",
+          "right": 1399,
+          "width": 88
+        }
+      ],
+      "cards": [
+        {
+          "left": 220,
+          "right": 910.65625,
+          "top": 260,
+          "bottom": 560
+        },
+        {
+          "left": 926.65625,
+          "right": 1419.984375,
+          "top": 260,
+          "bottom": 560
+        }
+      ],
+      "screenshotSize": {
+        "width": 1440,
+        "height": 960
+      }
+    },
+    {
+      "number": "LAOWU",
+      "zoom": "1",
+      "tab": "版本与生效",
+      "dpr": 1,
+      "innerWidth": 1440,
+      "scrollWidth": 1440,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "问题汇总 10-29.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 1215,
+          "width": 81
+        },
+        {
+          "text": "更多",
+          "right": 1303,
+          "width": 80
+        },
+        {
+          "text": "更多操作",
+          "right": 1399,
+          "width": 88
+        }
+      ],
+      "cards": [
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 220,
+          "right": 910.65625,
+          "top": 260,
+          "bottom": 521
+        },
+        {
+          "left": 926.65625,
+          "right": 1419.984375,
+          "top": 260,
+          "bottom": 521
+        }
+      ],
+      "screenshotSize": {
+        "width": 1440,
+        "height": 960
+      }
+    },
+    {
+      "number": "LAOWU",
+      "zoom": "1",
+      "tab": "审批与追溯",
+      "dpr": 1,
+      "innerWidth": 1440,
+      "scrollWidth": 1440,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "问题汇总 10-29.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 1215,
+          "width": 81
+        },
+        {
+          "text": "更多",
+          "right": 1303,
+          "width": 80
+        },
+        {
+          "text": "更多操作",
+          "right": 1399,
+          "width": 88
+        }
+      ],
+      "cards": [
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      ],
+      "screenshotSize": {
+        "width": 1440,
+        "height": 960
+      }
+    },
+    {
+      "number": "LAOWU",
+      "zoom": "1",
+      "tab": "分发与培训",
+      "dpr": 1,
+      "innerWidth": 1440,
+      "scrollWidth": 1440,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "问题汇总 10-29.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 1215,
+          "width": 81
+        },
+        {
+          "text": "更多",
+          "right": 1303,
+          "width": 80
+        },
+        {
+          "text": "更多操作",
+          "right": 1399,
+          "width": 88
+        }
+      ],
+      "cards": [
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      ],
+      "screenshotSize": {
+        "width": 1440,
+        "height": 960
+      }
+    },
+    {
+      "number": "LAOWU",
+      "zoom": "1.25",
+      "tab": "概览",
+      "dpr": 1.25,
+      "innerWidth": 1152,
+      "scrollWidth": 1152,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "问题汇总 10-29.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 928.0000228881836,
+          "width": 80.5999984741211
+        },
+        {
+          "text": "更多",
+          "right": 1015.5999984741211,
+          "width": 79.5999984741211
+        },
+        {
+          "text": "更多操作",
+          "right": 1111.2000350952148,
+          "width": 87.5999984741211
+        }
+      ],
+      "cards": [
+        {
+          "left": 220,
+          "right": 742.6625366210938,
+          "top": 259.6000061035156,
+          "bottom": 575.6000061035156
+        },
+        {
+          "left": 758.6625366210938,
+          "right": 1132.0000305175781,
+          "top": 259.6000061035156,
+          "bottom": 575.6000061035156
+        }
+      ],
+      "screenshotSize": {
+        "width": 1152,
+        "height": 768
+      }
+    },
+    {
+      "number": "LAOWU",
+      "zoom": "1.25",
+      "tab": "版本与生效",
+      "dpr": 1.25,
+      "innerWidth": 1152,
+      "scrollWidth": 1152,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "问题汇总 10-29.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 928.0000228881836,
+          "width": 80.5999984741211
+        },
+        {
+          "text": "更多",
+          "right": 1015.5999984741211,
+          "width": 79.5999984741211
+        },
+        {
+          "text": "更多操作",
+          "right": 1111.2000350952148,
+          "width": 87.5999984741211
+        }
+      ],
+      "cards": [
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 220,
+          "right": 742.6625366210938,
+          "top": 259.6000061035156,
+          "bottom": 519.6000061035156
+        },
+        {
+          "left": 758.6625366210938,
+          "right": 1131.987548828125,
+          "top": 259.6000061035156,
+          "bottom": 519.6000061035156
+        }
+      ],
+      "screenshotSize": {
+        "width": 1152,
+        "height": 768
+      }
+    },
+    {
+      "number": "LAOWU",
+      "zoom": "1.25",
+      "tab": "审批与追溯",
+      "dpr": 1.25,
+      "innerWidth": 1152,
+      "scrollWidth": 1152,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "问题汇总 10-29.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 928.0000228881836,
+          "width": 80.5999984741211
+        },
+        {
+          "text": "更多",
+          "right": 1015.5999984741211,
+          "width": 79.5999984741211
+        },
+        {
+          "text": "更多操作",
+          "right": 1111.2000350952148,
+          "width": 87.5999984741211
+        }
+      ],
+      "cards": [
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      ],
+      "screenshotSize": {
+        "width": 1152,
+        "height": 768
+      }
+    },
+    {
+      "number": "LAOWU",
+      "zoom": "1.25",
+      "tab": "分发与培训",
+      "dpr": 1.25,
+      "innerWidth": 1152,
+      "scrollWidth": 1152,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "问题汇总 10-29.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 928.0000228881836,
+          "width": 80.5999984741211
+        },
+        {
+          "text": "更多",
+          "right": 1015.5999984741211,
+          "width": 79.5999984741211
+        },
+        {
+          "text": "更多操作",
+          "right": 1111.2000350952148,
+          "width": 87.5999984741211
+        }
+      ],
+      "cards": [
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      ],
+      "screenshotSize": {
+        "width": 1152,
+        "height": 768
+      }
+    },
+    {
+      "number": "123456",
+      "zoom": "1",
+      "tab": "概览",
+      "dpr": 1,
+      "innerWidth": 1440,
+      "scrollWidth": 1440,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "INT-35_指引导丝.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 1215,
+          "width": 81
+        },
+        {
+          "text": "更多",
+          "right": 1303,
+          "width": 80
+        },
+        {
+          "text": "更多操作",
+          "right": 1399,
+          "width": 88
+        }
+      ],
+      "cards": [
+        {
+          "left": 220,
+          "right": 910.65625,
+          "top": 260,
+          "bottom": 560
+        },
+        {
+          "left": 926.65625,
+          "right": 1419.984375,
+          "top": 260,
+          "bottom": 560
+        }
+      ],
+      "screenshotSize": {
+        "width": 1440,
+        "height": 960
+      }
+    },
+    {
+      "number": "123456",
+      "zoom": "1",
+      "tab": "版本与生效",
+      "dpr": 1,
+      "innerWidth": 1440,
+      "scrollWidth": 1440,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "INT-35_指引导丝.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 1215,
+          "width": 81
+        },
+        {
+          "text": "更多",
+          "right": 1303,
+          "width": 80
+        },
+        {
+          "text": "更多操作",
+          "right": 1399,
+          "width": 88
+        }
+      ],
+      "cards": [
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 220,
+          "right": 910.65625,
+          "top": 260,
+          "bottom": 521
+        },
+        {
+          "left": 926.65625,
+          "right": 1419.984375,
+          "top": 260,
+          "bottom": 521
+        }
+      ],
+      "screenshotSize": {
+        "width": 1440,
+        "height": 960
+      }
+    },
+    {
+      "number": "123456",
+      "zoom": "1",
+      "tab": "审批与追溯",
+      "dpr": 1,
+      "innerWidth": 1440,
+      "scrollWidth": 1440,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "INT-35_指引导丝.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 1215,
+          "width": 81
+        },
+        {
+          "text": "更多",
+          "right": 1303,
+          "width": 80
+        },
+        {
+          "text": "更多操作",
+          "right": 1399,
+          "width": 88
+        }
+      ],
+      "cards": [
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      ],
+      "screenshotSize": {
+        "width": 1440,
+        "height": 960
+      }
+    },
+    {
+      "number": "123456",
+      "zoom": "1",
+      "tab": "分发与培训",
+      "dpr": 1,
+      "innerWidth": 1440,
+      "scrollWidth": 1440,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "INT-35_指引导丝.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 1215,
+          "width": 81
+        },
+        {
+          "text": "更多",
+          "right": 1303,
+          "width": 80
+        },
+        {
+          "text": "更多操作",
+          "right": 1399,
+          "width": 88
+        }
+      ],
+      "cards": [
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      ],
+      "screenshotSize": {
+        "width": 1440,
+        "height": 960
+      }
+    },
+    {
+      "number": "123456",
+      "zoom": "1.25",
+      "tab": "概览",
+      "dpr": 1.25,
+      "innerWidth": 1152,
+      "scrollWidth": 1152,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "INT-35_指引导丝.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 928.0000228881836,
+          "width": 80.5999984741211
+        },
+        {
+          "text": "更多",
+          "right": 1015.5999984741211,
+          "width": 79.5999984741211
+        },
+        {
+          "text": "更多操作",
+          "right": 1111.2000350952148,
+          "width": 87.5999984741211
+        }
+      ],
+      "cards": [
+        {
+          "left": 220,
+          "right": 742.6625366210938,
+          "top": 259.6000061035156,
+          "bottom": 558
+        },
+        {
+          "left": 758.6625366210938,
+          "right": 1132.0000305175781,
+          "top": 259.6000061035156,
+          "bottom": 558
+        }
+      ],
+      "screenshotSize": {
+        "width": 1152,
+        "height": 768
+      }
+    },
+    {
+      "number": "123456",
+      "zoom": "1.25",
+      "tab": "版本与生效",
+      "dpr": 1.25,
+      "innerWidth": 1152,
+      "scrollWidth": 1152,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "INT-35_指引导丝.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 928.0000228881836,
+          "width": 80.5999984741211
+        },
+        {
+          "text": "更多",
+          "right": 1015.5999984741211,
+          "width": 79.5999984741211
+        },
+        {
+          "text": "更多操作",
+          "right": 1111.2000350952148,
+          "width": 87.5999984741211
+        }
+      ],
+      "cards": [
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 220,
+          "right": 742.6625366210938,
+          "top": 259.6000061035156,
+          "bottom": 519.6000061035156
+        },
+        {
+          "left": 758.6625366210938,
+          "right": 1131.987548828125,
+          "top": 259.6000061035156,
+          "bottom": 519.6000061035156
+        }
+      ],
+      "screenshotSize": {
+        "width": 1152,
+        "height": 768
+      }
+    },
+    {
+      "number": "123456",
+      "zoom": "1.25",
+      "tab": "审批与追溯",
+      "dpr": 1.25,
+      "innerWidth": 1152,
+      "scrollWidth": 1152,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "INT-35_指引导丝.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 928.0000228881836,
+          "width": 80.5999984741211
+        },
+        {
+          "text": "更多",
+          "right": 1015.5999984741211,
+          "width": 79.5999984741211
+        },
+        {
+          "text": "更多操作",
+          "right": 1111.2000350952148,
+          "width": 87.5999984741211
+        }
+      ],
+      "cards": [
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      ],
+      "screenshotSize": {
+        "width": 1152,
+        "height": 768
+      }
+    },
+    {
+      "number": "123456",
+      "zoom": "1.25",
+      "tab": "分发与培训",
+      "dpr": 1.25,
+      "innerWidth": 1152,
+      "scrollWidth": 1152,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "INT-35_指引导丝.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 928.0000228881836,
+          "width": 80.5999984741211
+        },
+        {
+          "text": "更多",
+          "right": 1015.5999984741211,
+          "width": 79.5999984741211
+        },
+        {
+          "text": "更多操作",
+          "right": 1111.2000350952148,
+          "width": 87.5999984741211
+        }
+      ],
+      "cards": [
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      ],
+      "screenshotSize": {
+        "width": 1152,
+        "height": 768
+      }
+    },
+    {
+      "number": "CHINA",
+      "zoom": "1",
+      "tab": "概览",
+      "dpr": 1,
+      "innerWidth": 1440,
+      "scrollWidth": 1440,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "问题汇总11.9.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 1215,
+          "width": 81
+        },
+        {
+          "text": "更多",
+          "right": 1303,
+          "width": 80
+        },
+        {
+          "text": "更多操作",
+          "right": 1399,
+          "width": 88
+        }
+      ],
+      "cards": [
+        {
+          "left": 220,
+          "right": 910.65625,
+          "top": 260,
+          "bottom": 560
+        },
+        {
+          "left": 926.65625,
+          "right": 1419.984375,
+          "top": 260,
+          "bottom": 560
+        }
+      ],
+      "screenshotSize": {
+        "width": 1440,
+        "height": 960
+      }
+    },
+    {
+      "number": "CHINA",
+      "zoom": "1",
+      "tab": "版本与生效",
+      "dpr": 1,
+      "innerWidth": 1440,
+      "scrollWidth": 1440,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "问题汇总11.9.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 1215,
+          "width": 81
+        },
+        {
+          "text": "更多",
+          "right": 1303,
+          "width": 80
+        },
+        {
+          "text": "更多操作",
+          "right": 1399,
+          "width": 88
+        }
+      ],
+      "cards": [
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 220,
+          "right": 910.65625,
+          "top": 260,
+          "bottom": 488.4375
+        },
+        {
+          "left": 926.65625,
+          "right": 1419.984375,
+          "top": 260,
+          "bottom": 488.4375
+        }
+      ],
+      "screenshotSize": {
+        "width": 1440,
+        "height": 960
+      }
+    },
+    {
+      "number": "CHINA",
+      "zoom": "1",
+      "tab": "审批与追溯",
+      "dpr": 1,
+      "innerWidth": 1440,
+      "scrollWidth": 1440,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "问题汇总11.9.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 1215,
+          "width": 81
+        },
+        {
+          "text": "更多",
+          "right": 1303,
+          "width": 80
+        },
+        {
+          "text": "更多操作",
+          "right": 1399,
+          "width": 88
+        }
+      ],
+      "cards": [
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      ],
+      "screenshotSize": {
+        "width": 1440,
+        "height": 960
+      }
+    },
+    {
+      "number": "CHINA",
+      "zoom": "1",
+      "tab": "分发与培训",
+      "dpr": 1,
+      "innerWidth": 1440,
+      "scrollWidth": 1440,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "问题汇总11.9.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 1215,
+          "width": 81
+        },
+        {
+          "text": "更多",
+          "right": 1303,
+          "width": 80
+        },
+        {
+          "text": "更多操作",
+          "right": 1399,
+          "width": 88
+        }
+      ],
+      "cards": [
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      ],
+      "screenshotSize": {
+        "width": 1440,
+        "height": 960
+      }
+    },
+    {
+      "number": "CHINA",
+      "zoom": "1.25",
+      "tab": "概览",
+      "dpr": 1.25,
+      "innerWidth": 1152,
+      "scrollWidth": 1152,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "问题汇总11.9.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 928.0000228881836,
+          "width": 80.5999984741211
+        },
+        {
+          "text": "更多",
+          "right": 1015.5999984741211,
+          "width": 79.5999984741211
+        },
+        {
+          "text": "更多操作",
+          "right": 1111.2000350952148,
+          "width": 87.5999984741211
+        }
+      ],
+      "cards": [
+        {
+          "left": 220,
+          "right": 742.6625366210938,
+          "top": 259.6000061035156,
+          "bottom": 580
+        },
+        {
+          "left": 758.6625366210938,
+          "right": 1132.0000305175781,
+          "top": 259.6000061035156,
+          "bottom": 580
+        }
+      ],
+      "screenshotSize": {
+        "width": 1152,
+        "height": 768
+      }
+    },
+    {
+      "number": "CHINA",
+      "zoom": "1.25",
+      "tab": "版本与生效",
+      "dpr": 1.25,
+      "innerWidth": 1152,
+      "scrollWidth": 1152,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "问题汇总11.9.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 928.0000228881836,
+          "width": 80.5999984741211
+        },
+        {
+          "text": "更多",
+          "right": 1015.5999984741211,
+          "width": 79.5999984741211
+        },
+        {
+          "text": "更多操作",
+          "right": 1111.2000350952148,
+          "width": 87.5999984741211
+        }
+      ],
+      "cards": [
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 220,
+          "right": 742.6625366210938,
+          "top": 259.6000061035156,
+          "bottom": 486.8500061035156
+        },
+        {
+          "left": 758.6625366210938,
+          "right": 1131.987548828125,
+          "top": 259.6000061035156,
+          "bottom": 486.8500061035156
+        }
+      ],
+      "screenshotSize": {
+        "width": 1152,
+        "height": 768
+      }
+    },
+    {
+      "number": "CHINA",
+      "zoom": "1.25",
+      "tab": "审批与追溯",
+      "dpr": 1.25,
+      "innerWidth": 1152,
+      "scrollWidth": 1152,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "问题汇总11.9.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 928.0000228881836,
+          "width": 80.5999984741211
+        },
+        {
+          "text": "更多",
+          "right": 1015.5999984741211,
+          "width": 79.5999984741211
+        },
+        {
+          "text": "更多操作",
+          "right": 1111.2000350952148,
+          "width": 87.5999984741211
+        }
+      ],
+      "cards": [
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      ],
+      "screenshotSize": {
+        "width": 1152,
+        "height": 768
+      }
+    },
+    {
+      "number": "CHINA",
+      "zoom": "1.25",
+      "tab": "分发与培训",
+      "dpr": 1.25,
+      "innerWidth": 1152,
+      "scrollWidth": 1152,
+      "rootZoom": "1",
+      "bodyZoom": "1",
+      "title": {
+        "text": "问题汇总11.9.docx",
+        "fontSize": "24px",
+        "lineHeight": "32px"
+      },
+      "actions": [
+        {
+          "text": "返回",
+          "right": 928.0000228881836,
+          "width": 80.5999984741211
+        },
+        {
+          "text": "更多",
+          "right": 1015.5999984741211,
+          "width": 79.5999984741211
+        },
+        {
+          "text": "更多操作",
+          "right": 1111.2000350952148,
+          "width": 87.5999984741211
+        }
+      ],
+      "cards": [
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      ],
+      "screenshotSize": {
+        "width": 1152,
+        "height": 768
+      }
+    }
+  ],
+  "errors": [],
+  "pageErrors": [],
+  "completed": true
+}

@@ -94,8 +94,8 @@ test('both review stages have the same five live anchors, including an empty rel
   assert.match(page.template.content, /<ReviewSectionNavigation v-if="isApprovalUploadHandlingPage" :sections="reviewSections"/)
   assert.match(page.template.content, /ref="reviewRelationsRef"[\s\S]*?<DetailRelationsPanel[\s\S]*?<ContentWrap v-else-if="isApprovalUploadHandlingPage"/)
   assert.doesNotMatch(page.template.content, /填写指派信息/)
-  assert.match(page.template.content, /ref="reviewRelationsRef"[^>]*'review-section--last': isApprovalUploadHandlingPage/)
-  assert.match(page.styles[0].content, /\.review-section--last\s*\{\s*min-height: calc\(100vh - 240px\)/)
+  assert.doesNotMatch(page.template.content, /review-section--last/)
+  assert.doesNotMatch(page.styles[0].content, /\.review-section--last/)
   const h = navigation()
   for (let index = 0; index < 5; index++) { h.state.navigate(index); assert.equal(h.clicks.at(-1).options.top, h.tops[index] - 164); assert.equal(h.state.active.value, index) }
   h.tops[2] = 180; h.tops[3] = 210; h.state.update(); assert.equal(h.state.active.value, 0)

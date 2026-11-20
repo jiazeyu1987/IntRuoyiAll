@@ -40,11 +40,11 @@ class DccSelectedDetailReadServiceTest {
     @AfterEach void clear() { TenantContextHolder.clear(); }
     @Test void exactHistoryIsAuthorizedBeforeReadingAnyDetailProjection() {
         var result=reader.read(99L,id,context); assertEquals(id,result.getId());
-        var order=inOrder(guard,query); order.verify(guard).requireBodyRead(99L,file,context);
+        var order=inOrder(guard,query); order.verify(guard).requireApplicationHistoryRead(99L,file,context);
         order.verify(query).getControlledFile(99L,id,context);
     }
     @Test void deniedHistoryNeverReadsAttachmentsOrOtherDetailData() {
-        doThrow(new IllegalArgumentException("denied exact application")).when(guard).requireBodyRead(99L,file,context);
+        doThrow(new IllegalArgumentException("denied exact application")).when(guard).requireApplicationHistoryRead(99L,file,context);
         assertThrows(IllegalArgumentException.class,()->reader.read(99L,id,context)); verifyNoInteractions(query);
     }
     @Test void foreignOrChangedVersionFailsBeforeGuardAndProjection() {

@@ -652,6 +652,10 @@ public class DccRegistrationCertificateApprovalService {
             case "DOWNLOAD_FILE" -> "注册证下载审批";
             default -> throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT);
         };
+        if ("DOWNLOAD_FILE".equals(String.valueOf(variables.get("requestType")))) {
+            return label + " " + requireSummaryText(variables, "ownerCompanyName")
+                    + " " + requireSummaryText(variables, "certificateName");
+        }
         Object certificateNo = variables.get("certificateNo");
         if (certificateNo != null && !isBlank(String.valueOf(certificateNo))) {
             return label + " " + String.valueOf(certificateNo).trim();
@@ -692,6 +696,11 @@ public class DccRegistrationCertificateApprovalService {
                 ? Map.of() : JsonUtils.parseObject(request.getDetailJson(), Map.class);
         if (detail == null) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT);
+        }
+        if ("DOWNLOAD_FILE".equals(request.getRequestType())) {
+            variables.put("ownerCompanyName", requireSummaryText(detail, "ownerCompanyName"));
+            variables.put("certificateName", requireSummaryText(detail, "certificateName"));
+            variables.put("productName", requireSummaryText(detail, "certificateName"));
         }
         Object certificateNo = detail.get("certificateNo");
         if (certificateNo != null && !isBlank(String.valueOf(certificateNo))) {

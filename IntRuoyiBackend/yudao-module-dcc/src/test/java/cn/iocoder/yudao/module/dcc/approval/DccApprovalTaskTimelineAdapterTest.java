@@ -107,4 +107,27 @@ class DccApprovalTaskTimelineAdapterTest {
 
         assertEquals("APPROVAL_BUSINESS_OBJECT_REQUIRED: DCC controlled file summary snapshot not found 6009", ex.getMessage());
     }
+
+    @Test void nativeTrainingTimelineReusesHistoryAndAppendsTheAuthorizedReceiveNode() {
+        var process=mock(HistoricProcessInstance.class);
+        when(process.getId()).thenReturn("pi-1"); when(process.getTenantId()).thenReturn("1");
+        when(process.getBusinessKey()).thenReturn("6001"); when(process.getProcessDefinitionKey()).thenReturn("dcc-controlled-file-upload");
+        when(processInstanceService.getHistoricProcessInstanceMap(java.util.Set.of("pi-1"))).thenReturn(Map.of("pi-1",process));
+        var file=DccControlledFileDO.builder().id(6001L).processInstanceId("pi-1").processDefinitionKey("dcc-controlled-file-upload").build();
+        file.setTenantId(1L);
+        when(controlledFileMapper.selectByIdIncludingDeleted(6001L)).thenReturn(file);
+        var task=mock(HistoricTaskInstance.class);
+        when(task.getId()).thenReturn("review"); when(task.getTaskDefinitionKey()).thenReturn("DOC_CONTROL_REVIEW");
+        when(task.getTaskLocalVariables()).thenReturn(Map.of("TASK_STATUS",2));
+        when(bpmTaskService.getTaskListByProcessInstanceId("pi-1",true)).thenReturn(List.of(task));
+        var context=ApprovalTaskTimelineQueryContext.of(100L,ApprovalModuleCode.DCC,"DCC_OFFLINE_TRAINING_RECORD",
+                "DCC_OFFLINE_TRAINING_RECORD:1:6001:pi-1","6001","pi-1");
+        var pending=ApprovalTaskTimelineEntry.builder().id("execution").nodeCode("TRAINING").action("CURRENT").build();
+        when(offlineTraining.trainingTimelineEntry(context,file)).thenReturn(pending);
+        var entries=adapter.listTimeline(context);
+        assertEquals(2,entries.size()); assertEquals("review",entries.get(0).getId()); assertEquals(pending,entries.get(1));
+        verify(offlineTraining).trainingTimelineEntry(context,file);
+        when(process.getTenantId()).thenReturn("2");
+        assertThrows(IllegalStateException.class,()->adapter.listTimeline(context));
+    }
 }

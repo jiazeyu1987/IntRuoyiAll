@@ -70,6 +70,23 @@ test('failed POST retains one idempotency key; successful next form gets a new k
     c.state.reset(); assert.equal(c.state.idempotencyKey, 'uuid-2'); assert.equal(c.state.file, undefined)
   } finally { c.app.unmount() }
 })
+
+test('upload keeps the server selected-type denial and distinct directory/configuration errors', async () => {
+  for (const message of [
+    ...['包装设计', '检验规范'].map(name => `当前账号无权上传“${name}”类型的文件，请选择已授权的文件类型，或联系文控管理员申请授权。`),
+    '文件类型“包装设计”未配置有效且唯一的存储目录，请联系文控管理员维护。',
+    '项目文件夹不存在或不属于当前项目'
+  ]) {
+    const c = mount({ importControlledFile: async () => { throw Error(message) } })
+    try {
+      await fill(c); await c.state.submit()
+      assert.equal(c.state.error, message)
+      assert.equal(c.state.result, undefined)
+      assert.equal(c.state.submitting, false)
+      assert.equal(c.state.categoryId, '31')
+    } finally { c.app.unmount() }
+  }
+})
 test('project switch clears mapping and ignores a previous project late response', async () => {
   let resolveFirst
   const c = mount({ getControlledImportOptions: id => id === '11' ? new Promise(resolve => { resolveFirst = resolve }) : Promise.resolve({ ...options(), folders: [{ id: '99', parentId: '0', name: '新项目目录' }] }) })

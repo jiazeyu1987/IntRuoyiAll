@@ -80,6 +80,7 @@
                   "
                   >{{ formatTime(row[column.key]) }}</span
                 >
+                <WorkOrderCodeLink :code="row.workOrderCode" v-else-if="column.key === 'workOrderCode'" />
                 <span v-else>{{ row[column.key] }}</span>
               </template>
             </el-table-column>
@@ -108,6 +109,7 @@
 </template>
 
 <script setup lang="ts">
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import '@/views/mes/pro/edhr-batch/record-viewport.css'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'

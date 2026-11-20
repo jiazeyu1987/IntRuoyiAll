@@ -42,12 +42,13 @@ test('numeric BPM task results and unknown signature states are readable without
   assert.equal(api.approvalSignatureStatus('INTERNAL'), '状态未记录')
 })
 
-test('assignment and actual signoff use separate names while other stages keep their historical name', () => {
+test('assignment, actual signoff and approval use business names while other stages keep their historical name', () => {
   for (const actionType of ['ASSIGN', 'ASSIGNED']) {
     assert.equal(api.approvalNodeLabel({ actionType, stageCode: 'MATRIX_REVIEW', nodeName: '会签指派与实际签名' }), '部门负责人签名指派')
   }
   for (const actionType of ['APPROVE', 'REJECT', 'RETURN', 'TASK_COMPLETED']) {
     assert.equal(api.approvalNodeLabel({ actionType, stageCode: 'MATRIX_REVIEW', nodeName: '会签指派与实际签名' }), '实际会签人会签')
+    assert.equal(api.approvalNodeLabel({ actionType, stageCode: 'MATRIX_APPROVAL', nodeName: '批准并确认文件负责人' }), '批准')
   }
   assert.equal(api.approvalNodeLabel({ actionType: 'APPROVE', stageCode: 'DOC_CONTROL_REVIEW', nodeName: '文控标准化审核' }), '文控标准化审核')
 })
@@ -96,7 +97,8 @@ test('compiled Vue renders empty text and connects inline confirmations to the e
   const text = await render(empty)
   assert.match(text, /暂无前序审批或电子签名记录/); assert.doesNotMatch(text, /<table/)
   const html = await render(evidence())
-  for (const name of ['张三', '李四', '王五', '有效']) assert.ok(html.includes(name), name)
+  for (const name of ['张三', '李四', '有效']) assert.ok(html.includes(name), name)
+  assert.doesNotMatch(html, /确认文件负责人|王五/)
   assert.match(html, /data-signature="71"/)
   assert.match(html, /data-task="task"/)
   assert.doesNotMatch(html, /账号 #|签名投影|SIGNATURE:71/)

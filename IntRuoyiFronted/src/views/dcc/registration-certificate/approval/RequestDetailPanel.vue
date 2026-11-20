@@ -7,6 +7,7 @@
         <el-descriptions-item label="申请状态">{{ statusLabels[detail.status] || detail.status }}</el-descriptions-item>
         <el-descriptions-item label="申请时间（北京时间）">{{ formatRegistrationCertificateDateTime(detail.requestedAt) }}</el-descriptions-item>
         <el-descriptions-item label="所属公司">{{ detail.submission?.ownerCompanyName || '未填写' }}</el-descriptions-item>
+        <el-descriptions-item v-if="detail.requestType === 'DOWNLOAD_FILE'" label="注册证名称">{{ detail.submission?.certificateName }}</el-descriptions-item>
         <el-descriptions-item label="申请说明">{{ detail.purpose || '未填写' }}</el-descriptions-item>
         <el-descriptions-item v-if="detail.rejectReason" label="驳回原因">{{ detail.rejectReason }}</el-descriptions-item>
         <el-descriptions-item v-if="detail.withdrawReason" label="撤回原因">{{ detail.withdrawReason }}</el-descriptions-item>

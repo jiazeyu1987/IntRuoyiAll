@@ -69,7 +69,8 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     private static final Set<String> FORM_CENTER_OBSOLETE_ACTIONS = PROCESS_IN_MODULE_ACTIONS;
     private static final Set<ApprovalTaskViewType> SUPPORTED_VIEWS = Set.of(
             ApprovalTaskViewType.TODO,
-            ApprovalTaskViewType.DONE
+            ApprovalTaskViewType.DONE,
+            ApprovalTaskViewType.MY_INITIATED
     );
     private static final Set<ApprovalTaskCapability> CAPABILITIES = Set.of(
             ApprovalTaskCapability.TIMELINE,
@@ -155,6 +156,8 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
         PageResult<ApprovalTaskSummary> files=switch(context.getViewType()) {
             case TODO -> pageTodo(headContext);
             case DONE -> pageDone(headContext);
+            // Flowable file instances are already supplied by the BPM provider.
+            case MY_INITIATED -> new PageResult<>(List.of(), 0L);
             default -> throw new IllegalArgumentException("APPROVAL_VIEW_TYPE_UNSUPPORTED: "+context.getViewType());
         };
         long total=Math.addExact(files.getTotal(),Math.addExact(projects.getTotal(),training.getTotal()));
@@ -168,26 +171,38 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     @Override
     public List<ApprovalTaskTimelineEntry> listTimeline(ApprovalTaskTimelineQueryContext context) {
         if (DccProjectProductTaskDelegate.supports(context.getSourceTaskType())) return projectApplications.timeline(context);
-        requireSourceTaskType(context.getSourceTaskType());
+        boolean trainingTask = cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingRecordService.SOURCE_TYPE.equals(context.getSourceTaskType());
+        if (!trainingTask) requireSourceTaskType(context.getSourceTaskType());
         String processInstanceId = requireText(context.getProcessInstanceId(),
                 "APPROVAL_PROCESS_INSTANCE_REQUIRED: DCC timeline requires process instance id");
         HistoricProcessInstance processInstance = requireHistoricProcessInstance(
                 processInstanceService.getHistoricProcessInstanceMap(Set.of(processInstanceId)), processInstanceId);
         String businessKey = resolveTimelineBusinessKey(context.getBusinessKey(), processInstance);
-        requireControlledFileSnapshotForTimeline(businessKey);
+        var file = requireControlledFileSnapshotForTimeline(businessKey);
+        ApprovalTaskTimelineEntry trainingEntry = null;
+        if (trainingTask) {
+            if (!Objects.equals(processInstanceId, processInstance.getId())
+                    || !Objects.equals(String.valueOf(file.getTenantId()), processInstance.getTenantId())
+                    || !Objects.equals(file.getProcessDefinitionKey(), processInstance.getProcessDefinitionKey())) {
+                throw new IllegalStateException("DCC_OFFLINE_TRAINING_TIMELINE_PROCESS_MISMATCH");
+            }
+            trainingEntry = offlineTraining.trainingTimelineEntry(context,file);
+        }
         List<HistoricTaskInstance> tasks = requireTimelineTasks(processInstanceId);
         boolean separateSignoff = isSignoffProcess(processInstance.getProcessDefinitionKey())
                 && tasks.stream().anyMatch(task -> "MATRIX_REVIEW".equals(task.getTaskDefinitionKey()));
         List<DccControlledFileSignatureDO> signatures = separateSignoff
                 ? signatureMapper.selectListByControlledFileId(parseBusinessKey(businessKey)) : List.of();
-        assertTimelineAccess(context, processInstance, tasks, signatures, businessKey);
-        return tasks.stream()
+        if (!trainingTask) assertTimelineAccess(context, processInstance, tasks, signatures, businessKey);
+        List<ApprovalTaskTimelineEntry> entries = new ArrayList<>(tasks.stream()
                 .flatMap(task -> {
                     var entry = toTimelineEntry(task, businessKey);
                     return (separateSignoff && "MATRIX_REVIEW".equals(task.getTaskDefinitionKey())
                             ? signoffTimelineEntries(task, entry, signatures) : List.of(entry)).stream();
                 })
-                .toList();
+                .toList());
+        if (trainingTask) entries.add(Objects.requireNonNull(trainingEntry));
+        return entries;
     }
 
     private static boolean isSignoffProcess(String processKey) {

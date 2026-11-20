@@ -829,7 +829,7 @@
         <div class="analysis-summary-grid">
           <div class="summary-chip">
             <label>工单</label>
-            <strong>{{ workOrderAnalysis.workOrderCode || '--' }}</strong>
+            <strong><WorkOrderCodeLink :code="workOrderAnalysis.workOrderCode" :work-order-id="workOrderAnalysis.workOrderId" empty-text="--" /></strong>
           </div>
           <div class="summary-chip">
             <label>产品</label>

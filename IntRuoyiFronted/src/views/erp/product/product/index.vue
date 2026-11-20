@@ -391,9 +391,11 @@ const quickFilter = useTableQuickFilter(
 )
 
 const loadListFromRoute = async () => {
-  const barCode = typeof route.query.barCode === 'string' ? route.query.barCode : undefined
+  const barCode = typeof route.query.barCode === 'string' ? route.query.barCode.trim() : undefined
   if (!barCode) {
-    await getList()
+    codeSyncListTemplate.value!.resetColumnFilters()
+    queryParams.syncCode = undefined
+    await quickFilter.resetQuickFilter()
     return
   }
   codeSyncListTemplate.value!.resetColumnFilters()

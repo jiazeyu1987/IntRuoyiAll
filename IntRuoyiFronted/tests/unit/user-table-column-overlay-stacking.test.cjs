@@ -116,7 +116,8 @@ const styles = fs.readFileSync(path.join(root, 'src/styles/index.scss'), 'utf8')
         toolbarBottom: toolbar.getBoundingClientRect().bottom }
     }, script)
     assert.ok(attachmentLayout.toolbarBottom <= attachmentLayout.headerTop, 'ordinary detail attachment table reserves a row for field/reset controls')
-    const registrationSource = source.slice(source.indexOf('const registerTable ='), source.indexOf('const pruneDisconnectedTables ='))
+    const registrationSource = source.slice(source.indexOf('const referenceColumnControls ='), source.indexOf('const tabLocalPopoverStyle =')) +
+      source.slice(source.indexOf('const registerTable ='), source.indexOf('const pruneDisconnectedTables ='))
     const registration = ts.transpileModule(registrationSource, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText
     const count = await page.evaluate(code => {
       const tableMap = new Map()

@@ -12,6 +12,8 @@ import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleMapper;
 import cn.iocoder.yudao.module.system.enums.permission.DataScopeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.RoleTypeEnum;
 import cn.iocoder.yudao.module.system.service.tenant.TenantService;
+import cn.iocoder.yudao.module.system.service.dept.DeptService;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import jakarta.annotation.Resource;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -66,6 +68,22 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
     @Resource
     private TenantService tenantService;
 
+    @Resource
+    private DeptService deptService;
+
+    @Override
+    public byte[] exportAllPackage() {
+        List<Long> categoryIds = roleCategoryMapper.selectListOrderBySort().stream()
+                .map(RoleCategoryDO::getId).toList();
+        for (RoleDO role : roleMapper.selectList()) {
+            if (!categoryIds.contains(role.getCategoryId())) {
+                throw exception(CONFIG_PACKAGE_REFERENCE_MISSING,
+                        "角色【" + role.getCode() + "】缺少有效分类，不能导出完整配置包");
+            }
+        }
+        return exportPackage(categoryIds);
+    }
+
     @Override
     public byte[] exportPackage(List<Long> categoryIds) {
         if (categoryIds == null || categoryIds.isEmpty()) {
@@ -99,6 +117,9 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         validatePayload(payload);
         payload.getCategories().forEach(this::validateCategoryItem);
         payload.getRoles().forEach(this::validateItem);
+        // V4 stores department primary keys, not portable department identities.
+        // Reject foreign/missing references before locks or any package writes.
+        payload.getRoles().forEach(this::validateDepartmentReferences);
         // Nested permission commands append GxP facts; acquire ledger before the authority/role locks.
         gxpAuditService.acquireLedgerLock();
         var authority = approvalAuthority.lockTenantApprovalAuthority(
@@ -255,6 +276,31 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         item.setStatus(category.getStatus());
         item.setRemark(category.getRemark());
         return item;
+    }
+
+    private void validateDepartmentReferences(RoleConfigItem item) {
+        if (item.getDataScope() == null || java.util.Arrays.stream(DataScopeEnum.values())
+                .noneMatch(scope -> Objects.equals(scope.getScope(), item.getDataScope()))) {
+            throw exception(CONFIG_PACKAGE_CONTENT_INVALID,
+                    "角色【" + item.getCode() + "】的数据范围非法");
+        }
+        Set<Long> ids = item.getDataScopeDeptIds();
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        Set<Long> validIds = deptService.getDeptList(ids).stream()
+                .filter(dept -> Objects.equals(dept.getTenantId(), tenantId)
+                        && Objects.equals(dept.getStatus(), CommonStatusEnum.ENABLE.getStatus()))
+                .map(cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO::getId)
+                .collect(java.util.stream.Collectors.toSet());
+        Set<Long> invalidIds = new LinkedHashSet<>(ids);
+        invalidIds.removeAll(validIds);
+        if (!invalidIds.isEmpty()) {
+            throw exception(CONFIG_PACKAGE_REFERENCE_MISSING,
+                    "角色【" + item.getCode() + "】引用的部门编号【" + invalidIds
+                            + "】在目标租户不存在或未启用；JSON v4 不支持跨租户直接迁移部门编号");
+        }
     }
 
     private Map<String, Long> resolveCategories(List<RoleCategoryConfigItem> items) {

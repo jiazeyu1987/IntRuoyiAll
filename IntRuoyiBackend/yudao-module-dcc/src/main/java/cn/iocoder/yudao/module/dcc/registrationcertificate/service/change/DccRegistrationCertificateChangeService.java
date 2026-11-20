@@ -333,11 +333,21 @@ public class DccRegistrationCertificateChangeService {
         var existing=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(before.factsJson());
         var replacement=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(changes.get("CERTIFICATE_INFORMATION"));
         replacement.validate();
+        if ("CE".equals(existing.getCertificateType()) && !Objects.equals(existing.getModelSpecifications(), replacement.getModelSpecifications())) {
+            List<String> models = replacement.getModelSpecifications();
+            if (models == null || models.isEmpty() || models.stream().anyMatch(DccRegistrationCertificateChangeService::isBlank)
+                    || new LinkedHashSet<>(models).size() != models.size())
+                throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED);
+        }
+
         if(!Objects.equals(existing.getCertificateType(),replacement.getCertificateType())
                 || !Objects.equals(existing.getOwnProduct(),replacement.getOwnProduct()))
             throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID);
         Map<?,?> oldValues=JsonUtils.parseObject(before.factsJson(),Map.class);
         Map<?,?> newValues=JsonUtils.parseObject(changes.get("CERTIFICATE_INFORMATION"),Map.class);
+        Set<String> protectedFields = Set.of("projectProduct", "projectCode", "ownerCompanyId", "projectCodeId", "productMasterId");
+        for (String field : protectedFields) if (!Objects.equals(oldValues.get(field), newValues.get(field)))
+            throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID);
         for(var entry:oldValues.entrySet()) if(entry.getValue()!=null && !newValues.containsKey(entry.getKey()))
             throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED);
     }
@@ -445,6 +455,25 @@ public class DccRegistrationCertificateChangeService {
             if (isBlank(command.entrustedEnterprisesJson()) || "[]".equals(command.entrustedEnterprisesJson().trim())) {
                 throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED);
             }
+            String currentFacts = jdbcTemplate.queryForObject("SELECT s.facts_json FROM dcc_registration_certificate c JOIN dcc_registration_certificate_snapshot s ON s.id=c.current_snapshot_id AND s.tenant_id=c.tenant_id WHERE c.tenant_id=? AND c.id=? AND c.deleted=0", String.class, command.tenantId(), command.certificateId());
+            var type = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(currentFacts).getCertificateType();
+            List<?> enterprises = JsonUtils.parseObject(command.entrustedEnterprisesJson(), List.class);
+            Set<Long> ids = new LinkedHashSet<>();
+            if (enterprises == null || enterprises.isEmpty()) throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED);
+            for (Object value : enterprises) {
+                if (!"DOMESTIC".equals(type)) {
+                    if (!(value instanceof Map<?, ?> row) || !(row.get("enterpriseName") instanceof String name) || name.isBlank())
+                        throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED);
+                    continue;
+                }
+                if (!(value instanceof Map<?, ?> item) || !(item.get("enterpriseId") instanceof Number number)
+                        || number.longValue() <= 0 || !ids.add(number.longValue()))
+                    throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED);
+                List<String> names = jdbcTemplate.queryForList("SELECT name FROM mdm_enterprise WHERE tenant_id=? AND id=? AND type IN ('OWNED_COMPANY','ENTRUSTED_PARTY') AND status='ENABLE' AND deleted=0",
+                        String.class, command.tenantId(), number.longValue());
+                if (names.size() != 1 || !Objects.equals(names.get(0), item.get("enterpriseName")))
+                    throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED);
+            }
         } else if (!isBlank(command.entrustedEnterprisesJson())
                 && !"[]".equals(command.entrustedEnterprisesJson().trim())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED);
@@ -454,8 +483,8 @@ public class DccRegistrationCertificateChangeService {
     private CertificateState requireCurrentState(Long tenantId, Long certificateId, Integer expectedRowVersion) {
         List<CertificateState> rows = jdbcTemplate.query("""
                         SELECT c.owner_company_id, c.current_version_id, c.current_snapshot_id, c.status, c.row_version,
-                               v.status AS version_status, v.certificate_no, v.classification,
-                               v.effective_date, v.expiry_date,
+                               v.status AS version_status, NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateNo')), 'null') AS certificate_no, NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.classification')), 'null') AS classification,
+                               CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')), 'null') AS DATE) AS effective_date, CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')), 'null') AS DATE) AS expiry_date,
                                s.id AS snapshot_id, s.version_id, s.revision_no, s.product_name, s.registrant_name,
                                s.model_specification, s.structure_composition, s.intended_use,
                                s.technical_requirements, s.residence_address, s.production_address,
@@ -596,6 +625,15 @@ public class DccRegistrationCertificateChangeService {
         } catch (DuplicateKeyException exception) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
         }
+    }
+
+    private static String normalizedChangeFacts(String json) {
+        var facts=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(json);
+        if("CE".equals(facts.getCertificateType()) && facts.getCeCertificates()!=null && !facts.getCeCertificates().isEmpty()) {
+            facts.setCertificateNo(facts.getCeCertificates().get(facts.getCeCertificates().size()-1).getCertificateNo());
+            return facts.toJson();
+        }
+        return json;
     }
 
     private Long insertSnapshot(Long tenantId, Long versionId, SnapshotRow snapshot) {
@@ -1186,7 +1224,7 @@ public class DccRegistrationCertificateChangeService {
             return new SnapshotRow(id, versionId, revisionNo,
                     changes.getOrDefault("PRODUCT_NAME", productName),
                     changes.getOrDefault("REGISTRANT_NAME", registrantName),
-                    changes.getOrDefault("MODEL_SPECIFICATION", modelSpecification),
+                    projectModelSpecification(changes, modelSpecification),
                     changes.getOrDefault("STRUCTURE_COMPOSITION", structureComposition),
                     changes.getOrDefault("INTENDED_USE", intendedUse),
                     changes.getOrDefault("TECHNICAL_REQUIREMENTS", technicalRequirements),
@@ -1195,7 +1233,7 @@ public class DccRegistrationCertificateChangeService {
                     (changes.containsKey("PRODUCTION_ADDRESS") || changes.containsKey("PRODUCTION_RELATION")) ? command.entrustedProduction() : entrustedProduction,
                     (changes.containsKey("PRODUCTION_ADDRESS") || changes.containsKey("PRODUCTION_RELATION")) ? command.selfProduction() : selfProduction,
                     (changes.containsKey("PRODUCTION_ADDRESS") || changes.containsKey("PRODUCTION_RELATION")) ? normalizeEntrustedJson(command) : entrustedEnterprisesJson,
-                    changes.getOrDefault("CERTIFICATE_INFORMATION", factsJson), effectiveAt);
+                    changes.containsKey("CERTIFICATE_INFORMATION") ? normalizedChangeFacts(changes.get("CERTIFICATE_INFORMATION")) : factsJson, effectiveAt);
         }
 
         SnapshotRow withApprovedChanges(ApprovedProjection projection) {
@@ -1204,7 +1242,7 @@ public class DccRegistrationCertificateChangeService {
             return new SnapshotRow(id, versionId, revisionNo,
                     changes.getOrDefault("PRODUCT_NAME", productName),
                     changes.getOrDefault("REGISTRANT_NAME", registrantName),
-                    changes.getOrDefault("MODEL_SPECIFICATION", modelSpecification),
+                    projectModelSpecification(changes, modelSpecification),
                     changes.getOrDefault("STRUCTURE_COMPOSITION", structureComposition),
                     changes.getOrDefault("INTENDED_USE", intendedUse),
                     changes.getOrDefault("TECHNICAL_REQUIREMENTS", technicalRequirements),
@@ -1213,7 +1251,16 @@ public class DccRegistrationCertificateChangeService {
                     productionAddressChanged ? projection.entrustedProduction() : entrustedProduction,
                     productionAddressChanged ? projection.selfProduction() : selfProduction,
                     productionAddressChanged ? projection.entrustedEnterprisesJson() : entrustedEnterprisesJson,
-                    changes.getOrDefault("CERTIFICATE_INFORMATION", factsJson), effectiveAt);
+                    changes.containsKey("CERTIFICATE_INFORMATION") ? normalizedChangeFacts(changes.get("CERTIFICATE_INFORMATION")) : factsJson, effectiveAt);
+        }
+
+        private static String projectModelSpecification(Map<String,String> changes, String existing) {
+            if (changes.containsKey("CERTIFICATE_INFORMATION")) {
+                var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(changes.get("CERTIFICATE_INFORMATION"));
+                if ("CE".equals(facts.getCertificateType()) && facts.getModelSpecifications() != null)
+                    return String.join("\n", facts.getModelSpecifications());
+            }
+            return changes.getOrDefault("MODEL_SPECIFICATION",existing);
         }
 
         String valueOf(String itemType) {

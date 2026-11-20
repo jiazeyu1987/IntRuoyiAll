@@ -8,12 +8,10 @@ import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskQueryContext;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskSummary;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskTimelineEntry;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskTimelineQueryContext;
-import cn.iocoder.yudao.module.showroom.workflow.model.ShowroomApprovalDetail;
 import cn.iocoder.yudao.module.showroom.workflow.model.ShowroomApprovalSignatureRecord;
-import cn.iocoder.yudao.module.showroom.workflow.model.ShowroomApprovalTargetPreview;
 import cn.iocoder.yudao.module.showroom.workflow.model.ShowroomChangeRequest;
 import cn.iocoder.yudao.module.showroom.workflow.model.ShowroomChangeRequestItem;
-import cn.iocoder.yudao.module.showroom.workflow.service.ShowroomWorkflowFacade;
+import cn.iocoder.yudao.module.showroom.workflow.service.ShowroomPersistentWorkflowService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -22,7 +20,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -33,7 +30,7 @@ import static org.mockito.Mockito.when;
 class ShowroomApprovalTaskAdapterTest {
 
     @Mock
-    private ShowroomWorkflowFacade workflowFacade;
+    private ShowroomPersistentWorkflowService workflowService;
     @Mock
     private cn.iocoder.yudao.module.showroom.dal.mysql.workflow.ShowroomApprovalQueryMapper approvalQueries;
     @InjectMocks
@@ -72,7 +69,7 @@ class ShowroomApprovalTaskAdapterTest {
         assertTrue(summary.getCapabilities().contains(ApprovalTaskCapability.SIGNATURE_AUTHORIZATION));
         assertTrue(summary.getCapabilities().contains(ApprovalTaskCapability.EVIDENCE_LEDGER));
 
-        verify(workflowFacade, org.mockito.Mockito.never()).listPendingApprovalsForReviewer(100L);
+        verify(workflowService, org.mockito.Mockito.never()).getApprovalDetail(org.mockito.ArgumentMatchers.any());
         verify(approvalQueries).window(org.mockito.ArgumentMatchers.any());
     }
 
@@ -88,6 +85,43 @@ class ShowroomApprovalTaskAdapterTest {
 
         assertEquals(1L, page.getTotal());
         assertEquals("SHOWROOM:SHOWROOM_CHANGE_REQUEST:9002", page.getList().get(0).getId());
+    }
+
+    @Test
+    void missingProductDoesNotPreventReadingApprovalSummaryAndTimeline() {
+        var requests = org.mockito.Mockito.mock(cn.iocoder.yudao.module.showroom.dal.mysql.workflow.ShowroomChangeRequestMapper.class);
+        var items = org.mockito.Mockito.mock(cn.iocoder.yudao.module.showroom.dal.mysql.workflow.ShowroomChangeRequestItemMapper.class);
+        var signatures = org.mockito.Mockito.mock(cn.iocoder.yudao.module.showroom.dal.mysql.workflow.ShowroomChangeRequestSignatureMapper.class);
+        var audits = org.mockito.Mockito.mock(cn.iocoder.yudao.module.showroom.dal.mysql.workflow.ShowroomVersionAuditMapper.class);
+        var content = org.mockito.Mockito.mock(cn.iocoder.yudao.module.showroom.content.service.ShowroomPersistentContentService.class);
+        var row = cn.iocoder.yudao.module.showroom.dal.dataobject.workflow.ShowroomChangeRequestDO.builder()
+                .targetType("PRODUCT").targetId(7001L).targetRevisionId(8001L)
+                .status("PENDING_SUPERVISOR_REVIEW").submittedBy(501L).supervisorUserId(100L).build();
+        row.setId(9001L);
+        when(requests.selectById(9001L)).thenReturn(row);
+        when(content.getProduct(7001L)).thenThrow(new IllegalStateException("SHOWROOM_TARGET_NOT_FOUND: product not found"));
+        var service = new ShowroomPersistentWorkflowService(requests, items, signatures, audits, content);
+        var failure = org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> service.getApprovalDetail(9001L));
+        assertEquals("SHOWROOM_TARGET_NOT_FOUND: product not found", failure.getMessage());
+        var realAdapter = new ShowroomApprovalTaskAdapter(service);
+        org.springframework.test.util.ReflectionTestUtils.setField(realAdapter, "approvalQueries", approvalQueries);
+        when(approvalQueries.query(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new cn.iocoder.yudao.framework.mybatis.core.query.QueryWrapperX<>());
+        when(approvalQueries.count(org.mockito.ArgumentMatchers.any())).thenReturn(1L);
+        when(approvalQueries.window(org.mockito.ArgumentMatchers.any())).thenReturn(List.of(9001L));
+
+        var page = realAdapter.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.SHOWROOM, null, 1, 20));
+        assertEquals(1L, page.getTotal());
+        assertEquals("9001", page.getList().get(0).getSourceTaskId());
+        var timeline = realAdapter.listTimeline(ApprovalTaskTimelineQueryContext.of(100L,
+                ApprovalModuleCode.SHOWROOM, "SHOWROOM_CHANGE_REQUEST", "9001", "9001", null));
+        assertEquals("SUBMITTED", timeline.get(0).getAction());
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> realAdapter.listTimeline(ApprovalTaskTimelineQueryContext.of(999L,
+                        ApprovalModuleCode.SHOWROOM, "SHOWROOM_CHANGE_REQUEST", "9001", "9001", null)));
+        verify(content, org.mockito.Mockito.times(1)).getProduct(7001L);
     }
 
     @Test
@@ -108,10 +142,8 @@ class ShowroomApprovalTaskAdapterTest {
         ShowroomApprovalSignatureRecord supervisorSignature = new ShowroomApprovalSignatureRecord(
                 3001L, 9001L, "SUPERVISOR", "APPROVE", 100L, "PASSWORD",
                 Boolean.TRUE, "主管确认通过", supervisorSignedAt);
-        ShowroomApprovalDetail detail = new ShowroomApprovalDetail(request, request.items(),
-                new ShowroomApprovalTargetPreview("PRODUCT", 7001L, 7000L, 8001L, Map.of(), Map.of()),
-                List.of(), List.of(supervisorSignature));
-        when(workflowFacade.getApproval(9001L)).thenReturn(detail);
+        when(workflowService.getChangeRequest(9001L)).thenReturn(request);
+        when(workflowService.getSignatureRecords(9001L)).thenReturn(List.of(supervisorSignature));
 
         List<ApprovalTaskTimelineEntry> timeline = adapter.listTimeline(ApprovalTaskTimelineQueryContext.of(
                 200L, ApprovalModuleCode.SHOWROOM, "SHOWROOM_CHANGE_REQUEST", "9001", "9001",
@@ -142,7 +174,7 @@ class ShowroomApprovalTaskAdapterTest {
         assertEquals("PENDING", publicityPending.getStatus());
         assertEquals(200L, publicityPending.getActorUserId());
 
-        verify(workflowFacade).getApproval(9001L);
+        verify(workflowService).getChangeRequest(9001L);
     }
 
     @Test
@@ -152,10 +184,8 @@ class ShowroomApprovalTaskAdapterTest {
                 8003L, "showroom", "CONTENT_UPDATE", "MANUAL", "PENDING_SUPERVISOR_REVIEW",
                 "pi-showroom-9003", 501L, 60L, submittedAt, 100L, 60L, null,
                 200L, null, null, null, List.of());
-        ShowroomApprovalDetail detail = new ShowroomApprovalDetail(request, request.items(),
-                new ShowroomApprovalTargetPreview("PRODUCT", 7003L, 7002L, 8003L, Map.of(), Map.of()),
-                List.of(), List.of());
-        when(workflowFacade.getApproval(9003L)).thenReturn(detail);
+        when(workflowService.getChangeRequest(9003L)).thenReturn(request);
+        when(workflowService.getSignatureRecords(9003L)).thenReturn(List.of());
 
         List<ApprovalTaskTimelineEntry> timeline = adapter.listTimeline(ApprovalTaskTimelineQueryContext.of(
                 999L, ApprovalModuleCode.SHOWROOM, "SHOWROOM_CHANGE_REQUEST", "9003", "9003",
@@ -172,7 +202,6 @@ class ShowroomApprovalTaskAdapterTest {
                 .thenReturn(new cn.iocoder.yudao.framework.mybatis.core.query.QueryWrapperX<>());
         when(approvalQueries.count(org.mockito.ArgumentMatchers.any())).thenReturn(1L);
         when(approvalQueries.window(org.mockito.ArgumentMatchers.any())).thenReturn(List.of(request.changeRequestId()));
-        when(workflowFacade.getApproval(request.changeRequestId())).thenReturn(new ShowroomApprovalDetail(
-                request,request.items(),null,List.of(),List.of()));
+        when(workflowService.getChangeRequest(request.changeRequestId())).thenReturn(request);
     }
 }

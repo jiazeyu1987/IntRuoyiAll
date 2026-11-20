@@ -17,6 +17,9 @@ public class DccArchiveAccessService {
         return file != null && file.getStatus()!=null && Set.of("SUPERSEDED", "OBSOLETE").contains(file.getStatus());
     }
     public boolean canQuery(Long actor) {
+        return DccReadRequestSnapshot.read("archiveQuery." + actor, () -> loadCanQuery(actor));
+    }
+    private boolean loadCanQuery(Long actor) {
         return actor != null && DccAccessUserIdentity.isEnabledTenantUser(actor, adminUserApi.getUser(actor))
                 && permissionApi.hasAnyRoles(actor, "doc_control")
                 && permissionApi.hasAnyPermissions(actor, "dcc:controlled-file:archive:query");

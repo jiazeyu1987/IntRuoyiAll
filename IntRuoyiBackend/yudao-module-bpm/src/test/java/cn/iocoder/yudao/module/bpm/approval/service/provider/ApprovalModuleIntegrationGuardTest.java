@@ -100,7 +100,7 @@ class ApprovalModuleIntegrationGuardTest {
                                 ApprovalTaskViewType.MY_INITIATED, ApprovalTaskViewType.CC),
                         Set.of(ApprovalTaskCapability.NOTIFICATION, ApprovalTaskCapability.AUDIT)),
                 provider(ApprovalModuleCode.DCC,
-                        Set.of(ApprovalTaskViewType.TODO, ApprovalTaskViewType.DONE),
+                        Set.of(ApprovalTaskViewType.TODO, ApprovalTaskViewType.DONE, ApprovalTaskViewType.MY_INITIATED),
                         Set.of(ApprovalTaskCapability.TIMELINE, ApprovalTaskCapability.NOTIFICATION,
                                 ApprovalTaskCapability.AUDIT, ApprovalTaskCapability.SIGNATURE_AUTHORIZATION,
                                 ApprovalTaskCapability.EVIDENCE_LEDGER)),

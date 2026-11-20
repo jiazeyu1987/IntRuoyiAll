@@ -126,11 +126,12 @@ public class DccOfflineTrainingRecordService {
         else editor="((NOT EXISTS("+library+" AND ep.library_scope IN ('QMS','GENERAL')) AND "+sqlIn(project,scope.projectIds())+") OR EXISTS("+library+" AND ep.status='ENABLE' AND ((ep.library_scope='QMS' AND "+scope.qms()+") OR (ep.library_scope='GENERAL' AND "+scope.general()+"))))";
         String libraryEditor="EXISTS("+library+" AND ep.library_scope IN ('QMS','GENERAL')) AND "+editor;
         String categoryEditor="NOT EXISTS("+library+" AND ep.library_scope IN ('QMS','GENERAL')) AND "+sqlIn("dcc_controlled_file.category_id",editCategories)+" AND "+editor;
-        String upload="(dcc_controlled_file.requester_id="+actor+" AND ("+sqlIn("dcc_controlled_file.category_id",trainingCategories)+" OR ("+libraryEditor+") OR ("+categoryEditor+")))";
+        String upload=sqlIn("dcc_controlled_file.category_id",trainingCategories);
         var fileIds=fileScope.resolveActiveAssignedControlledFileIds(actor);
         if(fileIds!=null)upload="("+upload+" AND "+sqlIn("dcc_controlled_file.id",fileIds)+")";
         if(!permissions.hasAnyPermissions(actor,"dcc:project-code:scope:all") && permissions.hasAnyPermissions(actor,"dcc:project-code-assignment:execute"))
             upload="("+upload+" AND "+sqlIn(project,Objects.requireNonNull(projectAssignments.selectActiveProjectCodeIdsByAssigneeUserId(tenant,actor,LocalDateTime.now()),"active assigned project scope"))+")";
+        upload="(dcc_controlled_file.requester_id="+actor+" AND (("+libraryEditor+") OR ("+categoryEditor+") OR ("+upload+")))";
         String owner="(dcc_controlled_file.file_owner_user_id="+actor+" AND dcc_controlled_file.file_owner_signature_id>0 AND NULLIF(TRIM(dcc_controlled_file.file_owner_approval_task_id),'') IS NOT NULL AND NULLIF(TRIM(dcc_controlled_file.process_instance_id),'') IS NOT NULL AND dcc_controlled_file.process_instance_id=dcc_controlled_file.file_owner_process_instance_id AND dcc_controlled_file.file_owner_selected_time IS NOT NULL)";
         var query=new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<DccControlledFileDO>();
         query.eq("tenant_id",tenant).eq("status",STATUS).in("process_definition_key",PROCESS_KEYS).apply("("+upload+" OR "+owner+")");
@@ -221,9 +222,10 @@ public class DccOfflineTrainingRecordService {
 
     private boolean isEligibleActor(Long actor, DccControlledFileDO file) {
         if (file == null || !Objects.equals(actor,file.getRequesterId()) || !hasEnabledAccount(actor)
-                || !Objects.equals(file.getTenantId(), TenantContextHolder.getRequiredTenantId())
-                || !(categories.hasWorkflowTrainingPermission(file.getCategoryId(), actor)
-                    || categories.hasFilePermission(file, actor, DccFileCategoryPermissionActionEnum.EDIT))
+                || !Objects.equals(file.getTenantId(), TenantContextHolder.getRequiredTenantId())) return false;
+        // Effective file editing already includes formal project OWNER/EDIT authorization.
+        if (categories.hasFilePermission(file, actor, DccFileCategoryPermissionActionEnum.EDIT)) return true;
+        if (!categories.hasWorkflowTrainingPermission(file.getCategoryId(), actor)
                 || !fileScope.isWithinAssignedFileScope(actor, file.getId())) return false;
         if (permissions.hasAnyPermissions(actor, "dcc:project-code:scope:all")
                 || !permissions.hasAnyPermissions(actor, "dcc:project-code-assignment:execute")) return true;

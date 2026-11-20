@@ -28,6 +28,8 @@
       @column-change="saveColumnConfig"
       @pagination="handlePagination"
       :filter-rows="filteredRows"
+      :load-filter-rows="loadFilterRows"
+      @filtered-rows="handleFilteredRows"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -438,11 +440,16 @@ const loadData = async () => {
   }
 }
 
-const ensureVisibleRuleRowsLoaded = async () => {
+// UnifiedListTemplate owns filtered pagination; load the rows it actually displays.
+const loadFilterRows = async () => filteredRows.value
+const handleFilteredRows = (visibleRows: RuleListRow[]) =>
+  ensureVisibleRuleRowsLoaded(visibleRows.map((row) => row.categoryId))
+
+const ensureVisibleRuleRowsLoaded = async (visibleIds = visibleCategoryIds.value) => {
   if (!props.active || !loaded.value) {
     return
   }
-  const categoryIds = visibleCategoryIds.value.filter((categoryId) => {
+  const categoryIds = visibleIds.filter((categoryId) => {
     return !loadedRuleCategoryIds.value.has(categoryId)
   })
   if (!categoryIds.length) {

@@ -46,6 +46,16 @@ class NativeApprovalListFilterSqlTest {
         assertTrue(query.getParamNameValuePairs().containsValue("%审核!%%"));
     }
     @Test
+    void downloadSummaryProjectsFrozenNamesForDisplayAndSearch() {
+        String projection=NativeApprovalListFilterSql.variablesJoin("t.PROC_INST_ID_",true);
+        String summary=NativeApprovalListFilterSql.taskFields(context(),false,List.of(),false).fields().get("businessSummary").expression();
+        assertTrue(projection.contains("WHEN 'certificateName'"));
+        assertTrue(summary.contains("='DOWNLOAD_FILE' THEN"));
+        assertTrue(projection.contains("注册证名称"));
+        assertTrue(projection.contains("nv.certificateName"));
+        assertTrue(projection.contains("nv.ownerCompanyName"));
+    }
+    @Test
     void completeNativePredicatesStayWithinTheProductionParserContract() throws Exception {
         for(boolean done:List.of(false,true)) {
             var projection=NativeApprovalListFilterSql.taskFields(context(),done,List.of(),false);

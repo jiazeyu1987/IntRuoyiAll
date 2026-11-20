@@ -130,11 +130,15 @@ public class ShowroomPersistentWorkflowService {
         return new ShowroomApprovalDetail(request, request.items(),
                 buildTargetPreview(request.targetType(), request.targetId(), request.targetRevisionId()),
                 contentService.versionAudits(request.targetType(), request.targetId()),
-                changeRequestSignatureMapper == null
-                        ? List.of()
-                        : changeRequestSignatureMapper.selectListByChangeRequestId(changeRequestId).stream()
-                        .map(this::toSignatureRecord)
-                        .toList());
+                getSignatureRecords(changeRequestId));
+    }
+
+    public List<ShowroomApprovalSignatureRecord> getSignatureRecords(Long changeRequestId) {
+        return changeRequestSignatureMapper == null
+                ? List.of()
+                : changeRequestSignatureMapper.selectListByChangeRequestId(changeRequestId).stream()
+                .map(this::toSignatureRecord)
+                .toList();
     }
 
     @Transactional(rollbackFor = Exception.class)

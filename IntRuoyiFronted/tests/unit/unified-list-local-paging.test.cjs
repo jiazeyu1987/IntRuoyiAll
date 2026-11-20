@@ -136,3 +136,24 @@ test('server reset failure retains the last successful scope and reports failure
     assert.equal(ctx.state.columnFilter.state.value.conditions.length, 0)
   } finally {ctx.stop()}
 })
+
+test('filtered rule lists publish the actual visible categories after search and filtered pagination', async () => {
+  const rows = Array.from({ length: 35 }, (_, id) => ({ categoryId: id + 1, name: id < 20 ? '其他类别' : '老吴全流程测试' }))
+  let reads = 0
+  const ctx = setup({ page: 1, limit: 10, total: rows.length, filterRows: rows,
+    columns: [{ key: 'name', label: '类别名称' }],
+    loadFilterRows: async () => { reads++; return rows } })
+  try {
+    ctx.state.columnFilter.state.value.conditions = [{ key: 'name', operator: 'contains', value: '老吴' }]
+    await ctx.state.handleStandardFilterQuery()
+    await vue.nextTick()
+    assert.equal(reads, 1)
+    let visible = ctx.events.filter(([name]) => name === 'filtered-rows').at(-1)[1]
+    assert.deepEqual(Array.from(visible, row => row.categoryId), [21,22,23,24,25,26,27,28,29,30])
+    ctx.state.updatePage(2)
+    await vue.nextTick()
+    visible = ctx.events.filter(([name]) => name === 'filtered-rows').at(-1)[1]
+    assert.deepEqual(Array.from(visible, row => row.categoryId), [31,32,33,34,35])
+    assert.equal(ctx.state.resolvedTotal.value, 15)
+  } finally { ctx.stop() }
+})

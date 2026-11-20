@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
 import cn.iocoder.yudao.module.erp.dal.mysql.product.ErpProductMapper;
 import cn.iocoder.yudao.module.erp.dal.mysql.stock.ErpStockMapper;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListMapper;
+import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListItemMapper;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionReplenishmentListMapper;
 import cn.iocoder.yudao.module.erp.dal.mysql.stock.kingdee.ErpKingdeeStockMoveListMapper;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,30 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ErpListFilterSqlTest {
+    @Test
+    void productionOrderFiltersMatchIndividualLinesWithBoundValues() throws Exception {
+        for (String condition : java.util.List.of(
+                "\"operator\":\"contains\",\"value\":\"MO%_001\"",
+                "\"operator\":\"eq\",\"value\":\"MO001\"",
+                "\"operator\":\"in\",\"value\":[\"MO001\",\"MO002\"]")) {
+            PageParam request = new PageParam();
+            request.setListFilters("[{\"key\":\"productionOrderNos\"," + condition + "}]");
+            var query = ListFilterQueryUtils.wrapper(request, ErpKingdeeProductionPickListItemMapper.orderFilterFields());
+            String sql = query.getSqlSegment();
+            assertTrue(sql.contains("erp_kingdee_production_pick_list_item.production_order_no"));
+            assertFalse(sql.contains("JSON_ARRAYAGG"));
+            assertFalse(sql.contains("MO001"));
+            assertFalse(sql.contains("MO002"));
+            if (condition.contains("contains")) {
+                assertTrue(query.getParamNameValuePairs().containsValue("%mo!%!_001%"));
+            }
+            assertNotNull(net.sf.jsqlparser.parser.CCJSqlParserUtil.parse(
+                    "SELECT DISTINCT production_pick_list_id FROM erp_kingdee_production_pick_list_item WHERE deleted=0 AND "
+                            + sql.replaceAll("#\\{[^}]+}", "'bound'")));
+        }
+        assertFalse(ErpKingdeeProductionPickListMapper.listFilterFields().containsKey("productionOrderNos"));
+    }
+
     @Test
     void associatedProductNamesAndPricesUseBoundSqlPredicates() {
         PageParam request = new PageParam();

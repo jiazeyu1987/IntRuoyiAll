@@ -63,7 +63,12 @@ public class DccSelectedDetailReadService {
     }
     private DccControlledFileRespVO authorizedProjection(Long actor,DccControlledFileDO file,DccControlledFileBodyReadContext context) {
         Objects.requireNonNull(context,"explicit detail context").requireFile(file.getId(),file.getVersionNo());
-        guard.requireBodyRead(actor,file,context);
+        if (DccArchiveAccessService.isArchived(file)
+                && context.intent()==DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY) {
+            guard.requireApplicationHistoryRead(actor,file,context);
+        } else {
+            guard.requireBodyRead(actor,file,context);
+        }
         var result=query.getControlledFile(actor,file.getId(),context);
         return selectedProjection(file,result,context.bpmRound());
     }

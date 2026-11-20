@@ -181,6 +181,7 @@
 </template>
 
 <script setup lang="ts">
+import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
@@ -251,29 +252,29 @@ const handleTypeNodeClick = (row: any) => {
 
 /** 添加/修改操作 */
 const formRef = ref()
-const openForm = (type: string, id?: number) => {
+const openForm = (type: string, id?: number | string) => {
   formRef.value.open(type, id)
 }
 
+let routeLoadGeneration = 0
 const loadListFromRoute = async () => {
+  const generation = ++routeLoadGeneration
+  const signature = JSON.stringify([route.path, route.query.code, route.query.openDetailId, route.query.codeLinkVisit])
   if (route.path !== '/mes/md/item') { listRequest.invalidate(); return }
-  queryParams.code = typeof route.query.code === 'string' ? route.query.code : undefined
+  const rawId = route.query.openDetailId
+  const openDetailId = parsePositiveRouteQueryId(rawId)
+  if (rawId !== undefined && !openDetailId) throw new Error('物料详情编号必须为正整数')
+  queryParams.code = typeof route.query.code === 'string' ? route.query.code.trim() || undefined : undefined
   queryParams.pageNo = 1
   queryParams.name = undefined
   queryParams.itemTypeId = undefined
-  queryParams.status = route.query.code ? undefined : CommonStatusEnum.ENABLE
+  queryParams.status = queryParams.code ? undefined : CommonStatusEnum.ENABLE
   await getList()
-  const openDetailId =
-    typeof route.query.openDetailId === 'string' ? route.query.openDetailId : ''
-  if (!openDetailId) {
-    openedDetailId.value = ''
-    return
-  }
-  if (openedDetailId.value === openDetailId) {
-    return
-  }
+  if (generation !== routeLoadGeneration || signature !== JSON.stringify([route.path, route.query.code, route.query.openDetailId, route.query.codeLinkVisit])) return
+  if (!openDetailId) { openedDetailId.value = ''; return }
+  if (openedDetailId.value === openDetailId) return
   openedDetailId.value = openDetailId
-  openForm('detail', Number(openDetailId))
+  openForm('detail', openDetailId)
 }
 
 /** 切换物料状态 */

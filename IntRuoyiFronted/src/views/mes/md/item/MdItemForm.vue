@@ -264,7 +264,7 @@ const handleBarcode = () => {
 }
 
 /** 打开弹窗 */
-const open = async (type: string, id?: number) => {
+const open = async (type: string, id?: number | string) => {
   dialogVisible.value = true
   formType.value = type
   activeTab.value = 'bom'

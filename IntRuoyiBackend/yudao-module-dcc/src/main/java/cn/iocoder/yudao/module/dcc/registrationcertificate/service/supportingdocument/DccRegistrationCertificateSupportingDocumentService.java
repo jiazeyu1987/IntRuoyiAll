@@ -151,6 +151,7 @@ public class DccRegistrationCertificateSupportingDocumentService {
                 || !"CURRENT".equals(rows.get(0).versionStatus())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REQUIRED);
         }
+        companyScopeApi.validateUserCompanyAccess(command.actorId(), rows.get(0).ownerCompanyId());
         return rows.get(0);
     }
 
@@ -220,7 +221,7 @@ public class DccRegistrationCertificateSupportingDocumentService {
                 || command.actorId() == null || command.actorId() <= 0
                 || command.certificateId() == null || command.certificateId() <= 0
                 || command.versionId() == null || command.versionId() <= 0
-                || command.businessFileId() == null || command.businessFileId() <= 0) {
+                || (command.businessFileId() == null || command.businessFileId() <= 0)) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REQUIRED);
         }
         if (isBlank(command.idempotencyKey())) {

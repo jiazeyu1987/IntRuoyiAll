@@ -308,6 +308,8 @@ class MesProcessPoolTeamLeaderControllerTest {
                         .setRemainingQuantity(new BigDecimal("30.000000"))))
                 .setProductionProgressPercent(new BigDecimal("10.000000"))
                 .setInspectionProgressPercent(new BigDecimal("10.000000"))
+                .setFormalProductionReviewComplete(false)
+                .setReleaseApplyBlockReason("生产复核未完成")
                 .setActiveStatus("ACTIVE")
                 .setBusinessStatus("ACTIVE")
                 .setHasParameterAbnormal(true)
@@ -360,6 +362,8 @@ class MesProcessPoolTeamLeaderControllerTest {
                 listResponse.getData().get(0).getProcessRemainingQuantities().get(0).getRemainingQuantity());
         assertEquals(new BigDecimal("10.000000"), listResponse.getData().get(0).getProductionProgressPercent());
         assertEquals(new BigDecimal("10.000000"), listResponse.getData().get(0).getInspectionProgressPercent());
+        assertEquals(false, listResponse.getData().get(0).getFormalProductionReviewComplete());
+        assertEquals("生产复核未完成", listResponse.getData().get(0).getReleaseApplyBlockReason());
         assertEquals("ACTIVE", listResponse.getData().get(0).getActiveStatus());
         assertEquals("ACTIVE", listResponse.getData().get(0).getBusinessStatus());
         assertEquals(0, listResponse.getData().get(0).getVersion());
@@ -918,8 +922,10 @@ class MesProcessPoolTeamLeaderControllerTest {
                 new String[]{"/production-execution/trace"}, "mes:pro-process-pool-team-leader:query");
         assertEndpoint("getActiveOrderTransferTrace", new Class[]{Long.class}, GetMapping.class,
                 new String[]{"/active-order/transfer-trace"}, "mes:pro-process-pool-team-leader:query");
-        assertEndpoint("getActiveOrderDetail", new Class[]{Long.class}, GetMapping.class,
-                new String[]{"/active-order/detail"}, "mes:pro-process-pool-team-leader:query");
+        Method detail = MesProcessPoolTeamLeaderController.class.getDeclaredMethod("getActiveOrderDetail", Long.class);
+        assertArrayEquals(new String[]{"/active-order/detail"}, detail.getAnnotation(GetMapping.class).value());
+        assertEquals("@ss.hasAnyPermissions('mes:pro-process-pool-team-leader:query', 'mes:pro-in-process-order:query')",
+                detail.getAnnotation(PreAuthorize.class).value());
         assertEndpoint("previewRebuildActiveOrder", new Class[]{Long.class}, GetMapping.class,
                 new String[]{"/active-order/rebuild/preview"}, "mes:pro-process-pool-team-leader:maintain");
         assertEndpoint("rebuildActiveOrder", new Class[]{MesTeamLeaderActiveOrderRebuildReqVO.class},

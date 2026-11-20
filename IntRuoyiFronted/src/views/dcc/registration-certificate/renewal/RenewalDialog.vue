@@ -37,7 +37,7 @@
             />
           </el-form-item>
         </el-col>
-        <el-col :span="12" :xs="24">
+        <el-col v-if="!isCeRenewal" :span="12" :xs="24">
           <el-form-item label="生效日期" prop="effectiveDate">
             <el-date-picker
               v-model="form.effectiveDate"
@@ -63,7 +63,7 @@
             />
           </el-form-item>
         </el-col>
-        <el-col :span="12" :xs="24">
+        <el-col v-if="!isCeRenewal" :span="12" :xs="24">
           <el-form-item label="类别否变更" prop="categoryChanged">
             <el-select
               v-model="form.categoryChanged"
@@ -75,7 +75,7 @@
             </el-select>
           </el-form-item>
         </el-col>
-        <template v-if="form.categoryChanged">
+        <template v-if="isCeRenewal || form.categoryChanged">
           <el-col :span="12" :xs="24">
             <el-form-item label="注册证号" prop="certificateNo">
               <el-input
@@ -86,7 +86,7 @@
               />
             </el-form-item>
           </el-col>
-          <el-col :span="12" :xs="24">
+          <el-col v-if="!isCeRenewal" :span="12" :xs="24">
             <el-form-item label="类别" prop="classification">
               <el-select
                 v-model="form.classification"
@@ -138,6 +138,7 @@ import {
   type DccRegistrationCertificatePageItemVO
 } from '@/api/dcc/registrationCertificate'
 import { generateUUID } from '@/utils'
+import { parseFacts } from '../shared/facts'
 import { computed, reactive, ref } from 'vue'
 import type { FormInstance, FormRules, UploadFile, UploadFiles, UploadUserFile } from 'element-plus'
 import {
@@ -176,6 +177,7 @@ const form = reactive({
 })
 
 const certificate = computed(() => props.certificate)
+const isCeRenewal = computed(() => certificate.value ? parseFacts(certificate.value.factsJson).certificateType === 'CE' : false)
 
 const dialogVisible = computed({
   get: () => props.modelValue,
@@ -191,6 +193,7 @@ function currentLocalDateText() {
 }
 
 function isRenewalDateOrderValid() {
+  if (isCeRenewal.value) return !form.approvalDate || !form.expiryDate || form.approvalDate < form.expiryDate
   if (!form.approvalDate || !form.effectiveDate || !form.expiryDate) {
     return true
   }
@@ -229,7 +232,7 @@ function validateRenewalApprovalDate(
 }
 
 const revalidateRenewalDateFields = () => {
-  void formRef.value?.validateField(['approvalDate', 'effectiveDate', 'expiryDate'])
+  void formRef.value?.validateField(['approvalDate', 'effectiveDate', 'expiryDate'], () => undefined)
 }
 
 const rules = reactive<FormRules>({
@@ -239,7 +242,7 @@ const rules = reactive<FormRules>({
     { validator: validateRenewalApprovalDate, trigger: 'change' }
   ],
   effectiveDate: [
-    { required: true, message: '请选择生效日期', trigger: 'change' },
+    { validator: (_rule, value, callback) => callback(!isCeRenewal.value && !value ? new Error('请选择生效日期') : undefined), trigger: 'change' },
     { validator: validateRenewalDateOrder, trigger: 'change' }
   ],
   expiryDate: [
@@ -250,7 +253,7 @@ const rules = reactive<FormRules>({
   certificateNo: [
     {
       validator: (_rule, value: string, callback) => {
-        if (form.categoryChanged && !value?.trim()) {
+        if ((isCeRenewal.value || form.categoryChanged) && !value?.trim()) {
           callback(new Error('请输入变更后的注册证号'))
           return
         }
@@ -308,7 +311,9 @@ const handleCategoryChanged = () => {
 }
 
 const submit = async () => {
-  await formRef.value?.validate()
+  if (!formRef.value) return
+  const valid = await formRef.value.validate(() => undefined)
+  if (!valid) return
   if (!props.certificate) {
     message.error('缺少当前注册证行，无法提交延续申请')
     return
@@ -328,14 +333,14 @@ const submit = async () => {
 
   const payload = new FormData()
   payload.append('approvalDate', form.approvalDate)
-  payload.append('effectiveDate', form.effectiveDate)
+  if (!isCeRenewal.value) payload.append('effectiveDate', form.effectiveDate)
   payload.append('expiryDate', form.expiryDate)
   payload.append('expectedRowVersion', String(props.certificate.rowVersion))
   payload.append('currentVersionId', String(props.certificate.versionId))
-  payload.append('categoryChanged', String(form.categoryChanged))
-  if (form.categoryChanged) {
+  if (!isCeRenewal.value) payload.append('categoryChanged', String(form.categoryChanged))
+  if (isCeRenewal.value || form.categoryChanged) {
     payload.append('certificateNo', form.certificateNo.trim())
-    payload.append('classification', form.classification.trim())
+    if (!isCeRenewal.value) payload.append('classification', form.classification.trim())
   }
   payload.append('file', selectedFile.value)
 

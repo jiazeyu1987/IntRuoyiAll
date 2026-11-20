@@ -397,10 +397,11 @@ const loadRouteOptions = async () => {
 let getListRequestSequence = 0
 const getList = async () => {
   const requestId = ++getListRequestSequence
+  const requestRouteSignature = buildProcessRouteQuerySignature()
   loading.value = true
   try {
     const data = await ProProcessApi.getProcessPage(buildProcessPageParams())
-    if (requestId !== getListRequestSequence) return false
+    if (requestId !== getListRequestSequence || !(route.path === PROCESS_ROUTE_PATH) || requestRouteSignature !== buildProcessRouteQuerySignature()) return false
     list.value = data.list
     total.value = data.total
     return true
@@ -536,6 +537,8 @@ watch(
   async () => {
     if (route.path !== PROCESS_ROUTE_PATH) {
       ++processCodeLinkGeneration
+      ++getListRequestSequence
+      loading.value = false
       lastAppliedProcessRouteQuerySignature.value = ''
       return
     }

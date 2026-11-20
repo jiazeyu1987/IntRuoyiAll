@@ -65,7 +65,43 @@ async function testRoute() {
   context.codeLinkRoute.query.code='B';const second=context.run();pending[1]();await second;pending[0]();await first
   assert.deepEqual(opened,['90071992547409931'])
   const third=context.run();context.codeLinkRoute.path='/other';await context.run();pending[2]();await third;assert.equal(opened.length,1)
-  context.codeLinkRoute.path=`/erp/${group}/${kind}`;context.codeLinkRoute.query.openId='-1';const invalid=context.run();pending[3]();await invalid;assert.equal(opened.length,1)
+  context.codeLinkRoute.path=`/erp/${group}/${kind}`;context.codeLinkRoute.query.openId='-1';await assert.rejects(context.run(),/单据详情编号无效/);assert.equal(requests.length,3);assert.equal(opened.length,1)
  }
 }
-Promise.resolve().then(testLink).then(testRoute).then(()=>console.log('document target reset, supersession, departure and long ID behavior PASS')).catch(error=>{console.error(error);process.exitCode=1})
+async function testResponses() {
+ for (const rel of ['erp/purchase/order','erp/purchase/in','erp/purchase/return','erp/sale/order','erp/sale/out','erp/sale/return','mes/wm/salesnotice','srm/purchase-order']) {
+  const source=read(`src/views/${rel}/index.vue`).replace(/\r/g,'')
+  const body=source.match(/const getList = async[^]*?\n}/)[0]
+  const api=body.match(/await (\w+)\.(\w+)\(/)
+  const erp=rel.startsWith('erp/'),pending=[]
+  const route={path:'/target'},list={value:[]},total={value:0},loading={value:false}
+  const context={queryParams:{no:'A'},list,total,loading,codeLinkRoute:route,documentRoute:route,documentRequestSequence:0,documentSequence:0,message:{error(){}},resolveErrorMessage:()=>''}
+  context[api[1]]={[api[2]]:()=>new Promise(resolve=>pending.push(resolve))}
+  vm.runInNewContext(transpile(`${body}\nglobalThis.run=getList`),context)
+  const old=context.run();context.queryParams.no='B';const current=context.run();pending[1]({list:['B'],total:1});await current;pending[0]({list:['A'],total:9});await old;assert.equal(list.value[0],'B');assert.equal(total.value,1);assert.equal(loading.value,false)
+  const leave=context.run();route.path='/other';pending[2]({list:['stale'],total:5});await leave;assert.equal(list.value[0],'B')
+ }
+}
+async function testAdditionalReceivers() {
+ for(const [rel,path,field] of [['mes/wm/salesnotice','/mes/wm/sales-notice','code'],['srm/purchase-order','/srm/purchase-order','orderNo']]){
+  const source=read(`src/views/${rel}/index.vue`).replace(/\r/g,'')
+  const body=source.match(/const receiveDocumentCodeLink = \(\) => \{[^]*?\n}/)[0]
+  const calls=[],context={structuredClone,documentSequence:0,documentRoute:{path,query:{code:' A 中文 '}},documentDefaults:{pageNo:1,status:undefined,dates:[]},queryParams:{pageNo:9,status:'old',dates:['old']},queryFormRef:{value:{resetFields(){}}},getList:()=>calls.push({...context.queryParams})}
+  context.documentDefaults[field]=undefined
+  vm.runInNewContext(transpile(`${body}\nglobalThis.run=receiveDocumentCodeLink`),context)
+  context.run();assert.equal(calls[0][field],'A 中文');assert.equal(calls[0].status,undefined);assert.equal(calls[0].dates.length,0);context.run();assert.equal(calls.length,2)
+  context.documentRoute.path='/other';context.run();assert.equal(calls.length,2)
+  context.documentRoute.path=path;context.documentRoute.query={};context.run();assert.equal(calls.length,3);assert.equal(calls[2][field],undefined)
+ }
+}
+async function testWrapper() {
+ const targets=load('src/utils/documentCodeLink.ts').documentTargets
+ const {descriptor}=compiler.parse(read('src/components/BusinessDocumentCodeLink.vue'))
+ const script=compiler.compileScript(descriptor,{id:'wrapper',inlineTemplate:true}),exports={}
+ vm.runInNewContext(transpile(script.content),{exports,require:name=>name==='./BusinessCodeLink.vue'?{default:vue.defineComponent({props:['code','permission','to'],setup:props=>()=>vue.h('probe',{...props})})}:name==='@/utils/documentCodeLink'?{documentTargets:targets}:require(name)})
+ assert.equal(Object.keys(targets).length,8)
+ for(const [documentType,target] of Object.entries(targets)){
+  const container={children:[]},app=renderer.createApp(exports.default,{documentType,code:' CODE 中文 ',documentId:'90071992547409931'});app.mount(container);const props=container.children[0].props;assert.equal(props.permission,target.permission);assert.equal(props.to.path,target.path);assert.equal(props.to.query.code,'CODE 中文');assert.equal(props.to.query.openId,'90071992547409931');app.unmount()
+ }
+}
+Promise.resolve().then(testLink).then(testRoute).then(testResponses).then(testAdditionalReceivers).then(testWrapper).then(()=>console.log('document target reset, supersession, departure and long ID behavior PASS')).catch(error=>{console.error(error);process.exitCode=1})

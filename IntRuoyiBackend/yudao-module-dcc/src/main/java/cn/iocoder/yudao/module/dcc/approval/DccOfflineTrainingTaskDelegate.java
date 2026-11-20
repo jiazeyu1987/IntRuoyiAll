@@ -1,14 +1,20 @@
 package cn.iocoder.yudao.module.dcc.approval;
 
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode;
+import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskCapability;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskViewType;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskQueryContext;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskSummary;
+import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskTimelineEntry;
+import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskTimelineQueryContext;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingRecordService;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 
 /** Native work for a real ReceiveTask; never a second DCC provider or a fabricated UserTask. */
@@ -42,8 +48,31 @@ public class DccOfflineTrainingTaskDelegate {
                     .initiatorUserId(file.getRequesterId()).assigneeUserId(context.getLoginUserId())
                     .initiatedAt(file.getSubmittedTime()).taskCreatedAt(file.getApprovedTime())
                     .requiresSignature(false).availableActions(Set.of("PROCESS_IN_MODULE"))
+                    .capabilities(Set.of(ApprovalTaskCapability.TIMELINE))
                     .detailRoute("/dcc/controlled-file/detail/" + file.getId())
                     .detailQuery(DccOfflineTrainingRecordService.detailQuery(file.getProcessInstanceId())).build();
+    }
+
+    public ApprovalTaskTimelineEntry trainingTimelineEntry(ApprovalTaskTimelineQueryContext context, DccControlledFileDO file) {
+        String source = DccOfflineTrainingRecordService.SOURCE_TYPE + ":" + file.getTenantId()
+                + ":" + file.getId() + ":" + file.getProcessInstanceId();
+        if (!DccOfflineTrainingRecordService.SOURCE_TYPE.equals(context.getSourceTaskType())
+                || !source.equals(context.getSourceTaskId())
+                || !file.getId().toString().equals(context.getBusinessKey())
+                || !Objects.equals(file.getProcessInstanceId(), context.getProcessInstanceId())
+                || !Objects.equals(file.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || !(training.canUpload(context.getLoginUserId(),file) || training.canOrganizeTraining(context.getLoginUserId(),file))) {
+            throw new IllegalStateException("DCC_OFFLINE_TRAINING_TIMELINE_FORBIDDEN");
+        }
+        var waiting = training.requireWaiting(file);
+        return ApprovalTaskTimelineEntry.builder()
+                .id(waiting.executionId()).moduleCode(ApprovalModuleCode.DCC)
+                .sourceTaskType(DccOfflineTrainingRecordService.SOURCE_TYPE).sourceTaskId(source)
+                .businessKey(file.getId().toString()).nodeCode("TRAINING").nodeName("上传本次线下培训记录")
+                .action("CURRENT").actionLabel("待上传培训记录").status("CURRENT")
+                .actorUserId(file.getRequesterId()).taskCreatedAt(file.getApprovedTime())
+                .businessStatus(file.getStatus()).evidenceType("FLOWABLE_EXECUTION")
+                .domainReferenceId(waiting.executionId()).build();
     }
 
     private String trainingDutyName(Long actor, cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO file) {

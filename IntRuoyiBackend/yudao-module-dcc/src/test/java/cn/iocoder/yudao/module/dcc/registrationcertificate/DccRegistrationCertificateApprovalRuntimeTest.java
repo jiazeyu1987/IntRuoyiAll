@@ -53,6 +53,15 @@ class DccRegistrationCertificateApprovalRuntimeTest {
     private static final Long TENANT_ID = 1L;
     private static final Long ACTOR_ID = 99L;
 
+    @Test
+    void downloadTitleUsesCompanyAndCertificateNameInsteadOfNumber() {
+        var values = java.util.Map.<String,Object>of("requestType", "DOWNLOAD_FILE",
+                "ownerCompanyName", "测试公司", "certificateName", "球囊注册证", "certificateNo", "CE-123");
+        assertEquals("注册证下载审批 测试公司 球囊注册证",
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                        DccRegistrationCertificateApprovalService.class, "buildRegistrationCertificateAccessApprovalName", values));
+    }
+
     @Mock
     private DccRegistrationCertificateAccessRequestMapper requestMapper;
     @Mock

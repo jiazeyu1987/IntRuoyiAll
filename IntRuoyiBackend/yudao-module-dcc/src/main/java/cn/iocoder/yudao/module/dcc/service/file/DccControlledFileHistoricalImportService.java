@@ -121,7 +121,7 @@ public class DccControlledFileHistoricalImportService {
     @Transactional(rollbackFor=Exception.class,isolation=Isolation.READ_COMMITTED)
     public Result create(Long actor,DccControlledFileHistoricalImportReqVO req) throws java.io.IOException {
         requireImporter(actor);
-        editPermission.assertEditableProjectCategory(actor,req.getDccProjectCodeId(),req.getCategoryId());
+        editPermission.assertUploadProjectCategory(actor,req.getDccProjectCodeId(),req.getCategoryId(),req.getFileTypeTaxonomyId());
         var path=taxonomy.validateCategoryMapping(req.getFileTypeTaxonomyId(),req.getCategoryId(),true);
         // Imported/effective timestamps are DATETIME(0); persist one event instant without MySQL rounding it forward.
         var now=clock.now().withNano(0);

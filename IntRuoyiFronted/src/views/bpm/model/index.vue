@@ -31,7 +31,6 @@
     >
       <template #actions>
         <el-button v-hasPermi="['bpm:business-approval-policy:query']" @click="router.push('/approval-center/manager/business-approval-policy')">业务审批策略</el-button>
-        <PolicyTransferActions />
         <el-button
           type="primary"
           @click="openCreateApprovalParticipantConfig"
@@ -535,7 +534,6 @@
 </template>
 
 <script lang="ts" setup>
-import PolicyTransferActions from '../businessApprovalPolicy/PolicyTransferActions.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 

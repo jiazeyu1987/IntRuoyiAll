@@ -8,7 +8,7 @@ function run(file){
   const errors=[],form={needTraining:false},context={exports:{},checkinSubmitting:{value:false},checkinCleanupLoading:{value:false},checkinUploadLoading:{value:false},
     checkinDrawingPdfLoading:{value:false},checkinTarget:{value:undefined},checkinForm:form,checkinDialogVisible:{value:false},
     checkinAttachmentState:{value:{ready:true,uploading:false,cleaning:false,error:'',count:0}},
-    isValidBrowserOptionId:id=>String(id)==='900',isCheckedOutByCurrentUser:row=>row.checkedOutBy==='99',
+    getCheckoutActionBlockReason:()=>'',isValidBrowserOptionId:id=>String(id)==='900',isCheckedOutByCurrentUser:row=>row.checkedOutBy==='99',
     resetCheckinDialog(){context.checkinDialogVisible.value=false},message:{warning:message=>errors.push(message),error:message=>errors.push(message)},
     resolveBrowserErrorMessage:error=>error.message}
   const helperPath='src/views/dcc/controlled-file/browser/checkin-training.ts'

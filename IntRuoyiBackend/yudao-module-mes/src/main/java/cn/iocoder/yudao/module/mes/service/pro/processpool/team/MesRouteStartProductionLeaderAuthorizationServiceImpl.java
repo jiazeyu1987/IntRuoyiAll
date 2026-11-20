@@ -9,6 +9,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteFlowConfigServiceImpl;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -29,6 +31,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 public class MesRouteStartProductionLeaderAuthorizationServiceImpl
         implements MesRouteStartProductionLeaderAuthorizationService {
     @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
+    @jakarta.annotation.Resource private AdminUserApi adminUserApi;
 
     private static final String CANDIDATE_SOURCE_TYPE_USER = "USER";
     private static final String CANDIDATE_SOURCE_TYPE_USERS = "USERS";
@@ -103,6 +106,47 @@ public class MesRouteStartProductionLeaderAuthorizationServiceImpl
                         .thenComparing(MesProRouteProcessDO::getSort, Comparator.nullsLast(Integer::compareTo))
                         .thenComparing(MesProRouteProcessDO::getId))
                 .toList();
+    }
+
+    @Override
+    public void assertCanJoinRoute(Long leaderUserId, Long routeId) {
+        if (leaderUserId == null || routeId == null) {
+            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "leaderUserId/routeId");
+        }
+        MesProRouteVersionDO activeVersion = routeVersionMapper.selectActiveByRouteId(routeId);
+        List<MesProRouteVersionDO> versions = activeVersion == null ? List.of() : List.of(activeVersion);
+        if (resolveAuthorizedRouteIds(leaderUserId, versions).contains(routeId)) {
+            return;
+        }
+        Set<Long> configuredUserIds = new LinkedHashSet<>();
+        if (isActiveRouteVersion(activeVersion)) {
+            for (RouteStartProductionLeaderSnapshot snapshot : parseRouteStartProductionLeaderSnapshots(activeVersion)) {
+                if (CANDIDATE_SOURCE_TYPE_USERS.equals(snapshot.candidateSourceType())) {
+                    configuredUserIds.addAll(snapshot.candidateSourceIds());
+                } else {
+                    Set<Long> roleMembers = permissionApi.getUserRoleIdListByRoleIds(snapshot.candidateSourceIds());
+                    if (roleMembers == null) {
+                        throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "routeStartProductionLeaders.roleMembers");
+                    }
+                    configuredUserIds.addAll(roleMembers.stream().sorted().toList());
+                }
+            }
+        }
+        if (configuredUserIds.isEmpty()) {
+            throw new ServiceException(PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED.getCode(),
+                    "当前工艺路线未配置生产组长，无法加入活跃订单。");
+        }
+        var users = adminUserApi.getUserMap(configuredUserIds);
+        List<String> names = new ArrayList<>();
+        for (Long userId : configuredUserIds) {
+            var user = users.get(userId);
+            if (user == null || user.getNickname() == null || user.getNickname().isBlank()) {
+                throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "routeStartProductionLeader userId=" + userId);
+            }
+            names.add(user.getNickname());
+        }
+        throw new ServiceException(PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED.getCode(),
+                "当前工艺路线的生产组长是[" + String.join("、", names) + "]，你没有权限。");
     }
 
     @Override

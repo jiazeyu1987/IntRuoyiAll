@@ -1,12 +1,14 @@
 <template>
-  <section class="project-browser" data-testid="dcc-project-browser">
+  <section class="project-browser" data-testid="dcc-project-browser" data-list-viewport="embedded" data-user-table-column-explicit-scope>
     <aside>
       <LibraryRoleAccessHint v-if="libraryScope" :scope="libraryScope" />
+      <h4 v-if="!libraryScope">项目</h4>
       <UnifiedListTemplate v-if="!libraryScope"
         @query="searchProjects"
-        @reset="resetProjects"
+        :server-filter-reset="resetProjects"
         :query-loading="state.projectLoading"
-        class="unified-list-template--contained project-browser__projects"
+        class="project-browser__projects"
+        :class="{ 'filters-expanded': projectFiltersExpanded }"
         table-key="dcc.projectBrowser.projects"
         pagination-layout="total, prev, next"
         :total="state.projectsTotal"
@@ -26,10 +28,13 @@
           <div>
             <el-input
               v-model="state.projectKeyword"
-              placeholder="项目名称或编码"
+              placeholder="项目名称或编号"
               clearable
               @keyup.enter="searchProjects"
             />
+            <el-button class="project-browser__filter-toggle" text :aria-expanded="projectFiltersExpanded" @click="projectFiltersExpanded = !projectFiltersExpanded">
+              筛选 {{ projectFiltersExpanded ? '⌃' : '⌄' }}
+            </el-button>
           </div>
         </template>
 
@@ -40,45 +45,49 @@
             type="error"
             :closable="false"
           />
-          <el-table
-            stripe
-            border
-            :data="resolveRows(state.projects)"
-            v-loading="state.projectLoading"
-            highlight-current-row
-            @row-click="selectProject"
-          >
-            <el-table-column prop="projectName" label="项目" />
-            <el-table-column prop="projectCode" label="编码" />
-          </el-table>
+          <div ref="projectList" class="project-browser__project-list" :style="{ height: `${projectListHeight}px` }" v-loading="state.projectLoading" @scroll="scheduleProjectScroll" @scrollend="settleProjectScroll()">
+            <button
+              v-for="project in resolveRows(state.projects)"
+              :key="project.id"
+              type="button"
+              class="project-browser__project"
+              :class="{ 'is-selected': state.project?.id === project.id }"
+              :aria-pressed="state.project?.id === project.id"
+              @click="selectProject(project)"
+            >
+              <strong>{{ project.projectName }}</strong>
+              <span>{{ project.projectCode }}</span>
+            </button>
+            <el-empty v-if="!state.projectLoading && !state.projectError && !state.projects.length" description="暂无项目" :image-size="50" />
+          </div>
         </template>
       </UnifiedListTemplate>
 
-      <h4>{{ state.project ? state.project.projectName : '项目文件夹' }}</h4>
-      <div v-if="state.project && !libraryScope" data-testid="dcc-project-folder-maintenance">
-        <el-button v-hasPermi="['dcc:project-code:update']" :disabled="state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('create')">新增文件夹</el-button>
-        <el-button v-hasPermi="['dcc:project-code:update']" :disabled="!state.folder || state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('update')">编辑文件夹</el-button>
-        <el-button v-hasPermi="['dcc:project-code:update']" :disabled="!state.folder || state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('delete')">删除文件夹</el-button>
-      </div>
-      <div v-if="state.project && libraryScope && libraryCanEdit" data-testid="dcc-library-folder-maintenance">
+      <h4>{{ libraryScope ? state.project?.projectName || '文件夹' : '项目目录' }}</h4>
+      <div v-if="state.project && !libraryScope && canMaintainProjectFolders" class="project-browser__folder-actions" data-testid="dcc-project-folder-maintenance">
         <el-button :disabled="state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('create')">新增文件夹</el-button>
-        <el-button :disabled="!state.folder || state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('update')">编辑文件夹</el-button>
-        <el-button :disabled="!state.folder || state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('delete')">删除文件夹</el-button>
+        <el-button :disabled="state.scope !== 'directory' || !state.folder || state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('update')">编辑文件夹</el-button>
+        <el-button :disabled="state.scope !== 'directory' || !state.folder || state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('delete')">删除文件夹</el-button>
+      </div>
+      <div v-if="state.project && libraryScope && libraryCanEdit" class="project-browser__folder-actions" data-testid="dcc-library-folder-maintenance">
+        <el-button :disabled="state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('create')">新增文件夹</el-button>
+        <el-button :disabled="state.scope !== 'directory' || !state.folder || state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('update')">编辑文件夹</el-button>
+        <el-button :disabled="state.scope !== 'directory' || !state.folder || state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('delete')">删除文件夹</el-button>
       </div>
       <el-alert v-if="state.folderError" :title="state.folderError" type="error" :closable="false" />
-      <el-tree :key="state.project?.id" v-loading="state.folderLoading" :data="state.directories" node-key="key" :props="{ label: 'name', children: 'children' }" highlight-current default-expand-all @node-click="selectFolder" />
+      <el-tree :key="state.project?.id" v-loading="state.folderLoading" :data="directoryTree" :current-node-key="currentDirectoryKey" :indent="18" node-key="key" :props="{ label: 'name', children: 'children' }" highlight-current default-expand-all @node-click="selectFolder" />
       <el-empty v-if="state.project && !state.folderLoading && !state.folderError && !state.directories.length" :description="libraryScope ? '文件库尚无文件夹' : '项目尚无文件夹'" />
     </aside>
     <main>
-      <el-tabs :model-value="state.scope" @tab-change="changeScope"><el-tab-pane v-if="!libraryScope" label="全局文件" name="global" /><el-tab-pane :label="libraryScope ? '当前目录' : '当前项目'" name="project" :disabled="!state.project" /><el-tab-pane :label="libraryScope ? '文件夹' : '项目文件夹'" name="directory" /></el-tabs>
-      <p v-if="state.scope === 'project'">{{ state.project?.projectName }} / 全部文件夹</p>
-      <p v-if="state.scope === 'directory'">{{ state.project?.projectName }} / {{ state.folder?.name || '请选择文件夹' }}</p>
+      <el-tabs :model-value="state.scope" @tab-change="changeScope"><el-tab-pane v-if="!libraryScope" label="全局文件" name="global" /><el-tab-pane :label="libraryScope ? '当前目录' : '当前项目'" name="project" :disabled="!state.project" /><el-tab-pane :label="libraryScope ? '文件夹' : '项目文件夹'" name="directory" :disabled="!state.folder" /></el-tabs>
+      <p class="project-browser__path" v-if="state.scope === 'project'">{{ state.project?.projectName }} / 全部文件夹</p>
+      <p class="project-browser__path" v-if="state.scope === 'directory'">{{ state.project?.projectName }} / {{ state.folder?.name || '请选择文件夹' }}</p>
       <UnifiedListTemplate
         @query="state.search(state.scope)"
-        @reset="resetFiles"
+        :server-filter-reset="resetFiles"
         :query-loading="state.loading"
-        class="unified-list-template--contained project-browser__files"
-        style="height: auto; flex: 1"
+        class="project-browser__files"
+        :class="{ 'filters-expanded': fileFiltersExpanded }"
         table-key="dcc.projectBrowser.files"
         :total="state.total"
         v-model:page="state.pageNo"
@@ -95,36 +104,28 @@
 
       >
         <template #filters>
-          <div>
-            <div class="version-view">
-              <el-tooltip content="默认最新受控版本；工作、审批中及历史版本按所选阶段查询。"><span>版本浏览范围</span></el-tooltip>
-              <el-select
-                v-model="state.versionView"
-                data-testid="dcc-project-browser-version-view"
-                class="!w-280px"
-                @change="state.changeVersionView($event)"
-              >
-                <el-option-group
-                  v-for="group in versionViewGroups"
-                  :key="group.name"
-                  :label="group.name"
-                >
-                  <el-option
-                    v-for="option in group.options"
-                    :key="option.value"
-                    :value="option.value"
-                    :label="option.label"
-                  />
-                </el-option-group>
-              </el-select>
-
-            </div>
+          <div class="project-browser__file-search">
             <el-input
               v-model="state.keyword"
               placeholder="文件名称、编号或项目名称"
               clearable
               @keyup.enter="state.search(state.scope)"
             />
+            <div class="version-view">
+              <el-tooltip content="默认最新受控版本；工作、审批中及历史版本按所选阶段查询。"><span>版本浏览范围</span></el-tooltip>
+              <el-select
+                v-model="state.versionView"
+                data-testid="dcc-project-browser-version-view"
+                @change="state.changeVersionView($event)"
+              >
+                <el-option-group v-for="group in versionViewGroups" :key="group.name" :label="group.name">
+                  <el-option v-for="option in group.options" :key="option.value" :value="option.value" :label="option.label" />
+                </el-option-group>
+              </el-select>
+            </div>
+            <el-button text :aria-expanded="fileFiltersExpanded" @click="fileFiltersExpanded = !fileFiltersExpanded">
+              筛选 {{ fileFiltersExpanded ? '⌃' : '⌄' }}
+            </el-button>
           </div>
         </template>
         <template #actions>
@@ -246,9 +247,6 @@
             @operation="openOperationRow"
             @usage="openUsage"
           />
-          <p v-if="!libraryScope && state.scope === 'directory' && state.folder">
-            当前文件夹引用与文件统一筛选、分页；引用固定所选受控版本。
-          </p>
         </template>
       </UnifiedListTemplate>
 
@@ -256,12 +254,13 @@
     <DccFileSelector v-if="state.folder" v-model="operationVisible" :source="selectorSource" purpose="operation" :directories="state.directories" :selected="[]" :load-page="loadPage" :open-preview="preview" :persist="openOperation" />
     <ProjectFileRelationsDialog v-if="relationsVisible && relationsSource" v-model="relationsVisible" :source="relationsSource" :context-key="listContextKey" />
     <DccReferenceUsageDialog v-if="usageVisible && usageSource" v-model="usageVisible" :source="usageSource" :context-key="listContextKey" :return-to="route.fullPath" />
-    <ProjectFolderEditor v-if="state.project" :key="state.project.id" ref="folderEditor" :library-scope="libraryScope" :library-can-edit="libraryCanEdit" @saved="handleFolderMaintenanceSaved" @deleted="handleFolderMaintenanceSaved" />
+    <ProjectFolderEditor v-if="state.project" :key="state.project.id" ref="folderEditor" :project-is-leader="state.canMaintainFolders" :library-scope="libraryScope" :library-can-edit="libraryCanEdit" @saved="handleFolderMaintenanceSaved" @deleted="handleFolderMaintenanceSaved" />
   </section>
 </template>
 <script setup lang="ts">
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { completeProjectWindow } from './project-list-scroll'
 import { useRoute, useRouter } from 'vue-router'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { useUserStore } from '@/store/modules/user'
@@ -319,8 +318,47 @@ const requireProjectReferences = () => {
   if (!references) throw new Error('引用列表尚未就绪，请等待加载完成')
   return references
 }
+const projectList = ref<HTMLElement>()
+const projectListHeight = ref(280)
+let projectScrollTimer: ReturnType<typeof setTimeout> | undefined
+let projectListObserver: ResizeObserver | undefined
+const settleProjectScroll = (top = projectList.value?.scrollTop || 0) => {
+  clearTimeout(projectScrollTimer)
+  const list = projectList.value
+  if (!list) return
+  const rows = Array.from(list.querySelectorAll<HTMLElement>('.project-browser__project'))
+  const bounds = rows.map(row => ({ top: row.offsetTop, height: row.getBoundingClientRect().height }))
+  const window = completeProjectWindow(bounds, top)
+  projectListHeight.value = window.height
+  nextTick(() => { if (projectList.value === list) list.scrollTop = window.top })
+}
+const scheduleProjectScroll = () => {
+  clearTimeout(projectScrollTimer)
+  projectScrollTimer = setTimeout(() => settleProjectScroll(), 140)
+}
+watch(() => state.projects, () => nextTick(() => settleProjectScroll(0)), { flush: 'post' })
+onMounted(() => {
+  if (!projectList.value) return
+  let width = 0
+  projectListObserver = new ResizeObserver(([entry]) => {
+    if (entry.contentRect.width === width) return
+    width = entry.contentRect.width
+    settleProjectScroll()
+  })
+  projectListObserver.observe(projectList.value)
+})
+onBeforeUnmount(() => { clearTimeout(projectScrollTimer); projectListObserver?.disconnect() })
+const projectFiltersExpanded = ref(false)
+const fileFiltersExpanded = ref(false)
+const directoryRootKey = computed(() => `project:${state.project?.id}:all`)
+const directoryTree = computed<DirectoryNode[]>(() => !props.libraryScope && state.project
+  ? [{ key: directoryRootKey.value, name: '全部文件夹', projectId: state.project.id, children: state.directories }]
+  : state.directories)
+const currentDirectoryKey = computed(() => state.scope === 'project' && !props.libraryScope
+  ? directoryRootKey.value : state.scope === 'directory' ? state.folder?.key : '')
 const operationVisible = ref(false)
 const folderEditor = ref<InstanceType<typeof ProjectFolderEditor>>()
+const canMaintainProjectFolders = computed(() => state.canMaintainFolders || checkPermi(['dcc:project-code:update']))
 const openFolderMaintenance = async (mode: 'create' | 'update' | 'delete') => {
   const project = state.project,
     folder = state.folder
@@ -328,10 +366,10 @@ const openFolderMaintenance = async (mode: 'create' | 'update' | 'delete') => {
     !project ||
     state.folderLoading ||
     state.folderError ||
-    !(props.libraryScope ? libraryCanEdit.value : checkPermi(['dcc:project-code:update']))
+    !(props.libraryScope ? libraryCanEdit.value : canMaintainProjectFolders.value)
   )
     return
-  if (mode !== 'create' && (!folder?.folderId || folder.projectId !== project.id)) return
+  if (mode !== 'create' && (state.scope !== 'directory' || !folder?.folderId || folder.projectId !== project.id)) return
   if (!folderEditor.value) {
     state.folderError = '项目文件夹维护组件尚未加载，请重新选择项目'
     return
@@ -345,7 +383,7 @@ const handleFolderMaintenanceSaved = async (projectId: number | string) => {
   const current = state.project
   if (!current || current.id !== String(projectId)) return
   if (props.libraryScope) await state.selectLibrary(current)
-  else await state.selectProject(current.id)
+  else await selectProject(current)
 }
 const relationsVisible = ref(false),
   relationsSource = ref<FileCandidate>()
@@ -405,19 +443,22 @@ const searchProjects = () => {
 }
 const resetProjects = () => {
   state.projectKeyword = ''
-  return searchProjects()
 }
+
 const resetFiles = () => {
   state.keyword = ''
   state.versionView = 'LATEST_CONTROLLED'
-  return state.search(state.scope)
 }
-const selectProject = (project: { id: string }) => {
+
+const selectProject = async (project: { id: string }) => {
   operationVisible.value = false
-  return state.selectProject(project.id)
+  await state.selectProject(project.id)
+  if (state.project?.id === project.id && !state.folderError) await state.search('project')
 }
 const selectFolder = (node: DirectoryNode) => {
   operationVisible.value = false
+  if (!props.libraryScope && node.key === directoryRootKey.value && node.projectId === state.project?.id)
+    return state.search('project')
   return state.selectFolder(node)
 }
 const changeScope = (scope: string | number) => {
@@ -516,14 +557,61 @@ onMounted(async () => {
 })
 </script>
 <style scoped>
-.project-browser { height:calc(100dvh - 170px);min-height:0;overflow:hidden;display: grid; grid-template-columns: minmax(260px, 28%) minmax(0, 1fr); gap: 18px; }
-aside, main { display:flex;flex-direction:column;min-height:0;min-width: 0; padding: 14px; background: var(--el-bg-color); }
-.search { display: flex; gap: 8px; margin-bottom: 12px; }
-.version-view { display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; margin-bottom: 0; white-space:nowrap;flex-shrink:0; }
-@media (max-width: 900px) { .project-browser { grid-template-columns: 1fr; } }
-.project-browser__projects { flex-shrink:0;--unified-list-height:280px; }
-aside > .el-tree { flex:1;min-height:0;overflow:auto; }
+.project-browser { height:calc(100dvh - 170px); min-height:0; overflow:hidden; display:grid; grid-template-columns:minmax(260px, 18%) minmax(0, 1fr); border:1px solid var(--el-border-color-light); border-radius:6px; }
+aside, main { display:flex; flex-direction:column; min-height:0; min-width:0; padding:14px; background:var(--el-bg-color); overflow:auto; }
+aside { border-right:1px solid var(--el-border-color-light); }
+h4 { margin:4px 0 12px; font-size:16px; }
+.project-browser__projects { flex:none; margin-bottom:16px; }
+.project-browser__project-list { position:relative; overflow-y:auto; overflow-x:hidden; overflow-anchor:none; scrollbar-gutter:stable; outline:1px solid var(--el-border-color-light); border-radius:4px; }
+.project-browser__project { display:flex; flex-direction:column; gap:4px; width:100%; padding:10px 12px; border:0; border-left:4px solid transparent; background:transparent; text-align:left; color:var(--el-text-color-primary); cursor:pointer; font:inherit; }
+.project-browser__project strong, .project-browser__project span { max-width:100%; overflow-wrap:anywhere; }
+.project-browser__project span { color:var(--el-text-color-regular); font-size:13px; }
+.project-browser__project:hover { background:var(--el-fill-color-light); }
+.project-browser__project.is-selected { background:var(--el-color-primary-light-9); border-left-color:var(--el-color-primary); }
+.project-browser__folder-actions { display:flex; gap:4px; margin-bottom:12px; }
+.project-browser__folder-actions .el-button { flex:1; min-width:0; margin:0; padding:8px 4px; font-size:12px; }
+aside > .el-tree { flex:none; min-height:100px; }
+aside :deep(.el-tree-node__content) { height:34px; border-radius:4px; }
+aside :deep(.el-tree-node.is-current > .el-tree-node__content) { background:var(--el-color-primary-light-9); color:var(--el-color-primary); }
 main > .el-tabs { flex-shrink:0; }
-.project-browser__files :deep(.unified-list-template__table-shell > div) { display:flex;flex:1;min-height:0;flex-direction:column; }
-.project-browser__files :deep(.el-table) { flex:1;min-height:0;height:100%; }
+.project-browser__path { margin:4px 0 16px; }
+.project-browser__files { flex:none; }
+.project-browser__projects :deep(.unified-list-template__query-form.unified-list-template__custom-query),
+.project-browser__files :deep(.unified-list-template__query-form.unified-list-template__custom-query) { display:flex; flex-direction:column; align-items:stretch; gap:10px; margin-bottom:14px; }
+.project-browser__projects :deep(.unified-list-template__filter-panel) { display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:center; }
+.project-browser__projects :deep(.unified-list-template__filters),
+.project-browser__projects :deep(.unified-list-template__filters > div),
+.project-browser__projects :deep(.list-filter-actions) { display:contents; }
+.project-browser__projects :deep(.list-filter-actions .el-button:first-child) { grid-column:2; grid-row:1; }
+.project-browser__projects :deep(.list-filter-actions .el-button:last-child) { grid-column:2; grid-row:2; margin:0; }
+.project-browser__filter-toggle { grid-column:1; grid-row:2; justify-self:start; }
+.project-browser__projects :deep(.table-multi-filter) { grid-column:1 / -1; }
+.project-browser__projects:not(.filters-expanded) :deep(.table-multi-filter),
+.project-browser__files:not(.filters-expanded) :deep(.table-multi-filter) { display:none; }
+.project-browser__projects :deep(.unified-list-template__toolbar:empty),
+.project-browser__files :deep(.unified-list-template__toolbar:empty) { display:none; }
+.project-browser__files :deep(.unified-list-template__filter-panel) { display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:center; width:100%; }
+.project-browser__projects :deep(.unified-list-template__custom-query > .unified-list-template__filter-panel),
+.project-browser__files :deep(.unified-list-template__custom-query > .unified-list-template__filter-panel) { flex:none; }
+.project-browser__files :deep(.unified-list-template__filters) { overflow:visible; }
+.project-browser__files :deep(.table-multi-filter) { grid-column:1 / -1; grid-row:2; }
+.project-browser__files :deep(.list-filter-actions) { grid-column:2; grid-row:1; flex-wrap:nowrap; }
+.project-browser__files :deep(.unified-list-template__filters > .project-browser__file-search) { display:flex; flex-wrap:nowrap; gap:12px; }
+.project-browser__files :deep(.project-browser__file-search > .el-input) { width:auto !important; min-width:0; flex:1 1 220px; }
+.version-view { display:flex; align-items:center; gap:8px; white-space:nowrap; }
+.project-browser__files :deep(.version-view .el-select) { width:210px !important; }
+.project-browser__files :deep(.unified-list-template__custom-query > .unified-list-template__toolbar) { display:flex; flex-wrap:wrap; gap:8px; width:100%; max-width:100%; }
+.project-browser__files :deep(.dcc-project-references__toolbar) { display:none; }
+.project-browser__files :deep(.unified-list-template__table-shell) { flex:none; max-height:58dvh; overflow:auto; }
+.project-browser__files :deep(.el-table) { height:auto; overflow:visible; }
+.project-browser__files :deep(.el-table__header-wrapper) { position:sticky; top:0; z-index:2; }
+.project-browser__files :deep(.el-table__inner-wrapper) { overflow:visible; }
+.project-browser :deep(.el-pagination) { margin:12px 0 0; flex-wrap:wrap; gap:4px; }
+@media (max-width:1450px) {
+  .project-browser__files :deep(.unified-list-template__filter-panel) { grid-template-columns:minmax(0, 1fr); }
+  .project-browser__files :deep(.list-filter-actions) { grid-column:1; grid-row:3; }
+  .project-browser__files :deep(.unified-list-template__filters > .project-browser__file-search) { flex-wrap:wrap; }
+  .project-browser__files :deep(.project-browser__file-search > .el-input) { min-width:180px; }
+}
+@media (max-width:900px) { .project-browser { grid-template-columns:1fr; height:auto; overflow:visible; } aside { border-right:0; border-bottom:1px solid var(--el-border-color-light); } }
 </style>

@@ -43,11 +43,14 @@ class DccRelationNameMetadataDatabaseTest extends BaseDbUnitTest {
         if(Arrays.stream(query.getClass().getDeclaredFields()).anyMatch(f->f.getName().equals("projectFolderMapper")))ReflectionTestUtils.setField(query,"projectFolderMapper",folders);
         ReflectionTestUtils.setField(query,"projectStorageMappingMapper",storageMappings);
         var scope=mock(DccControlledFileAssignmentScopeService.class);when(scope.isWithinAssignedFileScope(any(),any())).thenReturn(true);ReflectionTestUtils.setField(query,"assignmentScopeService",scope);
+        when(scope.resolveActiveAssignedControlledFileIds(99L)).thenReturn(null);
         var permissions=mock(DccDirectoryAccessPermissionService.class);when(permissions.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.QUERY)).thenReturn(Set.of(3L));when(permissions.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of());ReflectionTestUtils.setField(query,"directoryAccessPermissionService",permissions);
         var guard=new DccControlledFileDetailAuthorizationGuard();
         org.springframework.test.util.ReflectionTestUtils.setField(guard, "projectReferenceReadAccess", org.mockito.Mockito.mock(DccProjectReferenceReadAccess.class));
         for(String field:new String[]{"assignmentScopeService","directoryAccessPermissionService","permissionSupport","viewMatrixAccessService","distributionRecipientMapper","routeSnapshotMapper","bpmTaskService"})ReflectionTestUtils.setField(guard,field,ReflectionTestUtils.getField(query,field));
         ReflectionTestUtils.setField(query,"detailAuthorizationGuard",guard);
+        ReflectionTestUtils.setField(guard,"offlineTraining",ReflectionTestUtils.getField(query,"offlineTraining"));
+        ReflectionTestUtils.setField(guard,"archiveAccess",ReflectionTestUtils.getField(query,"archiveAccess"));
     }
     @AfterEach void clear(){jdbc.update("DELETE FROM dcc_controlled_file_related_file");jdbc.update("DELETE FROM dcc_project_file_placement");jdbc.update("DELETE FROM dcc_project_folder_storage_mapping");TenantContextHolder.clear();}
 
@@ -171,7 +174,7 @@ class DccRelationNameMetadataDatabaseTest extends BaseDbUnitTest {
         ReflectionTestUtils.setField(query,"detailAuthorizationGuard",detail);
         ReflectionTestUtils.setField(query,"downloadPolicyService",new cn.iocoder.yudao.module.dcc.service.download.DccDownloadPolicyService());
         var permission=(DccControlledFileCategoryPermissionSupport)ReflectionTestUtils.getField(query,"permissionSupport");
-        when(permission.hasCategoryPermission(2L,99L,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE)).thenReturn(true);
+        when(permission.hasFilePermission(any(),eq(99L),eq(cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE))).thenReturn(true);
     }
 
     @ParameterizedTest @ValueSource(strings={"CONTROL_TIME","PUBLISHED","STAMPED","WORKING_VERSION","MASTER_TYPE"})
@@ -211,13 +214,13 @@ class DccRelationNameMetadataDatabaseTest extends BaseDbUnitTest {
     @Test void pendingPermissionAndMetadataOnlyReadsDoNotGrantObsoletePrintOrMajorRevision() {
         prepareFormalControlledPending();
         var permission=(DccControlledFileCategoryPermissionSupport)ReflectionTestUtils.getField(query,"permissionSupport");
-        when(permission.hasCategoryPermission(2L,99L,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE)).thenReturn(false);
+        when(permission.hasFilePermission(any(),eq(99L),eq(cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE))).thenReturn(false);
         var response=query.getControlledFile(99L,9007199254740993L);assertFalse(response.getCanObsolete());
         assertFalse(response.getActionProjection().getAllowedActions().contains("OBSOLETE"));
         assertFalse(response.getActionProjection().getAllowedActions().contains("PRINT"));
         assertFalse(response.getActionProjection().getAllowedActions().contains("MAJOR_REVISION"));
         assertFalse(response.getActionProjection().getAllowedActions().contains("MANUAL_RELEASE"));
-        when(permission.hasCategoryPermission(2L,99L,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE)).thenReturn(true);
+        when(permission.hasFilePermission(any(),eq(99L),eq(cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE))).thenReturn(true);
         var readOnly=ReflectionTestUtils.invokeMethod(query,"toNameOnlyResponseWithHistory",99L,files.selectById(9007199254740993L),
                 false,List.of(),null);
         var nameOnly=(cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO)readOnly;
@@ -307,7 +310,8 @@ class DccRelationNameMetadataDatabaseTest extends BaseDbUnitTest {
                 .masterId(10L).categoryId(2L).directoryId(3L).sourceFileId(100L).originalFileId(100L).fileName("CurrentSource.pdf").title("Current")
                 .fileNumber("N-1").versionNo("A/1").status("ACTIVE").dccProjectCodeId(5L).requesterId(88L).submitterId(88L)
                 .controlledTime(java.time.LocalDateTime.of(2026,10,5,10,0)).build());
-        jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=20 WHERE id=10");
+        jdbc.update("UPDATE dcc_controlled_file SET activated_time=controlled_time WHERE id=20");
+        jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=20,current_active_controlled_file_id=20 WHERE id=10");
         var result=query.getRelationPermissions(99L,9007199254740993L);
         var json=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(
                 cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(result),Map.class);
@@ -332,10 +336,14 @@ class DccRelationNameMetadataDatabaseTest extends BaseDbUnitTest {
                 .fileNumber("N-1").versionNo("A/2").status(status).dccProjectCodeId(5L).requesterId(88L).submitterId(88L)
                 .controlledTime(java.time.LocalDateTime.of(2026,10,5,10,0))
                 .obsoletedTime("OBSOLETE".equals(status)?java.time.LocalDateTime.of(2026,10,5,11,0):null).build());
-        jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=20 WHERE id=10");
+        jdbc.update("UPDATE dcc_controlled_file SET activated_time=controlled_time WHERE id=20 AND status='ACTIVE'");
+        jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=20,current_active_controlled_file_id=? WHERE id=10",
+                "ACTIVE".equals(status)?20L:null);
         String before=cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(files.selectById(9007199254740993L));
         var result=query.getRelationPermissions(99L,9007199254740993L);
-        assertEquals(!"OBSOLETE".equals(status),result.hasCurrentControlledSource());
+        assertEquals("ACTIVE".equals(status),result.hasCurrentControlledSource());
+        assertEquals("OBSOLETE".equals(status)?null:20L,result.latestControlledFileId());
+        assertEquals("ACTIVE".equals(status)?20L:null,result.currentActiveControlledFileId());
         assertFalse(result.canEdit());assertFalse(result.canPreview());
         assertEquals(before,cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(files.selectById(9007199254740993L)));
         assertEquals(20L,masters.selectById(10L).getLatestControlledFileId());

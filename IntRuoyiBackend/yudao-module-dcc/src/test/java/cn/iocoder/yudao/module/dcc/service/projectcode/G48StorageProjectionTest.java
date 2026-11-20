@@ -11,9 +11,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @Import({DccPublicUploadPlacementService.class,cn.iocoder.yudao.module.dcc.service.file.DccProjectFolderStorageService.class,
+ cn.iocoder.yudao.module.dcc.service.file.DccControlledFileEditPermissionSupport.class,
  cn.iocoder.yudao.module.dcc.service.file.DccStorageMappingMutationGuard.class,
  cn.iocoder.yudao.module.dcc.service.directory.DccDirectoryAccessPermissionServiceImpl.class})
-@Sql(scripts="/sql/g48_storage_mapping.sql",executionPhase=Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+@Sql(scripts={"/sql/dcc_b_combination_tables.sql","/sql/dcc_b_gxp_audit_tables.sql","/sql/g48_storage_mapping.sql"},executionPhase=Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+@Sql(scripts={"/sql/dcc_b_combination_clean.sql","/sql/dcc_b_gxp_audit_clean.sql","/sql/clean.sql"},executionPhase=Sql.ExecutionPhase.AFTER_TEST_METHOD)
 class G48StorageProjectionTest extends DccProjectFormalCombinationTest {
  @Resource DccPublicUploadPlacementService publicUpload;
  @Resource cn.iocoder.yudao.module.dcc.service.file.DccStorageMappingMutationGuard mutationGuard;
@@ -27,13 +29,14 @@ class G48StorageProjectionTest extends DccProjectFormalCombinationTest {
  }
  @org.springframework.test.context.bean.override.mockito.MockitoBean
  cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService taxonomy;
- @org.springframework.test.context.bean.override.mockito.MockitoBean
- cn.iocoder.yudao.module.dcc.service.file.DccControlledFileCategoryPermissionSupport categoryPermissions;
- @BeforeEach void realActorDirectory(){
+ @BeforeEach void realActorDirectory(org.junit.jupiter.api.TestInfo test){
+  if(test.getTestMethod().orElseThrow().getDeclaringClass()!=G48StorageProjectionTest.class)return;
   when(users.getUser(7L)).thenReturn(new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO()
    .setId(7L).setTenantId(1L).setStatus(0).setUsername("storage-owner").setNickname("账号7"));
+  jdbc.update("UPDATE system_users SET username='storage-owner' WHERE id=7 AND tenant_id=1");
   when(taxonomy.resolveActiveCategoryId(8803L)).thenReturn(1L);
-  when(categoryPermissions.hasCategoryPermission(any(),any(),any())).thenReturn(true);
+  when(filePermissions.hasCategoryPermission(any(),any(),any())).thenReturn(true);
+  when(filePermissions.hasEditableProjectCategory(any(),any(),any())).thenReturn(true);
   directory(101L,1L,true);
   jdbc.update("INSERT INTO dcc_file_category(id,tenant_id,code,name,source,lifecycle_stage,active,file_type_taxonomy_id,approval_source_mode) VALUES(1,1,'STORAGE-CAT','类别','LOCAL','CONTROLLED',1,8803,'PUBLIC_MATRIX')");
   jdbc.update("INSERT INTO dcc_category_directory_binding(category_id,directory_id,active,tenant_id) VALUES(1,101,1,1)");
@@ -153,7 +156,7 @@ class G48StorageProjectionTest extends DccProjectFormalCombinationTest {
   var folder = folder(project.getId(), "quality");
   var request = request(project.getId(), folder.getId());
   request.setProjectFolderChangeReason(reason);
-  var started = java.time.LocalDateTime.now().minusSeconds(1);
+  var started = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusSeconds(1);
   Long id = tx(() -> publicUpload.create(7L, request,
     storage -> file(project.getId(), storage.storageDirectoryId, "g12-empty.pdf").getId()));
   var placement = placements.require(7L, project.getId(), id);

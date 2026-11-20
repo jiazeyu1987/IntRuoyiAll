@@ -13,7 +13,7 @@ class DccRegistrationCertificateFactsTest {
   assertNull(saved.getEffectiveDate());assertNull(saved.getExpiryDate());assertEquals("Customer A",saved.getCertificateHolder());
  }
  @Test void ceRevisionNumberAndIssueDateAreIndependentlyOptional(){
-  var facts=base("CE");facts.setExpiryDate(LocalDate.of(2030,1,1));var first=new DccRegistrationCertificateFacts.CeCertificate();first.setRevision("Rev.0");
+  var facts=base("CE");facts.setFirstObtainedDate(LocalDate.of(2020,1,1));facts.setExpiryDate(LocalDate.of(2030,1,1));var first=new DccRegistrationCertificateFacts.CeCertificate();first.setRevision("Rev.0");
   var second=new DccRegistrationCertificateFacts.CeCertificate();second.setRevision("Rev.1");second.setIssueDate(LocalDate.of(2026,10,30));facts.setCeCertificates(List.of(first,second));
   assertDoesNotThrow(facts::validate);second.setRevision("Rev.0");assertThrows(ServiceException.class,facts::validate);
  }
@@ -25,6 +25,16 @@ class DccRegistrationCertificateFactsTest {
  @Test void datesSerializeAsIsoStringsForSqlFiltering(){
   var f=base("CE");f.setExpiryDate(LocalDate.of(2030,1,1));var ce=new DccRegistrationCertificateFacts.CeCertificate();ce.setRevision("Rev.1");ce.setIssueDate(LocalDate.of(2026,10,30));f.setCeCertificates(List.of(ce));
   var json=f.toJson();assertTrue(json.contains("\"expiryDate\":\"2030-01-01\""));assertTrue(json.contains("\"issueDate\":\"2026-10-30\""));assertEquals(f.getExpiryDate(),DccRegistrationCertificateFacts.parse(json).getExpiryDate());
+ }
+ @Test void ceInitialDateIsOptionalAndModelEntriesAreExplicitDistinctFacts(){
+  var f=base("CE");f.setExpiryDate(LocalDate.of(2030,1,1));
+  assertDoesNotThrow(f::validate);
+  assertNull(f.getFirstObtainedDate());
+  f.setFirstObtainedDate(LocalDate.of(2020,1,1));f.setModelSpecifications(List.of(" A ","B"));
+  assertDoesNotThrow(f::validate);assertEquals(List.of("A","B"),f.getModelSpecifications());
+  assertNull(f.getEffectiveDate());assertNull(f.getCeCertificates());
+  f.setModelSpecifications(List.of("A"," A "));assertThrows(ServiceException.class,f::validate);
+  f.setModelSpecifications(List.of(" "));assertThrows(ServiceException.class,f::validate);
  }
  @Test void fdaRejectsHiddenDomesticDates(){var f=base("FDA");f.setExpiryDate(LocalDate.of(2020,1,1));assertThrows(ServiceException.class,f::validate);assertFalse(f.isExpired(LocalDate.now()));}
  @Test void missingMigrationIsAnError(){assertThrows(ServiceException.class,()->DccRegistrationCertificateFacts.parse(null));assertThrows(ServiceException.class,()->DccRegistrationCertificateFacts.parse(""));}

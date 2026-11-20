@@ -121,6 +121,21 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     @MockitoBean
     private AdminUserApi adminUserApi;
 
+    @Test
+    void rejectsAllReversedDateRangesAsBusinessParameterErrors() throws Exception {
+        for (String field : List.of("CeIssue", "Listing", "FirstObtained", "Approval", "Effective", "Expiry")) {
+            DccRegistrationCertificatePageQuery query = DccRegistrationCertificatePageQuery.builder().build();
+            query.getClass().getMethod("set" + field + "Start", LocalDate.class)
+                    .invoke(query, LocalDate.of(2026, 2, 2));
+            query.getClass().getMethod("set" + field + "End", LocalDate.class)
+                    .invoke(query, LocalDate.of(2026, 2, 1));
+            ServiceException error = assertThrows(ServiceException.class,
+                    () -> queryService.getPage(1L, 99L, query, context("REVERSED-DATE")));
+            assertEquals(400, error.getCode());
+            assertEquals("日期起始不能晚于截止", error.getMessage());
+        }
+    }
+
     @BeforeEach
     void setUp() {
         reset(companyScopeApi, enterpriseApi, permissionApi, adminUserApi);

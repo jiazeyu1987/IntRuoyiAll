@@ -30,9 +30,15 @@ public class DccRegistrationCertificateEvidenceService {
                AND ((f.owner_type='VERSION' AND f.owner_id=?) OR
                     (f.owner_type='CHANGE' AND EXISTS(SELECT 1 FROM dcc_registration_certificate_change ch
                      WHERE ch.tenant_id=f.tenant_id AND ch.id=f.owner_id AND ch.source_version_id=?
-                       AND ch.certificate_id=? AND ch.status='APPLIED' AND ch.deleted=0)))
+                       AND ch.certificate_id=? AND ch.status='APPLIED' AND ch.deleted=0)) OR
+                    (f.owner_type='SUPPORTING_DOCUMENT' AND EXISTS(SELECT 1 FROM dcc_registration_certificate_supporting_document sd
+                     WHERE sd.id=f.owner_id AND sd.tenant_id=f.tenant_id AND sd.business_file_id=f.id
+                       AND sd.version_id=? AND sd.certificate_id=? AND sd.document_type=f.file_kind
+                       AND EXISTS(SELECT 1 FROM dcc_registration_certificate_version sv
+                         WHERE sv.id=sd.version_id AND sv.tenant_id=sd.tenant_id AND sv.certificate_id=sd.certificate_id AND sv.deleted=0)
+                       AND sd.status='EFFECTIVE' AND sd.deleted=0)))
              ORDER BY f.bound_at,f.id
-            """,tenantId,versionId,versionId,certificateId);
+            """,tenantId,versionId,versionId,certificateId,versionId,certificateId);
         var applications=jdbc.queryForList("""
             SELECT r.id,r.request_type AS requestType,r.status,r.requester_user_id AS requesterUserId,
                    u.nickname AS requesterName,r.requested_at AS requestedAt,r.completed_at AS completedAt,

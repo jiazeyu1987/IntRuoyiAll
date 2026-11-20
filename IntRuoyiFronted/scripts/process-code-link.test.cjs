@@ -32,3 +32,13 @@ async function longIdCases(){
  }
  console.log('process and route long ID preservation PASS')
 }longIdCases().catch(e=>{console.error(e);process.exitCode=1});
+async function realListRequestCases(){
+ for(const kind of ['route','process']){
+  const source=read(`src/views/mes/pro/${kind}/index.vue`);const body=kind==='route'?source.match(/async function getList\(\) \{[^]*?\n}/)[0]:source.match(/const getList = async \(\) => \{[^]*?\n}/)[0];const pending=[];
+  const ctx={route:{path:`/mes/pro/${kind}`,query:{code:'A'}},PROCESS_ROUTE_PATH:'/mes/pro/process',queryParams:{code:'A'},routeListRequestSequence:0,getListRequestSequence:0,loading:{value:false},list:{value:[]},total:{value:0},buildProcessPageParams:()=>({...ctx.queryParams}),isMesProRouteListPath:()=>ctx.route.path==='/mes/pro/route',buildMesProRouteListStateKey:()=>JSON.stringify(ctx.route.query),buildProcessRouteQuerySignature:()=>JSON.stringify(ctx.route.query),ProRouteApi:{getRoutePage:()=>new Promise((resolve,reject)=>pending.push({resolve,reject}))},ProProcessApi:{getProcessPage:()=>new Promise((resolve,reject)=>pending.push({resolve,reject}))}};
+  vm.runInNewContext(transpile(body+'\nglobalThis.run=getList'),ctx);const a=ctx.run();ctx.route.query.code='B';ctx.queryParams.code='B';const b=ctx.run();pending[1].resolve({list:['B'],total:1});await b;pending[0].resolve({list:['A'],total:9});await a;assert.deepEqual(ctx.list.value,['B']);assert.equal(ctx.total.value,1);assert.equal(ctx.loading.value,false);
+  const leave=ctx.run();ctx.route.path='/other';pending[2].resolve({list:['stale'],total:99});await leave;assert.deepEqual(ctx.list.value,['B']);assert.equal(ctx.total.value,1);assert.equal(ctx.loading.value,false);
+  ctx.route.path=`/mes/pro/${kind}`;const failure=ctx.run();pending[3].reject(new Error('network rejected'));await assert.rejects(failure,/network rejected/);assert.equal(ctx.loading.value,false)
+ }
+ console.log('real route/process getList reverse response, leave and failure PASS')
+}realListRequestCases().catch(e=>{console.error(e);process.exitCode=1});

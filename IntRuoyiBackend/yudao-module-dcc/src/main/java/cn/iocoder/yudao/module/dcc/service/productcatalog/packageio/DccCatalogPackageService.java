@@ -31,7 +31,7 @@ public class DccCatalogPackageService {
     @Resource private ObjectMapper json;
     @Resource private DccProductCatalogRegistrationSyncService catalogSync;
     @Resource private DccProjectConfigurationAuditService configurationAudit;
-    private static final String FORMAT = "dcc-catalog-workbook.v7";
+    private static final String FORMAT = "dcc-catalog-workbook.v8";
     record Spec(String name, String table, String fields, String identity, String filter) {
         List<String> columns() { return List.of(fields.split(",")); }
         List<String> keys() { return List.of(identity.split(",")); }
@@ -240,11 +240,49 @@ public class DccCatalogPackageService {
             result.put(spec.name(), rows);
         }
         for (var certificate : result.get("注册证")) {
-            var first = result.get("注册证版本").stream().filter(v -> Objects.equals(v.get("certificate_id"), certificate.get("id")))
-                .min(Comparator.comparingInt(v -> Integer.parseInt(v.get("version_no")))).orElseThrow(() -> invalid("注册证缺少版本，无法导出"));
-            certificate.put("certificate_key", required(first, "certificate_no", "注册证"));
+            certificate.put("certificate_key", certificateKey(result, certificate));
         }
         return result;
+    }
+    // CE and FDA use their regulatory facts, not the domestic certificate_no field.
+    // The first version/snapshot fixes the merge identity across later renewals.
+    private String certificateKey(Map<String, List<Map<String, String>>> data,
+                                  Map<String, String> certificate) {
+        var first = data.get("注册证版本").stream()
+            .filter(v -> Objects.equals(v.get("certificate_id"), certificate.get("id")))
+            .min(Comparator.comparingInt(v -> Integer.parseInt(v.get("version_no"))))
+            .orElseThrow(() -> invalid("注册证缺少版本，无法导出"));
+        var snapshot = data.get("注册证快照").stream()
+            .filter(s -> Objects.equals(s.get("version_id"), first.get("id")))
+            .min(Comparator.comparingInt(s -> Integer.parseInt(s.get("revision_no"))))
+            .orElseThrow(() -> invalid("注册证缺少首版快照，无法确定业务标识"));
+        try {
+            var facts = json.readTree(required(snapshot, "facts_json", "注册证快照"));
+            String type = facts.path("certificateType").asText();
+            if ("DOMESTIC".equals(type)) return required(first, "certificate_no", "国内注册证");
+            var identity = json.createArrayNode().add(type).add(required(snapshot, "product_name", "注册证快照"));
+            if ("CE".equals(type)) {
+                identity.add(facts.path("notifiedBodyCode"));
+                var certificates = facts.path("ceCertificates");
+                if (!certificates.isMissingNode() && !certificates.isNull() && !certificates.isArray())
+                    throw invalid("CE注册证：证书记录必须是数组");
+                var entries = new TreeMap<String, String>();
+                for (var entry : certificates) {
+                    String revision = entry.path("revision").asText();
+                    if (revision.isBlank() || entries.put(revision, entry.path("certificateNo").asText("")) != null)
+                        throw invalid("CE注册证：证书版本不能为空或重复");
+                }
+                entries.forEach((revision, number) -> identity.addArray().add(revision).add(number));
+            } else if ("FDA".equals(type)) {
+                for (String field : List.of("submissionType", "kpNumber", "regulationCode", "listingNumber"))
+                    identity.add(facts.path(field));
+            } else {
+                throw invalid("注册证类型无效，无法确定业务标识");
+            }
+            return identity.toString();
+        } catch (IOException error) {
+            throw new IllegalArgumentException("注册证快照：监管事实JSON无效", error);
+        }
     }
     private void validateAccess(Map<String, List<Map<String, String>>> data) {
         List<Long> companyIds = data.get("注册证").stream()
@@ -309,9 +347,7 @@ public class DccCatalogPackageService {
         for (var certificate : data.get("注册证")) {
             if ("ACTIVE".equals(certificate.get("status")) && (certificate.get("current_version_id") == null || certificate.get("current_snapshot_id") == null))
                 throw invalid("现行注册证必须具备当前版本和快照");
-            var first = data.get("注册证版本").stream().filter(v -> Objects.equals(v.get("certificate_id"), certificate.get("id")))
-                .min(Comparator.comparingInt(v -> Integer.parseInt(v.get("version_no")))).orElseThrow(() -> invalid("注册证缺少版本"));
-            if (!Objects.equals(first.get("certificate_no"), certificate.get("certificate_key"))) throw invalid("注册证业务标识与首版注册证编号不符");
+            if (!Objects.equals(certificateKey(data, certificate), certificate.get("certificate_key"))) throw invalid("注册证业务标识与首版监管信息不符");
             for (String pointer : List.of("current_version_id", "pending_version_id")) {
                 if (certificate.get(pointer) == null) continue;
                 var version = find(data.get("注册证版本"), certificate.get(pointer));

@@ -253,12 +253,6 @@ export interface DccRegistrationCertificateVoidReqVO {
   voidReason: string
 }
 
-export interface DccRegistrationCertificateSupportingDocumentUploadReqVO {
-  versionId: number | string
-  businessFileId?: number | string
-  documentType: string
-}
-
 export interface DccRegistrationCertificateUploadSubmitReqVO {
   companyId: number | string
   productName: string
@@ -559,18 +553,6 @@ export const voidRegistrationCertificate = async (
 ) => {
   return await request.post({
     url: `/dcc/registration-certificates/${certificateId}/changes/void`,
-    data,
-    headers: { 'Idempotency-Key': idempotencyKey }
-  })
-}
-
-export const uploadRegistrationCertificateSupportingDocument = async (
-  certificateId: number | string,
-  data: DccRegistrationCertificateSupportingDocumentUploadReqVO,
-  idempotencyKey: string
-) => {
-  return await request.post({
-    url: `/dcc/registration-certificates/${certificateId}/supporting-documents`,
     data,
     headers: { 'Idempotency-Key': idempotencyKey }
   })

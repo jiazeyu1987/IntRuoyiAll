@@ -298,7 +298,8 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
         }
         if (requireUploadPermission && !permissionSupport.hasCategoryPermission(categoryId, userId,
                 DccFileCategoryPermissionActionEnum.UPLOAD)) {
-            throw new ServiceException(DCC_PROJECT_ACCESS_DENIED.getCode(), "当前用户没有该文件类别的上传权限");
+            throw new ServiceException(DCC_PROJECT_ACCESS_DENIED.getCode(),
+                    "当前用户没有所选文件类型的上传权限，请联系文控管理员配置该文件类型的编辑授权");
         }
     }
 

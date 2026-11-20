@@ -35,6 +35,14 @@ public class DccControlledFileAssignmentScopeService {
         if (userId == null) {
             return null;
         }
+        return DccReadRequestSnapshot.read("assignmentScope." + userId,
+                () -> {
+                    Set<Long> fileIds = loadActiveAssignedControlledFileIds(userId);
+                    return fileIds == null ? null : Set.copyOf(fileIds);
+                });
+    }
+
+    private Set<Long> loadActiveAssignedControlledFileIds(Long userId) {
         if (permissionApi.hasAnyPermissions(userId, FULL_FILE_SCOPE_PERMISSION)) {
             return null;
         }

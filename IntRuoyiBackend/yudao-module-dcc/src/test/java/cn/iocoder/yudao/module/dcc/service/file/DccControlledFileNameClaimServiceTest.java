@@ -43,6 +43,23 @@ class DccControlledFileNameClaimServiceTest extends BaseMockitoUnitTest {
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
 
     @Test
+    void unresolvedHistoricalSourcesReturnActionableErrorBeforeAllocatingAnUpload() {
+        when(claimMapper.countUnresolvedNames(1L)).thenReturn(25L);
+        assertServiceException(() -> service.preflightNewSourceName(99L, 2L, 5L, 6L,
+                "new.docx", "scope", "a".repeat(64)),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_HISTORICAL_SOURCE_VERIFICATION_REQUIRED);
+        verify(reservationMapper, never()).readName(any(), any());
+    }
+
+    @Test
+    void unresolvedHistoricalSourcesAlsoBlockFinalReservationWithTheSameError() {
+        when(claimMapper.countUnresolvedNames(1L)).thenReturn(25L);
+        assertServiceException(() -> service.claimIdentity(1L, "new.docx", 5L, 6L, "SOP-001", 200L),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_HISTORICAL_SOURCE_VERIFICATION_REQUIRED);
+        verify(claimMapper, never()).insert(any(DccControlledFileNameClaimDO.class));
+    }
+
+    @Test
     void claimRejectsDifferentMasterInSameTenant() {
         when(claimMapper.selectActiveByName(1L, "检验规程"))
                 .thenReturn(DccControlledFileNameClaimDO.builder()

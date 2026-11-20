@@ -6,6 +6,9 @@ import lombok.Data;
 @Data
 public class DccControlledFileWithdrawReqVO {
 
+    @NotBlank(message = "本次申请轮次不能为空")
+    private String processInstanceId;
+
     @NotBlank(message = "撤回原因不能为空")
     private String reason;
 }

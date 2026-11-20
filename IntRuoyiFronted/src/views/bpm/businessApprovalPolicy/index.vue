@@ -28,7 +28,6 @@
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
-        <PolicyTransferActions @imported="getList" />
         <el-button
           type="primary"
           plain
@@ -297,7 +296,6 @@ import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { computed } from 'vue'
-import PolicyTransferActions from './PolicyTransferActions.vue'
 import { dateFormatter } from '@/utils/formatTime'
 import { promptSignatureCredential } from '@/utils/signaturePrompt'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'

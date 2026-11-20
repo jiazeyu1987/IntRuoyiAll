@@ -81,6 +81,7 @@ public class MesProRouteVersionLifecycleServiceImpl implements MesProRouteVersio
                 || !MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(candidate.getRouteSnapshotJson())) {
             throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidate.getId());
         }
+        MesProRouteVersionSnapshotValidator.requireProductionLeaderAssignments(candidate.getRouteSnapshotJson());
         deviceIdentitySnapshots.require(candidate.getId(), MesProRouteDeviceIdentitySnapshotService.deviceIds(candidate));
         if (craftService.onRouteReady(candidate, publisherId)) {
             return routeVersionMapper.selectById(candidate.getId());

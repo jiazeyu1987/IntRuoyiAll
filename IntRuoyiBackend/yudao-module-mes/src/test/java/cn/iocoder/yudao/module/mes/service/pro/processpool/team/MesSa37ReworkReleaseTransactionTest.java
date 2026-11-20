@@ -9,14 +9,12 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.*;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.*;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.*;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.*;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.*;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.*;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.*;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.*;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditRecorder;
 import cn.iocoder.yudao.module.mes.service.pro.MesSa36Sa38MapperFixture;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
@@ -111,6 +109,15 @@ class MesSa37ReworkReleaseTransactionTest {
                 mock(MesReportAllocationReleaseStateService.class),new MesTeamLeaderOrderProcessTargetService(snapshots),
                 mock(MesReportAllocationQuantityFragmentService.class),aggregation,mock(MesProductionReportManagementSummaryService.class));
         progress=new MesTeamLeaderActiveOrderCompletionProgressPortImpl(snapshots,allocations,tasks,events);
+        var pqcCoverage=mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesOrderReleaseCompletenessService.class);
+        when(pqcCoverage.missingExpectedPqcTaskIdentities(any(),any())).thenAnswer(call -> {
+            List<MesPqcInspectionTaskDO> actualTasks=call.getArgument(1);
+            assertEquals(1,actualTasks.size());
+            assertEquals(51L,actualTasks.get(0).getQaProcessId());
+            assertEquals(42L,actualTasks.get(0).getRegulationVersionId());
+            return List.of(); // This cycle fixture has one applicable QA stage.
+        });
+        ReflectionTestUtils.setField(progress,"pqcCoverageService",pqcCoverage);
         var loss=mock(MesTeamLeaderActiveOrderReleaseLossSourceReader.class);
         when(loss.read(any())).thenAnswer(call -> {
             var command=call.<MesTeamLeaderActiveOrderReleaseLossReportPlanCommand>getArgument(0);
@@ -125,25 +132,45 @@ class MesSa37ReworkReleaseTransactionTest {
                                     .setFormalLossQuantity(BigDecimal.ZERO).setHasActualLoss(false).setZeroLossConfirmed(true)
                                     .setLossDecision("NO_LOSS").setReplenishmentSources(List.of()).setLossDetails(List.of())).toList());
         });
-        var issues=mock(MesWmProductIssueMapper.class);var issueItems=mock(MesWmProductIssueDetailMapper.class);
-        when(issues.selectListByWorkOrderIdForUpdate(30L)).thenReturn(List.of(MesWmProductIssueDO.builder()
-                .id(901L).workOrderId(30L).code("ISSUE-30")
-                .status(cn.iocoder.yudao.module.mes.enums.wm.MesWmProductIssueStatusEnum.FINISHED.getStatus()).build()));
-        when(issueItems.selectListByIssueIdForUpdate(901L)).thenReturn(List.of(MesWmProductIssueDetailDO.builder()
-                .id(902L).issueId(901L).lineId(903L).materialStockId(904L).itemId(1001L).quantity(BigDecimal.ONE)
-                .batchId(905L).batchCode("RAW-30").build()));
         backfill=new MesTeamLeaderActiveOrderCompletionBackfillPortImpl(snapshots,allocations,completions,tasks,details,
-                workOrders,loss,backfills,issues,issueItems,bindings,bindingItems,events,reviews);
+                workOrders,loss,backfills,bindings,bindingItems,events,reviews);
         var completion=new MesTeamLeaderActiveOrderCompletionServiceImpl(orders,receipts,progress,backfill,
                 mock(MesTeamLeaderActiveOrderPickListCompletionSourceService.class),mock(MesActiveOrderTransferTraceService.class),
                 mock(MesPqcProcessInspectionAggregationService.class));
         var audit=mock(GxpAuditService.class);var sequence=new AtomicLong(8000);
-        when(audit.append(any())).thenAnswer(c -> new GxpAuditAppendResult(sequence.incrementAndGet(),sequence.get(),"audit-"+sequence.get(),false));
+        var completionAudits=new java.util.HashMap<Long,GxpAuditAppendResult>();
+        when(audit.append(any())).thenAnswer(c -> {
+            var result=new GxpAuditAppendResult(sequence.incrementAndGet(),sequence.get(),"audit-"+sequence.get(),false);
+            cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand command=c.getArgument(0);
+            if ("mes.active-order.complete".equals(command.getOperationId())
+                    && command.getIdempotencyKey().matches("ACTIVE_ORDER_COMPLETE:[0-9]+")) {
+                completionAudits.put(Long.valueOf(command.getIdempotencyKey().substring("ACTIVE_ORDER_COMPLETE:".length())),result);
+            }
+            return result;
+        });
+        var verifier=mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationVerificationService.class);
+        when(verifier.requireCompletionCreation(anyLong(),anyLong())).thenAnswer(c -> {
+            var receipt=receipts.selectById(c.<Long>getArgument(1));
+            assertEquals(c.<Long>getArgument(0),receipt.getTenantId());
+            assertEquals("BACKFILL_SUCCEEDED",receipt.getReceiptStatus());
+            assertEquals(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt),receipt.getReceiptHash());
+            var main=completionAudits.get(receipt.getId());assertNotNull(main);
+            return new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationEvidence(
+                    "COMPLETION_MAIN_V1",receipt.getId(),receipt.getId().toString(),receipt.getCompletedVersion().toString(),
+                    receipt.getReceiptHash(),main.eventId(),main.eventHash());
+        });
+        when(verifier.requireCompletionTransactionId(anyLong(),anyLong())).thenAnswer(c -> {
+            assertNotNull(completionAudits.get(c.<Long>getArgument(1)));
+            return "sa37-unit-transaction-"+c.getArgument(1);
+        });
+        ReflectionTestUtils.setField(completion,"creationVerifier",verifier);
         var states=mock(MesReleaseAffectedStateCollector.class);
         when(states.withAffected(any(),any())).thenAnswer(c -> c.getArgument(0));
         ReflectionTestUtils.setField(completion,"gxpAuditService",audit);
         ReflectionTestUtils.setField(completion,"affectedStateCollector",states);
         ReflectionTestUtils.setField(completion,"handoffService",mock(MesActiveOrderHandoffService.class));
+        ReflectionTestUtils.setField(completion,"fixedTestCompletionSourceInitializer",
+                new MesFixedTestOrderCompletionSourceInitializer(db.jdbc));
         var persistence=new MesTeamLeaderActiveOrderReleaseApplicationPersistenceService(applications,
                 db.mapper(MesProEdhrWorkTaskMapper.class),mock(MesReleaseFlowAuditRecorder.class));
         var candidates=mock(MesProductionReleaseRequiredCandidateResolver.class);
@@ -152,6 +179,8 @@ class MesSa37ReworkReleaseTransactionTest {
         var generation=new MesTeamLeaderActiveOrderReleaseGenerationService(orders,workOrders,snapshots,completions,tasks,
                 details,allocations,applications,db.mapper(MesProEdhrWorkTaskMapper.class),persistence,candidates,
                 new MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher(),bindings,mock(MesProEdhrNonconformanceReviewService.class));
+        ReflectionTestUtils.setField(generation,"pqcCoverageService",pqcCoverage);
+        ReflectionTestUtils.setField(generation,"productionEventMapper",events);
         var batchBoundary=mock(MesTeamLeaderActiveOrderCompletionBatchExecutionService.class);
         when(batchBoundary.openOrCreate(anyLong(),anyLong(),anyLong(),anyString())).thenAnswer(call -> {
             var receipt=receipts.selectById(call.<Long>getArgument(2));
@@ -187,7 +216,7 @@ class MesSa37ReworkReleaseTransactionTest {
             var task=tasks.selectListByActiveOrderId(next).get(0);
             task.setTaskStatus("CONFIRMED").setActualInspectionQuantity(1).setSubmittedEventId(450L);tasks.updateById(task);
             details.insert(MesPqcProcessInspectionAggregateDetailDO.builder().id(801L).activeOrderId(next).workOrderId(30L)
-                    .routeId(40L).routeVersionId(41L).routeProcessId(101L).processId(1L).pqcTaskId(task.getId())
+                    .routeId(40L).routeVersionId(41L).regulationVersionId(42L).pqcTaskId(task.getId()).itemCode("ITEM-1").sampleNo(1)
                     .actualInspectionQuantity(1).sourcePqcRecordId(901L).sourcePieceDetailId(1801L).eventId(450L).reviewId(650L).build());
             var binding=MesProcessPoolActiveOrderPickListBindingDO.builder().id(8801L).activeOrderId(next).workOrderId(30L)
                     .pickListId(9901L).sourceSnapshotHash("pick-hash").build();bindings.insert(binding);
@@ -277,9 +306,12 @@ class MesSa37ReworkReleaseTransactionTest {
         var snapshot=MesProcessPoolActiveOrderProcessSnapshotDO.builder().id(101L).activeOrderId(10L).workOrderId(30L)
                 .routeId(40L).routeVersionId(41L).routeProcessId(101L).processId(1L).erpFixedQuantitySnapshot(BigDecimal.TEN)
                 .productionQuantityFactorSnapshot(BigDecimal.ONE).plannedQuantitySnapshot(BigDecimal.TEN)
-                .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build();snapshot.setTenantId(1L);snapshots.insert(snapshot);
+                .productionConfigSnapshotJson("{\"outputMaterialIds\":[],\"lossCoefficient\":1}").build();snapshot.setTenantId(1L);snapshots.insert(snapshot);
         tasks.insert(MesPqcInspectionTaskDO.builder().id(701L).activeOrderId(10L).workOrderId(30L).routeId(40L)
-                .routeVersionId(41L).routeProcessId(101L).processId(1L).regulationVersionId(42L).taskStatus("CONFIRMED")
+                .routeVersionId(41L).qaProcessId(51L).regulationVersionId(42L).taskStatus("CONFIRMED")
+                .inspectionItemPlanJson("{\"ITEM-1\":1}")
+                .inspectionSamplingPlanJson(JsonUtils.toJsonString(java.util.Map.of("ITEM-1",
+                        cn.iocoder.yudao.module.mes.service.qc.sampling.MesQcSamplingPlan.calculate(BigDecimal.ONE,"II"))))
                 .plannedInspectionQuantity(1).actualInspectionQuantity(1).businessDate(LocalDate.of(2026,10,5)).submittedEventId(451L).build());
         var work=MesProWorkOrderDO.builder().id(30L).code("B-30").productId(1001L).quantity(BigDecimal.TEN).batchCode("BATCH-30").build();
         work.setTenantId(1L);workOrders.insert(work);

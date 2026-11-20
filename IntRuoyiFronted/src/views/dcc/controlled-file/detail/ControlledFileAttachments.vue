@@ -7,7 +7,7 @@
     </template>
     <el-dialog v-if="toolbar" v-model="listVisible" title="文件附件" width="720px" append-to-body
       @open="$emit('preview-open')" @closed="$emit('preview-close')">
-      <ControlledFileAttachments :checkout-download-allowed="checkoutDownloadAllowed" :file="file" :body-read-context="bodyReadContext" :context-error="contextError" :review="review" compact />
+      <ControlledFileAttachments :file="file" :body-read-context="bodyReadContext" :checkout-download-allowed="checkoutDownloadAllowed" :context-error="contextError" :review="review" compact />
     </el-dialog>
     <template v-if="!toolbar">
     <div v-if="!compact || validationError || attachments.length" class="mb-12px flex items-center justify-between gap-12px">
@@ -53,7 +53,7 @@ import { downloadByData } from '@/utils/filt'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { useUserStoreWithOut } from '@/store/modules/user'
 
-const props = defineProps<{ file?: ControlledFileVO; bodyReadContext?: DccBodyReadContext; contextError?: string; compact?: boolean; toolbar?: boolean; inline?: boolean; review?: boolean; checkoutDownloadAllowed?: boolean }>()
+const props = defineProps<{ file?: ControlledFileVO; bodyReadContext?: DccBodyReadContext; contextError?: string; compact?: boolean; toolbar?: boolean; inline?: boolean; checkoutDownloadAllowed?: boolean; review?: boolean }>()
 defineEmits<{ 'preview-open': []; 'preview-close': [] }>()
 const listVisible = ref(false)
 const userStore = useUserStoreWithOut()

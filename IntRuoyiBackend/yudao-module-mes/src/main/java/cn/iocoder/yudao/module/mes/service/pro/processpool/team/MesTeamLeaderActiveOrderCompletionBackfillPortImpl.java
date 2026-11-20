@@ -22,8 +22,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueDetailDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillMapper;
@@ -33,10 +31,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.MesWmProductIssueDetailMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.MesWmProductIssueMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
-import cn.iocoder.yudao.module.mes.enums.wm.MesWmProductIssueStatusEnum;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -71,8 +66,6 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
     private final MesProWorkOrderMapper workOrderMapper;
     private final MesTeamLeaderActiveOrderReleaseLossSourceReader lossSourceReader;
     private final MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper;
-    private final MesWmProductIssueMapper productIssueMapper;
-    private final MesWmProductIssueDetailMapper productIssueDetailMapper;
     private final MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
     private final MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper;
     private final MesProProcessPoolEventMapper eventMapper;
@@ -87,8 +80,6 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
             MesProWorkOrderMapper workOrderMapper,
             MesTeamLeaderActiveOrderReleaseLossSourceReader lossSourceReader,
             MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper,
-            MesWmProductIssueMapper productIssueMapper,
-            MesWmProductIssueDetailMapper productIssueDetailMapper,
             MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper,
             MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper,
             MesProProcessPoolEventMapper eventMapper,
@@ -101,8 +92,6 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         this.workOrderMapper = workOrderMapper;
         this.lossSourceReader = lossSourceReader;
         this.backfillMapper = backfillMapper;
-        this.productIssueMapper = productIssueMapper;
-        this.productIssueDetailMapper = productIssueDetailMapper;
         this.pickListBindingMapper = pickListBindingMapper;
         this.pickListBindingItemMapper = pickListBindingItemMapper;
         this.eventMapper = eventMapper;
@@ -134,9 +123,27 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         List<MesPqcInspectionTaskDO> tasks = pqcTaskMapper.selectEffectiveListByActiveOrderIdForUpdate(activeOrder.getId());
         List<MesPqcProcessInspectionAggregateDetailDO> details = aggregateDetailMapper
                 .selectListByActiveOrderIdForUpdate(activeOrder.getId());
-        if (completions == null || completions.isEmpty() || tasks == null || tasks.isEmpty()
-                || details == null || details.isEmpty()) {
-            throw sourceMissing(activeOrder, "FORMAL_BACKFILL_SOURCE");
+        List<MesReleaseFlowBlocker> missingSources = new ArrayList<>();
+        if (completions == null || completions.isEmpty()) {
+            missingSources.add(formalSourceBlocker(activeOrder, "PRODUCTION_COMPLETION",
+                    MesReleaseFlowBlockerType.PRODUCTION_PROGRESS_NOT_COMPLETED,
+                    "缺少正式生产复核记录", "生产组长在报工管理中完成工序复核和数量确认"));
+        }
+        if (tasks == null || tasks.isEmpty()) {
+            missingSources.add(formalSourceBlocker(activeOrder, "PQC_TASK",
+                    MesReleaseFlowBlockerType.PROCESS_INSPECTION_SOURCE_REQUIRED,
+                    "缺少正式PQC检验任务", "由PQC岗位核实检验任务来源"));
+        }
+        if (details == null || details.isEmpty()) {
+            missingSources.add(formalSourceBlocker(activeOrder, "PQC_AGGREGATE_DETAIL",
+                    MesReleaseFlowBlockerType.PROCESS_INSPECTION_SOURCE_REQUIRED,
+                    "缺少PQC过程检验汇总明细", "由PQC岗位核实检验复核和汇总来源"));
+        }
+        if (!missingSources.isEmpty()) {
+            throw new MesReleaseFlowBlockerException("活跃订单缺少正式完工来源", new MesReleaseFlowFailureRespVO()
+                    .setStage(MesReleaseFlowStage.SP_1)
+                    .setCurrentStatus(activeOrder.getActiveStatus())
+                    .setBlockers(missingSources));
         }
         List<Long> batchSourceIds = new ArrayList<>(
                 validateProductionSources(activeOrder, snapshots, allocations, completions));
@@ -148,7 +155,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                 || activeOrder.getRouteId() == null || activeOrder.getRouteVersionId() == null) {
             throw sourceMissing(activeOrder, "WORK_ORDER_BATCH_ROUTE");
         }
-        FormalProductIssues formalProductIssues = lockedFormalProductIssues(activeOrder);
+        // Completion freezes approved ERP pick lists before preparing this draft.
+        // Requiring a local warehouse issue here would demand a second outbound transaction.
         List<MesProcessPoolActiveOrderPickListBindingDO> pickListBindings = pickListBindingMapper
                 .selectListByActiveOrderId(activeOrder.getId());
         if (pickListBindings == null || pickListBindings.isEmpty()) {
@@ -166,12 +174,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
             items.stream().map(MesProcessPoolActiveOrderPickListBindingItemDO::getId)
                     .filter(Objects::nonNull).forEach(batchSourceIds::add);
         }
-        formalProductIssues.issues().stream().map(MesWmProductIssueDO::getId)
-                .filter(Objects::nonNull).forEach(batchSourceIds::add);
-        formalProductIssues.allDetails().stream().map(MesWmProductIssueDetailDO::getId)
-                .filter(Objects::nonNull).forEach(batchSourceIds::add);
         String sourceSeed = MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.canonicalize(
-                canonicalSourceSeed(activeOrder, workOrder, formalProductIssues, pickListBindings, pickListItems,
+                canonicalSourceSeed(activeOrder, workOrder, pickListBindings, pickListItems,
                         snapshots, allocations, completions, tasks, details, productionFacts));
         String sourceSeedHash = sha256(sourceSeed);
         MesTeamLeaderActiveOrderReleaseLossReportPlanCommand lossCommand =
@@ -721,7 +725,6 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
 
     private static String canonicalSourceSeed(MesProcessPoolActiveOrderDO order,
                                                MesProWorkOrderDO workOrder,
-                                               FormalProductIssues formalProductIssues,
                                                List<MesProcessPoolActiveOrderPickListBindingDO> pickListBindings,
                                                Map<Long, List<MesProcessPoolActiveOrderPickListBindingItemDO>> pickListItems,
                                                List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots,
@@ -744,8 +747,6 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         workOrderBinding.put("productId", workOrder.getProductId());
         workOrderBinding.put("batchCode", workOrder.getBatchCode());
         seed.put("workOrderBinding", workOrderBinding);
-        seed.put("formalProductIssues", formalProductIssues.issues());
-        seed.put("formalProductIssueDetails", formalProductIssues.detailsByIssue());
         seed.put("pickListBindings", pickListBindings);
         seed.put("pickListBindingItems", pickListItems);
         seed.put("snapshots", snapshots);
@@ -771,45 +772,6 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         return JsonUtils.toJsonString(snapshot);
     }
 
-    private FormalProductIssues lockedFormalProductIssues(MesProcessPoolActiveOrderDO activeOrder) {
-        List<MesWmProductIssueDO> issues = productIssueMapper
-                .selectListByWorkOrderIdForUpdate(activeOrder.getWorkOrderId());
-        List<MesWmProductIssueDO> finished = issues == null ? List.of() : issues.stream()
-                .filter(Objects::nonNull)
-                .filter(issue -> Objects.equals(activeOrder.getWorkOrderId(), issue.getWorkOrderId())
-                        && Objects.equals(MesWmProductIssueStatusEnum.FINISHED.getStatus(), issue.getStatus()))
-                .sorted(Comparator.comparing(MesWmProductIssueDO::getId))
-                .toList();
-        if (finished.isEmpty() || finished.stream().anyMatch(issue -> issue.getId() == null)) {
-            throw sourceMissing(activeOrder, "FORMAL_PRODUCT_ISSUE_FINISHED");
-        }
-        Map<Long, List<MesWmProductIssueDetailDO>> detailsByIssue = new LinkedHashMap<>();
-        for (MesWmProductIssueDO issue : finished) {
-            List<MesWmProductIssueDetailDO> details = productIssueDetailMapper
-                    .selectListByIssueIdForUpdate(issue.getId());
-            if (details == null || details.isEmpty() || details.stream().anyMatch(detail ->
-                    detail == null || detail.getId() == null || !Objects.equals(issue.getId(), detail.getIssueId())
-                            || detail.getLineId() == null || detail.getMaterialStockId() == null
-                            || detail.getItemId() == null || detail.getQuantity() == null
-                            || detail.getQuantity().signum() <= 0 || detail.getBatchId() == null
-                            || StrUtil.isBlank(detail.getBatchCode()))) {
-                throw sourceMissing(activeOrder, "FORMAL_PRODUCT_ISSUE_DETAIL:" + issue.getId());
-            }
-            detailsByIssue.put(issue.getId(), details.stream()
-                    .sorted(Comparator.comparing(MesWmProductIssueDetailDO::getId))
-                    .toList());
-        }
-        return new FormalProductIssues(finished, detailsByIssue);
-    }
-
-    private record FormalProductIssues(List<MesWmProductIssueDO> issues,
-                                       Map<Long, List<MesWmProductIssueDetailDO>> detailsByIssue) {
-
-        private List<MesWmProductIssueDetailDO> allDetails() {
-            return detailsByIssue.values().stream().flatMap(List::stream).toList();
-        }
-    }
-
     private static String sha256(String value) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
@@ -830,5 +792,17 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
 
     private static RuntimeException sourceMissingById(Long activeOrderId, String field) {
         return exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING, activeOrderId, field);
+    }
+
+    private static MesReleaseFlowBlocker formalSourceBlocker(
+            MesProcessPoolActiveOrderDO order, String fieldCode, MesReleaseFlowBlockerType type,
+            String reason, String suggestion) {
+        return new MesReleaseFlowBlocker().setBlockerType(type)
+                .setObjectType("ACTIVE_ORDER")
+                .setObjectId(order.getId() == null ? null : String.valueOf(order.getId()))
+                .setObjectCode(String.valueOf(order.getWorkOrderId()))
+                .setFieldCode(fieldCode)
+                .setReason(reason)
+                .setSuggestion(suggestion);
     }
 }

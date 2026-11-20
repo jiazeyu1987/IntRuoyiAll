@@ -100,7 +100,7 @@ class DccControlledFileHistoricalImportServiceTest {
         assertEquals(88L,f.getImportedBy());assertEquals("CONTROLLED_IMPORT",f.getImportSource());
         assertEquals(500L,f.getPublishedFileId());assertEquals(500L,f.getReadOnlyFileId());assertNull(f.getStampedFileId());
         assertNull(f.getProcessInstanceId());assertNull(f.getEffectiveSignatureId());assertEquals("[]",f.getDistributionDepartmentIdsJson());
-        verify(edit).assertEditableProjectCategory(88L,10L,20L);verifyNoInteractions(converter);
+        verify(edit).assertUploadProjectCategory(88L,10L,20L,30L);verifyNoInteractions(converter);
         verify(platform).projectDccControlledImport(any(),eq(100L),eq(101L),eq(88L),eq(now));
         var order=inOrder(ownership,platform,relationStore);
         order.verify(ownership).claimSubmissionSource(eq(101L),any(),eq(88L),eq("CONTROLLED_IMPORT"));
@@ -240,7 +240,7 @@ class DccControlledFileHistoricalImportServiceTest {
         var missingRole=assertThrows(ServiceException.class,()->service.create(88L,request()));
         assertEquals(CONTROLLED_FILE_ACCESS_DENIED.getCode(),missingRole.getCode());verifyNoInteractions(edit,storage);
         when(permissions.hasAnyRoles(88L,"doc_control")).thenReturn(true);
-        doThrow(exception(CONTROLLED_FILE_ACCESS_DENIED)).when(edit).assertEditableProjectCategory(88L,10L,20L);
+        doThrow(exception(CONTROLLED_FILE_ACCESS_DENIED)).when(edit).assertUploadProjectCategory(88L,10L,20L,30L);
         var targetDenied=assertThrows(ServiceException.class,()->service.create(88L,request()));
         assertEquals(CONTROLLED_FILE_ACCESS_DENIED.getCode(),targetDenied.getCode());verifyNoInteractions(storage);
     }

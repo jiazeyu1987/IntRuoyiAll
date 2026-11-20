@@ -61,6 +61,13 @@ const certificateInformation = (json: string) => {
   }
   if (type === 'DOMESTIC' && !facts.ownProduct) lines.push(`项目代码：${scalar(facts.projectCode)}`)
   if (type === 'CE') {
+    const models = facts.modelSpecifications
+    if (models === undefined || models === null) lines.push('型号规格：历史数据未维护')
+    else {
+      if (!Array.isArray(models) || models.some(model => typeof model !== 'string' || !model.trim())) throw new Error('型号规格记录格式异常')
+      lines.push(`型号规格：${models.length ? models.join('；') : '无（空列表）'}`)
+    }
+
     lines.push(`证书Rev.记录：${(facts.ceCertificates ?? []).map(row =>
       `Rev. ${scalar(row.revision)} / 证书编号：${scalar(row.certificateNo)} / 签发日期：${scalar(row.issueDate)}`
     ).join('；') || '无'}`)

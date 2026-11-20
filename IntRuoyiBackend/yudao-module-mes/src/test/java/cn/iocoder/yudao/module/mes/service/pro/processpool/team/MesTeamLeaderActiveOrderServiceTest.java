@@ -2219,6 +2219,48 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
+    void shouldRejectUnassignedLeaderBeforeCreatingActiveOrderOrDownstreamData() {
+        stubWorkOrderExists(confirmedWorkOrder());
+        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
+        ServiceException denied = new ServiceException(
+                ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED.getCode(),
+                "当前工艺路线的生产组长是[张三]，你没有权限。");
+        doThrow(denied).when(routeStartAuthorizationService).assertCanJoinRoute(3001L, 922119L);
+
+        assertSame(denied, assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq())));
+
+        verifyNoActiveOrderWrites();
+        verifyNoInteractions(handoffService);
+        verify(gxpAuditService, never()).append(any(GxpAuditCommand.class));
+    }
+
+    @Test
+    void shouldRejectUnassignedLeaderBeforeReusingActiveOrderHistory() {
+        assertUnassignedLeaderCannotJoinHistoricalOrder("ACTIVE");
+    }
+
+    @Test
+    void shouldRejectUnassignedLeaderBeforeReactivatingRemovedOrderHistory() {
+        assertUnassignedLeaderCannotJoinHistoricalOrder("REMOVED");
+    }
+
+    private void assertUnassignedLeaderCannotJoinHistoricalOrder(String status) {
+        stubWorkOrderExists(confirmedWorkOrder());
+        when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L))
+                .thenReturn(List.of(existingActiveOrder(8101L, status, 7)));
+        ServiceException denied = new ServiceException(
+                ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED.getCode(),
+                "当前工艺路线未配置生产组长，无法加入活跃订单。");
+        doThrow(denied).when(routeStartAuthorizationService).assertCanJoinRoute(3001L, 922119L);
+
+        assertSame(denied, assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq())));
+
+        verifyNoActiveOrderWrites();
+        verifyNoInteractions(handoffService);
+        verify(gxpAuditService, never()).append(any(GxpAuditCommand.class));
+    }
+
+    @Test
     void shouldAddUsingProductionRouteWhenWorkOrderProductDiffers() {
         stubWorkOrderExists(confirmedWorkOrder(9001L, "WO-9001", new BigDecimal("200"), 1002L));
         stubFormalRouteQaContext(1002L, 448L,
@@ -2229,6 +2271,7 @@ class MesTeamLeaderActiveOrderServiceTest {
 
         assertEquals(8101L, result.getActiveOrderId());
         assertEquals(MesTeamLeaderActiveOrderAddResult.ACTION_ADD, result.getAction());
+        verify(routeStartAuthorizationService).assertCanJoinRoute(3001L, 922119L);
         verify(handoffService).productionReady(8101L, activeOrderReq().getLeaderUserId());
         verify(routeProductMapper).selectListByItemIds(List.of(1002L));
         verify(inspectionRegulationMapper).selectListByDccProjectCodeIds(List.of(147L));
@@ -2682,6 +2725,8 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertEquals("V1", activeOrders.get(0).getRouteVersionNo());
         assertEquals(new BigDecimal("0.000000"), activeOrders.get(0).getProductionProgressPercent());
         assertEquals(new BigDecimal("0.000000"), activeOrders.get(0).getInspectionProgressPercent());
+        assertFalse(activeOrders.get(0).getFormalProductionReviewComplete());
+        assertTrue(activeOrders.get(0).getReleaseApplyBlockReason().contains("生产复核未完成"));
         assertTrue(activeOrders.get(0).getAbnormal());
         assertEquals("设备停机", activeOrders.get(0).getAbnormalReason());
         assertEquals(LocalDateTime.of(2026, 8, 7, 11, 0), activeOrders.get(0).getAbnormalReportedAt());
@@ -2694,6 +2739,22 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(scheduleOrderProcessMapper, never()).selectListByScheduleOrderId(any());
         verify(processSnapshotMapper, never()).insertBatch(any());
         verify(scheduleOrderMapper, never()).selectEffectiveListByWorkOrderIds(any());
+
+        var completions = processSnapshots(8101L, 9001L, 10).stream().map(snapshot ->
+                MesProcessPoolOrderProcessCompletionDO.builder().id(snapshot.getRouteProcessId())
+                        .workOrderId(9001L).routeProcessId(snapshot.getRouteProcessId()).processId(snapshot.getProcessId())
+                        .targetQuantity(new BigDecimal("200")).confirmedQuantity(new BigDecimal("200"))
+                        .completionStatus("COMPLETED").lastEventId(1L).lastReviewId(2L)
+                        .sourceEventIdsJson("[1]").sourceAllocationIdsJson("[3]").aggregateHash("hash").build()).toList();
+        when(orderProcessCompletionMapper.selectListByWorkOrderIds(List.of(9001L))).thenReturn(completions);
+        var reviewed = service.listActiveOrders(3001L).get(0);
+        assertTrue(reviewed.getFormalProductionReviewComplete());
+        assertNull(reviewed.getReleaseApplyBlockReason());
+
+        when(workOrderMapper.selectBatchIds(List.of(9001L))).thenReturn(List.of(confirmedWorkOrder().setBatchCode(null)));
+        var withoutBatch = service.listActiveOrders(3001L).get(0);
+        assertTrue(withoutBatch.getFormalProductionReviewComplete());
+        assertTrue(withoutBatch.getReleaseApplyBlockReason().contains("缺少正式生产批号"));
     }
 
     @Test

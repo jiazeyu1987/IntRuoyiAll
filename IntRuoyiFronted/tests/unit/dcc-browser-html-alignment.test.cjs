@@ -17,9 +17,17 @@ const load = (file) => {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
     }).outputText
   )(exports, (id) => {
+    if (id.endsWith('controlledFile/bodyReadContext')) {
+      const api = {}
+      new Function('exports', ts.transpileModule(fs.readFileSync(path.join(root, 'src/api/dcc/controlledFile/bodyReadContext.ts'), 'utf8'), {
+        compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+      }).outputText)(api)
+      return api
+    }
     if (id.endsWith('relation-contract')) return load('detail/relation-contract.ts')
     if (id.endsWith('project-reference-contract'))
       return load('relations/project-reference-contract.ts')
+    if (id.endsWith('detail-read-context')) return load('detail/detail-read-context.ts')
     throw Error(`Unexpected import ${id}`)
   })
   return exports
@@ -95,6 +103,16 @@ test('no current controlled source stays unavailable instead of borrowing the se
     undefined
   )
 })
+test('pending latest controlled metadata remains visible before any execution version becomes active', async () => {
+  const api = readers({ getPermissions: async id => id === file.id
+    ? { ...selected, hasCurrentControlledSource: false, currentActiveControlledFileId: null }
+    : { ...latest, hasCurrentControlledSource: false, currentActiveControlledFileId: null } })
+  const result = await load('detail/browse-records.ts').loadBrowseMetadata(file, '1', api)
+  assert.equal(result.latest.controlledFileId, latest.controlledFileId)
+  assert.equal(result.latest.pendingEffect, true)
+  assert.equal(result.selected.currentActiveControlledFileId, null)
+})
+
 test('wrong tenant, Master, selected version and uncontrolled latest fail explicitly', async () => {
   const model = load('detail/browse-records.ts')
   for (const changed of [
@@ -158,21 +176,19 @@ test('complete readonly records live in detail while body keeps only the content
     (node) => node.type === 1 && node.tag === 'ContentWrap'
   )
   assert.equal(branch.loc.source.includes('ControlledFileBrowseRecords'), false)
-  const detailBranch = descriptor.template.ast.children.find(node => node.type === 1
-    && node.props.some(p => p.type === 7 && p.name === 'else-if' && p.exp?.content === 'isBrowserTraceabilityPage'))
-  assert.ok(detailBranch.loc.source.includes('ControlledFileBrowseRecords'), 'records must live in readonly detail')
+  function find(node, predicate) {
+    if (predicate(node)) return node
+    for (const child of node.children || []) { const result = find(child, predicate); if (result) return result }
+  }
+  const detailBranch = find(descriptor.template.ast, node => node.type === 1
+    && node.props.some(p => p.type === 7 && p.name === 'if' && p.exp?.content === 'useControlledDetailLayout'))
+  assert.ok(detailBranch?.loc.source.includes('ControlledFileBrowseRecords'), 'overview must live in readonly detail')
+  for (const panel of ['ControlledDetailVersionPanel', 'ControlledDetailApprovalPanel', 'ControlledDetailDistributionPanel'])
+    assert.ok(detailBranch.loc.source.includes(panel), panel)
   const records = parse(read('detail/ControlledFileBrowseRecords.vue')).descriptor
-  for (const label of [
-    '文件编号',
-    '查看版本',
-    '最新受控版本',
-    '文件负责人',
-    '受控日期',
-    '生效方式',
-    '下发日期',
-    '检出时间'
-  ])
+  for (const label of ['文件附件', '文件归属', '文件编制人', '申请时间', '申请生效方式'])
     assert.ok(records.template.content.includes(label), label)
+  for (const label of ['文件编号', '查看版本', '当前受控版本']) assert.ok(detailBranch.loc.source.includes(label), label)
   assert.ok(records.template.content.includes('CONTROLLED_PENDING_EFFECTIVE'))
   assert.ok(records.template.content.includes('DetailApplicationHistory'))
   assert.ok(records.template.content.includes(':allow-edit="false"'))
@@ -432,6 +448,7 @@ function mountRecords(getPermissions = async (id) => (id === file.id ? selected 
       currentActiveVersionNo: 'A/1',
       fileNumber: 'SOP-1',
       fileName: '文件.pdf',
+      attachments: [],
       fileOwnerNicknameSnapshot: '批准选择的负责人',
       effectiveDate: '2026-10-13',
       controlledTime: '2026-10-06 08:41:52',
@@ -465,7 +482,13 @@ function mountRecords(getPermissions = async (id) => (id === file.id ? selected 
           referenced: true
         })
       }
+    if (id === '@/api/common/filePreview') return { buildDccControlledFileAttachmentPreviewSource: () => { throw Error('Attachment preview is outside this metadata test') } }
+    if (id === '@/api/dcc/controlledFile/workflow') return { downloadControlledFileAttachmentWithName: () => { throw Error('Attachment download is outside this metadata test') } }
+    if (id === '@/utils/filt') return { downloadByData: () => { throw Error('Attachment download is outside this metadata test') } }
+    if (id === 'element-plus') return { ElMessageBox: { confirm: () => { throw Error('Attachment confirmation is outside this metadata test') } } }
+    if (id === './attachment-facts') return load('detail/attachment-facts.ts')
     if (id === './browse-records') return load('detail/browse-records.ts')
+    if (id === './detail-read-context') return load('detail/detail-read-context.ts')
     if (id === './relation-contract') return load('detail/relation-contract.ts')
     if (id === './presentation')
       return {
@@ -507,27 +530,20 @@ function mountRecords(getPermissions = async (id) => (id === file.id ? selected 
   app.mount(root)
   return { props, root, app }
 }
-test('actual browse page renders owner, all dates, latest versus executing version and pending warning together', async () => {
+test('overview renders owner, scheduled effectiveness, formal folder and reference count with pending warning', async () => {
   const h = mountRecords()
   try {
     await tick()
     for (const value of [
       '批准选择的负责人',
-      '2026-10-13',
-      '2026-10-06 08:41:52',
-      '2026-10-06 09:59:10',
-      '2026-10-06 10:00:00',
       '正式文件夹',
-      'B/1',
-      'A/1',
-      '引用项目：2'
+      '2 个 · 查看引用项目和所用版本'
     ])
       assert.ok(text(h.root).includes(value), value)
-    assert.ok(
-      nodes(h.root, (n) => n.type === 'el-alert').some((n) =>
-        String(n.props.title).includes('生效前不得作为正式执行文件使用')
-      )
-    )
+    const warning = nodes(h.root, n => n.type === 'el-alert').find(n => String(n.props.title).includes('生效前不得作为正式执行文件使用'))
+    assert.ok(warning)
+    assert.match(warning.props.title, /2026-10-13/)
+    assert.match(warning.props.title, /当前执行版本 A\/1 继续执行/)
   } finally {
     h.app.unmount()
   }
@@ -538,8 +554,9 @@ test('actual readonly records hide selected/source iteration labels without muta
   try {
     h.props.file.versionNo = 'A/1-2'
     h.props.file.selectedIterationVersionNo = 'A/1-2'
+    h.props.file.currentActiveVersionNo = 'A/1-2'
     await tick()
-    assert.ok(text(h.root).includes('草稿'))
+    assert.ok(nodes(h.root, n => n.type === 'el-alert').some(n => String(n.props.title).includes('草稿')))
     assert.equal(text(h.root).includes('A/1-2'), false)
     assert.equal(h.props.file.versionNo, 'A/1-2')
     assert.equal(h.props.file.id, '9007199254740993')
@@ -550,6 +567,7 @@ test('actual basic info hides iteration label without changing its original vers
   const file = { id: '9007199254740993', currentActiveVersionNo: 'A/1-2' }
   const component = compileComponent('shared/ControlledFileBasicInfoPanel.vue', id => {
     if (id === 'vue') return vue
+    if (id.endsWith('effective-facts')) return load('workflow/effective-facts.ts')
     if (id.endsWith('version-display')) return load('shared/version-display.ts')
     if (id.endsWith('presentation')) return { formatControlledFileDateTime: value => value || '未记录' }
     throw Error(id)
@@ -706,4 +724,29 @@ test('failed cancellation offers a real list refresh that clears obsolete select
   } finally {
     h.app.unmount()
   }
+})
+
+
+test('version panel renders formal control and distribution times without substituting scheduled effectiveness', async () => {
+  const component = compileComponent('detail/ControlledDetailVersionPanel.vue', id => {
+    if (id === 'vue') return vue
+    if (id.endsWith('version-display')) return load('shared/version-display.ts')
+    if (id.endsWith('revision-model')) return { revisionChangeLabel: () => '局部变更' }
+    if (id.endsWith('/presentation')) return { formatControlledFileDateTime: value => value }
+    if (id === './controlled-detail-version') return load('detail/controlled-detail-version.ts')
+    if (id === './controlled-detail-people') return load('detail/controlled-detail-people.ts')
+    throw Error(id)
+  })
+  const file = { id: '10', controlledTime: '2026-10-06 08:41:52', distributedTime: '2026-10-06 09:59:10',
+    effectiveDate: '2026-10-13', revisionChangeType: 'INITIAL', attachments: [] }
+  const app = renderer.createApp({ render: () => vue.h(component, { file, userNames: new Map() }) })
+  for (const tag of ['el-tag', 'el-button', 'el-table', 'el-table-column']) app.component(tag, stub)
+  const dom = node('root'); app.mount(dom)
+  try {
+    await tick()
+    assert.ok(text(dom).includes(file.controlledTime)); assert.ok(text(dom).includes(file.distributedTime))
+    assert.ok(text(dom).includes('受控')); assert.ok(text(dom).includes('下发'))
+    assert.equal(text(dom).includes(file.effectiveDate), false)
+    assert.ok(text(dom).includes('初始版本，尚未记录实际生效'))
+  } finally { app.unmount() }
 })

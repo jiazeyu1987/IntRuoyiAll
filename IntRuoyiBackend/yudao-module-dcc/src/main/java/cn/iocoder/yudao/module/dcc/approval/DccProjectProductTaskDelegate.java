@@ -14,6 +14,7 @@ import java.util.*;
 /** A native source inside the existing single DCC provider, not another provider or Flowable task. */
 @Component
 public class DccProjectProductTaskDelegate {
+    public static final String INITIATED = "DCC_PROJECT_PRODUCT_REQUEST";
     public static final String REVIEW = "DCC_PROJECT_PRODUCT_REVIEW";
     public static final String APPROVAL = "DCC_PROJECT_PRODUCT_APPROVAL";
     private final DccProjectProductCreateRequestMapper requests;
@@ -26,9 +27,10 @@ public class DccProjectProductTaskDelegate {
         this.requests = requests;this.actors = actors;this.service = service;
     }
 
-    public static boolean supports(String type) { return REVIEW.equals(type) || APPROVAL.equals(type); }
+    public static boolean supports(String type) { return REVIEW.equals(type) || APPROVAL.equals(type) || INITIATED.equals(type); }
 
     public List<ApprovalTaskSummary> list(ApprovalTaskQueryContext context) {
+        if (context.getViewType() == ApprovalTaskViewType.MY_INITIATED) return page(context).getList();
         Long tenant = TenantContextHolder.getRequiredTenantId();
         actors.requireAccount(context.getLoginUserId());
         // Native request permission filters only this source; a legitimate file task remains independent.
@@ -68,6 +70,7 @@ public class DccProjectProductTaskDelegate {
         Long actor=context.getLoginUserId();
         actors.requireAccount(actor);
         if(!actors.canQuery(actor))return new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(),0L);
+        if(context.getViewType()==ApprovalTaskViewType.MY_INITIATED)return pageInitiated(context,tenant,actor);
         boolean done=context.getViewType()==ApprovalTaskViewType.DONE;
         if(!done && context.getViewType()!=ApprovalTaskViewType.TODO)throw new IllegalArgumentException("PROJECT_TASK_VIEW_UNSUPPORTED");
         var base=new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<DccProjectProductCreateRequestDO>();
@@ -125,8 +128,43 @@ public class DccProjectProductTaskDelegate {
         return new cn.iocoder.yudao.framework.common.pojo.PageResult<>(ordered.subList(from,to),total);
     }
 
+    private cn.iocoder.yudao.framework.common.pojo.PageResult<ApprovalTaskSummary> pageInitiated(
+            ApprovalTaskQueryContext context, Long tenant, Long actor) {
+        var query = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<DccProjectProductCreateRequestDO>();
+        query.eq("tenant_id", tenant).isNotNull("submitted_time")
+                .in("status", "PENDING_REVIEW", "PENDING_APPROVAL", "REJECTED", "WRITING", "WRITE_FAILED", "COMPLETED");
+        if (!context.isGlobalView()) query.eq("applicant_user_id", actor);
+        if (context.getKeyword() != null && !context.getKeyword().isBlank()) {
+            String key = context.getKeyword().trim().toLowerCase(Locale.ROOT).replace("!", "!!").replace("%", "!%").replace("_", "!_");
+            query.apply("(LOWER(CONCAT(project_name,' · ',product_name)) LIKE {0} ESCAPE '!' OR LOWER(project_code) LIKE {0} ESCAPE '!' OR CAST(id AS CHAR) LIKE {0} ESCAPE '!')", "%" + key + "%");
+        }
+        var filter = new cn.iocoder.yudao.framework.common.pojo.PageParam();
+        filter.setListFilters(context.getListFilters());
+        cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.apply(filter, query, DccApprovalListFilterSql.projectInitiated());
+        long total = requests.selectCount(query);
+        var window = ApprovalQueryWindow.from(context);
+        if (total == 0 || window.limit() == 0) return new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(), total);
+        query.last("ORDER BY submitted_time DESC,CAST(CONCAT('DCC_PROJECT_PRODUCT:',tenant_id,':',id,':DCC_PROJECT_PRODUCT_REQUEST') AS BINARY) ASC LIMIT "
+                + window.limit() + " OFFSET " + window.offset());
+        var rows = requests.selectList(query).stream().map(request -> {
+            roleRequest(request);
+            String id = taskId(request, INITIATED);
+            return ApprovalTaskSummary.builder().id("DCC:" + INITIATED + ":" + id).moduleCode(ApprovalModuleCode.DCC)
+                    .sourceTaskType(INITIATED).sourceTaskId(id).businessKey(request.getId().toString())
+                    .businessTitle(request.getProjectName() + " · " + request.getProductName()).businessCode(request.getProjectCode())
+                    .businessStatus(request.getStatus()).businessDeleted(false)
+                    .currentNodeCode("MY_INITIATED").currentNodeName("我发起的")
+                    .initiatorUserId(request.getApplicantUserId()).initiatedAt(request.getSubmittedTime()).taskCreatedAt(request.getSubmittedTime())
+                    .requiresSignature(false).detailRoute("/mdm/product-catalog")
+                    .detailQuery(Map.of("requestId", request.getId().toString(), "requestOpen", "records", "from", "approval-center"))
+                    .availableActions(Set.of()).capabilities(Set.of(ApprovalTaskCapability.TIMELINE,
+                            ApprovalTaskCapability.NOTIFICATION, ApprovalTaskCapability.AUDIT)).build();
+        }).toList();
+        return new cn.iocoder.yudao.framework.common.pojo.PageResult<>(rows, total);
+    }
+
     public void review(ApprovalTaskReviewContext context) {
-        if (context.getModuleCode() != ApprovalModuleCode.DCC || !supports(context.getSourceTaskType())
+        if (context.getModuleCode() != ApprovalModuleCode.DCC || !(REVIEW.equals(context.getSourceTaskType()) || APPROVAL.equals(context.getSourceTaskType()))
                 || context.getProcessInstanceId() != null) throw new IllegalArgumentException("PROJECT_TASK_SOURCE_INVALID");
         String key = context.getBusinessKey();
         if (key == null || !key.matches("[1-9][0-9]*")) throw new IllegalArgumentException("PROJECT_TASK_ID_INVALID");
@@ -188,9 +226,18 @@ public class DccProjectProductTaskDelegate {
         } catch (NumberFormatException ex) { throw new IllegalArgumentException("PROJECT_TASK_ID_INVALID"); }
         var request = service.getRequest(context.getLoginUserId(), id);
         boolean role=roleRequest(request);
-        if(role && !REVIEW.equals(context.getSourceTaskType()))throw new IllegalArgumentException("ROLE_PROJECT_HAS_NO_SECOND_APPROVAL");
+        if(role && APPROVAL.equals(context.getSourceTaskType()))throw new IllegalArgumentException("ROLE_PROJECT_HAS_NO_SECOND_APPROVAL");
         if (!Objects.equals(context.getSourceTaskId(), taskId(request, context.getSourceTaskType()))) {
             throw new IllegalArgumentException("PROJECT_TASK_SOURCE_ID_MISMATCH");
+        }
+        if (DccProjectProductCreateService.DIRECT_CREATE_CONTRACT.equals(request.getReviewContract())) {
+            if (!INITIATED.equals(context.getSourceTaskType())) throw new IllegalArgumentException("DIRECT_PROJECT_HAS_NO_APPROVAL");
+            return List.of(ApprovalTaskTimelineEntry.builder().id(taskId(request, INITIATED)).moduleCode(ApprovalModuleCode.DCC)
+                    .sourceTaskType(INITIATED).sourceTaskId(taskId(request, INITIATED)).businessKey(request.getId().toString())
+                    .nodeCode("CREATE").nodeName("直接新建项目产品").action("CREATE").actionLabel("直接新建项目产品")
+                    .actorUserId(request.getApplicantUserId()).actedAt(request.getSubmittedTime()).comment(request.getCreationReason())
+                    .status(request.getStatus()).businessStatus(request.getStatus()).evidenceType("DCC_PROJECT_PRODUCT_REQUEST")
+                    .domainReferenceId(request.getId().toString()).build());
         }
         List<ApprovalTaskTimelineEntry> entries = new ArrayList<>();
         add(entries, request, "SUBMIT", "提交申请", request.getApplicantUserId(), request.getSubmittedTime(), request.getCreationReason());

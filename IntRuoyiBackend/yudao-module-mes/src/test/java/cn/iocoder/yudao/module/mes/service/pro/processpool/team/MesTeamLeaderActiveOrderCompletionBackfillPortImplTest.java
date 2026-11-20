@@ -12,9 +12,6 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectio
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.*;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.MesWmProductIssueDetailMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.MesWmProductIssueMapper;
-import cn.iocoder.yudao.module.mes.enums.wm.MesWmProductIssueStatusEnum;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -52,8 +49,6 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     @Mock private MesProWorkOrderMapper workOrderMapper;
     @Mock private MesTeamLeaderActiveOrderReleaseLossSourceReader lossSourceReader;
     @Mock private MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper;
-    @Mock private MesWmProductIssueMapper productIssueMapper;
-    @Mock private MesWmProductIssueDetailMapper productIssueDetailMapper;
     @Mock private MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
     @Mock private MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper;
     @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper eventMapper;
@@ -66,7 +61,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(true);
         port = new MesTeamLeaderActiveOrderCompletionBackfillPortImpl(snapshotMapper, allocationMapper,
                 completionMapper, taskMapper, detailMapper, workOrderMapper, lossSourceReader, backfillMapper,
-                productIssueMapper, productIssueDetailMapper, pickListBindingMapper, pickListBindingItemMapper,
+                pickListBindingMapper, pickListBindingItemMapper,
                 eventMapper, reviewMapper);
         { org.springframework.test.util.ReflectionTestUtils.setField(port, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         var event = new MesProProcessPoolEventDO().setId(401L).setWorkOrderId(30L).setRouteId(40L)
@@ -97,10 +92,6 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task()));
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(detail()));
         org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(30L)).thenReturn(workOrder());
-        org.mockito.Mockito.lenient().when(productIssueMapper.selectListByWorkOrderIdForUpdate(30L))
-                .thenReturn(List.of(productIssue()));
-        org.mockito.Mockito.lenient().when(productIssueDetailMapper.selectListByIssueIdForUpdate(901L))
-                .thenReturn(List.of(productIssueDetail()));
         org.mockito.Mockito.lenient().when(backfillMapper.insert(any(MesProcessPoolActiveOrderCompletionBackfillDO.class)))
                 .thenAnswer(invocation -> {
                     MesProcessPoolActiveOrderCompletionBackfillDO row = invocation.getArgument(0);
@@ -202,11 +193,11 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         verify(activeOrders, org.mockito.Mockito.times(1)).markCompleted(10L, 2, 20L);
         verify(backfillMapper, org.mockito.Mockito.times(2)).insert(any(MesProcessPoolActiveOrderCompletionBackfillDO.class));
 
-        var changed = productIssueDetail();
-        changed.setBatchCode("REAL-SOURCE-CHANGE");
-        when(productIssueDetailMapper.selectListByIssueIdForUpdate(901L)).thenReturn(List.of(changed));
+        var changed = pickListItem();
+        changed.setLotNumber("REAL-SOURCE-CHANGE");
+        when(pickListBindingItemMapper.selectListByBindingId(8801L)).thenReturn(List.of(changed));
         assertThrows(ServiceException.class, () -> service.completeForRelease(20L, 10L, "release-round-3", null));
-        when(productIssueDetailMapper.selectListByIssueIdForUpdate(901L)).thenReturn(List.of(productIssueDetail()));
+        when(pickListBindingItemMapper.selectListByBindingId(8801L)).thenReturn(List.of(pickListItem()));
         completion.setBackfillExecutionId(999999L);
         assertThrows(ServiceException.class, () -> service.completeForRelease(20L, 10L, "wrong-backfill-binding", null));
         completion.setBackfillExecutionId(stored.get().getBatchRecordId());
@@ -224,7 +215,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         port.write(draft, 10L);
 
         assertFalse(draft.getHasActualLoss());
-        assertTrue(draft.getFormalSourceSnapshotJson().contains("formalProductIssue"));
+        assertTrue(draft.getFormalSourceSnapshotJson().contains("pickListBindingItems"));
         assertTrue(draft.getSignatureSnapshotJson().contains("productionCompletionSignatures"));
         assertEquals(1L, draft.getTenantId());
         assertEquals("NOT_REQUIRED", draft.getLossReportStatus());
@@ -387,15 +378,29 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     @Test
-    void missingOrMismatchedFormalIssueMustFailBeforeBackfill() {
-        cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueDO mismatched = productIssue();
-        mismatched.setWorkOrderId(999L);
-        when(productIssueMapper.selectListByWorkOrderIdForUpdate(30L)).thenReturn(List.of(mismatched));
+    void approvedErpPickListAllowsPreparationWithoutLocalWarehouseIssue() {
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
+        var draft = port.prepare(20L, order(), command());
+        var source = JsonUtils.parseTree(draft.getFormalSourceSnapshotJson());
+        assertEquals(9901L, source.path("pickListBindings").get(0).path("pickListId").asLong());
+        assertEquals(9911L, source.path("pickListBindingItems").path("8801").get(0).path("pickListItemId").asLong());
+        assertFalse(source.has("formalProductIssues"));
+    }
 
-        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class,
-                () -> port.prepare(20L, order(), command()));
+    @Test
+    void missingErpPickListMustFailBeforeBackfill() {
+        when(pickListBindingMapper.selectListByActiveOrderId(10L)).thenReturn(List.of());
+        var error = assertThrows(ServiceException.class, () -> port.prepare(20L, order(), command()));
+        assertTrue(error.getMessage().contains("FORMAL_PICK_LIST_BINDINGS_REQUIRED"));
+        org.mockito.Mockito.verifyNoInteractions(lossSourceReader, backfillMapper);
+    }
 
-        org.mockito.Mockito.verifyNoInteractions(productIssueDetailMapper, lossSourceReader, backfillMapper);
+    @Test
+    void missingErpPickListItemsMustFailBeforeBackfill() {
+        when(pickListBindingItemMapper.selectListByBindingId(8801L)).thenReturn(List.of());
+        var error = assertThrows(ServiceException.class, () -> port.prepare(20L, order(), command()));
+        assertTrue(error.getMessage().contains("FORMAL_PICK_LIST_BINDING_ITEMS_REQUIRED"));
+        org.mockito.Mockito.verifyNoInteractions(lossSourceReader, backfillMapper);
     }
 
     @Test
@@ -421,10 +426,9 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     void formalSourceValueChangeMustChangeSnapshotHash() {
         when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
         MesTeamLeaderActiveOrderCompletionBackfillDraft before = port.prepare(20L, order(), command());
-        cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueDetailDO changed =
-                productIssueDetail();
-        changed.setBatchCode("CHANGED-BATCH");
-        when(productIssueDetailMapper.selectListByIssueIdForUpdate(901L)).thenReturn(List.of(changed));
+        var changed = pickListItem();
+        changed.setLotNumber("CHANGED-BATCH");
+        when(pickListBindingItemMapper.selectListByBindingId(8801L)).thenReturn(List.of(changed));
 
         MesTeamLeaderActiveOrderCompletionBackfillDraft after = port.prepare(20L, order(), command());
 
@@ -590,6 +594,34 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         assertMissingInspectionSource();
     }
 
+    @Test
+    void missingFormalSourcesAreReportedIndividuallyWithoutWritingBackfill() {
+        when(completionMapper.selectListByWorkOrderIdsForUpdate(List.of(30L))).thenReturn(List.of());
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of());
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of());
+
+        var error = assertThrows(cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException.class,
+                () -> port.prepare(20L, order(), command()));
+
+        assertEquals(List.of("PRODUCTION_COMPLETION", "PQC_TASK", "PQC_AGGREGATE_DETAIL"),
+                error.getFailure().getBlockers().stream().map(
+                        cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlocker::getFieldCode).toList());
+        assertTrue(error.getFailure().getBlockers().stream().allMatch(
+                blocker -> blocker.getReason() != null && blocker.getSuggestion() != null));
+        verify(backfillMapper, org.mockito.Mockito.never()).insert(any(MesProcessPoolActiveOrderCompletionBackfillDO.class));
+    }
+
+    @Test
+    void missingProductionCompletionMustNotFalselyReportMissingInspection() {
+        when(completionMapper.selectListByWorkOrderIdsForUpdate(List.of(30L))).thenReturn(List.of());
+
+        var error = assertThrows(cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException.class,
+                () -> port.prepare(20L, order(), command()));
+
+        assertEquals(1, error.getFailure().getBlockers().size());
+        assertEquals("PRODUCTION_COMPLETION", error.getFailure().getBlockers().get(0).getFieldCode());
+    }
+
     private void assertMissingInspectionSource() {
         var error = assertThrows(ServiceException.class, () -> port.prepare(20L, order(), command()));
         assertEquals(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING.getCode(), error.getCode());
@@ -699,15 +731,8 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         return MesProWorkOrderDO.builder().id(30L).productId(1001L).batchCode("BATCH-30").build();
     }
 
-    private cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueDO productIssue() {
-        return cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueDO.builder()
-                .id(901L).workOrderId(30L).status(MesWmProductIssueStatusEnum.FINISHED.getStatus())
-                .code("ISSUE-30").build();
-    }
-
-    private cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueDetailDO productIssueDetail() {
-        return cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueDetailDO.builder()
-                .id(902L).issueId(901L).lineId(903L).materialStockId(904L).itemId(1001L)
-                .quantity(BigDecimal.ONE).batchId(905L).batchCode("RAW-30").build();
+    private MesProcessPoolActiveOrderPickListBindingItemDO pickListItem() {
+        return MesProcessPoolActiveOrderPickListBindingItemDO.builder().id(8811L)
+                .bindingId(8801L).pickListItemId(9911L).build();
     }
 }

@@ -7,20 +7,20 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'u
 
 const rolePageSource = read('src/views/system/role/index.vue')
 const roleApiSource = read('src/api/system/role/index.ts')
+const roleTransferSource = read('src/views/system/role/EdhrPermissionTransfer.vue')
 const postPageSource = read('src/views/system/post/index.vue')
 const postApiSource = read('src/api/system/post/index.ts')
 const approvalRolePageSource = read('src/views/dcc/controlled-file/positions/index.vue')
 const approvalRoleApiSource = read('src/api/dcc/controlledFile/approvalPositions.ts')
 
 for (const token of [
-  '导出配置包',
-  '导入配置包',
-  '权限角色配置包.json',
+  '权限角色与审批策略配置包（JSON）',
+  '权限角色与审批策略配置包.json',
   'accept=".json"',
   'exportRoleConfigPackage',
   'importRoleConfigPackage'
 ]) {
-  assert.ok(rolePageSource.includes(token) || roleApiSource.includes(token), `权限角色配置包契约缺失：${token}`)
+  assert.ok(rolePageSource.includes(token) || roleApiSource.includes(token) || roleTransferSource.includes(token), `权限角色配置包契约缺失：${token}`)
 }
 
 for (const token of [

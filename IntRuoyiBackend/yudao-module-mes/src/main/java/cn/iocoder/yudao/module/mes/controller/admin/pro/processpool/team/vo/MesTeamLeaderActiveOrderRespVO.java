@@ -65,6 +65,12 @@ public class MesTeamLeaderActiveOrderRespVO {
     @Schema(description = "检验进度百分比", example = "10.000000")
     private BigDecimal inspectionProgressPercent;
 
+    @Schema(description = "全部工序是否已有正式生产复核完成记录")
+    private Boolean formalProductionReviewComplete;
+
+    @Schema(description = "完工申请的生产复核或正式批号阻塞原因")
+    private String releaseApplyBlockReason;
+
     @Schema(description = "活跃状态", example = "ACTIVE")
     private String activeStatus;
 

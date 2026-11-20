@@ -488,6 +488,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
         Map<String, String> detailQuery = new LinkedHashMap<>();
         detailQuery.put("id", instance.getId());
         Map<String, Object> variables = instance.getProcessVariables();
+        boolean registrationCertificateApproval = isRegistrationCertificateAccessApproval(variables);
         return enrichSummary(ApprovalTaskSummary.builder()
                 .id("BPM:" + PROCESS_INSTANCE_SOURCE + ":" + instance.getId())
                 .moduleCode(ApprovalModuleCode.BPM)
@@ -509,6 +510,9 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
                 .requiresSignature(Boolean.FALSE)
                 .detailRoute("/bpm/process-instance/detail")
                 .detailQuery(detailQuery)
+                .decisionDetailRoute(registrationCertificateApproval ? resolveDecisionDetailRoute(variables) : null)
+                .decisionDetailQuery(registrationCertificateApproval
+                        ? buildDecisionDetailQuery(variables, instance.getId()) : Map.of())
                 .availableActions(DETAIL_ACTIONS)
                 .capabilities(CAPABILITIES)
                 .build(), instance.getProcessDefinitionKey());
@@ -725,6 +729,11 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
             appendTitlePart(title, variables.get("certificateNo"));
             return title.toString();
         }
+        if ("DOWNLOAD_FILE".equals(firstText(variables.get("requestType")))) {
+            appendTitlePart(title, variables.get("ownerCompanyName"));
+            appendTitlePart(title, variables.get("certificateName"));
+            return title.toString();
+        }
         appendTitlePart(title, variables.get("certificateNo"));
         appendTitlePart(title, firstText(variables.get("requestKey"), variables.get("registrationCertificateAccessRequestId"),
                 variables.get("requestId")));
@@ -816,11 +825,16 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
         } else if (isRegistrationCertificateAccessApproval(variables)) {
             addTag(tags, "申请类型", resolveRegistrationCertificateRequestTypeLabel(variables)
                     .replace("审批", ""));
-            addTag(tags, "注册证编号", variables.get("certificateNo"));
+            if (!"DOWNLOAD_FILE".equals(firstText(variables.get("requestType")))) addTag(tags, "注册证编号", variables.get("certificateNo"));
             addTag(tags, "申请编号", firstText(variables.get("registrationCertificateAccessRequestId"),
                     variables.get("requestId")));
-            addTag(tags, "注册证", variables.get("certificateId"));
-            addTag(tags, "所属公司", variables.get("ownerCompanyId"));
+            if ("DOWNLOAD_FILE".equals(firstText(variables.get("requestType")))) {
+                addTag(tags, "注册证名称", variables.get("certificateName"));
+                addTag(tags, "所属公司", variables.get("ownerCompanyName"));
+            } else {
+                addTag(tags, "注册证", variables.get("certificateId"));
+                addTag(tags, "所属公司", variables.get("ownerCompanyId"));
+            }
         }
         return tags.isEmpty() ? null : tags;
     }

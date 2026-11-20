@@ -8,6 +8,8 @@ import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileProcessDefiniti
 import org.springframework.stereotype.Component;
 
 import java.util.Objects;
+import java.util.Map;
+import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBodyReadContext;
 
 @Component
 public class DccNativeApprovalSummaryEnricher implements ApprovalTaskSummaryEnricher {
@@ -44,6 +46,20 @@ public class DccNativeApprovalSummaryEnricher implements ApprovalTaskSummaryEnri
         summary.setBusinessCode(file.getFileNumber());
         summary.setBusinessContextTags(summaries.buildDccBusinessContextTags(file, summary.getCurrentNodeName()));
         summary.setBusinessDeleted(Boolean.TRUE.equals(file.getDeleted()));
+        if (summary.getProcessInstanceId() == null || summary.getProcessInstanceId().isBlank()
+                || file.getVersionNo() == null || file.getVersionNo().isBlank())
+            throw new IllegalStateException("申请详情缺少精确轮次或文件版本");
+        String type = DccControlledFileProcessDefinitionKeys.REVISION.equals(definitionKey)
+                || "REVISION".equals(file.getChangeType()) ? "REVISION" : "UPLOAD";
+        setApplicationDetail(summary, fileId, file.getVersionNo(), type);
+    }
+
+    static void setApplicationDetail(ApprovalTaskSummary summary, Long fileId, String version, String type) {
+        String context = new DccControlledFileBodyReadContext(DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY,
+                fileId.toString(), version, type, summary.getProcessInstanceId(), null).wire();
+        summary.setDecisionDetailRoute("/dcc/controlled-file/detail/" + fileId);
+        summary.setDecisionDetailQuery(Map.of("viewer", "1", "application", "1", "from", "approval-center",
+                "bodyReadContext", context));
     }
     @Override
     public void enrichFilterFacts(java.util.Map<String, String> facts, FilterContext context) {

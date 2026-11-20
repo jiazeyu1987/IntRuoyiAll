@@ -5,6 +5,9 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileObs
 
 public interface DccControlledFileObsoleteService {
 
+    void withdrawObsoleteApplication(Long userId, Long id,
+            cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileWithdrawReqVO reqVO);
+
     void precheckObsoleteControlledFile(Long userId, Long id, DccControlledFileObsoleteReqVO reqVO);
 
     FormInstanceRespVO obsoleteControlledFile(Long userId, Long id, DccControlledFileObsoleteReqVO reqVO);

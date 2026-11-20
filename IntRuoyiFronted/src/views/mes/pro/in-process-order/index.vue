@@ -65,6 +65,7 @@
                 >
               </template>
               <span v-else-if="column.key === 'joinedAt'">{{ formatDate(row.joinedAt) }}</span>
+              <WorkOrderCodeLink :code="row.workOrderCode" v-else-if="column.key === 'workOrderCode'" />
               <ProductCodeLink v-else-if="column.key === 'productCode'" :code="row.productCode" /><span v-else>{{ row[column.key] }}</span>
             </template>
           </el-table-column>
@@ -83,6 +84,7 @@
 </template>
 
 <script setup lang="ts">
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 

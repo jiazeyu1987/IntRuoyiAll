@@ -23,6 +23,7 @@ import cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeService;
 import jakarta.annotation.Resource;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -84,6 +85,13 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     @BeforeEach
     void setUp() {
         reset(projectCodeService);
+        jdbcTemplate.update("DELETE FROM mdm_enterprise");
+        jdbcTemplate.update("INSERT INTO mdm_enterprise (id,name,type,status,tenant_id,deleted) VALUES (10,'测试所属公司','OWNED_COMPANY','ENABLE',1,0)");
+    }
+
+    @AfterEach
+    void cleanCompanyFixture() {
+        jdbcTemplate.update("DELETE FROM mdm_enterprise");
     }
 
     @ParameterizedTest
@@ -126,6 +134,7 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     }
 
     private void seedTypeSnapshot(Long versionId, Long tenantId, String type) {
+        jdbcTemplate.update("DELETE FROM dcc_registration_certificate_snapshot WHERE version_id=?", versionId);
         jdbcTemplate.update("""
                 INSERT INTO dcc_registration_certificate_snapshot
                   (tenant_id, version_id, revision_no, facts_json, product_name, entrusted_production,
@@ -133,6 +142,34 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
                 VALUES (?, ?, 1, ?, 'Foreign formal product', 0, 0, '[]', ?)
                 """, tenantId, versionId, "{\"certificateType\":\"" + type + "\"}",
                 java.time.LocalDateTime.of(2026, 10, 31, 10, 0));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"valid", "tenant", "certificate", "version", "file", "type"})
+    void supportingMaterialDownloadApplicationRequiresExactEffectiveOwner(String boundary) {
+        var fixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND");
+        when(projectCodeService.getProjectCode(40L)).thenReturn(projectCode(1L,20L,DccProjectCodeStatusConstants.ENABLE));
+        jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_supporting_document
+                (id,tenant_id,owner_company_id,certificate_id,version_id,business_file_id,document_type,status,uploaded_at,uploaded_by)
+                VALUES (88001,1,10,?,?,?,'RENEWAL_ACCEPTANCE_RECEIPT','EFFECTIVE',CURRENT_TIMESTAMP,99)
+                """, fixture.certificateId(),fixture.versionId(),fixture.fileId());
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_file SET owner_type='SUPPORTING_DOCUMENT',owner_id=88001,file_kind='RENEWAL_ACCEPTANCE_RECEIPT' WHERE id=?",fixture.fileId());
+        switch(boundary) {
+            case "tenant" -> jdbcTemplate.update("UPDATE dcc_registration_certificate_supporting_document SET tenant_id=2 WHERE id=88001");
+            case "certificate" -> jdbcTemplate.update("UPDATE dcc_registration_certificate_supporting_document SET certificate_id=999 WHERE id=88001");
+            case "version" -> jdbcTemplate.update("UPDATE dcc_registration_certificate_supporting_document SET version_id=999 WHERE id=88001");
+            case "file" -> jdbcTemplate.update("UPDATE dcc_registration_certificate_supporting_document SET business_file_id=999 WHERE id=88001");
+            case "type" -> jdbcTemplate.update("UPDATE dcc_registration_certificate_supporting_document SET document_type='RENEWAL_SUPPLEMENT_NOTICE' WHERE id=88001");
+        }
+        if("valid".equals(boundary)) {
+            var result=service.submit(1L,99L,"support-download",download(fixture.certificateId(),40L,List.of(fixture.fileId())));
+            assertEquals("SUBMITTED",result.status());
+            assertEquals(List.of(fixture.fileId()),result.businessFileIds());
+        } else {
+            assertThrows(ServiceException.class,()->service.submit(1L,99L,"support-download",download(fixture.certificateId(),40L,List.of(fixture.fileId()))));
+            assertNoRequestRows();
+        }
     }
 
     @Test
@@ -179,6 +216,9 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     void submitDownloadRequestAcceptsSpecifiedOldCertificateAndChangeApprovalFiles() {
         FormalFixture current = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND");
         Long oldVersionId = seedAdditionalVersion(current.certificateId(), 2, "CERT-ACCESS-OLD", "OLD");
+        seedTypeSnapshot(oldVersionId, 1L, "DOMESTIC");
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET product_name='旧证名称' WHERE version_id=?", oldVersionId);
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET product_name='当前证名称' WHERE version_id=?", current.versionId());
         Long oldFileId = seedBusinessFile("VERSION", oldVersionId, "REGISTRATION_CERTIFICATE", "old.pdf");
         Long changeId = seedAppliedChange(current.certificateId(), current.versionId());
         Long changeFileId = seedBusinessFile("CHANGE", changeId, "CHANGE_APPROVAL", "change.pdf");
@@ -189,6 +229,7 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
                 download(current.certificateId(), 40L, List.of(oldFileId, changeFileId)));
 
         assertEquals(List.of(oldFileId, changeFileId), result.businessFileIds());
+        assertTrue(requestMapper.selectById(result.requestId()).getDetailJson().contains("\"certificateName\":\"旧证名称；当前证名称\""));
         assertEquals(2, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request_file "
                 + "WHERE tenant_id = 1 AND request_id = ? AND download_requested = TRUE AND status = 'REQUESTED'",
                 result.requestId()));
@@ -403,6 +444,7 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
                 .build();
         version.setTenantId(1L);
         assertEquals(1, versionMapper.insert(version));
+        seedTypeSnapshot(version.getId(), 1L, "DOMESTIC");
         certificate.setCurrentVersionId(version.getId());
         assertEquals(1, certificateMapper.updateById(certificate));
 

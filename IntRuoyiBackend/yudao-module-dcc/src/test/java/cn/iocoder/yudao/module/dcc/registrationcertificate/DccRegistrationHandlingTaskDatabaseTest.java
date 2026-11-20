@@ -62,7 +62,7 @@ class DccRegistrationHandlingTaskDatabaseTest {
     private void configured(){tx(()->service.configure(9L,10L,5,8));}
     private Long projectTask(){configured();return tx(()->service.createProjectTask(100L));}
     private void request(Long id,Long actor,String status){jdbc.update("INSERT INTO dcc_registration_certificate_access_request VALUES(?,1,?,500,100,?,'UPLOAD_CERTIFICATE',0)",id,actor,status);}
-    private void bind(Long id,Long actor){tx(()->{service.bindRequest(1L,actor,100L,500L,id,"UPLOAD");return null;});}
+    private void bind(Long id,Long actor){tx(()->{service.bindRequest(1L,actor,100L,500L,id,"UPLOAD",jdbc.queryForObject("SELECT id FROM dcc_registration_handling_task WHERE project_code_id=100 AND task_kind='UPLOAD'",Long.class));return null;});}
     private String status(Long task){return jdbc.queryForObject("SELECT status FROM dcc_registration_handling_task WHERE id=?",String.class,task);}
 
     @Test void missingConfigurationDoesNotRollBackNewProjectOrGenerateTask(){
@@ -156,7 +156,7 @@ class DccRegistrationHandlingTaskDatabaseTest {
         request(901L,20L,"SUBMITTED");assertThrows(ServiceException.class,()->bind(901L,20L));
         tx(()->{service.delegate(10L,task,10L,now.plusDays(1),"本人收回");return null;});
         assertThrows(ServiceException.class,()->bind(901L,10L));
-        assertThrows(ServiceException.class,()->tx(()->{service.bindRequest(2L,10L,100L,500L,901L,"UPLOAD");return null;}));
+        assertThrows(ServiceException.class,()->tx(()->{service.bindRequest(2L,10L,100L,500L,901L,"UPLOAD",task);return null;}));
         assertEquals("OPEN",status(task));assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_registration_handling_attempt",Integer.class));
     }
     @Test void rejectionAndWithdrawalReturnToSameTaskAndHistoricalCallbacksCannotChangeNewAttempt(){
@@ -170,6 +170,29 @@ class DccRegistrationHandlingTaskDatabaseTest {
         assertThrows(ServiceException.class,()->tx(()->{service.recordWithdrawal(1L,20L,902L,"其他人撤回");return null;}));
         tx(()->{service.recordWithdrawal(1L,10L,902L,"申请人撤回");return null;});assertEquals("OPEN",status(task));
         assertEquals(List.of("REJECTED","WITHDRAWN"),jdbc.queryForList("SELECT result FROM dcc_registration_handling_attempt ORDER BY request_id",String.class));
+    }
+    @Test void ordinaryUploadOfExistingProjectDoesNotRequireDelegationOrCompleteAnotherUsersTask(){
+        Long task=projectTask();request(901L,20L,"SUBMITTED");
+        assertNull(service.resolveUploadTaskId(null,null));
+        tx(()->{service.bindRequest(1L,20L,100L,500L,901L,"UPLOAD",null);return null;});
+        jdbc.update("UPDATE dcc_registration_certificate_access_request SET status='APPROVED' WHERE id=901");
+        tx(()->{service.recordDecision(1L,9L,901L,true,"普通新建审批通过");return null;});
+        assertEquals("OPEN",status(task));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_registration_handling_attempt",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_registration_handling_event WHERE event_type='SUBMITTED'",Integer.class));
+    }
+    @Test void explicitUploadTaskMustMatchProjectAndAssignedHandler(){
+        Long task=projectTask();request(901L,20L,"SUBMITTED");
+        assertThrows(ServiceException.class,()->bind(901L,20L));
+        tx(()->{service.delegate(10L,task,20L,now.plusDays(1),"项目办理授权");return null;});
+        assertThrows(ServiceException.class,()->tx(()->{service.bindRequest(1L,20L,101L,500L,901L,"UPLOAD",task);return null;}));
+        assertEquals("OPEN",status(task));
+        bind(901L,20L);assertEquals("SUBMITTED",status(task));
+        assertEquals(task,service.resolveUploadTaskId(901L,null));
+        assertEquals(task,service.resolveUploadTaskId(901L,task));
+        assertThrows(ServiceException.class,()->service.resolveUploadTaskId(901L,task+1));
+        TenantContextHolder.setTenantId(2L);
+        assertNull(service.resolveUploadTaskId(901L,null));
     }
     @Test void expiredScanUsesActualCurrentFactsAndIsIdempotentPerVersion(){
         configured();jdbc.execute("CREATE TABLE dcc_registration_certificate(id BIGINT PRIMARY KEY,tenant_id BIGINT,project_code_id BIGINT,current_version_id BIGINT,current_snapshot_id BIGINT,pending_version_id BIGINT,status VARCHAR(16),deleted INT DEFAULT 0)");

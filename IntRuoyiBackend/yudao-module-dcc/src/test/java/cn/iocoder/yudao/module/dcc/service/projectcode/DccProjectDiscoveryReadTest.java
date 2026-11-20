@@ -21,6 +21,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** Actual public project Controller / project service / access / folders / assignment / isolated H2. */
 @Import({DccProjectCodeServiceImpl.class,DccProjectCodeController.class,DccProjectFolderViewReadTest.WriteObservation.class})
+@org.springframework.test.context.jdbc.Sql(scripts={"/sql/dcc_b_combination_tables.sql", "/sql/dcc_b_gxp_audit_tables.sql", "/sql/dcc_project_discovery_tables.sql"},
+        executionPhase=org.springframework.test.context.jdbc.Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+@org.springframework.test.context.jdbc.Sql(scripts={"/sql/dcc_b_combination_clean.sql", "/sql/dcc_b_gxp_audit_clean.sql", "/sql/dcc_project_discovery_clean.sql"},
+        executionPhase=org.springframework.test.context.jdbc.Sql.ExecutionPhase.AFTER_TEST_METHOD)
 class DccProjectDiscoveryReadTest extends DccProjectFormalCombinationTest {
     @MockitoBean DccProjectUploadOptionsService uploadOptions;
     @MockitoBean cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
@@ -33,12 +37,13 @@ class DccProjectDiscoveryReadTest extends DccProjectFormalCombinationTest {
     @MockitoBean cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService taxonomy;
     @MockitoBean cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationStatusApi configuration;
     @MockitoBean cn.iocoder.yudao.module.mdm.api.product.MdmProductApi products;
-    @org.junit.jupiter.api.BeforeEach void discoveryAccounts() {
+    @org.junit.jupiter.api.BeforeEach void discoveryAccounts(org.junit.jupiter.api.TestInfo test) {
         when(certificateFiles.countAssociatedFilesByProjectCodeIds(any())).thenReturn(Map.of());
         when(certificateFiles.listAssociatedRows(any(),any(),any())).thenReturn(List.of());
         when(permissions.hasAnyPermissions(8L,"dcc:project-code:query")).thenReturn(true);
         when(permissions.hasAnyPermissions(8L,"dcc:project-code:query","dcc:controlled-file:query")).thenReturn(true);
-        login(8L);
+        // Inherited combination tests exercise actor 7; discovery and write-guard tests exercise actor 8.
+        if (test.getTestMethod().orElseThrow().getDeclaringClass() != DccProjectFormalCombinationTest.class) login(8L);
     }
     MockMvc discoveryMvc() {
         return org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(discoveryController,projectController,folderMaintenanceController)
@@ -54,6 +59,15 @@ class DccProjectDiscoveryReadTest extends DccProjectFormalCombinationTest {
                 .andExpect(jsonPath("$.code").value(0)).andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.list[0].id").value(String.valueOf(allowed.getId())))
                 .andExpect(jsonPath("$.data.list[0].projectName").value("PUBLIC-EMPTY"));
+    }
+    @Test void discoveryPageUsesLiveFileCountInsteadOfLegacyStoredCount() throws Exception {
+        var project=project("DISCOVERY-LIVE-COUNT",7L);view(project.getId());
+        jdbc.update("UPDATE dcc_project_code SET associated_file_count=42 WHERE id=?",project.getId());
+        file(project.getId(),101L,"live-count.pdf");
+        discoveryMvc().perform(get("/dcc/project-codes/page").param("listFilters",
+                        "[{\"key\":\"associatedFileCount\",\"operator\":\"eq\",\"value\":1}]"))
+                .andExpect(jsonPath("$.code").value(0)).andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.list[0].associatedFileCount").value(1));
     }
     @Test void discoveryDetailRejectsProjectWithoutFormalRuleEvenWithQueryMenu() throws Exception {
         var hidden=project("DISCOVERY-PRIVATE",7L);
@@ -109,8 +123,13 @@ class DccProjectDiscoveryReadTest extends DccProjectFormalCombinationTest {
             default -> throw new IllegalArgumentException(violation);
         }
         try {
-            discoveryMvc().perform(get("/dcc/project-codes/page"))
-                    .andExpect(jsonPath("$.code").value(0)).andExpect(jsonPath("$.data.total").value(0));
+            var page = discoveryMvc().perform(get("/dcc/project-codes/page"));
+            if ("CALLER_TENANT".equals(violation)) {
+                page.andExpect(jsonPath("$.code").value(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED.getCode()))
+                        .andExpect(jsonPath("$.data").doesNotExist());
+            } else {
+                page.andExpect(jsonPath("$.code").value(0)).andExpect(jsonPath("$.data.total").value(0));
+            }
             discoveryMvc().perform(get("/dcc/project-codes/{id}",project.getId()))
                     .andExpect(jsonPath("$.code").value(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED.getCode()))
                     .andExpect(jsonPath("$.data").doesNotExist());
@@ -191,11 +210,15 @@ class DccProjectDiscoveryReadTest extends DccProjectFormalCombinationTest {
         var matching=project("DISCOVERY-FILTER-MATCH",7L);matching.setProductMasterId(20L);projects.updateById(matching);view(matching.getId());
         var invalidProduct=project("DISCOVERY-FILTER-PRODUCT",7L);invalidProduct.setProductMasterId(21L);projects.updateById(invalidProduct);view(invalidProduct.getId());
         var noRoute=project("DISCOVERY-FILTER-ROUTE",7L);noRoute.setProductMasterId(20L);projects.updateById(noRoute);view(noRoute.getId());
-        when(products.listSimpleProducts(cn.iocoder.yudao.module.mdm.enums.MdmProductStatusConstants.ENABLE,true,null))
-                .thenReturn(List.of(cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO.builder().id(20L).build()));
-        when(configuration.getStatus(any())).thenReturn(Map.of(
-                matching.getId(),new cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationStatus(matching.getId(),true,true,true),
-                noRoute.getId(),new cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationStatus(noRoute.getId(),false,true,true)));
+        jdbc.update("INSERT INTO mdm_product(id,tenant_id,status,dcc_product_code) VALUES(20,1,'ENABLE','DCC-20')");
+        jdbc.update("INSERT INTO mes_pro_route(id,tenant_id) VALUES(50,1)");
+        jdbc.update("INSERT INTO mes_md_item(id,tenant_id,code) VALUES(60,1,?)",matching.getProjectCode());
+        jdbc.update("INSERT INTO mes_pro_route_product(id,tenant_id,route_id,item_id) VALUES(70,1,50,60)");
+        for (var project : List.of(matching, invalidProduct, noRoute)) {
+            jdbc.update("INSERT INTO mes_pro_batch_record_definition(id,tenant_id,batch_record_name) VALUES(?,1,?)",project.getId(),project.getProjectName());
+            jdbc.update("INSERT INTO mes_pro_batch_record_report(id,tenant_id,batch_record_definition_id,form_slot_type) VALUES(?,1,?,'MAIN')",project.getId(),project.getId());
+            jdbc.update("INSERT INTO mes_qa_inspection_regulation(id,tenant_id,owner_module,dcc_project_code_id) VALUES(?,1,'MES_QA',?)",project.getId(),project.getId());
+        }
         discoveryMvc().perform(get("/dcc/project-codes/page").param("requireDccProductCode","true").param("routeConfigured","true")
                         .param("mainBatchRecordConfigured","true").param("qaRegulationConfigured","true"))
                 .andExpect(jsonPath("$.data.total").value(1)).andExpect(jsonPath("$.data.list[0].id").value(String.valueOf(matching.getId())));

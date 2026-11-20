@@ -93,28 +93,6 @@ const moveProjectCodeToMasterData = (routes: AppRouteRecordRaw[]) => {
   const [projectCode] = source.children!.splice(index, 1)
   target.children = [...(target.children || []), projectCode]
 }
-const moveCraftToProcessManagement = (routes: AppCustomRouteRecordRaw[]) => {
-  let source: AppCustomRouteRecordRaw[] | undefined
-  let craft: AppCustomRouteRecordRaw | undefined
-  let target: AppCustomRouteRecordRaw | undefined
-  const visit = (items: AppCustomRouteRecordRaw[]) => {
-    for (const item of items) {
-      if (item.path === '/mes/edhr-process-settings') target = item
-      if (item.component === 'mes/pro/craft/index') {
-        source = items
-        craft = item
-      }
-      if (item.children) visit(item.children)
-    }
-  }
-  visit(routes)
-  if (!craft || !source) return
-  if (!target) throw new Error('工艺库菜单迁移缺少工序管理目录授权，请执行菜单迁移')
-  craft.path = '/mes/pro/craft'
-  if (source === target.children) return
-  source.splice(source.indexOf(craft), 1)
-  target.children = [...(target.children || []), craft]
-}
 const MANAGEMENT_REPRESENTATIVE_HIDDEN_MENU_PATHS = new Set([
   '/mes/pro/batch-record-form-list',
   '/mes/pro/feedback/edhr-batch-production-fill',
@@ -908,7 +886,7 @@ export const usePermissionStore = defineStore('permission', {
       if (roleRouters) {
         res = cloneDeep(roleRouters as AppCustomRouteRecordRaw[])
       }
-      moveCraftToProcessManagement(res)
+      // 菜单归属由后端授权树和菜单迁移决定，登录时不搬移业务菜单。
       const routerMap: AppRouteRecordRaw[] = generateRoute(removeRetiredProductionTaskPage(res))
       moveProjectCodeToMasterData(routerMap)
       const {

@@ -47,6 +47,32 @@ $ShowroomMediaSampleObjects = @(
 )
 $RequiredLocalMySqlMigrations = @(
     [PSCustomObject]@{
+        Name = 'DCC project access optional change reason'
+        ProbeSql = @'
+SELECT CASE WHEN EXISTS (
+  SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE()
+    AND TABLE_NAME='dcc_project_access_rule' AND COLUMN_NAME='change_reason' AND IS_NULLABLE='YES'
+) AND NOT EXISTS (
+  SELECT 1 FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE()
+    AND TABLE_NAME='dcc_project_access_rule' AND CONSTRAINT_NAME='chk_dcc_project_access_reason'
+) THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20261112_dcc_project_access_reason_optional.sql'
+    },
+    [PSCustomObject]@{
+        Name = 'MES project production code rules'
+        ProbeSql = @'
+SELECT CASE WHEN (
+  SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE()
+    AND TABLE_NAME='mes_md_auto_code_rule' AND COLUMN_NAME IN ('project_id', 'active_project_rule')
+) = 2 AND EXISTS (
+  SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE()
+    AND TABLE_NAME='mes_md_auto_code_rule' AND INDEX_NAME='uk_mes_project_rule'
+) THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20261103_mes_project_production_codes.sql'
+    },
+    [PSCustomObject]@{
         Name = 'MES common QA binding project identity'
         ProbeSql = @'
 SELECT CASE WHEN EXISTS (

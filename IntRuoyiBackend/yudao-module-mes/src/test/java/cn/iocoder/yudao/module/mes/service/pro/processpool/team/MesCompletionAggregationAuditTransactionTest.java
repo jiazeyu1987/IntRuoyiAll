@@ -174,7 +174,7 @@ class MesCompletionAggregationAuditTransactionTest {
                         sessions.getMapper(MesProcessPoolSubmissionReviewMapper.class)), tx);
         var actualBackfill = new MesTeamLeaderActiveOrderCompletionBackfillPortImpl(null, null,
                 sessions.getMapper(MesProcessPoolOrderProcessCompletionMapper.class), null, null, null, null,
-                sessions.getMapper(MesProcessPoolActiveOrderCompletionBackfillMapper.class), null, null, null, null, null, null);
+                sessions.getMapper(MesProcessPoolActiveOrderCompletionBackfillMapper.class), null, null, null, null);
         { org.springframework.test.util.ReflectionTestUtils.setField(actualBackfill, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         var sourceBoundary = mock(MesTeamLeaderActiveOrderCompletionBackfillPort.class);
         when(sourceBoundary.prepare(anyLong(), any(), any())).thenAnswer(invocation -> draft());

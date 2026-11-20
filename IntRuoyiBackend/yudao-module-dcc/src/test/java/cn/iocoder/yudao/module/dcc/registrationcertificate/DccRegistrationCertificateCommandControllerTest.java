@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -120,14 +121,8 @@ class DccRegistrationCertificateCommandControllerTest {
         assertRoute(changeController, "voidCertificate", PostMapping.class, "/void",
                 "dcc:registration-certificate:void", 1);
 
-        Class<?> supportingController = assertControllerPresent(
-                "cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.supportingdocument"
-                        + ".DccRegistrationCertificateSupportingDocumentController");
-        assertRoot(supportingController, "/dcc/registration-certificates/{certificateId}/supporting-documents");
-        assertRoute(supportingController, "upload", PostMapping.class, "",
-                "dcc:registration-certificate:supporting-document:upload", 1);
-        assertNoDeclaredMethod(supportingController, "confirm");
-        assertNoDeclaredMethod(supportingController, "reject");
+        assertFalse(java.nio.file.Files.exists(java.nio.file.Path.of("src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/supportingdocument/DccRegistrationCertificateSupportingDocumentController.java")),
+                "Independent supporting document upload endpoint must not exist");
     }
 
     private static Class<?> assertControllerPresent(String className) throws Exception {

@@ -150,7 +150,7 @@ public class DccRegistrationCertificateFileReferenceServiceImpl
         if (!FILE_STATUS_BOUND.equals(file.getStatus())) {
             throw new ServiceException(CONTROLLED_FILE_ACCESS_DENIED);
         }
-        DccRegistrationCertificateVersionDO version = versionMapper.selectById(file.getOwnerId());
+        DccRegistrationCertificateVersionDO version = versionMapper.selectById(reference.versionId());
         DccRegistrationCertificateDO certificate = certificateMapper.selectById(version.getCertificateId());
         if (!VERSION_STATUS_CURRENT.equals(version.getStatus())
                 || !Objects.equals(certificate.getCurrentVersionId(), version.getId())
@@ -186,12 +186,20 @@ public class DccRegistrationCertificateFileReferenceServiceImpl
         return OWNER_TYPE_VERSION.equals(file.getOwnerType())
                 && java.util.Set.of(FILE_KIND_REGISTRATION_CERTIFICATE, "CERTIFICATE_ATTACHMENT", "FDA_PRODUCT_DESCRIPTION").contains(file.getFileKind())
                 || OWNER_TYPE_CHANGE.equals(file.getOwnerType())
-                && java.util.Set.of(FILE_KIND_CHANGE_APPROVAL,"CERTIFICATE_ATTACHMENT","FDA_PRODUCT_DESCRIPTION").contains(file.getFileKind());
+                && java.util.Set.of(FILE_KIND_CHANGE_APPROVAL,"CERTIFICATE_ATTACHMENT","FDA_PRODUCT_DESCRIPTION").contains(file.getFileKind())
+                || "SUPPORTING_DOCUMENT".equals(file.getOwnerType()) && java.util.Set.of("RENEWAL_ACCEPTANCE_RECEIPT", "RENEWAL_SUPPLEMENT_NOTICE").contains(file.getFileKind());
     }
 
     private Long resolveVersionId(DccRegistrationCertificateFileDO file) {
         if (OWNER_TYPE_VERSION.equals(file.getOwnerType())) {
             return file.getOwnerId();
+        }
+        if ("SUPPORTING_DOCUMENT".equals(file.getOwnerType())) {
+            return jdbcTemplate.query("""
+                    SELECT sd.version_id FROM dcc_registration_certificate_supporting_document sd
+                    JOIN dcc_registration_certificate_version v ON v.id=sd.version_id AND v.tenant_id=sd.tenant_id AND v.certificate_id=sd.certificate_id AND v.deleted=0
+                    WHERE sd.tenant_id=? AND sd.id=? AND sd.business_file_id=? AND sd.document_type=? AND sd.status='EFFECTIVE' AND sd.deleted=0
+                    """, rs -> rs.next() ? rs.getLong(1) : null, file.getTenantId(), file.getOwnerId(), file.getId(), file.getFileKind());
         }
         return jdbcTemplate.query("""
                 SELECT source_version_id FROM dcc_registration_certificate_change

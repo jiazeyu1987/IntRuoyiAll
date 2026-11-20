@@ -128,6 +128,125 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void ceRenewalWithoutEffectiveDateChangesNumberAndActivatesWithIndependentInitialDate() {
+        CurrentFixture current = seedCurrentCertificate();
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_version SET effective_date = NULL WHERE id = ?", current.currentVersionId());
+        var snapshot = snapshotMapper.selectById(current.currentSnapshotId());
+        var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshot.getFactsJson());
+        facts.setCertificateType("CE");
+        facts.setEffectiveDate(null);
+        var revision = new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.CeCertificate();
+        revision.setRevision("Rev.1");
+        revision.setCertificateNo("CERT-001");
+        revision.setIssueDate(LocalDate.of(2022, 1, 1));
+        facts.setCeCertificates(List.of(revision));
+        snapshot.setFactsJson(facts.toJson());
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json = ? WHERE id = ?", snapshot.getFactsJson(), snapshot.getId());
+        var result = uploadOrFail(new DccRegistrationCertificateRenewalCommand(
+                1L, 99L, "ce-renewal", "trace-ce-renewal", current.certificateId(), 1,
+                current.currentVersionId(), current.stagedFileId(), LocalDate.of(2026, 8, 1), null,
+                LocalDate.of(2031, 9, 1), null, "CE-002", null));
+        assertEquals("CURRENT", result.renewalVersionStatus());
+        var renewal = versionMapper.selectById(result.renewalVersionId());
+        assertNull(renewal.getEffectiveDate());
+        assertEquals("CE-002", renewal.getCertificateNo());
+        assertEquals("II", renewal.getClassification());
+        assertEquals("OLD", versionMapper.selectById(current.currentVersionId()).getStatus());
+        var saved = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(
+                snapshotMapper.selectById(result.renewalSnapshotId()).getFactsJson());
+        assertEquals("CE-002", saved.getCeCertificates().get(0).getCertificateNo());
+        assertEquals(LocalDate.of(2022, 1, 1), saved.getCeCertificates().get(0).getIssueDate());
+        assertEquals(facts.getFirstObtainedDate(), saved.getFirstObtainedDate());
+        assertNull(saved.getEffectiveDate());
+    }
+
+    @Test
+    void ceRenewalApprovalFreezesAndReplaysThreeFieldsWithoutChangingOtherFacts() {
+        CurrentFixture current = seedCurrentCertificate();
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_version SET effective_date = NULL WHERE id = ?", current.currentVersionId());
+        var snapshot = snapshotMapper.selectById(current.currentSnapshotId());
+        var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshot.getFactsJson());
+        facts.setCertificateType("CE");
+        facts.setEffectiveDate(LocalDate.of(2023,3,2));
+        facts.setClassification("IIb");
+        facts.setCertificateStatus("SUSPENDED");
+        var revision = new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.CeCertificate();
+        revision.setRevision("Rev.1");
+        revision.setCertificateNo("CERT-001");
+        revision.setIssueDate(LocalDate.of(2022, 1, 1));
+        facts.setCeCertificates(List.of(revision));
+        snapshot.setFactsJson(facts.toJson());
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json = ? WHERE id = ?", snapshot.getFactsJson(), snapshot.getId());
+        when(fileService.createFileAndReturnId(any(byte[].class), eq("renewal.pdf"), anyString(), eq("application/pdf")))
+                .thenReturn(9012L);
+        var submitted = service.submitRenewalForApproval(new DccRegistrationCertificateRenewalSubmitCommand(
+                1L, 99L, "ce-three-fields-submit", "trace-ce-three-fields", current.certificateId(), 1,
+                current.currentVersionId(), LocalDate.of(2026, 8, 1), null,
+                LocalDate.of(2031, 9, 1), null, "CE-002", null, renewalApprovalFile()));
+        assertEquals(current.currentVersionId(), certificateMapper.selectById(current.certificateId()).getCurrentVersionId());
+        assertEquals("CURRENT", versionMapper.selectById(current.currentVersionId()).getStatus());
+        String frozen = jdbcTemplate.queryForObject("SELECT detail_json FROM dcc_registration_certificate_access_request WHERE id = ?",
+                String.class, submitted.requestId());
+        var detail = JsonUtils.parseObject(frozen, Map.class);
+        assertEquals("CE", detail.get("certificateType"));
+        assertNull(detail.get("effectiveDate"));
+        assertEquals("CE-002", detail.get("certificateNo"));
+        assertEquals(1, jdbcTemplate.update("UPDATE dcc_registration_certificate_access_request SET status = 'APPROVED' WHERE id = ?", submitted.requestId()));
+        var result = service.approveRenewalRequest(1L, 100L, submitted.requestId(), "ce-three-fields-approved");
+        assertEquals("CURRENT", result.renewalVersionStatus());
+        var renewal = versionMapper.selectById(result.renewalVersionId());
+        assertEquals(LocalDate.of(2023,3,2),renewal.getEffectiveDate());
+        assertEquals("CE-002", renewal.getCertificateNo());
+        assertEquals("IIb", renewal.getClassification());
+        assertEquals("OLD", versionMapper.selectById(current.currentVersionId()).getStatus());
+        var saved = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(
+                snapshotMapper.selectById(result.renewalSnapshotId()).getFactsJson());
+        assertEquals("CE-002", saved.getCeCertificates().get(0).getCertificateNo());
+        assertEquals(LocalDate.of(2022, 1, 1), saved.getCeCertificates().get(0).getIssueDate());
+        assertEquals(facts.getFirstObtainedDate(), saved.getFirstObtainedDate());
+        assertEquals(LocalDate.of(2023,3,2),saved.getEffectiveDate());
+        assertEquals("SUSPENDED", saved.getCertificateStatus());
+        assertEquals("IIb", saved.getClassification());
+    }
+
+    @Test
+    void renewalKeepsChangedSnapshotClassificationAndEffectiveDateInsteadOfOriginalVersion() {
+        CurrentFixture current=seedCurrentCertificate();
+        var snapshot=snapshotMapper.selectById(current.currentSnapshotId());
+        var facts=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshot.getFactsJson());
+        facts.setCertificateType("CE");facts.setClassification("IIb");facts.setEffectiveDate(LocalDate.of(2023,3,2));
+        facts.setCertificateNo("CE-AFTER-CHANGE");
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=?",facts.toJson(),snapshot.getId());
+        var result=uploadOrFail(new DccRegistrationCertificateRenewalCommand(
+                1L,99L,"ce-changed-facts","trace-ce-changed-facts",current.certificateId(),1,
+                current.currentVersionId(),current.stagedFileId(),LocalDate.of(2026,8,1),null,
+                LocalDate.of(2031,9,1),null,"CE-RENEWED",null));
+        var renewal=versionMapper.selectById(result.renewalVersionId());
+        assertEquals("IIb",renewal.getClassification());
+        assertEquals(LocalDate.of(2023,3,2),renewal.getEffectiveDate());
+        assertEquals("II",versionMapper.selectById(current.currentVersionId()).getClassification());
+        var saved=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshotMapper.selectById(result.renewalSnapshotId()).getFactsJson());
+        assertEquals("IIb",saved.getClassification());assertEquals(facts.getEffectiveDate(),saved.getEffectiveDate());
+    }
+
+    @Test
+    void domesticRenewalWithoutCategoryChangeRetainsChangedSnapshotNumberAndClassification() {
+        CurrentFixture current=seedCurrentCertificate();
+        var snapshot=snapshotMapper.selectById(current.currentSnapshotId());
+        var facts=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshot.getFactsJson());
+        facts.setCertificateNo("DOM-CHANGED");facts.setClassification("III");
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=?",facts.toJson(),snapshot.getId());
+        var result=uploadOrFail(new DccRegistrationCertificateRenewalCommand(
+                1L,99L,"dom-changed-facts","trace-dom-changed-facts",current.certificateId(),1,
+                current.currentVersionId(),current.stagedFileId(),LocalDate.of(2026,8,1),LocalDate.of(2026,8,17),
+                LocalDate.of(2031,9,1),false,null,null));
+        var renewal=versionMapper.selectById(result.renewalVersionId());
+        assertEquals("DOM-CHANGED",renewal.getCertificateNo());assertEquals("III",renewal.getClassification());
+        assertEquals("CERT-001",versionMapper.selectById(current.currentVersionId()).getCertificateNo());
+        assertEquals("II",versionMapper.selectById(current.currentVersionId()).getClassification());
+    }
+
+    @Test
     void sameCategoryRenewalCreatesPendingCandidateAndKeepsCurrentActive() {
         CurrentFixture current = seedCurrentCertificate();
         DccRegistrationCertificateRenewalCommand command = sameCategoryCommand(
@@ -257,6 +376,42 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
                 certificateMapper.selectById(current.certificateId()).getCurrentVersionId());
         assertEquals(nextRenewal.renewalVersionId(),
                 certificateMapper.selectById(current.certificateId()).getPendingVersionId());
+    }
+
+    @Test
+    void renewalDateValidationReportsSpecificBusiness400Reasons() {
+        LocalDate approval = LocalDate.of(2026, 8, 1), effective = LocalDate.of(2026, 9, 1), expiry = LocalDate.of(2031, 9, 1);
+        assertDateFailure(false, null, effective, expiry, "请填写批准日期");
+        assertDateFailure(false, approval, null, expiry, "请填写生效日期");
+        assertDateFailure(false, approval, effective, null, "请填写有效期至");
+        assertDateFailure(false, effective, approval, expiry, "批准日期不能晚于生效日期");
+        assertDateFailure(false, approval, expiry, effective, "生效日期必须早于有效期至");
+        assertDateFailure(true, approval, effective, expiry, "CE续证不允许修改生效日期");
+        assertDateFailure(true, expiry, null, approval, "批准日期必须早于有效期至");
+    }
+
+    private void assertDateFailure(boolean ce, LocalDate approval, LocalDate effective, LocalDate expiry, String message) {
+        var error = assertThrows(ServiceException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                service, "validateRenewalDates", ce, LocalDate.of(2021, 1, 1), approval, effective, expiry));
+        assertEquals(400, error.getCode());
+        assertEquals(message, error.getMessage());
+    }
+
+    @Test
+    void domesticRenewalStillRequiresEffectiveDateAndCategoryDecision() {
+        CurrentFixture current = seedCurrentCertificate();
+        var missingDate = assertThrows(ServiceException.class, () -> service.uploadRenewalCandidate(
+                new DccRegistrationCertificateRenewalCommand(1L, 99L, "domestic-missing-date", "trace-domestic-missing-date",
+                        current.certificateId(), 1, current.currentVersionId(), current.stagedFileId(),
+                        LocalDate.of(2026, 8, 1), null, LocalDate.of(2031, 9, 1), false, null, null)));
+        assertEquals(400, missingDate.getCode());
+        assertEquals("请填写生效日期", missingDate.getMessage());
+        var missingCategory = assertThrows(ServiceException.class, () -> service.uploadRenewalCandidate(
+                new DccRegistrationCertificateRenewalCommand(1L, 99L, "domestic-missing-category", "trace-domestic-missing-category",
+                        current.certificateId(), 1, current.currentVersionId(), current.stagedFileId(),
+                        LocalDate.of(2026, 8, 1), LocalDate.of(2026, 9, 1), LocalDate.of(2031, 9, 1), null, null, null)));
+        assertEquals(REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED.getCode(), missingCategory.getCode());
+        assertNull(certificateMapper.selectById(current.certificateId()).getPendingVersionId());
     }
 
     @Test
@@ -436,7 +591,8 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
                         LocalDate.of(2026, 8, 18), LocalDate.of(2026, 9, 1),
                         LocalDate.of(2031, 9, 1), false, null, null, renewalApprovalFile())));
 
-        assertEquals(REGISTRATION_CERTIFICATE_APPROVAL_DATE_INVALID.getCode(), error.getCode());
+        assertEquals(400, error.getCode());
+        assertEquals("批准日期不能晚于当前日期", error.getMessage());
         assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request "
                 + "WHERE tenant_id = 1 AND request_key = ?", "renewal-future-approval"));
     }
@@ -452,7 +608,7 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
                         LocalDate.of(2026, 8, 1), LocalDate.of(2026, 9, 1),
                         LocalDate.of(2026, 9, 1), false, null, null, renewalApprovalFile())));
 
-        assertEquals(REGISTRATION_CERTIFICATE_DATE_ORDER_INVALID.getCode(), error.getCode());
+        assertEquals(400, error.getCode());
         assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request "
                 + "WHERE tenant_id = 1 AND request_key = ?", "renewal-date-order"));
     }

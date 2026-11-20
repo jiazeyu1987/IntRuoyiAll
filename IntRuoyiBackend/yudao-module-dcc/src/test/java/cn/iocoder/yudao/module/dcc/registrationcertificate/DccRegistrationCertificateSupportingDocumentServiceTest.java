@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.supportingdocument.DccRegistrationCertificateSupportingDocumentCommand;
@@ -33,6 +34,7 @@ import static org.mockito.Mockito.verify;
 
 @Import({
         DccRegistrationCertificateSupportingDocumentService.class,
+        cn.iocoder.yudao.module.dcc.registrationcertificate.service.reference.DccRegistrationCertificateFileReferenceServiceImpl.class,
         DccRegistrationCertificateSupportingDocumentServiceTest.DbTestConfiguration.class
 })
 class DccRegistrationCertificateSupportingDocumentServiceTest extends BaseDbUnitTest {
@@ -44,6 +46,34 @@ class DccRegistrationCertificateSupportingDocumentServiceTest extends BaseDbUnit
 
     @MockitoBean
     private MdmCompanyScopeApi companyScopeApi;
+
+
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.reference.DccRegistrationCertificateFileReferenceService referenceService;
+
+    @Test
+    void effectiveUploadIsVisibleAndResolvableOnlyThroughItsOwnTenantCertificateAndVersion() {
+        Fixture fixture = seedCurrentCertificate();
+        var result = service.upload(uploadCommand(fixture));
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS system_users (id BIGINT, tenant_id BIGINT, nickname VARCHAR(100), deleted TINYINT DEFAULT 0)");
+        var evidence = new cn.iocoder.yudao.module.dcc.registrationcertificate.service.query.DccRegistrationCertificateEvidenceService(jdbcTemplate);
+        assertEquals(1, ((java.util.List<?>) evidence.getEvidence(1L, 1001L, 2001L).get("files")).size());
+        assertEquals(0, ((java.util.List<?>) evidence.getEvidence(2L, 1001L, 2001L).get("files")).size());
+        assertEquals(0, ((java.util.List<?>) evidence.getEvidence(1L, 999L, 2001L).get("files")).size());
+        assertEquals(0, ((java.util.List<?>) evidence.getEvidence(1L, 1001L, 999L).get("files")).size());
+        var reference = referenceService.requireCurrentByBusinessFileId(1L, fixture.businessFileId());
+        assertEquals(fixture.versionId(), reference.versionId());
+        assertEquals(fixture.certificateId(), reference.certificateId());
+        org.junit.jupiter.api.Assertions.assertThrows(ServiceException.class, () -> referenceService.requireCurrentByBusinessFileId(2L, fixture.businessFileId()));
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_supporting_document SET document_type='RENEWAL_SUPPLEMENT_NOTICE' WHERE id=?", result.supportingDocumentId());
+        assertEquals(0, ((java.util.List<?>) evidence.getEvidence(1L, 1001L, 2001L).get("files")).size());
+        org.junit.jupiter.api.Assertions.assertThrows(ServiceException.class, () -> referenceService.requireCurrentByBusinessFileId(1L, fixture.businessFileId()));
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_supporting_document SET document_type='RENEWAL_ACCEPTANCE_RECEIPT', certificate_id=999 WHERE id=?", result.supportingDocumentId());
+        assertEquals(0, ((java.util.List<?>) evidence.getEvidence(1L, 999L, 2001L).get("files")).size());
+        org.junit.jupiter.api.Assertions.assertThrows(ServiceException.class, () -> referenceService.requireCurrentByBusinessFileId(1L, fixture.businessFileId()));
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_supporting_document SET certificate_id=1001, version_id=999 WHERE id=?", result.supportingDocumentId());
+        org.junit.jupiter.api.Assertions.assertThrows(ServiceException.class, () -> referenceService.requireCurrentByBusinessFileId(1L, fixture.businessFileId()));
+    }
 
     @Test
     void uploadTakesEffectImmediatelyAndClearsEightMonthLightReminder() {
@@ -62,7 +92,7 @@ class DccRegistrationCertificateSupportingDocumentServiceTest extends BaseDbUnit
         assertEquals(null, objectValue("SELECT open_unique_flag FROM dcc_registration_certificate_supporting_document WHERE id = ?", result.supportingDocumentId()));
         assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1 AND certificate_id = ? AND event_type = 'SUPPORTING_DOCUMENT_EFFECTIVE'", fixture.certificateId()));
         assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1 AND certificate_id = ? AND event_type IN ('SUPPORTING_DOCUMENT_CONFIRMED', 'SUPPORTING_DOCUMENT_REJECTED')", fixture.certificateId()));
-        org.mockito.Mockito.verifyNoInteractions(companyScopeApi);
+        org.mockito.Mockito.verify(companyScopeApi).validateUserCompanyAccess(99L, 10L);
     }
 
     @Test
@@ -94,11 +124,11 @@ class DccRegistrationCertificateSupportingDocumentServiceTest extends BaseDbUnit
     }
 
     @Test
-    void uploadWithinTenantDoesNotRequireDataOwnerCompanyMembership() {
+    void uploadValidatesDataOwnerCompanyMembership() {
         Fixture fixture = seedCurrentCertificate();
         assertDoesNotThrow(() -> service.upload(uploadCommand(fixture)));
         assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_supporting_document WHERE tenant_id = 1 AND certificate_id = ?", fixture.certificateId()));
-        org.mockito.Mockito.verifyNoInteractions(companyScopeApi);
+        org.mockito.Mockito.verify(companyScopeApi).validateUserCompanyAccess(99L, 10L);
     }
 
     @Test

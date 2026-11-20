@@ -419,7 +419,8 @@ class DccProjectFormalCombinationTest extends BaseDbUnitTest {
         when(permissions.hasAnyPermissions(8L,"dcc:project-code:update")).thenReturn(true);
         assertThrows(RuntimeException.class,()->folderMaintenance.save(8L,project.getId(),new DccProjectFolderMaintenanceService.Save(null,0L,"无范围",0,"无范围测试")));
         when(permissions.hasAnyPermissions(7L,"dcc:project-code:update")).thenReturn(false);
-        assertThrows(RuntimeException.class,()->folderMaintenance.save(7L,project.getId(),new DccProjectFolderMaintenanceService.Save(null,0L,"无菜单",0,"无菜单测试")));
+        project.setProjectLeaderUserId(8L);projects.updateById(project);
+        assertThrows(RuntimeException.class,()->folderMaintenance.save(7L,project.getId(),new DccProjectFolderMaintenanceService.Save(null,0L,"无菜单",0,"非负责人无菜单测试")));
         assertEquals(2,folders.listByProject(project.getId()).size());assertEquals(root.getId(),folders.selectById(child.getId()).getParentId());
         assertEquals(eventCount,events.selectList().size());
     }
@@ -442,9 +443,11 @@ class DccProjectFormalCombinationTest extends BaseDbUnitTest {
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data.name").value("人工目录"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data.sourceTemplateId").doesNotExist());
         when(permissions.hasAnyPermissions(7L,"dcc:project-code:update")).thenReturn(false);
+        project.setProjectLeaderUserId(8L);projects.updateById(project);
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/dcc/project-codes/{id}/folders",project.getId())
                 .contentType("application/json").content(payload))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value(403));
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value(
+                        cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributeErrors.TEMPLATE_FORBIDDEN.getCode()));
         assertEquals(1,folders.listByProject(project.getId()).size());assertEquals(1,events.selectList().size());
     }
     @Test void projectFolderZeroRowWritesAndWrongTenantCannotLeaveSavedOrAuditedFacts() {

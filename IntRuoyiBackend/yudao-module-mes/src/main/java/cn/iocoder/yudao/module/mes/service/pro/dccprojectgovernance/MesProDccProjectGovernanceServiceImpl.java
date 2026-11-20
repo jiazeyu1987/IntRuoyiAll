@@ -1,21 +1,20 @@
 package cn.iocoder.yudao.module.mes.service.pro.dccprojectgovernance;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
-import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordDefinitionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
-import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordDefinitionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordFormSlotType;
 import jakarta.annotation.Resource;
@@ -41,9 +40,7 @@ public class MesProDccProjectGovernanceServiceImpl implements MesProDccProjectGo
     @Resource
     private DccProjectCodeMapper dccProjectCodeMapper;
     @Resource
-    private MesMdItemMapper itemMapper;
-    @Resource
-    private MesProRouteProductMapper routeProductMapper;
+    private MesRouteDccProjectBindingMapper routeProjectBindingMapper;
     @Resource
     private MesProRouteMapper routeMapper;
     @Resource
@@ -147,25 +144,18 @@ public class MesProDccProjectGovernanceServiceImpl implements MesProDccProjectGo
     }
 
     private List<MesProRouteDO> resolveRoutes(List<DccProjectCodeDO> projectCodes) {
-        List<String> codes = projectCodes.stream()
-                .map(DccProjectCodeDO::getProjectCode)
-                .map(StrUtil::trim)
-                .filter(StrUtil::isNotBlank)
+        List<Long> projectIds = projectCodes.stream()
+                .map(DccProjectCodeDO::getId)
                 .distinct()
                 .toList();
-        if (codes.isEmpty()) {
+        if (projectIds.isEmpty()) {
             return List.of();
         }
-        List<Long> itemIds = itemMapper.selectListByCodes(codes).stream()
-                .map(MesMdItemDO::getId)
-                .filter(id -> id != null && id > 0)
-                .distinct()
-                .toList();
-        if (itemIds.isEmpty()) {
-            return List.of();
-        }
-        List<Long> routeIds = routeProductMapper.selectListByItemIds(itemIds).stream()
-                .map(MesProRouteProductDO::getRouteId)
+        List<Long> routeIds = routeProjectBindingMapper.selectList(
+                        new LambdaQueryWrapperX<MesRouteDccProjectBindingDO>()
+                                .in(MesRouteDccProjectBindingDO::getDccProjectCodeId, projectIds)
+                                .orderByAsc(MesRouteDccProjectBindingDO::getRouteId)).stream()
+                .map(MesRouteDccProjectBindingDO::getRouteId)
                 .filter(id -> id != null && id > 0)
                 .distinct()
                 .toList();

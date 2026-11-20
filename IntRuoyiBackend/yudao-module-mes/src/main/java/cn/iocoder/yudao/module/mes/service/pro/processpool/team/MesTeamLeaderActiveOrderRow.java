@@ -36,6 +36,8 @@ public class MesTeamLeaderActiveOrderRow {
     private List<ProcessRemainingQuantity> processRemainingQuantities = List.of();
     private BigDecimal productionProgressPercent;
     private BigDecimal inspectionProgressPercent;
+    private Boolean formalProductionReviewComplete;
+    private String releaseApplyBlockReason;
     private String activeStatus;
     private String businessStatus;
     /** Only formally bound, pending NCR reviews for this active order. */

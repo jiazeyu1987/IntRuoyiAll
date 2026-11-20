@@ -1,5 +1,28 @@
 {
   "changes": [
+    {"source":"IntRuoyiFronted/src/views/mes/pro/route/RouteTreeQuickConfig.vue","kind":"permission","value":"mes:pro-route:batch-record-config:query","reason":"工艺流程树快捷配置内部弹窗复用既有批记录配置查询/修改和版本查询/创建/修改权限，沿用 20260709_mes_route_flow_config_unification.sql 与 20260716_mes_route_version_permission_menu.sql；从现有工艺流程页面进入，不新增菜单、权限标识、角色或租户套餐授权。"},
+    {"source":"IntRuoyiFronted/src/views/mes/pro/route/RouteTreeQuickConfig.vue","kind":"permission","value":"mes:pro-route:batch-record-config:update","reason":"工艺流程树快捷配置内部弹窗复用既有批记录配置查询/修改和版本查询/创建/修改权限，沿用 20260709_mes_route_flow_config_unification.sql 与 20260716_mes_route_version_permission_menu.sql；从现有工艺流程页面进入，不新增菜单、权限标识、角色或租户套餐授权。"},
+    {"source":"IntRuoyiFronted/src/views/mes/pro/route/RouteTreeQuickConfig.vue","kind":"permission","value":"mes:pro-route:version-create","reason":"工艺流程树快捷配置内部弹窗复用既有批记录配置查询/修改和版本查询/创建/修改权限，沿用 20260709_mes_route_flow_config_unification.sql 与 20260716_mes_route_version_permission_menu.sql；从现有工艺流程页面进入，不新增菜单、权限标识、角色或租户套餐授权。"},
+    {"source":"IntRuoyiFronted/src/views/mes/pro/route/RouteTreeQuickConfig.vue","kind":"permission","value":"mes:pro-route:version-query","reason":"工艺流程树快捷配置内部弹窗复用既有批记录配置查询/修改和版本查询/创建/修改权限，沿用 20260709_mes_route_flow_config_unification.sql 与 20260716_mes_route_version_permission_menu.sql；从现有工艺流程页面进入，不新增菜单、权限标识、角色或租户套餐授权。"},
+    {"source":"IntRuoyiFronted/src/views/mes/pro/route/RouteTreeQuickConfig.vue","kind":"permission","value":"mes:pro-route:version-update","reason":"工艺流程树快捷配置内部弹窗复用既有批记录配置查询/修改和版本查询/创建/修改权限，沿用 20260709_mes_route_flow_config_unification.sql 与 20260716_mes_route_version_permission_menu.sql；从现有工艺流程页面进入，不新增菜单、权限标识、角色或租户套餐授权。"},
+    {
+      "source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/permission/RoleController.java",
+      "kind": "permission",
+      "value": "system:permission:assign-role-menu",
+      "reason": "权限角色 JSON 导入会替换角色菜单授权，因此复用专用菜单授权接口已有的 system:permission:assign-role-menu 权限补齐校验；不新增权限标识、菜单、角色或租户套餐授权，无需迁移。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/permission/RoleController.java",
+      "kind": "permission",
+      "value": "system:permission:assign-role-data-scope",
+      "reason": "权限角色 JSON 导入会修改角色数据范围，因此复用专用数据授权接口已有的 system:permission:assign-role-data-scope 权限补齐校验；不新增权限标识、菜单、角色或租户套餐授权，无需迁移。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "c8466d3b19e3186860a0ae38293e4ac2d649cf3f6eb67960b163d3326bb4ca8a",
+      "reason": "仅修正既有产品目录路由的侧边菜单高亮，使 /mdm/product-catalog 高亮自身；复用现有产品目录菜单及 dcc:project-code:query 权限，不新增路径、页面、菜单、权限、角色或租户套餐授权，无需数据库迁移。"
+    },
     {
       "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
       "kind": "router",
@@ -58,13 +81,17 @@
       "source": "IntRuoyiFronted/src/views/dcc/registration-certificate/index/index.vue",
       "kind": "permission",
       "value": "dcc:registration-certificate:delete",
-      "migrations": ["IntRuoyiBackend/sql/mysql/20261118_registration_certificate_delete_menu.sql"]
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261118_registration_certificate_delete_menu.sql"
+      ]
     },
     {
       "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/certificate/DccRegistrationCertificateCommandController.java",
       "kind": "permission",
       "value": "dcc:registration-certificate:delete",
-      "migrations": ["IntRuoyiBackend/sql/mysql/20261118_registration_certificate_delete_menu.sql"]
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261118_registration_certificate_delete_menu.sql"
+      ]
     },
     {
       "source": "IntRuoyiFronted/src/views/erp/sale/order/index.vue",
@@ -88,7 +115,7 @@
       "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
       "kind": "page",
       "value": "dcc/controlled-file/detail/index",
-      "reason": "既有受控文件维护详情内增加本人有效检出的 Word 及附件下载入口；沿用现有维护入口，后端按租户、启用账号、同一逻辑文件的有效检出人及所选未作废版本核验，不新增菜单、权限标识、角色或租户套餐授权，日常浏览不开放该入口。"
+      "reason": "既有受控文件维护详情内增加本人有效检出的 Word 及附件下载入口；沿用现有维护入口，后端按租户、启用账号、同一逻辑文件的有效检出人及所选未作废版本核验，不新增菜单、权限标识、角色或租户套餐授权，日常浏览不开放该入口。；既有受控文件培训待办详情复用新版四页签布局，保留原上传培训记录动作及后端授权；沿用现有详情路由和菜单，不新增权限或租户套餐授权。既有受控文件维护详情内增加本人有效检出的 Word 及附件下载入口；沿用现有维护入口，后端按租户、启用账号、同一逻辑文件的有效检出人及所选未作废版本核验，不新增菜单、权限标识、角色或租户套餐授权，日常浏览不开放该入口。受控浏览概览通过内部 DetailApplicationHistory 的显式 controlled-overview 展示模式合并申请字段、避免重复变更信息；继续复用原申请轮次和证据接口、bodyReadContext、readAuthority 及 selection-change 事件，仅调整字段布局，其他调用默认展示保持，不新增菜单、路由、权限或授权迁移。"
     },
     {
       "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
@@ -1156,7 +1183,9 @@
       "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryWorkbookService.java",
       "kind": "permission",
       "value": "mes:md-workshop:export",
-      "migrations": ["IntRuoyiBackend/sql/mysql/20261118_mes_workshop_export_permission.sql"]
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261118_mes_workshop_export_permission.sql"
+      ]
     },
     {
       "source": "IntRuoyiFronted/src/views/mes/dv/machinery/index.vue",
@@ -1604,7 +1633,7 @@
       "source": "IntRuoyiFronted/src/views/erp/sync/config/components/TableAutoSyncSetting.vue",
       "kind": "permission",
       "value": "erp:kingdee-sync:query",
-      "reason": "配置组件迁移、显式跳转及现有同步对象表增加增量同步按钮，复用既有 erp:kingdee-sync:query 可见性与单表同步接口；后端沿用 erp:data-config:operate 或对应表操作权限。不新增页面、路由或权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+      "reason": "配置组件迁移、显式跳转及现有同步对象表增加增量同步按钮，复用既有 erp:kingdee-sync:query 可见性与单表同步接口；后端沿用 erp:data-config:operate 或对应表操作权限。不新增页面、路由或权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。；配置组件迁移或显式跳转复用既有 erp:kingdee-sync:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
     },
     {
       "source": "IntRuoyiFronted/src/views/erp/sync/config/components/TableAutoSyncSetting.vue",
@@ -4784,6 +4813,186 @@
       "kind": "permission",
       "value": "srm:purchase-order:query",
       "reason": "业务单据编号跳转复用既有查询权限 srm:purchase-order:query，按单据类型打开现有业务列表；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/ControlledDetailDistributionPanel.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:distribute",
+      "reason": "受控文件详情的分发培训内部组件复用既有分发权限读取逐人回执，沿用原签收查询接口及所选版本校验；不新增菜单、权限、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/ControlledDetailDistributionPanel.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "reason": "受控文件详情的分发培训内部组件复用既有文件编辑权限查询分发回执，保持原接口授权；本组件仅展示实际记录，不新增页面、路由、菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/permission/PermissionServiceImpl.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:log:query",
+      "reason": "复用项目代码管理员既有文控日志查询权限，仅修复该业务角色分配时的日志拦截；不新增菜单、权限、角色菜单或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteTreePanel.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:version-submit",
+      "reason": "工艺流程树发布入口复用既有 mes:pro-route:version-submit 提交权限，并同时核对 mes:pro-route:version-query、正式草稿和发布阻断项；权限定义沿用 IntRuoyiBackend/sql/mysql/20260716_mes_route_version_permission_menu.sql，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:create",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:business-approval-policy:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:disable",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:business-approval-policy:disable 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:publish",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:business-approval-policy:publish 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:query",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:business-approval-policy:query 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "bpm:category:create",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:category:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "bpm:model:create",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:model:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "bpm:model:deploy",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:model:deploy 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "bpm:model:query",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:model:query 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "system:permission:assign-role-data-scope",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 system:permission:assign-role-data-scope 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "system:permission:assign-role-menu",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 system:permission:assign-role-menu 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "system:role-category:create",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 system:role-category:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "system:role:create",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 system:role:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "system:role:export",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 system:role:export 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/RoleApprovalConfigPackageController.java",
+      "kind": "permission",
+      "value": "system:role:update",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 system:role:update 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteTreeProducts.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:update",
+      "reason": "工艺流程树产品绑定内部组件复用既有 mes:pro-route:update 权限，读取正式版本并通过既有候选版本产品绑定接口增删关联；从原工艺流程页面进入，不新增独立菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteTreeProducts.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:version-create",
+      "reason": "工艺流程树产品绑定内部组件复用既有 mes:pro-route:version-create 权限，读取正式版本并通过既有候选版本产品绑定接口增删关联；从原工艺流程页面进入，不新增独立菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteTreeProducts.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:version-query",
+      "reason": "工艺流程树产品绑定内部组件复用既有 mes:pro-route:version-query 权限，读取正式版本并通过既有候选版本产品绑定接口增删关联；从原工艺流程页面进入，不新增独立菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:create",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:business-approval-policy:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:disable",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:business-approval-policy:disable 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:publish",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:business-approval-policy:publish 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:query",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:business-approval-policy:query 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "bpm:category:create",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:category:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "bpm:model:create",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:model:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "bpm:model:deploy",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:model:deploy 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "bpm:model:query",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 bpm:model:query 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "system:role-category:create",
+      "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 system:role-category:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
     }
   ]
 }

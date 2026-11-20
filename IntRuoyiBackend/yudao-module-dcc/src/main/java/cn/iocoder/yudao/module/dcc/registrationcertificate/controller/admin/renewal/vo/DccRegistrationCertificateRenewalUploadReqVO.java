@@ -20,16 +20,14 @@ public class DccRegistrationCertificateRenewalUploadReqVO {
     @NotNull
     @Positive
     private Long currentVersionId;
-    @NotNull
+    @NotNull(message = "请填写批准日期")
     @DateTimeFormat(iso = DATE)
     private LocalDate approvalDate;
-    @NotNull
     @DateTimeFormat(iso = DATE)
     private LocalDate effectiveDate;
-    @NotNull
+    @NotNull(message = "请填写有效期至")
     @DateTimeFormat(iso = DATE)
     private LocalDate expiryDate;
-    @NotNull
     private Boolean categoryChanged;
     @Size(max = 128)
     private String certificateNo;

@@ -146,7 +146,9 @@
                         label="生产订单编号"
                         prop="productionOrderNo"
                         :width="getColumnWidthString('productionOrderNo', 170)"
-                      />
+                      >
+                        <template #default="{ row }"><WorkOrderCodeLink :code="row.productionOrderNo" /></template>
+                      </el-table-column>
                       <el-table-column
                         v-if="isColumnVisible('workshopName')"
                         column-key="workshopName"
@@ -189,7 +191,13 @@
             prop="productionOrderNos"
             :width="getReplenishmentListColumnWidthString('productionOrderNos')"
             :min-width="getReplenishmentListColumnMinWidthString('productionOrderNos', 190)"
-          />
+          >
+            <template #default="{ row }">
+              <template v-for="(code, index) in row.productionOrderNos?.split('，')" :key="code">
+                <span v-if="index">，</span><WorkOrderCodeLink :code="code" />
+              </template>
+            </template>
+          </el-table-column>
           <el-table-column
             v-if="isReplenishmentListColumnVisible('materialNames')"
             label="物料"
@@ -239,6 +247,7 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
 import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'

@@ -50,6 +50,8 @@ class DccProjectBrowserScopeIntegrationTest extends BaseDbUnitTest {
         jdbc.update("INSERT INTO dcc_file_directory(id,tenant_id,code,name) VALUES(5,1,'NAS5','NAS目录'),(6,1,'NAS6','无权目录')");
         jdbc.update("INSERT INTO dcc_project_folder(id,tenant_id,project_code_id,parent_id,name,sort_order,active,source_template_id,source_node_key,deleted) VALUES(500,1,5,0,'逻辑文件夹',0,TRUE,1,'mapped500',0),(501,1,6,0,'其他逻辑文件夹',0,TRUE,1,'mapped501',0)");
         master(10,5,20L,21L);file(20,10,5,5,"A/1","ACTIVE");file(21,10,5,5,"A/2","CONTROLLED_PENDING_EFFECTIVE");file(24,10,5,5,"A/2-1","WORKING");
+        jdbc.update("UPDATE dcc_controlled_file SET predecessor_controlled_file_id=21 WHERE id=24");
+        jdbc.update("INSERT INTO dcc_controlled_file_checkout(id,tenant_id,master_id,base_iteration_id,actor_id,reason,status,checkin_iteration_id) VALUES(240,1,10,21,99,'test checkin','CHECKED_IN',24)");
         master(11,6,null,22L);file(22,11,6,5,"B/1","CONTROLLED_PENDING_EFFECTIVE");
         master(12,5,9007199254740993L,9007199254740993L);file(9007199254740993L,12,5,5,"A/1","ACTIVE");
         master(13,6,25L,25L);file(25,13,6,6,"A/1","ACTIVE");
@@ -134,6 +136,19 @@ class DccProjectBrowserScopeIntegrationTest extends BaseDbUnitTest {
         var page=page("GLOBAL",null,null,1,20);assertEquals(4,page.get("total").intValue());
         assertFalse(page.get("list").findValuesAsText("id").contains("22"));
         assertFalse(page.get("list").findValuesAsText("id").contains("25"));
+    }
+    @Test void globalPagesExcludeWithdrawnApplicationsAndUncommittedDrafts() throws Exception {
+        file(26,10,5,5,"A/3","WITHDRAWN");
+        jdbc.update("UPDATE dcc_controlled_file SET controlled_time=NULL WHERE id=26");
+        file(27,10,5,5,"A/2-2","WORKING");
+        jdbc.update("UPDATE dcc_controlled_file SET predecessor_controlled_file_id=21 WHERE id=27");
+        var all=page("GLOBAL",null,null,1,20);
+        assertEquals(5,all.get("total").intValue());
+        assertFalse(all.get("list").findValuesAsText("id").contains("26"));
+        assertFalse(all.get("list").findValuesAsText("id").contains("27"));
+        assertEquals("24",filteredPage("GLOBAL",null,null,false,"WORKING",1,20).get("list").get(0).get("id").textValue());
+        jdbc.update("UPDATE dcc_controlled_file_checkout SET tenant_id=2 WHERE id=240");
+        assertEquals(0,filteredPage("GLOBAL",null,null,false,"WORKING",1,20).get("total").intValue());
     }
     @Test void explicitStatusAndLatestFiltersAreSeparateFromSelectorScope() throws Exception {
         jdbc.update("INSERT INTO dcc_project_file_placement(id,tenant_id,project_code_id,project_folder_id,controlled_file_id,storage_directory_id) VALUES(3,1,5,500,20,5)");

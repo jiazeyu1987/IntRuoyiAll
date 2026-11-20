@@ -115,6 +115,7 @@ public class DccLegacySourceNameOccupancyTest extends BaseDbUnitTest {
   "UPDATE dcc_legacy_source_name_evidence SET actual_size=5",
   "UPDATE dcc_legacy_source_name_evidence SET expected_sha256=REPEAT('z',64),actual_sha256=REPEAT('z',64)",
   "UPDATE infra_file SET config_id=NULL WHERE id=100",
+  "UPDATE infra_file SET tenant_id=2 WHERE id=100",
   "UPDATE infra_file SET name=NULL WHERE id=100",
   "UPDATE infra_file SET path='changed/object' WHERE id=100",
   "UPDATE infra_file SET size=NULL WHERE id=100",
@@ -129,7 +130,8 @@ public class DccLegacySourceNameOccupancyTest extends BaseDbUnitTest {
  void anyMissingProofOrActualIdentityDriftKeepsRealUploadGuardClosed(String mutation) {
   legacyFixture();assertEquals(0,claims.countUnresolvedNames(1L));jdbc.update(mutation);
   assertEquals(1,claims.countUnresolvedNames(1L));
-  assertThrows(IllegalStateException.class,()->names.preflightNewSourceName(99L,2L,5L,6L,"SAFE.pdf","scope","a".repeat(64)));
+  cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException(()->names.preflightNewSourceName(99L,2L,5L,6L,"SAFE.pdf","scope","a".repeat(64)),
+          cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_HISTORICAL_SOURCE_VERIFICATION_REQUIRED);
  }
  @Test void oldExactNameBlocksNewEvenSameMasterAndMissingFormalNumberStillRejects() {
   legacyFixture();formalLegacyIdentity();

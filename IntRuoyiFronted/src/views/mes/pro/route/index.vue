@@ -590,7 +590,7 @@ const loadListFromRoute = async () => {
   queryParams.status = undefined
   queryParams.listFilters = undefined
   if (route.query.codeLinkVisit) openedRouteDetailId.value = ''
-  routeQuickFilter.updateState({ fieldKey: 'code', operator: 'contains', value: typeof route.query.code === 'string' ? route.query.code : undefined })
+  routeQuickFilter.updateState({ fieldKey: 'code', operator: 'contains', value: typeof route.query.code === 'string' ? route.query.code.trim() || undefined : undefined })
   queryParams.code = typeof route.query.code === 'string' ? route.query.code.trim() || undefined : undefined
   queryParams.name = typeof route.query.name === 'string' ? route.query.name : undefined
   queryParams.pageNo = 1
@@ -615,10 +615,11 @@ const loadListFromRoute = async () => {
 let routeListRequestSequence = 0
 async function getList() {
   const requestId = ++routeListRequestSequence
+  const requestRouteSignature = buildMesProRouteListStateKey()
   loading.value = true
   try {
     const data = await ProRouteApi.getRoutePage({ ...queryParams })
-    if (requestId !== routeListRequestSequence) return false
+    if (requestId !== routeListRequestSequence || !(isMesProRouteListPath()) || requestRouteSignature !== buildMesProRouteListStateKey()) return false
     list.value = data.list
     total.value = data.total
     return true
@@ -1182,6 +1183,8 @@ watch(
   async () => {
     if (!isMesProRouteListPath()) {
       ++routeCodeLinkGeneration
+      ++routeListRequestSequence
+      loading.value = false
       return
     }
     const targetStateKey = buildMesProRouteListStateKey()

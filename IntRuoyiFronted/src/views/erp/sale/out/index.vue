@@ -439,10 +439,16 @@ const receiveDocumentCodeLink = async () => {
   ++documentRequestSequence
   if (codeLinkRoute.path !== '/erp/sale/out') return false
   const code = typeof codeLinkRoute.query.code === 'string' ? codeLinkRoute.query.code.trim() : ''
-  if (!code) return false
+  if (!code) {
+    queryFormRef.value?.resetFields()
+    Object.assign(queryParams, structuredClone(codeLinkDefaults))
+    await getList()
+    return true
+  }
   queryFormRef.value?.resetFields()
   Object.assign(queryParams, structuredClone(codeLinkDefaults), { no: code })
   const id = parsePositiveRouteQueryId(codeLinkRoute.query.openId)
+  if (codeLinkRoute.query.openId != null && codeLinkRoute.query.openId !== '' && !id) throw new Error('单据详情编号无效')
   await getList()
   if (generation !== documentGeneration) return true
   if (id) openForm('detail', id)

@@ -16,18 +16,22 @@ function declaration(file, names) {
   }).join('\n')
 }
 function gates(file, names, state) {
-  const host = { ...vue, exports: {}, ...state }
+  const host = { ...vue, exports: {}, fileChangesLocked: vue.ref(false), detailReadSelectionState: vue.ref({ selection: undefined, error: '' }), ...state }
   vm.runInNewContext(ts.transpileModule(declaration(file, names) + '\nexports.gates={' + names.join(',') + '}', {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
   }).outputText, host)
   return host.exports.gates
 }
 const detail = root + 'detail/index.vue'
+const distribution = {}
+new Function('exports', ts.transpileModule(fs.readFileSync(root + 'detail/controlled-detail-distribution.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(distribution)
+const erpPermissionModule = { exports: {} }
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/utils/erpDataPermission.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: erpPermissionModule.exports })
 const hasPermissionSource = fs.readFileSync('src/directives/permission/hasPermi.ts', 'utf8')
 const permissionAst = ts.createSourceFile('hasPermi.ts', hasPermissionSource, ts.ScriptTarget.Latest, true)
 const permissionNode = permissionAst.statements.find(node => ts.isVariableStatement(node) && node.declarationList.declarations.some(item => item.name.text === 'hasPermission')).getText(permissionAst)
 function permissionCheck(permissions) {
-  const host = { exports: {}, userStore: { permissions: new Set(permissions) }, all_permission: '*:*:*' }
+  const host = { exports: {}, requiresExplicitErpGrant: erpPermissionModule.exports.requiresExplicitErpGrant, userStore: { permissions: new Set(permissions) }, all_permission: '*:*:*' }
   vm.runInNewContext(ts.transpileModule(permissionNode, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, host)
   return host.exports.hasPermission
 }
@@ -46,6 +50,10 @@ function elements(file) {
 }
 const prop = (node, name) => node.props.find(item => item.type === 7 && item.name === name)
 const attr = (node, name) => node.props.find(item => item.type === 6 && item.name === name)?.value?.content
+const versionDisplay = { exports: {} }
+vm.runInNewContext(ts.transpileModule(fs.readFileSync(root + 'shared/version-display.ts', 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS }
+}).outputText, versionDisplay)
 
 test('actual print gates accept global EDIT or old print, while server action projection still denies ungranted files', () => {
   for (const permission of ['dcc:controlled-file:edit', 'dcc:controlled-file:print']) {
@@ -71,10 +79,11 @@ test('actual withdraw gate requires EDIT/submit plus requester, server WITHDRAW 
 
 test('actual distribution gates accept EDIT without an obsolete role gate, retaining exact process and ready context', () => {
   const roles = vue.reactive(['ordinary_editor'])
-  const state = { checkPermi: permissionCheck(['dcc:controlled-file:edit']), userStore: { getRoles: roles }, DOC_CONTROL_ROLE_CODE: 'doc_control', fileDetail: vue.ref({ processInstanceId: 'exact-round' }) }
+  const state = { checkPermi: permissionCheck(['dcc:controlled-file:edit']), userStore: { getRoles: roles }, DOC_CONTROL_ROLE_CODE: 'doc_control', canReadControlledDistributionReceipts: distribution.canReadControlledDistributionReceipts, fileDetail: vue.ref({ processInstanceId: 'exact-round', canEditFile: true }) }
   const detailGate = gates(detail, ['canReadDistributionReceipts'], state)
   assert.equal(detailGate.canReadDistributionReceipts.value, true)
-  state.fileDetail.value = {}; assert.equal(detailGate.canReadDistributionReceipts.value, false)
+  state.fileDetail.value.canEditFile = false; assert.equal(detailGate.canReadDistributionReceipts.value, false)
+  state.fileDetail.value = { canEditFile: true }; assert.equal(detailGate.canReadDistributionReceipts.value, false)
   const ready = vue.ref('tenant31/user99')
   const workbench = gates(root + 'workbench/index.vue', ['canHandleWorkflowDistribution'], {
     userStore: { getIsSetUser: true, getRoles: ['ordinary_editor'], getPermissions: new Set(['dcc:controlled-file:edit']) }, workflowDistributionContextKey: ready
@@ -83,12 +92,11 @@ test('actual distribution gates accept EDIT without an obsolete role gate, retai
   ready.value = ''; assert.equal(workbench.canHandleWorkflowDistribution.value, false)
 })
 
-test('actual browser revision directives and detail print directives use existing OR permission semantics', () => {
+test('detail print directives use existing OR permission semantics', () => {
   const nodes = [
-    ...elements(root + 'browser/index.vue').filter(node => attr(node, 'data-testid') === 'dcc-browser-partial-revision' || (node.tag === 'span' && prop(node, 'hasPermi'))),
     ...elements(detail).filter(node => prop(node, 'hasPermi')?.exp?.content.includes('dcc:controlled-file:print'))
   ]
-  assert.equal(nodes.length, 4)
+  assert.equal(nodes.length, 2)
   for (const node of nodes) {
     const permission = vm.runInNewContext(prop(node, 'hasPermi').exp.content)
     assert.equal(permissionCheck(['dcc:controlled-file:edit'])(permission), true)
@@ -97,10 +105,127 @@ test('actual browser revision directives and detail print directives use existin
   }
 })
 
+test('both browser revision entries stay visible and explain denied clicks without opening management', () => {
+  const browser = root + 'browser/index.vue'
+  const nodes = elements(browser).filter(node => ['dcc-browser-partial-revision', 'dcc-browser-replacement-revision'].includes(attr(node, 'data-testid')))
+  assert.equal(nodes.length, 2)
+  for (const node of nodes) {
+    assert.equal(prop(node, 'hasPermi'), undefined)
+    assert.equal(node.props.some(item => item.name === 'disabled' || item.arg?.content === 'disabled'), false)
+    const file = { id: '12', status: 'ACTIVE', canEditFile: false }
+    const warnings = [], opened = []
+    const state = { checkPermi: permissionCheck(['dcc:controlled-file:edit']),
+      getDccVersionDisplayText: versionDisplay.exports.getDccVersionDisplayText,
+      message: { warning: value => warnings.push(value) }, openManagement: (...args) => opened.push(args) }
+    const gate = gates(browser, ['hasRevisionBaseline', 'showRevisionActions', 'canStartRevision', 'openRevision', 'hasBrowserRowActions'], {
+      ...state, getSelectedVersion: row => row, getBrowserRowActionState: () => ({}),
+      isValidBrowserOptionId: id => id === '12'
+    })
+    const context = { ...gate, row: file, getSelectedVersion: row => row, isValidBrowserOptionId: id => id === '12' }
+    const visible = () => vm.runInNewContext(prop(node, 'if').exp.content, context)
+    const click = () => vm.runInNewContext(prop(node, 'on').exp.content, context)
+    assert.equal(visible(), true)
+    assert.equal(gate.hasBrowserRowActions(file), true)
+    click()
+    assert.equal(warnings.pop(), '当前账号没有本文件编辑权限')
+    assert.equal(opened.length, 0)
+    state.checkPermi = permissionCheck([])
+    const noGlobalGrant = gates(browser, ['hasRevisionBaseline', 'canStartRevision', 'openRevision'], state)
+    noGlobalGrant.openRevision({ ...file, canEditFile: true }, 'PARTIAL')
+    assert.equal(warnings.pop(), '当前账号没有本文件编辑权限')
+    assert.equal(opened.length, 0)
+    file.canEditFile = true
+    file.checkedOut = true
+    click()
+    assert.match(warnings.pop(), /文件已检出/)
+    assert.equal(opened.length, 0)
+    file.checkedOut = false
+    click()
+    assert.equal(opened.length, 1)
+    assert.equal(opened[0][0], '12')
+    assert.equal(opened[0][1].revisionIntent, attr(node, 'data-testid').includes('partial') ? 'PARTIAL' : 'REPLACEMENT')
+    file.status = 'WORKING'
+    file.versionNo = 'A/1'
+    assert.equal(visible(), true)
+    click()
+    assert.equal(warnings.pop(), '当前文件状态不支持发起变更')
+    assert.equal(opened.length, 1)
+    for (const versionNo of ['A/1-1', 'AAA/1-3']) {
+      file.versionNo = versionNo
+      for (const status of ['WORKING', 'SUBMITTED', 'REJECTED', 'WITHDRAWN', 'IN_APPROVAL', 'OBSOLETE']) {
+        file.status = status
+        assert.equal(visible(), true)
+        click()
+        assert.equal(warnings.pop(), '当前文件状态不支持发起变更')
+        assert.equal(opened.length, 1)
+      }
+    }
+    file.status = 'WORKING'
+    file.revisionBaseActiveControlledFileId = '11'
+    click()
+    assert.equal(opened[1][0], '11')
+    assert.equal(opened[1][1].revisionIterationId, '12')
+    file.versionNo = 'A/1'
+    file.status = 'OBSOLETE'
+    assert.equal(visible(), false)
+    for (const versionNo of [undefined, '', 'A/1', 'A/1-0']) {
+      file.versionNo = versionNo
+      assert.equal(visible(), false)
+    }
+  }
+})
+
+test('checkout entries follow checkout state without hiding for permissions and reject denied or stale clicks', async () => {
+  const browser = root + 'browser/index.vue'
+  const nodes = elements(browser).filter(node => ['dcc-controlled-browser-checkout', 'dcc-controlled-browser-checkin', 'dcc-controlled-browser-cancel-checkout'].includes(attr(node, 'data-testid')))
+  assert.equal(nodes.length, 3)
+  const warnings = []
+  let granted = true
+  const state = { isValidBrowserOptionId: id => id === '12',
+    checkPermi: () => granted, canEditVersion: file => file.canEditFile === true,
+    canCheckoutVersion: file => file.canEditFile === true,
+    isCheckedOutByCurrentUser: file => file.checkedOutBy === 'me',
+    message: { warning: text => warnings.push(text) } }
+  const gate = gates(browser, ['getCheckoutActionBlockReason', 'handleCheckout', 'handleCheckin', 'handleCancelCheckout'], state)
+  for (const node of nodes) {
+    const checkout = attr(node, 'data-testid') === 'dcc-controlled-browser-checkout'
+    const file = { id: '12', status: 'ACTIVE', canEditFile: false, checkedOut: !checkout }
+    const context = { ...gate, ...state, row: file, getSelectedVersion: row => row }
+    const visible = () => Boolean(vm.runInNewContext(prop(node, 'if').exp.content, context))
+    const click = () => vm.runInNewContext(prop(node, 'on').exp.content, context)
+    assert.equal(prop(node, 'hasPermi'), undefined)
+    assert.equal(node.props.some(item => item.name === 'disabled' || item.arg?.content === 'disabled'), false)
+    assert.equal(visible(), true)
+    await click()
+    assert.equal(warnings.pop(), '当前账号没有本文件编辑权限')
+    file.canEditFile = true
+    granted = false
+    await click()
+    assert.equal(warnings.pop(), '当前账号没有本文件编辑权限')
+    granted = true
+    file.checkedOutBy = checkout ? 'me' : 'other'
+    assert.equal(visible(), !checkout)
+    await click()
+    assert.match(warnings.pop(), checkout ? /文件已检出/ : /仅检出人可以/)
+    if (!checkout) {
+      file.checkedOutBy = null
+      file.checkedOut = false
+      assert.equal(visible(), false)
+      await click()
+      assert.match(warnings.pop(), /文件尚未检出/)
+    }
+  }
+  const own = { id: '12', canEditFile: true, checkedOutBy: 'me' }
+  assert.equal(gate.getCheckoutActionBlockReason(own, 'CHECKIN'), '')
+  assert.equal(gate.getCheckoutActionBlockReason(own, 'CANCEL_CHECKOUT'), '')
+  assert.equal(gate.getCheckoutActionBlockReason({ ...own, checkedOutBy: null }, 'CHECKOUT'), '')
+  assert.match(gate.getCheckoutActionBlockReason({ ...own, id: null }, 'CHECKIN'), /有效编号/)
+})
+
 test('actual resubmit and revision sections retain status/requester conditions with EDIT instead of old submit leaf', () => {
   const nodes = elements(detail).filter(node => prop(node, 'if')?.exp?.content.includes("checkPermi(['dcc:controlled-file:submit'"))
   assert.equal(nodes.length, 2)
-  const state = { checkPermi: permissionCheck(['dcc:controlled-file:edit']), fileDetail: { status: 'REJECTED', canEditFile: true, processDefinitionKey: 'dcc-controlled-file-upload' },
+  const state = { fileChangesLocked: false, checkPermi: permissionCheck(['dcc:controlled-file:edit']), fileDetail: { status: 'REJECTED', canEditFile: true, processDefinitionKey: 'dcc-controlled-file-upload' },
     showDetailManagementActions: true, isCurrentFileRequester: true, pendingRevisions: [], isExternalReviewProcess: false, canPrepareFileApplication: true }
   const evaluate = node => vm.runInNewContext(prop(node, 'if').exp.content, state)
   assert.equal(evaluate(nodes[0]), true)
@@ -111,7 +236,7 @@ test('actual resubmit and revision sections retain status/requester conditions w
 
  test('actual metadata entry accepts global EDIT without doc-control role and preserves read-only view restrictions', () => {
   const state = { checkPermi: permissionCheck(['dcc:controlled-file:edit']), DOC_CONTROL_ROLE_CODE: 'doc_control',
-    viewerMode: vue.ref(false), showDetailManagementActions: vue.ref(true), userStore: { getRoles: ['ordinary_editor'] },
+    viewerMode: vue.ref(false), useControlledDetailLayout: vue.ref(false), showDetailManagementActions: vue.ref(true), userStore: { getRoles: ['ordinary_editor'] },
     fileDetail: vue.ref({ id: '70', canEditFile: true }), hasDccControlledFileActionProjection: () => true }
   const gate = gates(detail, ['hasMetadataEditorRole', 'canEditMetadata'], state)
   assert.equal(gate.canEditMetadata.value, true)
@@ -123,8 +248,14 @@ test('actual resubmit and revision sections retain status/requester conditions w
 test('actual approval-history buttons require global EDIT and their own file-bound projection, independently of ACTIVE body printing', () => {
   const nodes = elements(detail).filter(node => prop(node, 'on')?.exp?.content.includes("handleDetailMoreCommand('print-process')")
     || prop(node, 'on')?.exp?.content.includes("handleDetailMoreCommand('export-process-word')"))
-  assert.equal(nodes.length, 2)
-  assert.deepEqual(nodes.map(node => prop(node, 'if').exp.content), ['approvalHistoryPrintAllowed', 'approvalHistoryExportAllowed'])
+  assert.equal(nodes.length, 3)
+  for (const node of nodes) {
+    const expected = prop(node, 'on').exp.content.includes('print-process') ? 'approvalHistoryPrintAllowed' : 'approvalHistoryExportAllowed'
+    if (prop(node, 'if')) assert.equal(prop(node, 'if').exp.content, expected)
+    else {
+      assert.equal(node.props.find(p => p.type === 7 && p.arg?.content === 'disabled')?.exp?.content, `!${expected}`)
+    }
+  }
   for (const permissions of [[], ['dcc:controlled-file:query'], ['dcc:controlled-file:print'], ['dcc:controlled-file:edit']]) {
     const state = { checkPermi: permissionCheck(permissions), fileDetail: vue.ref({ status: 'PENDING_MATRIX_REVIEW', canPrintApprovalHistory: true, canExportApprovalHistory: true }) }
     const gate = gates(detail, ['approvalHistoryPrintAllowed', 'approvalHistoryExportAllowed'], state)
@@ -188,7 +319,7 @@ test('actual application section requires exact canEditFile for WORKING, ACTIVE 
     state.fileDetail.value = { status, canEditFile: true }
     assert.equal(gate.canPrepareFileApplication.value, false)
   }
-  const node = elements(detail).find(node => node.tag === 'DetailApplicationPanel')
+  const node = elements(detail).find(node => node.tag === 'DetailApplicationPanel' && prop(node, 'if')?.exp?.content.includes('canPrepareFileApplication'))
   const context = { fileDetail: {status:'ACTIVE'}, pendingRevisions: [], showDetailManagementActions: true, isExternalReviewProcess: false,
     checkPermi: permissionCheck(['dcc:controlled-file:edit']), canPrepareFileApplication: false }
   assert.equal(vm.runInNewContext(prop(node, 'if').exp.content, context), false)
@@ -238,7 +369,7 @@ test('actual returned-application wrapper and restart handler retain original co
   for (const granted of [undefined, false, true]) {
     for (const status of ['REJECTED', 'WITHDRAWN', 'ACTIVE']) {
       const file = { id: '4509', status, canEditFile: granted, processDefinitionKey: 'dcc-controlled-file-upload' }
-      const context = { fileDetail: file, showDetailManagementActions: true, isCurrentFileRequester: true, checkPermi: permissionCheck(['dcc:controlled-file:edit']) }
+      const context = { fileChangesLocked: false, fileDetail: file, showDetailManagementActions: true, isCurrentFileRequester: true, checkPermi: permissionCheck(['dcc:controlled-file:edit']) }
       assert.equal(vm.runInNewContext(prop(node, 'if').exp.content, context), granted === true && status !== 'ACTIVE')
       context.isCurrentFileRequester = false
       assert.equal(vm.runInNewContext(prop(node, 'if').exp.content, context), false)
@@ -261,7 +392,7 @@ test('actual metadata initialization matches Long wire project identity and pres
   const state = { props: vue.reactive({ file: sourceFile }), metadataForm: { fileName: 'source.pdf', dccProjectCodeId: sourceFile.dccProjectCodeId,
     categoryId: 10, fileTypeTaxonomyId: 198, directoryId: 913952, productCode: '', productName: '', needTraining: false },
     metadataDialog: { fieldErrors: {}, inlineError: '' }, projectCodeOptions: vue.ref([]), projectCodeOptionsLoading: vue.ref(false),
-    DCC_PROJECT_CODE_STATUS_ENABLE: 'ENABLE', getProjectCodePage: async () => ({ list: [{ id: '9007199254740993', projectCode: 'REAL-CODE', projectName: '真实项目' }] }),
+    DCC_PROJECT_CODE_STATUS_ENABLE: 'ENABLE', getProjectCodeOptions: async () => [{ id: '9007199254740993', projectCode: 'REAL-CODE', projectName: '真实项目' }],
     categoryOptions: vue.ref([{ id: 10, directoryId: 123 }]), directoryOptions: vue.ref([{ value: 123 }]) }
   const names = ['hasRegisteredStorage', 'selectedCategory', 'selectedProjectCode', 'selectedCategoryUsesUnclassifiedDirectory',
     'applyDccProjectCodeProductNumber', 'loadProjectCodeOptions', 'validateMetadataDialog']
@@ -293,11 +424,12 @@ test('actual body download entry requires global EDIT, explicit server download 
       fileDetail: vue.ref({ canDownload: flag }), isDccControlledFileActionAllowed: (_, requested) => requested === 'DOWNLOAD' && action }
     const g = gates(detail, ['controlledDownloadAllowed'], state)
     assert.equal(g.controlledDownloadAllowed.value, globalEdit && flag === true && action)
-    assert.equal(vm.runInNewContext(prop(node, 'if').exp.content, { controlledDownloadAllowed: g.controlledDownloadAllowed.value }), globalEdit && flag === true && action)
+    const disabled = node.props.find(p => p.type === 7 && p.arg?.content === 'disabled')
+    assert.equal(vm.runInNewContext(disabled.exp.content, { checkoutDownloadAllowed: false, controlledDownloadAllowed: g.controlledDownloadAllowed.value, controlledDownloadLoading: false }), !(globalEdit && flag === true && action))
   }
   for (const [allowed, context] of [[false, true], [true, false], [true, true]]) {
     const calls = []
-    const state = { controlledDownloadAllowed: vue.ref(allowed), controlledDownloadLoading: vue.ref(false), controlledFileId: vue.ref('4509'),
+    const state = { checkoutDownloadAllowed: vue.ref(false), controlledDownloadAllowed: vue.ref(allowed), controlledDownloadLoading: vue.ref(false), controlledFileId: vue.ref('4509'),
       message: { warning: () => calls.push('denied'), error: () => calls.push('error') },
       ensureDetailActionAllowed: action => { calls.push(['context', action]); return context },
       triggerControlledFileDownload: async id => calls.push(['existing-confirm-audited-download', id]) }
