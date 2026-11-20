@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.craft.MesProCraftChangeMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.*;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
@@ -26,6 +27,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionLi
 public class MesProBatchChangeApprovalExecutor implements BusinessApprovalEffectExecutor {
     public static final String CODE = "MES_ROUTE_BATCH_CHANGE_PUBLISH";
     public static final String OBJECT_TYPE = "ROUTE_BATCH_CHANGE";
+    public static final String TREE_CHANGE_ID = "routeTreeChangeId";
     @Resource private MesProCraftService crafts;
     @Resource private MesProCraftChangeMapper changes;
     @Resource private MesProRouteVersionMapper versions;
@@ -46,6 +48,24 @@ public class MesProBatchChangeApprovalExecutor implements BusinessApprovalEffect
         variables.put("changeReason", change.getReason());
         variables.put("affectedRouteCount", candidateIds(change).size());
         variables.put("changeFingerprint", fingerprint(change));
+        if ("TREE".equals(change.getChangeType())) {
+            MesProRouteVersionDO root = requireTreeRoot(change);
+            JSONObject snapshot = JSON.parseObject(root.getRouteSnapshotJson());
+            variables.put("businessType", MesProRouteVersionBusinessApprovalEffectExecutor.EXECUTOR_CODE);
+            variables.put(TREE_CHANGE_ID, id.toString());
+            variables.put("routeId", root.getRouteId());
+            variables.put("routeVersionId", root.getId());
+            variables.put("routeVersionNo", root.getVersionNo());
+            variables.put("routeCode", snapshot.getString("routeCode"));
+            variables.put("routeName", snapshot.getString("routeName"));
+            // 目录作为普通路线版本解析同一策略和流程，审批结果仍整批生效。
+            orchestrator.getObject().submit(BusinessApprovalContext.builder()
+                    .tenantId(TenantContextHolder.getRequiredTenantId()).dataDomain("MES").systemCode("MES")
+                    .objectType("ROUTE_VERSION").objectId(root.getId().toString()).objectVersion(root.getVersionNo())
+                    .actionCode("PUBLISH").objectState(STATUS_DRAFT).applicantUserId(actor)
+                    .reason(change.getReason()).variables(variables).build());
+            return;
+        }
         orchestrator.getObject().submit(BusinessApprovalContext.builder()
                 .tenantId(TenantContextHolder.getRequiredTenantId()).dataDomain("MES").systemCode("MES")
                 .objectType("TREE".equals(change.getChangeType()) ? "ROUTE_TREE_CHANGE" : OBJECT_TYPE).objectId(id.toString()).objectVersion("1")
@@ -61,7 +81,6 @@ public class MesProBatchChangeApprovalExecutor implements BusinessApprovalEffect
 
     @Override public BusinessApprovalEffectResult executeDirect(BusinessApprovalContext context, BusinessApprovalRequest request) {
         MesProCraftChangeDO change = requireContext(context);
-        if ("TREE".equals(change.getChangeType())) throw invalid("树形统一修改必须审核，请将树形工艺变更策略设为需要流程审核");
         requireStatus(change, "PREPARING");
         attach(change, request, null);
         return publish(change, context.getApplicantUserId(), STATUS_DRAFT, "BUSINESS_APPROVAL:" + request.getRequestId() + ":DIRECT_APPROVED");
@@ -163,6 +182,34 @@ public class MesProBatchChangeApprovalExecutor implements BusinessApprovalEffect
         MesProCraftChangeDO change = changes.selectById(id);
         if (change == null || !"BATCH".equals(change.getApprovalScope())) throw invalid("批量变更审批单不存在");
         return change;
+    }
+    /** 将普通路线审批保存的目录身份还原为整批身份，不重新解析审批策略。 */
+    public BusinessApprovalContext treeContext(BusinessApprovalContext routeContext) {
+        if (routeContext == null || !"ROUTE_VERSION".equals(routeContext.getObjectType())
+                || !STATUS_DRAFT.equals(routeContext.getObjectState()) || routeContext.getVariables() == null)
+            throw invalid("目录路线审批上下文不正确");
+        Long changeId;
+        try { changeId = Long.valueOf(String.valueOf(routeContext.getVariables().get(TREE_CHANGE_ID))); }
+        catch (RuntimeException ex) { throw invalid("目录整批变更编号无效"); }
+        MesProCraftChangeDO change = requireChange(changeId);
+        MesProRouteVersionDO root = requireTreeRoot(change);
+        if (!Objects.equals(root.getId().toString(), routeContext.getObjectId())
+                || !Objects.equals(root.getVersionNo(), routeContext.getObjectVersion()))
+            throw invalid("目录审批版本与整批变更不一致");
+        BusinessApprovalContext batchContext = routeContext.toBuilder().objectType("ROUTE_TREE_CHANGE")
+                .objectId(changeId.toString()).objectVersion("1").objectState("PREPARING").build();
+        requireContext(batchContext);
+        return batchContext;
+    }
+    private MesProRouteVersionDO requireTreeRoot(MesProCraftChangeDO change) {
+        if (!"TREE".equals(change.getChangeType())) throw invalid("不是目录整批变更");
+        JSONObject proposal = JSON.parseObject(change.getAfterJson());
+        Long rootId = proposal.getLong("approvalRouteVersionId");
+        if (rootId == null || !candidateIds(change).contains(rootId)) throw invalid("目录审批版本缺失");
+        MesProRouteVersionDO root = versions.selectById(rootId);
+        if (root == null || !Objects.equals(root.getRouteId(), proposal.getLong("rootRouteId"))
+                || !Objects.equals(crafts.groupId(root), change.getId())) throw invalid("目录审批版本归属不正确");
+        return root;
     }
     private List<Long> candidateIds(MesProCraftChangeDO change) { return JSON.parseArray(change.getCandidateIdsJson()).toJavaList(Long.class); }
     private List<MesProRouteVersionDO> requireCandidates(MesProCraftChangeDO change, String status) {

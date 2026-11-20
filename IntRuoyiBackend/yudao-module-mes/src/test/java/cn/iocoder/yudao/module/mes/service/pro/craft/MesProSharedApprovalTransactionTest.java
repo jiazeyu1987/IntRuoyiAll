@@ -122,7 +122,10 @@ class MesProSharedApprovalTransactionTest {
             return new MesProRouteVersionPublishProjectionServiceImpl.ProjectionResult(v.getRouteSnapshotJson(), Set.of(10L));
         });
         var lifecycleTarget = new MesProRouteVersionLifecycleServiceImpl();
+        ObjectProvider<MesProRouteTreeService> treeProvider = mock(ObjectProvider.class);
+        when(treeProvider.getObject()).thenReturn(mock(MesProRouteTreeService.class));
         wire(lifecycleTarget, "craftService", group, "routeVersionMapper", versions,
+                "routeTrees", treeProvider,
                 "deviceIdentitySnapshots", mock(MesProRouteDeviceIdentitySnapshotService.class),
                 "publishProjectionService", projection, "routeSnapshotCanonicalizer", canonicalizer,
                 "platformAdapter", audit, "versionOperateLogService", mock(MesVersionOperateLogService.class));
@@ -325,9 +328,10 @@ class MesProSharedApprovalTransactionTest {
                  "configSnapshots":{%s
                   "flowGraph":{"nodes":[{"routeProcessId":10,"processId":20,"sort":1}],"edges":[]},
                   "products":[],"scheduleConfigs":[],"batchUseConfigs":[],"scheduleUseConfigs":[],
+                  "routeStartProductionLeaders":[{"productionLineId":%d,"candidateSourceType":"USER","candidateSourceIds":[7]}],
                   "productionProcessConfigSchemaVersion":1,
                   "productionProcessConfigs":[{"routeProcessId":10,"processId":20,"overagePercent":0,
                     "lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]}]}}
-                """.formatted(routeId, routeId, candidate ? "\"craftChangeId\":1," : "");
+                """.formatted(routeId, routeId, candidate ? "\"craftChangeId\":1," : "", routeId);
     }
 }

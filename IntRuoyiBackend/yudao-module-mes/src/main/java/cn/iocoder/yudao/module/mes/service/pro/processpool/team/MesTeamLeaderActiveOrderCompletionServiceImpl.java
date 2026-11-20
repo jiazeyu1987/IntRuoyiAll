@@ -189,7 +189,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
                 || (!Boolean.TRUE.equals(draft.getHasActualLoss()) && draft.getLossRecordId() != null)) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_PERSISTENCE_FAILED, activeOrder.getId());
         }
-        activeOrderTransferTraceService.recordProductIssueInventoryTracesForActiveOrder(activeOrder);
+        activeOrderTransferTraceService.recordFormalPickListTracesForActiveOrder(activeOrder);
         Integer currentVersion = activeOrder.getVersion() == null ? 0 : activeOrder.getVersion();
         if (activeOrderMapper.markCompleted(activeOrder.getId(), currentVersion, leaderUserId) != 1) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_VERSION_CONFLICT, activeOrder.getId(),

@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.tenant.core.util.TenantUtils;
 import cn.iocoder.yudao.module.system.dal.mysql.tenant.TenantMapper;
+import cn.iocoder.yudao.module.system.controller.admin.permission.vo.menu.MenuListReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.tenant.TenantDO;
 import cn.iocoder.yudao.module.system.enums.permission.RoleTypeEnum;
 import cn.hutool.core.collection.CollectionUtil;
@@ -186,7 +187,9 @@ public class PermissionServiceImpl implements PermissionService {
         if (TenantAdminBusinessPolicy.isTenantAdmin(roles)
                 && TenantAdminBusinessPolicy.isBusinessPermission(permission)
                 && !ErpDataPermission.requiresExplicitGrant(permission)) {
-            return menuService.getMenuList(menuIds).stream()
+            // 业务管理员的自动授权只能覆盖当前租户套餐已开通的菜单。
+            return menuService.getMenuListByTenant(new MenuListReqVO()).stream()
+                    .filter(menu -> menuIds.contains(menu.getId()))
                     .anyMatch(TenantAdminBusinessPolicy::isBusinessMenu);
         }
 
@@ -333,17 +336,21 @@ public class PermissionServiceImpl implements PermissionService {
             return Collections.emptySet();
         }
 
-        List<MenuDO> allMenus = menuService.getMenuList();
         List<RoleDO> roles = new ArrayList<>(roleService.getRoleListFromCache(roleIds));
         roles.removeIf(role -> !CommonStatusEnum.ENABLE.getStatus().equals(role.getStatus()));
         if (roles.isEmpty()) return Collections.emptySet();
+        boolean tenantAdmin = TenantAdminBusinessPolicy.isTenantAdmin(roles);
+        List<MenuDO> allMenus = tenantAdmin
+                ? menuService.getMenuListByTenant(new MenuListReqVO())
+                : menuService.getMenuList();
         Set<Long> scopedIds = getErpScopedMenuIds(allMenus);
         Set<Long> menuIds = getExplicitRoleMenuIds(roles, scopedIds);
         boolean superAdmin = roleService.hasAnySuperAdmin(convertSet(roles, RoleDO::getId));
-        boolean tenantAdmin = TenantAdminBusinessPolicy.isTenantAdmin(roles);
         allMenus.stream().filter(menu -> !scopedIds.contains(menu.getId()))
                 .filter(menu -> superAdmin || (tenantAdmin && TenantAdminBusinessPolicy.isBusinessMenu(menu)))
                 .map(MenuDO::getId).forEach(menuIds::add);
+        // 同时收敛历史角色授权，避免套餐已撤销的菜单通过旧授权再次出现。
+        if (tenantAdmin) menuIds.retainAll(convertSet(allMenus, MenuDO::getId));
         return menuIds;
     }
 

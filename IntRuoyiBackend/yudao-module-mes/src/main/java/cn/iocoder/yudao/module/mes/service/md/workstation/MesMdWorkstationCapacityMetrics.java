@@ -15,6 +15,7 @@ public class MesMdWorkstationCapacityMetrics {
 
     BigDecimal machineryStandardHourlyCapacity;
 
+    /** 班次产能；列表中缺少有效班次小时的工作站为 null，表示未计算。 */
     BigDecimal todayCapacity;
 
 }

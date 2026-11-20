@@ -1081,14 +1081,18 @@
               :read-only="!isProcessDetailFieldEditable('lossReasons')"
               @saved="handleLossReasonBindingSaved"
             />
+            <el-alert
+              v-if="selectedProcessDetailField.key === 'productionProcessConfig' && !isProcessDetailFieldEditable(selectedProcessDetailField.key) && !selectedProcessDetailField.loading && publishedProductionProcessConfigError"
+              :title="publishedProductionProcessConfigError" type="error" :closable="false" show-icon
+            />
             <el-input
-              v-if="selectedProcessDetailField.key === 'productionProcessConfig' && !selectedProcessDetailField.loading && !isProcessDetailFieldEditable(selectedProcessDetailField.key)"
+              v-if="!publishedProductionProcessConfigError && selectedProcessDetailField.key === 'productionProcessConfig' && !selectedProcessDetailField.loading && !isProcessDetailFieldEditable(selectedProcessDetailField.key)"
               :model-value="formatPublishedProductionProcessConfig()"
               data-route-process-setting-field="published-production-process-config-json"
               aria-label="已发布生产配置，只读"
               readonly
               type="textarea"
-              :autosize="{ minRows: 12, maxRows: 24 }"
+              :rows="12"
             />
             <el-alert
               v-if="selectedProcessDetailField.key === 'deviceParameters' && !selectedProcessDetailField.loading && routeProcessDeviceParameterConfig && !routeProcessDeviceParameterConfig.craftId && selectedRouteProcessDeviceParameterDevices.some((device) => device.parameters?.length)"
@@ -1582,7 +1586,7 @@
                         data-route-process-setting-field="production-process-config-json"
                         :disabled="recordBindingEditorDisabled"
                         type="textarea"
-                        :autosize="{ minRows: 12, maxRows: 24 }"
+                        :rows="12"
                         @update:model-value="(value) => updateProductionProcessConfigJsonDraft(selectedNode, String(value))"
                       />
                     </div>
@@ -2716,6 +2720,7 @@ const selectedProcessMachineryList = ref<ProProcessMachineryVO[]>([])
 const selectedProcessDetailLoading = ref(false)
 const selectedProcessMachineryLoading = ref(false)
 const selectedProcessAttributesLoading = ref(false)
+const selectedProcessAttributesError = ref('')
 const selectedProcessAttributesSaving = ref(false)
 const selectedProcessAttributes = reactive<SelectedProcessAttributes>({})
 const selectedRecordBindings = ref<RouteFlowRecordBinding[]>([])
@@ -3723,6 +3728,13 @@ const ensureProductionProcessConfigJsonDraft = (node?: RouteFlowNodeVO) => {
   return productionProcessConfigJsonDrafts[routeProcessId]
 }
 
+const publishedProductionProcessConfigError = computed(() => {
+  if (selectedProcessAttributesError.value) return selectedProcessAttributesError.value
+  if (!selectedProcessRouteConfigCache.value) return '已发布生产配置尚未读取，请重新加载。'
+  if (!findProductionProcessConfig(selectedRouteProcessId.value)) return '已发布版本缺少当前工序的生产配置，请核对版本数据。'
+  return ''
+})
+
 const formatPublishedProductionProcessConfig = () => {
   const config = findProductionProcessConfig(selectedRouteProcessId.value)
   if (!config) {
@@ -3795,8 +3807,10 @@ const parseProductionProcessConfigDraft = (
 }
 
 const buildProductionProcessConfigSummary = () => {
+  if (selectedProcessAttributesError.value) return '加载失败'
+  if (!selectedProcessRouteConfigCache.value) return '尚未读取'
   const config = findProductionProcessConfig(selectedRouteProcessId.value)
-  if (!config) return '未配置'
+  if (!config) return isProcessDetailFieldEditable('productionProcessConfig') ? '尚未保存生产配置' : '配置数据不完整'
   return '损耗' + (config.lossReasons?.length || 0) +
     '项；设备组' + (config.deviceSelectionGroups?.length || 0) +
     '组；参数' + (config.parameterRules?.length || 0) + '项'
@@ -6405,6 +6419,7 @@ const ensureSelectedProcessRouteConfigCache = async () => {
 
 const loadSelectedProcessAttributes = async (node: RouteFlowNodeVO, requestId: number) => {
   selectedProcessAttributesLoading.value = true
+  selectedProcessAttributesError.value = ''
   resetSelectedProcessAttributes()
   try {
     const configCache = await ensureSelectedProcessRouteConfigCache()
@@ -6439,7 +6454,8 @@ const loadSelectedProcessAttributes = async (node: RouteFlowNodeVO, requestId: n
     applySelectedProcessAttributesDraft(selectedProcessAttributeDrafts[routeProcessId])
   } catch (error) {
     if (!isSelectedProcessDetailRequestCurrent(requestId, node.routeProcessId)) return
-    message.error(resolveErrorMessage(error, '加载工序属性失败'))
+    selectedProcessAttributesError.value = resolveErrorMessage(error, '加载工序属性失败')
+    message.error(selectedProcessAttributesError.value)
   } finally {
     if (isSelectedProcessDetailRequestCurrent(requestId, node.routeProcessId)) {
       selectedProcessAttributesLoading.value = false

@@ -56,6 +56,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         implements MesTeamLeaderActiveOrderCompletionBackfillPort {
     @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
+    @jakarta.annotation.Resource private MesActiveOrderReplenishmentQueryService replenishmentQuery;
 
 
     private final MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper;
@@ -176,7 +177,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         }
         String sourceSeed = MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.canonicalize(
                 canonicalSourceSeed(activeOrder, workOrder, pickListBindings, pickListItems,
-                        snapshots, allocations, completions, tasks, details, productionFacts));
+                        snapshots, allocations, completions, tasks, details, productionFacts,
+                        replenishmentQuery.readSources(activeOrder.getWorkOrderId())));
         String sourceSeedHash = sha256(sourceSeed);
         MesTeamLeaderActiveOrderReleaseLossReportPlanCommand lossCommand =
                 new MesTeamLeaderActiveOrderReleaseLossReportPlanCommand()
@@ -250,7 +252,7 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                 .setZeroLossConfirmationSnapshot(hasActualLoss ? null
                         : JsonUtils.toJsonString(Map.of("activeOrderId", activeOrder.getId(),
                         "sourceSnapshotHash", sourceSnapshotHash, "status", "NO_FORMAL_LOSS",
-                        "evaluatedBy", leaderUserId, "determinationMode", "SOURCE_QUERY",
+                        "evaluatedBy", leaderUserId, "determinationMode", "REPLENISHMENT_LIST_ONLY",
                         "confirmNoReplenishmentInfo", Boolean.TRUE.equals(command.getConfirmNoReplenishmentInfo()))))
                 .setLossConditionFactsJson(lossConditionFactsJson);
     }
@@ -732,7 +734,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                                                List<MesProcessPoolOrderProcessCompletionDO> completions,
                                                List<MesPqcInspectionTaskDO> tasks,
                                                List<MesPqcProcessInspectionAggregateDetailDO> details,
-                                               Map<String, Object> productionFacts) {
+                                               Map<String, Object> productionFacts,
+                                               List<MesActiveOrderReplenishmentQueryService.Line> replenishments) {
         Map<String, Object> seed = new LinkedHashMap<>();
         Map<String, Object> orderBinding = new LinkedHashMap<>();
         orderBinding.put("id", order.getId());
@@ -749,6 +752,7 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         seed.put("workOrderBinding", workOrderBinding);
         seed.put("pickListBindings", pickListBindings);
         seed.put("pickListBindingItems", pickListItems);
+        seed.put("replenishmentDocuments", replenishments);
         seed.put("snapshots", snapshots);
         seed.put("allocations", allocations);
         seed.put("productionFacts", productionFacts);

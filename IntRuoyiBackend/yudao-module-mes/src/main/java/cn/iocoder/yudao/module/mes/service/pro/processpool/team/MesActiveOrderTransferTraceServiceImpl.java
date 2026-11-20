@@ -2,20 +2,22 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListDO;
+import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
+import org.springframework.transaction.annotation.Transactional;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderTransferTraceDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueDetailDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderTransferTraceMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.MesWmProductIssueDetailMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.MesWmProductIssueMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.transfer.MesWmTransferDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.transfer.MesWmTransferDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.transfer.MesWmTransferLineDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.transfer.MesWmTransferDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.transfer.MesWmTransferLineMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.transfer.MesWmTransferMapper;
-import cn.iocoder.yudao.module.mes.enums.wm.MesWmProductIssueStatusEnum;
 import org.springframework.stereotype.Service;
 import org.springframework.dao.DuplicateKeyException;
 
@@ -44,21 +46,21 @@ public class MesActiveOrderTransferTraceServiceImpl implements MesActiveOrderTra
     private final MesWmTransferMapper transferMapper;
     private final MesWmTransferLineMapper transferLineMapper;
     private final MesWmTransferDetailMapper transferDetailMapper;
-    private final MesWmProductIssueMapper productIssueMapper;
-    private final MesWmProductIssueDetailMapper productIssueDetailMapper;
+    private final MesFormalProductionPickListSourceResolver pickListSourceResolver;
+    private final MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
 
     public MesActiveOrderTransferTraceServiceImpl(MesProcessPoolActiveOrderTransferTraceMapper transferTraceMapper,
                                                    MesWmTransferMapper transferMapper,
                                                    MesWmTransferLineMapper transferLineMapper,
                                                    MesWmTransferDetailMapper transferDetailMapper,
-                                                   MesWmProductIssueMapper productIssueMapper,
-                                                   MesWmProductIssueDetailMapper productIssueDetailMapper) {
+                                                   MesFormalProductionPickListSourceResolver pickListSourceResolver,
+                                                   MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper) {
         this.transferTraceMapper = transferTraceMapper;
         this.transferMapper = transferMapper;
         this.transferLineMapper = transferLineMapper;
         this.transferDetailMapper = transferDetailMapper;
-        this.productIssueMapper = productIssueMapper;
-        this.productIssueDetailMapper = productIssueDetailMapper;
+        this.pickListSourceResolver = pickListSourceResolver;
+        this.pickListBindingMapper = pickListBindingMapper;
     }
 
     @Override
@@ -106,43 +108,60 @@ public class MesActiveOrderTransferTraceServiceImpl implements MesActiveOrderTra
     }
 
     @Override
-    public List<MesProcessPoolActiveOrderTransferTraceDO> recordProductIssueInventoryTracesForActiveOrder(
+    @Transactional(rollbackFor = Exception.class)
+    public List<MesProcessPoolActiveOrderTransferTraceDO> recordFormalPickListTracesForActiveOrder(
             MesProcessPoolActiveOrderDO activeOrder) {
         Objects.requireNonNull(activeOrder, "activeOrder");
         requireActiveOrderIdentity(activeOrder);
-        List<MesWmProductIssueDO> issues = productIssueMapper
-                .selectListByWorkOrderIdForUpdate(activeOrder.getWorkOrderId());
-        List<MesWmProductIssueDO> finishedIssues = issues == null ? List.of() : issues.stream()
-                .filter(Objects::nonNull)
-                .filter(issue -> Objects.equals(activeOrder.getWorkOrderId(), issue.getWorkOrderId()))
-                .filter(issue -> Objects.equals(MesWmProductIssueStatusEnum.FINISHED.getStatus(), issue.getStatus()))
-                .toList();
-        if (finishedIssues.isEmpty() || finishedIssues.stream()
-                .anyMatch(issue -> issue.getId() == null || StrUtil.isBlank(issue.getCode()))) {
-            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrder.productIssueTrace.issue");
+        var resolution = pickListSourceResolver.resolve(activeOrder.getWorkOrderId());
+        var bindings = pickListBindingMapper.selectListByActiveOrderId(activeOrder.getId());
+        if (bindings == null || bindings.isEmpty() || resolution.sources().isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrder.pickListTrace.binding");
         }
+        Map<Long, MesProcessPoolActiveOrderPickListBindingDO> byPickListId = new LinkedHashMap<>();
+        for (var binding : bindings) {
+            if (binding == null || binding.getId() == null || binding.getPickListId() == null
+                    || !Objects.equals(binding.getActiveOrderId(), activeOrder.getId())
+                    || !Objects.equals(binding.getWorkOrderId(), activeOrder.getWorkOrderId())
+                    || !"BOUND".equals(binding.getBindingStatus())
+                    || byPickListId.put(binding.getPickListId(), binding) != null) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrder.pickListTrace.binding");
+            }
+        }
+        Set<Long> sourceIds = new LinkedHashSet<>();
         List<MesProcessPoolActiveOrderTransferTraceDO> traces = new ArrayList<>();
-        for (MesWmProductIssueDO issue : finishedIssues.stream()
-                .sorted(Comparator.comparing(MesWmProductIssueDO::getId)).toList()) {
-            List<MesWmProductIssueDetailDO> details = productIssueDetailMapper
-                    .selectListByIssueIdForUpdate(issue.getId());
-            List<MesWmProductIssueDetailDO> validDetails = details == null ? List.of() : details.stream()
-                    .sorted(Comparator.comparing(MesWmProductIssueDetailDO::getId))
-                    .toList();
-            if (validDetails.isEmpty() || validDetails.stream()
-                    .anyMatch(detail -> !hasCompleteProductIssueDetail(issue, detail))) {
-                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrder.productIssueTrace.detail");
+        for (var source : resolution.sources()) {
+            var header = source.header();
+            sourceIds.add(header.getId());
+            var binding = byPickListId.get(header.getId());
+            if (binding == null) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrder.pickListTrace.binding");
             }
-            for (MesWmProductIssueDetailDO detail : validDetails) {
-                traces.add(recordTransferTrace(toProductIssueTrace(activeOrder, issue, detail,
-                        MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_TRANSFER)));
-                traces.add(recordTransferTrace(toProductIssueTrace(activeOrder, issue, detail,
-                        MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_SHIPMENT)));
-                traces.add(recordTransferTrace(toProductIssueTrace(activeOrder, issue, detail,
-                        MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_BATCH_TRACE)));
+            List<String> documentWarnings = new ArrayList<>();
+            if (!Objects.equals(binding.getSourceSnapshotHash(), source.hash())) {
+                documentWarnings.add("领料单已变更，保留原冻结记录");
+            }
+            for (var previous : bindings) {
+                if (resolution.sources().stream().noneMatch(current -> Objects.equals(
+                        current.header().getId(), previous.getPickListId()))) {
+                    documentWarnings.add("原领料单" + previous.getSourceBillNo() + "已不在当前来源中");
+                }
+            }
+            for (var item : source.items()) {
+                List<String> warnings = new ArrayList<>(documentWarnings);
+                if (StrUtil.isBlank(item.getLotNumber())) warnings.add("缺少批号");
+                if (StrUtil.isBlank(item.getWarehouseNumber())) warnings.add("缺少仓库");
+                if (item.getActualQuantity() == null || item.getActualQuantity().signum() <= 0) {
+                    warnings.add("实发数量为空或非正");
+                }
+                for (String type : List.of(MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_TRANSFER,
+                        MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_SHIPMENT,
+                        MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_BATCH_TRACE)) {
+                    traces.add(toPickListTrace(activeOrder, binding, header, item, type, source.hash(), warnings));
+                }
             }
         }
-        return List.copyOf(traces);
+        return traces.stream().map(this::recordTransferTrace).toList();
     }
 
     @Override
@@ -184,79 +203,39 @@ public class MesActiveOrderTransferTraceServiceImpl implements MesActiveOrderTra
         return traces;
     }
 
-    private static boolean hasCompleteProductIssueDetail(MesWmProductIssueDO issue,
-                                                         MesWmProductIssueDetailDO detail) {
-        return detail != null && detail.getId() != null
-                && Objects.equals(issue.getId(), detail.getIssueId())
-                && detail.getLineId() != null
-                && detail.getMaterialStockId() != null
-                && detail.getItemId() != null
-                && detail.getBatchId() != null
-                && StrUtil.isNotBlank(detail.getBatchCode())
-                && detail.getQuantity() != null
-                && detail.getQuantity().compareTo(BigDecimal.ZERO) > 0;
-    }
-
-    private static MesProcessPoolActiveOrderTransferTraceDO toProductIssueTrace(
-            MesProcessPoolActiveOrderDO activeOrder,
-            MesWmProductIssueDO issue,
-            MesWmProductIssueDetailDO detail,
-            String sourceType) {
-        return MesProcessPoolActiveOrderTransferTraceDO.builder()
-                .activeOrderId(activeOrder.getId())
-                .workOrderId(activeOrder.getWorkOrderId())
-                .routeId(activeOrder.getRouteId())
-                .routeVersionId(activeOrder.getRouteVersionId())
-                .sourceType(sourceType)
-                .direction(toProductIssueDirection(sourceType))
-                .materialStockId(detail.getMaterialStockId())
-                .batchId(detail.getBatchId())
-                .itemId(detail.getItemId())
-                .quantity(detail.getQuantity())
-                .sourceObjectType("WM_PRODUCT_ISSUE_DETAIL")
-                .sourceObjectId(String.valueOf(detail.getId()))
-                .sourceObjectCode(issue.getCode())
-                .sourceStatus(String.valueOf(issue.getStatus()))
-                .sourceOccurredAt(issue.getIssueDate())
-                .idempotencyKey(toProductIssueIdempotencyKey(activeOrder, issue, detail, sourceType))
-                .sourceSnapshotJson(toProductIssueSnapshotJson(activeOrder, issue, detail, sourceType))
-                .build();
-    }
-
-    private static String toProductIssueDirection(String sourceType) {
-        return MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_BATCH_TRACE.equals(sourceType) ? "TRACE" : "OUT";
-    }
-
-    private static String toProductIssueIdempotencyKey(MesProcessPoolActiveOrderDO activeOrder,
-                                                       MesWmProductIssueDO issue,
-                                                       MesWmProductIssueDetailDO detail,
-                                                       String sourceType) {
-        return "active-order-" + activeOrder.getId() + "-product-issue-"
-                + issue.getId() + "-detail-" + detail.getId() + "-" + sourceType;
-    }
-
-    private static String toProductIssueSnapshotJson(MesProcessPoolActiveOrderDO activeOrder,
-                                                     MesWmProductIssueDO issue,
-                                                     MesWmProductIssueDetailDO detail,
-                                                     String sourceType) {
+    private static MesProcessPoolActiveOrderTransferTraceDO toPickListTrace(
+            MesProcessPoolActiveOrderDO order, MesProcessPoolActiveOrderPickListBindingDO binding,
+            ErpKingdeeProductionPickListDO header, ErpKingdeeProductionPickListItemDO item, String type,
+            String currentSourceHash, List<String> warnings) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
-        snapshot.put("activeOrderId", activeOrder.getId());
-        snapshot.put("workOrderId", activeOrder.getWorkOrderId());
-        snapshot.put("routeId", activeOrder.getRouteId());
-        snapshot.put("routeVersionId", activeOrder.getRouteVersionId());
-        snapshot.put("sourceType", sourceType);
-        snapshot.put("productIssueId", issue.getId());
-        snapshot.put("productIssueCode", issue.getCode());
-        snapshot.put("productIssueStatus", issue.getStatus());
-        snapshot.put("issueDate", issue.getIssueDate());
-        snapshot.put("productIssueDetailId", detail.getId());
-        snapshot.put("productIssueLineId", detail.getLineId());
-        snapshot.put("materialStockId", detail.getMaterialStockId());
-        snapshot.put("itemId", detail.getItemId());
-        snapshot.put("batchId", detail.getBatchId());
-        snapshot.put("batchCode", detail.getBatchCode());
-        snapshot.put("quantity", detail.getQuantity());
-        return JsonUtils.toJsonString(snapshot);
+        snapshot.put("activeOrderId", order.getId());
+        snapshot.put("workOrderId", order.getWorkOrderId());
+        snapshot.put("routeId", order.getRouteId());
+        snapshot.put("routeVersionId", order.getRouteVersionId());
+        snapshot.put("sourceType", type);
+        snapshot.put("pickListBindingId", binding.getId());
+        snapshot.put("sourceSnapshotHash", binding.getSourceSnapshotHash());
+        snapshot.put("currentSourceSnapshotHash", currentSourceHash);
+        snapshot.put("sourceWarnings", List.copyOf(warnings));
+        snapshot.put("itemSnapshotHash", MesFormalProductionPickListSourceResolver.itemSnapshotHash(item));
+        var headerFacts = (com.fasterxml.jackson.databind.node.ObjectNode) JsonUtils.parseTree(JsonUtils.toJsonString(header));
+        headerFacts.remove(List.of("rawPayload", "lastSyncTime"));
+        var itemFacts = (com.fasterxml.jackson.databind.node.ObjectNode) JsonUtils.parseTree(JsonUtils.toJsonString(item));
+        itemFacts.remove(List.of("rawPayload", "lastSyncTime"));
+        snapshot.put("pickList", headerFacts);
+        snapshot.put("pickListItem", itemFacts);
+        // ERP source identifiers are retained in the snapshot; they are not MES stock/batch IDs.
+        return MesProcessPoolActiveOrderTransferTraceDO.builder()
+                .activeOrderId(order.getId()).workOrderId(order.getWorkOrderId())
+                .routeId(order.getRouteId()).routeVersionId(order.getRouteVersionId())
+                .sourceType(type).direction(MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_BATCH_TRACE.equals(type)
+                        ? "TRACE" : "OUT")
+                .quantity(item.getActualQuantity()).sourceObjectType("ERP_PRODUCTION_PICK_LIST_ITEM")
+                .sourceObjectId(String.valueOf(item.getId())).sourceObjectCode(header.getSourceBillNo())
+                .sourceStatus(header.getDocumentStatus()).sourceOccurredAt(header.getBillDate())
+                .idempotencyKey("active-order-" + order.getId() + "-pick-list-" + header.getId()
+                        + "-item-" + item.getId() + "-" + type)
+                .sourceSnapshotJson(JsonUtils.toJsonString(snapshot)).build();
     }
 
     private static void requireActiveOrderIdentity(MesProcessPoolActiveOrderDO activeOrder) {

@@ -24,6 +24,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.MD_WORKSTATIO
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.MD_WORKSTATION_SHIFT_HOURS_REQUIRED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -299,6 +300,42 @@ class MesMdWorkstationCapacityServiceTest {
         assertEquals(0, metrics.getMachineryStandardHourlyCapacity().compareTo(BigDecimal.ZERO));
         assertEquals(0, metrics.getTodayCapacity().compareTo(BigDecimal.ZERO));
         verifyNoInteractions(machineryProcessService);
+    }
+
+    @Test
+    void getCapacityMetricsForList_mixedShiftHours_keepsRowsAndLeavesMissingCapacityUncalculated() {
+        List<MesMdWorkstationDO> workstations = List.of(
+                MesMdWorkstationDO.builder().id(1L).processId(101L)
+                        .singleStandardHourlyCapacity(new BigDecimal("10")).build(),
+                MesMdWorkstationDO.builder().id(2L).shiftHours(BigDecimal.ZERO).build(),
+                MesMdWorkstationDO.builder().id(3L).shiftHours(new BigDecimal("-1")).build(),
+                MesMdWorkstationDO.builder().id(4L).shiftHours(new BigDecimal("7.5"))
+                        .singleStandardHourlyCapacity(new BigDecimal("10")).build(),
+                MesMdWorkstationDO.builder().id(5L).shiftHours(new BigDecimal("8"))
+                        .singleStandardHourlyCapacity(BigDecimal.ZERO).build());
+        when(workstationWorkerService.getWorkstationWorkerListByWorkstationIds(any()))
+                .thenReturn(List.of(MesMdWorkstationWorkerDO.builder().workstationId(1L).quantity(3).build()));
+        when(workRecordService.getClockInWorkRecordListByWorkstationIds(any()))
+                .thenReturn(List.of(MesProWorkRecordDO.builder().workstationId(1L).build()));
+        when(workstationMachineService.getWorkstationMachineListByWorkstationIds(any())).thenReturn(List.of(
+                MesMdWorkstationMachineDO.builder().workstationId(1L).machineryId(11L).quantity(2).build()));
+        when(machineryProcessService.getMachineryProcessListByMachineryIdsAndProcessIds(any(), any()))
+                .thenReturn(List.of(MesDvMachineryProcessDO.builder().machineryId(11L).processId(101L)
+                        .standardHourlyCapacity(new BigDecimal("20")).build()));
+        when(machineryService.getMachineryMap(any()))
+                .thenReturn(Map.of(11L, MesDvMachineryDO.builder().id(11L).build()));
+
+        Map<Long, MesMdWorkstationCapacityMetrics> metrics = capacityService.getCapacityMetricsForList(workstations);
+
+        assertEquals(5, metrics.size());
+        assertEquals(3, metrics.get(1L).getConfiguredWorkerCount());
+        assertEquals(1, metrics.get(1L).getCurrentWorkerCount());
+        assertEquals(0, metrics.get(1L).getMachineryStandardHourlyCapacity().compareTo(new BigDecimal("40")));
+        assertNull(metrics.get(1L).getTodayCapacity());
+        assertNull(metrics.get(2L).getTodayCapacity());
+        assertNull(metrics.get(3L).getTodayCapacity());
+        assertEquals(0, metrics.get(4L).getTodayCapacity().compareTo(new BigDecimal("75")));
+        assertEquals(0, metrics.get(5L).getTodayCapacity().compareTo(BigDecimal.ZERO));
     }
 
     @Test

@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.craft.MesProCraftChangeMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteControlledContentAdapter;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionBusinessApprovalEffectExecutor;
 import com.alibaba.fastjson.JSON;
 import org.junit.jupiter.api.*;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -111,14 +112,91 @@ class MesProBatchChangeApprovalExecutorTest {
         assertTrue(candidates.stream().allMatch(v -> "ACTIVE".equals(v.getLifecycleStatus())));
         verify(crafts, times(1)).onRouteReady(any(), eq(8L));
     }
-    @Test void treeChangeCannotBypassApprovalUsingDirectPolicy() {
+    private BusinessApprovalContext ordinaryTreeContext() {
+        populate(5);
         change.setChangeType("TREE");
-        context = context.toBuilder().objectType("ROUTE_TREE_CHANGE")
-                .variables(Map.of("changeFingerprint", MesProBatchChangeApprovalExecutor.fingerprint(change))).build();
-        request = request.toBuilder().context(context).processInstanceId(null).build();
-        assertThrows(RuntimeException.class, () -> executor.executeDirect(context, request));
-        verify(crafts, never()).onRouteReady(any(), any());
-        assertTrue(candidates.stream().allMatch(v -> "DRAFT".equals(v.getLifecycleStatus())));
+        change.setAfterJson("{\"approvalRouteVersionId\":1,\"rootRouteId\":101}");
+        candidates.get(0).setRouteId(101L);
+        candidates.get(0).setVersionNo("V3");
+        candidates.get(0).setRouteSnapshotJson("{\"routeCode\":\"GROUP-1\",\"routeName\":\"二代目录\"}");
+        return context.toBuilder().objectType("ROUTE_VERSION").objectId("1").objectVersion("V3")
+                .objectState("DRAFT").variables(Map.of(MesProBatchChangeApprovalExecutor.TREE_CHANGE_ID,"9",
+                        "changeFingerprint",MesProBatchChangeApprovalExecutor.fingerprint(change))).build();
+    }
+    @SuppressWarnings("unchecked")
+    private MesProRouteVersionBusinessApprovalEffectExecutor ordinaryExecutor() {
+        var ordinary = new MesProRouteVersionBusinessApprovalEffectExecutor();
+        ObjectProvider<MesProBatchChangeApprovalExecutor> provider = mock(ObjectProvider.class);
+        when(provider.getObject()).thenReturn(executor);
+        ReflectionTestUtils.setField(ordinary,"craftService",crafts);
+        ReflectionTestUtils.setField(ordinary,"batchApproval",provider);
+        return ordinary;
+    }
+    @Test @SuppressWarnings("unchecked") void directorySubmissionResolvesOrdinaryRouteVersionPolicy() {
+        ordinaryTreeContext();
+        var approvals=mock(BusinessApprovalOrchestrator.class);
+        ObjectProvider<BusinessApprovalOrchestrator> provider=mock(ObjectProvider.class);
+        when(provider.getObject()).thenReturn(approvals);
+        ReflectionTestUtils.setField(executor,"orchestrator",provider);
+        try(var security=mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(7L);
+            executor.submit(9L);
+        }
+        var captured=ArgumentCaptor.forClass(BusinessApprovalContext.class);
+        verify(approvals,times(1)).submit(captured.capture());
+        var actual=captured.getValue();
+        assertEquals("ROUTE_VERSION",actual.getObjectType());
+        assertEquals("DRAFT",actual.getObjectState());
+        assertEquals("1",actual.getObjectId());
+        assertEquals("V3",actual.getObjectVersion());
+        assertEquals("MES_ROUTE_VERSION_PUBLISH",actual.getVariables().get("businessType"));
+        assertEquals(1L,actual.getVariables().get("routeVersionId"));
+        assertEquals("9",actual.getVariables().get(MesProBatchChangeApprovalExecutor.TREE_CHANGE_ID));
+    }
+    @Test void ordinaryDirectPolicyPublishesDirectoryAndFourChildrenTogether() {
+        var route=ordinaryTreeContext();var ordinary=ordinaryExecutor();
+        request=request.toBuilder().context(route).processInstanceId(null).build();
+        ordinary.precheck(route);
+        assertEquals("APPLIED",ordinary.executeDirect(route,request).getResultState());
+        assertNull(change.getApprovalProcessInstanceId());
+        assertEquals(80L,change.getApprovalRequestId());
+        assertTrue(candidates.stream().allMatch(v->"ACTIVE".equals(v.getLifecycleStatus())));
+        verify(crafts,times(1)).onRouteReady(any(),eq(7L));
+        verify(audit,times(5)).recordApproved(any(),eq(7L),eq("BUSINESS_APPROVAL:80:DIRECT_APPROVED"));
+    }
+    @Test void ordinaryBpmPolicyKeepsWholeTreePendingUntilOrdinaryApprovalCallback() {
+        var route=ordinaryTreeContext();var ordinary=ordinaryExecutor();
+        request=request.toBuilder().context(route).build();
+        ordinary.precheck(route);ordinary.markPending(route,request);
+        assertTrue(candidates.stream().allMatch(v->"PENDING_APPROVAL".equals(v.getLifecycleStatus())));
+        verify(crafts,never()).onRouteReady(any(),any());
+        assertEquals("APPLIED",ordinary.executeApproved(route,request,8L).getResultState());
+        assertTrue(candidates.stream().allMatch(v->"ACTIVE".equals(v.getLifecycleStatus())));
+        ordinary.executeApproved(route,request,8L);
+        verify(crafts,times(1)).onRouteReady(any(),eq(8L));
+    }
+    @Test void ordinaryRejectionCancelsWholeTreeAndLateApprovalCannotPublish() {
+        var route=ordinaryTreeContext();var ordinary=ordinaryExecutor();
+        request=request.toBuilder().context(route).build();ordinary.markPending(route,request);
+        ordinary.reject(route,request,8L,"需修订");
+        assertEquals("CANCELLED",ordinary.executeApproved(route,request,8L).getResultState());
+        assertTrue(candidates.stream().allMatch(v->"CANCELLED".equals(v.getLifecycleStatus())));
+        verify(crafts,never()).onRouteReady(any(),any());
+    }
+    @Test void ordinaryWithdrawalCancelsWholeTree() {
+        var route=ordinaryTreeContext();var ordinary=ordinaryExecutor();
+        request=request.toBuilder().context(route).build();ordinary.markPending(route,request);
+        ordinary.cancel(route,request,7L,"撤回");
+        assertEquals("CANCELLED",change.getStatus());
+        verify(audit,times(5)).recordWithdrawn(any(),eq(7L));
+    }
+    @Test void treeCallbackRejectsDifferentRootAndChangedFrozenContent() {
+        var route=ordinaryTreeContext();var ordinary=ordinaryExecutor();
+        assertThrows(RuntimeException.class,()->ordinary.precheck(route.toBuilder().objectId("2").build()));
+        candidates.get(4).setRouteSnapshotSha256("changed");
+        assertThrows(RuntimeException.class,()->ordinary.executeDirect(route,request));
+        verify(crafts,never()).onRouteReady(any(),any());
+        verify(audit,never()).recordApproved(any(),any(),any());
     }
     @Test void rejectionCancelsAllAndLateApprovalDoesNotPublish() {
         executor.markPending(context,request);executor.reject(context,request,8L,"需修订");

@@ -16,11 +16,11 @@ export interface MdWorkstationVO {
   locationId: number // 库区 ID
   areaId: number // 库位 ID
   singleStandardHourlyCapacity?: number // 单人标准小时产能
-  shiftHours?: number // 班次小时数
+  shiftHours?: number | null // 班次小时数
   configuredWorkerCount?: number // 理论配置人数
   currentWorkerCount?: number // 当前在岗人数
   machineryStandardHourlyCapacity?: number // 设备标准小时产能
-  todayCapacity?: number // 班次产能
+  todayCapacity?: number | null // 班次产能；null 表示班次小时未配置，未计算
   status: number // 状态
   remark: string // 备注
 }

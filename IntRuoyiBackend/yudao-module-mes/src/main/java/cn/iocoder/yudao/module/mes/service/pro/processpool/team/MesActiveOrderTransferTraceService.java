@@ -13,7 +13,7 @@ public interface MesActiveOrderTransferTraceService {
     List<MesProcessPoolActiveOrderTransferTraceDO> recordTransferTracesForActiveOrder(
             MesProcessPoolActiveOrderDO activeOrder, List<Long> transferIds);
 
-    List<MesProcessPoolActiveOrderTransferTraceDO> recordProductIssueInventoryTracesForActiveOrder(
+    List<MesProcessPoolActiveOrderTransferTraceDO> recordFormalPickListTracesForActiveOrder(
             MesProcessPoolActiveOrderDO activeOrder);
 
     List<MesProcessPoolActiveOrderTransferTraceDO> listByActiveOrder(Long activeOrderId);

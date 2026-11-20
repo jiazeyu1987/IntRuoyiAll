@@ -127,6 +127,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderAct
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderPickListCompletionSourceService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderScopeServiceImpl;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderReplenishmentQueryService;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseTaskNotificationPlatformSender;
 import cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO;
@@ -1230,6 +1231,7 @@ class MesCompletionSourceProducerPersistenceTest {
             MesProBatchRecordExecutionSignatureService.class,
             MesTeamLeaderActiveOrderCompletionProgressPortImpl.class,
             MesTeamLeaderActiveOrderCompletionBackfillPortImpl.class,
+            MesActiveOrderReplenishmentQueryService.class,
             MesTeamLeaderActiveOrderPickListCompletionSourceService.class,
             MesActiveOrderTransferTraceServiceImpl.class,
             MesPqcProcessInspectionAggregationServiceImpl.class,

@@ -35,6 +35,7 @@ public class MesProCraftService {
     @Resource private ObjectProvider<MesProRouteVersionLifecycleService> lifecycle;
     @Resource private MesProRouteControlledContentAdapter platform;
     @Resource private cn.iocoder.yudao.module.bpm.api.task.BpmProcessInstanceApi bpmApi;
+    @Resource private cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalRequestStore approvalRequests;
     @Resource private ObjectProvider<MesProSharedChangeService> sharedChanges;
     @Resource private ObjectProvider<MesProRouteTreeService> routeTrees;
     @Resource private org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc;
@@ -422,6 +423,7 @@ public class MesProCraftService {
         MesProRouteVersionDO root = versionMapper.selectById(rootCandidateId);
         if (root == null || !STATUS_DRAFT.equals(root.getLifecycleStatus())) throw invalid("父节点草稿不存在");
         JSONObject proposal = new JSONObject(true);
+        proposal.put("approvalRouteVersionId", rootCandidateId);
         proposal.put("rootRouteId", root.getRouteId()); proposal.put("routeIds", routeIds);
         proposal.put("preview", preview);
         MesProCraftChangeDO change = newChange(null, "TREE", root.getSourceRouteVersionId().toString(),
@@ -563,9 +565,15 @@ public class MesProCraftService {
     }
     private void abort(MesProCraftChangeDO change, Long actorId, boolean cancelProcess) {
         change.setStatus("CANCELLED"); saveChange(change);
-        if (cancelProcess && "BATCH".equals(change.getApprovalScope()) && change.getApprovalProcessInstanceId() != null)
+        if (cancelProcess && "BATCH".equals(change.getApprovalScope()) && change.getApprovalProcessInstanceId() != null) {
+            var approval = approvalRequests.findByProcessInstanceId(change.getApprovalProcessInstanceId())
+                    .orElseThrow(() -> invalid("整批变更审批请求缺失"));
+            if (!Objects.equals(approval.getRequestId(), change.getApprovalRequestId())
+                    || !Objects.equals(approval.getTenantId(), TenantContextHolder.getRequiredTenantId()))
+                throw invalid("整批变更审批请求不一致");
             bpmApi.cancelBusinessApprovalProcess(actorId, change.getApprovalProcessInstanceId(),
-                    MesProBatchChangeApprovalExecutor.CODE, change.getId().toString(), "工艺路线批量变更作废");
+                    approval.getEffectExecutorCode(), approval.getContext().getObjectId(), "工艺路线批量变更作废");
+        }
         for (Long id : JSON.parseArray(change.getCandidateIdsJson()).toJavaList(Long.class)) {
             MesProRouteVersionDO version = versionMapper.selectById(id);
             if (version == null || Boolean.TRUE.equals(version.getActive())) throw invalid("关联升级状态不一致，无法作废");

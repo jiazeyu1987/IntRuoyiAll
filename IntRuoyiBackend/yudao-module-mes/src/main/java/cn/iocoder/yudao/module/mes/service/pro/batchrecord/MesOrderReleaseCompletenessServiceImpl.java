@@ -2,6 +2,9 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListDO;
+import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListItemDO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFormalProductionPickListSourceResolver;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
@@ -727,6 +730,9 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
         if (StrUtil.isBlank(trace.getSourceType()) || StrUtil.isBlank(trace.getDirection())) {
             return traceLabel + "：来源类型或方向为空";
         }
+        if ("ERP_PRODUCTION_PICK_LIST_ITEM".equals(trace.getSourceObjectType())) {
+            return invalidFormalPickListTraceReason(trace);
+        }
         if (trace.getQuantity() == null || trace.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
             return traceLabel + "：数量为空或非正";
         }
@@ -745,6 +751,63 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
             return traceLabel + "：来源状态未闭环，sourceStatus=" + trace.getSourceStatus();
         }
         return null;
+    }
+
+    private String invalidFormalPickListTraceReason(MesProcessPoolActiveOrderTransferTraceDO trace) {
+        String reason = "traceId=" + trace.getId() + "：金蝶领料追溯的单据、物料、批号、仓库或冻结来源不完整";
+        final JSONObject snapshot;
+        final ErpKingdeeProductionPickListDO header;
+        final ErpKingdeeProductionPickListItemDO item;
+        try {
+            snapshot = JSON.parseObject(trace.getSourceSnapshotJson());
+            if (snapshot == null) {
+                return reason;
+            }
+            header = snapshot.getObject("pickList", ErpKingdeeProductionPickListDO.class);
+            item = snapshot.getObject("pickListItem", ErpKingdeeProductionPickListItemDO.class);
+        } catch (JSONException | IllegalArgumentException ex) {
+            return reason + "：来源快照无法解析";
+        }
+        if (header == null || item == null || header.getId() == null || item.getId() == null
+                || StrUtil.hasBlank(header.getSourceFid(), header.getSourceBillNo(), item.getSourceEntryId(),
+                    item.getSourceLineKey(), item.getMaterialNumber(), item.getProductionOrderNo(),
+                    snapshot.getString("sourceSnapshotHash"), snapshot.getString("currentSourceSnapshotHash"))
+                || snapshot.getLong("pickListBindingId") == null
+                || !Objects.equals(trace.getActiveOrderId(), snapshot.getLong("activeOrderId"))
+                || !Objects.equals(trace.getWorkOrderId(), snapshot.getLong("workOrderId"))
+                || !Objects.equals(trace.getRouteId(), snapshot.getLong("routeId"))
+                || !Objects.equals(trace.getRouteVersionId(), snapshot.getLong("routeVersionId"))
+                || !Objects.equals(trace.getSourceType(), snapshot.getString("sourceType"))
+                || !Objects.equals(header.getId(), item.getProductionPickListId())
+                || !Objects.equals(trace.getSourceObjectCode(), header.getSourceBillNo())
+                || !Objects.equals(trace.getSourceObjectId(), item.getId().toString())
+                || !"C".equalsIgnoreCase(header.getDocumentStatus())
+                || !Objects.equals(trace.getSourceStatus(), header.getDocumentStatus())
+                || !sameNullableQuantity(trace.getQuantity(), item.getActualQuantity())
+                || !Objects.equals(snapshot.getString("itemSnapshotHash"),
+                    MesFormalProductionPickListSourceResolver.itemSnapshotHash(item))) {
+            return reason;
+        }
+        List<String> warnings = snapshot.getJSONArray("sourceWarnings") == null ? List.of()
+                : snapshot.getJSONArray("sourceWarnings").toJavaList(String.class);
+        if ((StrUtil.isBlank(item.getLotNumber()) && !warnings.contains("缺少批号"))
+                || (StrUtil.isBlank(item.getWarehouseNumber()) && !warnings.contains("缺少仓库"))
+                || ((item.getActualQuantity() == null || item.getActualQuantity().signum() <= 0)
+                    && !warnings.contains("实发数量为空或非正"))
+                || (!Objects.equals(snapshot.getString("sourceSnapshotHash"), snapshot.getString("currentSourceSnapshotHash"))
+                    && !warnings.contains("领料单已变更，保留原冻结记录"))) {
+            return reason + "：缺少对应的领料提示记录";
+        }
+        boolean batchTrace = MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_BATCH_TRACE.equals(trace.getSourceType());
+        if (!REQUIRED_INVENTORY_SOURCE_TYPES.contains(trace.getSourceType())
+                || !Objects.equals(trace.getDirection(), batchTrace ? "TRACE" : "OUT")) {
+            return reason + "：来源类型或方向不符";
+        }
+        return null;
+    }
+
+    private static boolean sameNullableQuantity(BigDecimal left, BigDecimal right) {
+        return left == null ? right == null : right != null && left.compareTo(right) == 0;
     }
 
     private MesOrderReleaseCompletenessCheck activeOrderMissing(String checkCode, String checkName,

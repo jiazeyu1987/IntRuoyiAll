@@ -33,7 +33,7 @@ export const submitRouteVersionWithTreeReview = async (version: ProRouteVersionV
     }),
     customClass: 'route-tree-publish-message',
     showCancelButton: true,
-    confirmButtonText: '确认覆盖并提交审核',
+    confirmButtonText: '确认覆盖并提交发布',
     showConfirmButton: !preview.blockers.length,
     cancelButtonText: '返回修改',
     closeOnClickModal: false,

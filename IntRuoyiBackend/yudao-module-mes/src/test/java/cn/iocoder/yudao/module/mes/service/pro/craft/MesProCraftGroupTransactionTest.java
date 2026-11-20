@@ -31,6 +31,8 @@ class MesProCraftGroupTransactionTest {
     private MesProRouteVersionLifecycleService publisher;
     private MesProRouteControlledContentAdapter platform;
     private MesProSharedChangeService sharedChanges;
+    private cn.iocoder.yudao.module.bpm.api.task.BpmProcessInstanceApi bpmApi;
+    private cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalRequestStore approvalRequests;
     private final MesProCraftChangeDO change = new MesProCraftChangeDO();
 
     @BeforeEach @SuppressWarnings("unchecked") void setup() {
@@ -72,6 +74,10 @@ class MesProCraftGroupTransactionTest {
         ReflectionTestUtils.setField(target,"craftMapper",crafts);ReflectionTestUtils.setField(target,"changeMapper",changes);
         ReflectionTestUtils.setField(target,"versionMapper",versions);ReflectionTestUtils.setField(target,"lifecycle",provider);
         ReflectionTestUtils.setField(target,"platform",platform);
+        bpmApi=mock(cn.iocoder.yudao.module.bpm.api.task.BpmProcessInstanceApi.class);
+        approvalRequests=mock(cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalRequestStore.class);
+        ReflectionTestUtils.setField(target,"bpmApi",bpmApi);
+        ReflectionTestUtils.setField(target,"approvalRequests",approvalRequests);
         sharedChanges = mock(MesProSharedChangeService.class);
         ObjectProvider<MesProSharedChangeService> sharedProvider = mock(ObjectProvider.class);
         when(sharedProvider.getObject()).thenReturn(sharedChanges);
@@ -194,5 +200,18 @@ class MesProCraftGroupTransactionTest {
         assertThrows(IllegalStateException.class,()->service.cancelChange(1L));
         assertEquals("PENDING",state(1));assertEquals("READY_TO_PUBLISH",state(101));assertEquals("READY_TO_PUBLISH",state(102));
         assertEquals("old craft",state(2));
+    }
+    @Test void treeWithdrawalCancelsTheSavedOrdinaryRouteApprovalIdentity(){
+        change.setChangeType("TREE");change.setApprovalScope("BATCH");
+        change.setApprovalRequestId(80L);change.setApprovalProcessInstanceId("ordinary-route-process");
+        var context=cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalContext.builder()
+                .objectType("ROUTE_VERSION").objectId("101").build();
+        var request=cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalRequest.builder()
+                .requestId(80L).tenantId(1L).effectExecutorCode("MES_ROUTE_VERSION_PUBLISH").context(context).build();
+        when(approvalRequests.findByProcessInstanceId("ordinary-route-process")).thenReturn(Optional.of(request));
+        service.cancelChange(1L);
+        verify(bpmApi).cancelBusinessApprovalProcess(isNull(),eq("ordinary-route-process"),
+                eq("MES_ROUTE_VERSION_PUBLISH"),eq("101"),anyString());
+        assertEquals("CANCELLED",state(101));assertEquals("CANCELLED",state(102));
     }
 }

@@ -155,7 +155,7 @@ public class MesMdWorkstationController {
         Map<Long, MesProProcessDO> processMap = processService.getProcessMap(
                 convertSet(list, MesMdWorkstationDO::getProcessId));
         Map<Long, MesMdWorkstationCapacityMetrics> capacityMetricsMap =
-                workstationCapacityService.getCapacityMetricsUsingShiftHours(list);
+                workstationCapacityService.getCapacityMetricsForList(list);
         List<MesMdWorkstationMachineDO> workstationMachines =
                 workstationMachineService.getWorkstationMachineListByWorkstationIds(
                         convertSet(list, MesMdWorkstationDO::getId));

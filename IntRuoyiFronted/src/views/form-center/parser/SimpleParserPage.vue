@@ -1153,6 +1153,7 @@ function chooseProcess(id: number) {
   if (!process) return
   mutate(() => {
     current.value.processId = id
+    current.value.preferNewProcess = false
     current.value.processCode = process.code
     current.value.value.name = process.name
     current.value.craftSelections = {}
@@ -1162,6 +1163,7 @@ function chooseProcess(id: number) {
 function useNewProcess() {
   mutate(() => {
     delete current.value.processId
+    current.value.preferNewProcess = true
     delete current.value.processCode
     current.value.craftSelections = {}
   })
@@ -1424,7 +1426,8 @@ async function openPublish() {
     reuseMatches.value = matches
     reuseRequestId = data.requestId
     if (matches.some(row => row.candidates.length) || data.processSelections.some(row => row.processId)) {
-      reuseDialog.value!.open(matches, data.processSelections)
+      reuseDialog.value!.open(matches, data.processSelections,
+        processes.value.flatMap((process, index) => process.preferNewProcess ? [index] : []))
       return
     }
     await generatePublishPreview()
@@ -1443,6 +1446,7 @@ async function confirmReuse(selections: SimpleParserRequest['processSelections']
     for (const selection of selections) {
       const process = processes.value[selection.processIndex]
       process.processId = selection.processId
+      process.preferNewProcess = !selection.processId
       process.processCode = reuseMatches.value.find(r => r.processIndex === selection.processIndex)
         ?.candidates.find(c => c.processId === selection.processId)?.code
       process.craftSelections = Object.fromEntries(selection.craftSelections.map(c => [c.groupIndex, c.craftId]))

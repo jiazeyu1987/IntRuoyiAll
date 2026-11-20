@@ -20,6 +20,7 @@ export interface EditableProcess {
   value: Process
   processId?: number
   processCode?: string
+  preferNewProcess?: boolean
   craftSelections?: Record<number, number>
 }
 export interface SimpleDraft {

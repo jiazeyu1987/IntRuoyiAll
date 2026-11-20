@@ -51,8 +51,34 @@ class MesProRouteVersionLifecycleServiceTest {
     private MesProRouteVersionPublishProjectionServiceImpl publishProjectionService;
     @Mock
     private MesProRouteControlledContentAdapter platformAdapter;
+    @Mock
+    private org.springframework.beans.factory.ObjectProvider<MesProRouteTreeService> routeTrees;
+    @Mock
+    private MesProRouteTreeService routeTreeService;
+    @org.junit.jupiter.api.BeforeEach
+    void setUpTreeService() {
+        org.mockito.Mockito.lenient().when(routeTrees.getObject()).thenReturn(routeTreeService);
+    }
     @Spy
     private MesProRouteSnapshotCanonicalizer canonicalizer = new MesProRouteSnapshotCanonicalizer();
+
+    @Test void directoryTemplateCanPublishWithoutProductionLeaderButFlowCannot() {
+        var snapshot = com.alibaba.fastjson.JSON.parseObject(validSnapshotJson(9001L,"GROUP-1","目录"));
+        snapshot.getJSONObject("configSnapshots").put("routeStartProductionLeaders",new com.alibaba.fastjson.JSONArray());
+        var candidate=MesProRouteVersionDO.builder().id(1002L).routeId(9001L).versionNo("V2")
+                .active(false).lifecycleStatus("READY_TO_PUBLISH").sourceRouteVersionId(1001L)
+                .routeSnapshotJson(snapshot.toJSONString()).build();
+        when(routeVersionMapper.selectById(1002L)).thenReturn(candidate);
+        assertThrows(ServiceException.class,()->lifecycleService.publishCandidate(1002L,600L));
+        verify(publishProjectionService,never()).projectCandidate(any());
+        when(routeTrees.getObject().isGroup(9001L)).thenReturn(true);
+        when(routeVersionMapper.selectActiveByRouteId(9001L)).thenReturn(
+                MesProRouteVersionDO.builder().id(1001L).routeId(9001L).active(true).lifecycleStatus("ACTIVE").build());
+        when(routeVersionMapper.updateById(any(MesProRouteVersionDO.class))).thenReturn(1);
+        when(publishProjectionService.projectCandidate(candidate)).thenReturn(projection(snapshot.toJSONString(),10L));
+        assertEquals("ACTIVE",lifecycleService.publishCandidate(1002L,600L).getLifecycleStatus());
+        verify(publishProjectionService,times(1)).projectCandidate(candidate);
+    }
 
     @Test
     void publishCandidate_shouldPersistCanonicalRewrittenSnapshotBeforeStatusSwitch() {

@@ -81,7 +81,7 @@ public class MesMdWorkstationRespVO {
     @Schema(description = "设备标准小时产能", example = "180")
     private BigDecimal machineryStandardHourlyCapacity;
 
-    @Schema(description = "今日产能", example = "96")
+    @Schema(description = "班次产能；班次小时未配置时为 null，表示未计算", example = "96")
     private BigDecimal todayCapacity;
 
     @Schema(description = "状态", requiredMode = Schema.RequiredMode.REQUIRED, example = "0")

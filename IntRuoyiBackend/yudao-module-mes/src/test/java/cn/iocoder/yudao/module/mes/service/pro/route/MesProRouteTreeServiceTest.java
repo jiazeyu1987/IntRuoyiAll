@@ -12,6 +12,15 @@ import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
 
 class MesProRouteTreeServiceTest {
+    @Test void incompleteTemplateCannotCreateAnUneditableDirectory() {
+        when(versions.selectActiveByRouteId(1L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(10L).routeId(1L).routeSnapshotJson("{\"routeId\":1,\"routeCode\":\"R1\",\"routeName\":\"模板\",\"configSnapshots\":{\"flowGraph\":{\"nodes\":[]}}}").build());
+        RuntimeException error = assertThrows(RuntimeException.class,
+                () -> service.createGroup("新目录", null, 1L));
+        assertTrue(error.getMessage().contains("模板快照不完整"), error::toString);
+        verify(routes, never()).insert(any(MesProRouteDO.class));
+        verify(versions, never()).insert(any(MesProRouteVersionDO.class));
+    }
     private MesProRouteTreeService service;
     private MesProRouteMapper routes;
     private MesProRouteVersionMapper versions;

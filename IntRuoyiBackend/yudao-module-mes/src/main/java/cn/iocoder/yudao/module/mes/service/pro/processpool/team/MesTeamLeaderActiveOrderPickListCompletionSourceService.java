@@ -94,14 +94,17 @@ public class MesTeamLeaderActiveOrderPickListCompletionSourceService {
                 .collect(Collectors.toMap(source -> source.header().getId(), source -> source));
         Map<Long, MesProcessPoolActiveOrderPickListBindingDO> actual = existing.stream().collect(
                 Collectors.toMap(MesProcessPoolActiveOrderPickListBindingDO::getPickListId, binding -> binding));
-        if (!expected.keySet().containsAll(actual.keySet())
-                || requireComplete && !expected.keySet().equals(actual.keySet())) {
+        if (requireComplete && !actual.keySet().containsAll(expected.keySet())) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_IDEMPOTENCY_CONFLICT,
                     activeOrder.getId(), "PICK_LIST_SOURCE_SET_CHANGED");
         }
         for (Map.Entry<Long, MesProcessPoolActiveOrderPickListBindingDO> actualEntry : actual.entrySet()) {
             MesFormalProductionPickListSourceResolver.Source source = expected.get(actualEntry.getKey());
             MesProcessPoolActiveOrderPickListBindingDO binding = actualEntry.getValue();
+            // Keep earlier frozen evidence. ERP changes are recorded on active-order traces, not a completion gate.
+            if (source == null || !Objects.equals(binding.getSourceSnapshotHash(), source.hash())) {
+                continue;
+            }
             List<MesProcessPoolActiveOrderPickListBindingItemDO> frozenItems = bindingItemMapper.selectListByBindingId(binding.getId());
             if (!Objects.equals(binding.getSourceSnapshotHash(), source.hash())
                     || frozenItems == null || frozenItems.size() != source.items().size()) {

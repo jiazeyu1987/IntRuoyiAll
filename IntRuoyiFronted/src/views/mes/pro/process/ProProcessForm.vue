@@ -12,22 +12,18 @@
       <el-form-item v-if="formType === 'create'" label="所属项目" prop="projectId" :rules="[{ required: true, message: '请选择所属项目' }]"><el-select v-model="formData.projectId" filterable><el-option v-for="p in codeProjects" :key="p.id" :value="p.id" :label="p.projectCode + ' / ' + p.projectName" /></el-select></el-form-item>
       <el-row :gutter="20">
         <el-col :span="8">
-          <el-form-item label="产品名称" prop="productName">
-            <el-input v-model="formData.productName" placeholder="请输入产品名称" />
-          </el-form-item>
-        </el-col>
-        <el-col :span="8">
           <el-form-item label="工序编码" prop="code">
             <el-input
               v-model="formData.code"
               :disabled="formType === 'create'"
+              readonly
               :placeholder="formType === 'create' ? '保存后按所属项目自动生成编号' : '请输入工序编码'"
             />
           </el-form-item>
         </el-col>
         <el-col :span="8">
           <el-form-item label="工序名称" prop="name">
-            <el-input v-model="formData.name" placeholder="请输入工序名称" />
+            <el-input v-model="formData.name" :readonly="formType !== 'create'" placeholder="请输入工序名称" />
           </el-form-item>
         </el-col>
         <el-col :span="8">
@@ -55,33 +51,17 @@
           </el-form-item>
         </el-col>
       </el-row>
-      <el-form-item label="工序说明" prop="attention">
-        <el-input
-          v-model="formData.attention"
-          type="textarea"
-          :rows="3"
-          placeholder="请输入工序说明"
-        />
-      </el-form-item>
       <el-form-item label="SOP文件" prop="sopFileUrl">
         <UploadFile
           v-model="processSopFileUrl"
           :limit="1"
           :file-type="['pdf', 'png', 'jpg', 'jpeg', 'webp']"
+          :is-show-tip="false"
           :disabled="isDetail || formLoading"
         />
       </el-form-item>
-      <el-form-item label="备注" prop="remark">
-        <el-input v-model="formData.remark" type="textarea" placeholder="请输入备注" />
-      </el-form-item>
-      <!-- 编辑时展示操作步骤 -->
-      <template v-if="formData.id">
-        <el-divider content-position="left">操作步骤</el-divider>
-        <ProProcessContentList v-model="processContents" :processId="formData.id" :readonly="isDetail || formLoading" />
-      </template>
     </el-form>
     <template v-if="formData.id">
-      <el-divider content-position="left">批记录与填写配置</el-divider>
       <div class="process-associated-config">
         <el-alert
           v-if="!routeOptions.length"
@@ -159,7 +139,6 @@ import { getRouteProjectOptions, type RouteProjectOption } from '@/api/mes/pro/r
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { ProProcessApi, ProProcessRouteVO, ProProcessVO } from '@/api/mes/pro/process'
 import { ProRouteProcessApi } from '@/api/mes/pro/route/process'
-import ProProcessContentList from './ProProcessContentList.vue'
 import { ProProcessContentApi, type ProProcessContentVO } from '@/api/mes/pro/process/content'
 const processContents = ref<ProProcessContentVO[]>([])
 import { UploadFile } from '@/components/UploadFile'

@@ -3,6 +3,7 @@
   <el-form v-else label-position="top" :disabled="disabled">
     <el-form-item label="允许超量比例（%）" required>
       <el-input-number
+        :key="disabled ? 'disabled' : 'enabled'"
         :model-value="parsed.config.overagePercent"
         :min="0"
         :max="100"

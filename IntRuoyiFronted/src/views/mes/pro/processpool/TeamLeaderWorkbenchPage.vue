@@ -1778,7 +1778,7 @@
                   :title="row.abnormal ? `${row.workOrderCode}\n${row.abnormalReason}` : row.workOrderCode"
                   :class="{ 'team-leader-workbench__abnormal-work-order-id': row.abnormal }"
                 >
-                  <WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" :style="row.abnormal ? { color: 'inherit' } : undefined" />
+                  <el-link type="primary" :style="row.abnormal ? { color: 'inherit' } : undefined" @click.stop="activeOrderWorkOrderDialogRef?.open(row.id)">{{ row.workOrderCode }}</el-link>
                 </span>
                 <el-tag
                   v-if="row.hasQuantityConflict || row.quantityConflict"
@@ -4110,6 +4110,7 @@
       </el-button>
     </template>
   </el-dialog>
+  <ActiveOrderWorkOrderDialog ref="activeOrderWorkOrderDialogRef" :readonly="handoffReadOnly" @saved="loadActiveOrders" />
   <ActiveOrderDeviationDialog
     v-if="activeOrderDeviationTarget && !handoffReadOnly"
     :active-order-id="activeOrderDeviationTarget.id"
@@ -4122,6 +4123,8 @@
 import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
 import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
+import ActiveOrderWorkOrderDialog from './components/ActiveOrderWorkOrderDialog.vue'
+const activeOrderWorkOrderDialogRef = ref<InstanceType<typeof ActiveOrderWorkOrderDialog>>()
 import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import LossReasonCatalog from './components/LossReasonCatalog.vue'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'

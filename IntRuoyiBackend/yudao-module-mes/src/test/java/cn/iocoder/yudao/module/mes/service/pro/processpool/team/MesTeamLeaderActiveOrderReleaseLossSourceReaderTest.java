@@ -36,7 +36,6 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
 
-    @Mock private MesActiveOrderReplenishmentBindingService replenishmentBindings;
 
     private static final Long ACTIVE_ORDER_ID = 8101L;
     private static final Long WORK_ORDER_ID = 9001L;
@@ -54,10 +53,6 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
     @Mock
     private MesProcessPoolSubmissionReviewMapper reviewMapper;
 
-    @Mock private MesProWorkOrderMapper workOrderMapper;
-    @Mock private MesFrontlineProcessMaterialService materialService;
-    @Mock private ErpKingdeeProductionReplenishmentListMapper replenishmentMapper;
-    @Mock private ErpKingdeeProductionReplenishmentListItemMapper replenishmentItemMapper;
     private MesTeamLeaderActiveOrderReleaseLossSourceReader reader;
 
     @Mock private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSignatureEvidenceService signatureEvidenceService;
@@ -65,14 +60,9 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
     @BeforeEach
     void setUp() {
         reader = new MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl(
-                eventMapper, feedbackMapper, allocationMapper, reviewMapper,
-                workOrderMapper, materialService, replenishmentItemMapper, replenishmentMapper,
-                org.mockito.Mockito.mock(MesLocalTestRunSourceGuard.class));
+                eventMapper, feedbackMapper, allocationMapper, reviewMapper);
         org.springframework.test.util.ReflectionTestUtils.setField(reader, "productionSignatureEvidenceService", signatureEvidenceService);
-        org.springframework.test.util.ReflectionTestUtils.setField(reader, "replenishmentBindings", replenishmentBindings);
         org.mockito.Mockito.lenient().when(signatureEvidenceService.isValidForEvent(org.mockito.ArgumentMatchers.any())).thenReturn(true);
-        when(workOrderMapper.selectByIdForUpdate(WORK_ORDER_ID))
-                .thenReturn(MesProWorkOrderDO.builder().id(WORK_ORDER_ID).code("MO-9001").build());
         var event = event("{}");
         org.mockito.Mockito.lenient().when(eventMapper.selectProductionSubmitsByIdsForUpdate(org.mockito.ArgumentMatchers.anyList()))
                 .thenReturn(List.of(event));
@@ -129,7 +119,6 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
         assertEquals(BigDecimal.ZERO, source.getFormalLossQuantity());
         assertEquals("NO_LOSS", source.getLossDecision());
         assertTrue(source.getReplenishmentSources().isEmpty());
-        org.mockito.Mockito.verifyNoInteractions(replenishmentMapper, replenishmentBindings, materialService);
     }
 
     @Test
@@ -145,98 +134,18 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
     }
 
     @Test
-    void multipleReplenishmentDocumentsRetainEverySourceAndSumActualQuantities() {
-        when(replenishmentItemMapper.selectListByProductionOrderNo("MO-9001")).thenReturn(List.of(
-                ErpKingdeeProductionReplenishmentListItemDO.builder().id(9101L).productionReplenishmentListId(91L)
-                        .productionOrderNo("MO-9001").materialNumber("MAT-1").materialName("材料一")
-                        .lotNumber("LOT-1").actualQuantity(new BigDecimal("3.000")).build(),
-                ErpKingdeeProductionReplenishmentListItemDO.builder().id(9201L).productionReplenishmentListId(92L)
-                        .productionOrderNo("MO-9001").materialNumber("MAT-1").materialName("材料一")
-                        .lotNumber("LOT-2").actualQuantity(new BigDecimal("4.000")).build()));
-        when(replenishmentMapper.selectBatchIds(List.of(91L, 92L))).thenReturn(List.of(
-                ErpKingdeeProductionReplenishmentListDO.builder().id(91L).sourceBillNo("BL-91").documentStatus("C").build(),
-                ErpKingdeeProductionReplenishmentListDO.builder().id(92L).sourceBillNo("BL-92").documentStatus("C").build()));
-        when(materialService.listFrozenMaterials(ACTIVE_ORDER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
-                .thenReturn(List.of(new MesFrontlineProcessMaterial(1L, "MAT-1", "材料一", "", "INPUT",
-                        BigDecimal.ONE, List.of(), null, null, null, List.of(), List.of(), List.of(), null)));
+    void processLossDoesNotRequireReplenishmentMaterialsOrSignedProcessAssociation() {
         var result = reader.read(command());
         assertTrue(result.getBlockers().isEmpty());
         var source = result.getProcessSources().get(0);
-        assertEquals(new BigDecimal("7.000"), source.getFormalLossQuantity());
-        assertEquals(List.of("BL-91", "BL-92"), source.getReplenishmentSources().stream()
-                .map(MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ReplenishmentSource::getSourceBillNo).toList());
-        assertEquals(List.of("LOT-1", "LOT-2"), source.getReplenishmentSources().stream()
-                .map(MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ReplenishmentSource::getLotNumber).toList());
-    }
-
-    @Test
-    void replenishmentQuantityAndAllDocumentIdentitiesAreAuthoritative() {
-        stubReplenishment("C", new BigDecimal("3.000"));
-        var result = reader.read(command());
-        assertTrue(result.getBlockers().isEmpty());
-        var source = result.getProcessSources().get(0);
-        assertEquals(new BigDecimal("3.000"), source.getFormalLossQuantity());
-        assertEquals("BL-91", source.getReplenishmentSources().get(0).getSourceBillNo());
-        assertEquals("LOT-1", source.getReplenishmentSources().get(0).getLotNumber());
-        assertEquals(9101L, source.getReplenishmentSources().get(0).getItemId());
-        assertEquals("REQUIRED", source.getLossDecision());
-    }
-
-    @Test
-    void invalidOrUnauditedReplenishmentStillBlocks() {
-        stubReplenishment("A", new BigDecimal("3.000"));
-        var result = reader.read(command());
-        assertTrue(result.getBlockers().stream().anyMatch(b -> "LOSS_REPLENISHMENT_SOURCE_INVALID".equals(b.getBlockerType())));
-    }
-
-    @Test
-    void absentActualQuantityCannotUseRequestedOrBaseQuantity() {
-        stubReplenishment("C", null);
-        var result = reader.read(command());
-        assertTrue(result.getBlockers().stream().anyMatch(b -> "LOSS_REPLENISHMENT_SOURCE_INVALID".equals(b.getBlockerType())));
-    }
-
-    @Test
-    void unmatchedMaterialBlocksInsteadOfDeclaringNoLoss() {
-        stubReplenishment("C", BigDecimal.ONE);
-        when(materialService.listFrozenMaterials(ACTIVE_ORDER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
-                .thenReturn(List.of());
-        var result = reader.read(command());
-        var blocker = result.getBlockers().stream()
-                .filter(b -> "LOSS_REPLENISHMENT_MATERIAL_UNBOUND".equals(b.getBlockerType())).findFirst().orElseThrow();
-        assertEquals("BL-91", blocker.getObjectCode());
-        assertTrue(blocker.getReason().contains("BL-91"));
-        assertTrue(blocker.getSuggestion().contains("补料工序关联"));
-        assertTrue(blocker.getSuggestion().contains("签名"));
-    }
-
-    @Test
-    void signedSupplementAssociationFreezesItsEvidenceWithoutChangingRouteInputs() {
-        stubReplenishment("C", BigDecimal.ONE);
-        when(materialService.listFrozenMaterials(ACTIVE_ORDER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID)).thenReturn(List.of());
-        when(replenishmentBindings.read(ACTIVE_ORDER_ID)).thenReturn(java.util.Map.of(9101L,
-                new MesActiveOrderReplenishmentBindingService.Binding(9901L, ROUTE_PROCESS_ID, 9902L, "signed-challenge")));
-        var result = reader.read(command());
-        assertTrue(result.getBlockers().isEmpty());
-        var line = result.getProcessSources().get(0).getReplenishmentSources().get(0);
-        assertEquals(9901L, line.getBindingEventId());
-        assertEquals(9902L, line.getBindingSignatureId());
-        assertEquals("signed-challenge", line.getBindingChallengeHash());
-        assertEquals(BigDecimal.ONE, line.getActualQuantity());
-    }
-
-    @Test
-    void explicitAssociationCannotOverrideFrozenInputs() {
-        stubReplenishment("C", BigDecimal.ONE);
-        when(replenishmentBindings.read(ACTIVE_ORDER_ID)).thenReturn(java.util.Map.of(9101L,
-                new MesActiveOrderReplenishmentBindingService.Binding(9901L, ROUTE_PROCESS_ID, 9902L, "signed-challenge")));
-        var result = reader.read(command());
-        assertTrue(result.getBlockers().stream().anyMatch(b -> "LOSS_REPLENISHMENT_BINDING_CONFLICT".equals(b.getBlockerType())));
+        assertEquals(BigDecimal.ZERO, source.getFormalLossQuantity());
+        assertTrue(source.getReplenishmentSources().isEmpty());
+        assertTrue(source.getLossDetails().isEmpty());
+        assertEquals(false, source.getHasActualLoss());
     }
 
     @Test
     void multipleSubmissionsDoNotCountReplenishmentTwice() {
-        stubReplenishment("C", new BigDecimal("3.000"));
         var second = event(1002L, 5102L, "{}");
         org.mockito.Mockito.lenient().when(eventMapper.selectProductionSubmitsByIdsForUpdate(org.mockito.ArgumentMatchers.anyList()))
                 .thenReturn(List.of(event("{}"), second));
@@ -246,22 +155,10 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
         when(reviewMapper.selectListByEventIdForUpdate(1002L)).thenReturn(List.of(review(1002L, 7202L)));
         var result = reader.read(command());
         assertTrue(result.getBlockers().isEmpty());
-        assertEquals(new BigDecimal("3.000"), result.getProcessSources().stream()
+        assertEquals(BigDecimal.ZERO, result.getProcessSources().stream()
                 .map(MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ProcessLossSource::getFormalLossQuantity)
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
-        assertEquals(1, result.getProcessSources().stream().mapToInt(source -> source.getReplenishmentSources().size()).sum());
-    }
-
-    private void stubReplenishment(String status, BigDecimal quantity) {
-        when(replenishmentItemMapper.selectListByProductionOrderNo("MO-9001")).thenReturn(List.of(
-                ErpKingdeeProductionReplenishmentListItemDO.builder().id(9101L).productionReplenishmentListId(91L)
-                        .productionOrderNo("MO-9001").materialNumber("MAT-1").materialName("材料一")
-                        .lotNumber("LOT-1").actualQuantity(quantity).baseActualQuantity(BigDecimal.TEN).build()));
-        when(replenishmentMapper.selectBatchIds(List.of(91L))).thenReturn(List.of(
-                ErpKingdeeProductionReplenishmentListDO.builder().id(91L).sourceBillNo("BL-91").documentStatus(status).build()));
-        when(materialService.listFrozenMaterials(ACTIVE_ORDER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
-                .thenReturn(List.of(new MesFrontlineProcessMaterial(1L, "MAT-1", "材料一", "", "INPUT",
-                        BigDecimal.ONE, List.of(), null, null, null, List.of(), List.of(), List.of(), null)));
+        assertEquals(0, result.getProcessSources().stream().mapToInt(source -> source.getReplenishmentSources().size()).sum());
     }
 
     private static MesTeamLeaderActiveOrderReleaseLossReportPlanCommand command() {

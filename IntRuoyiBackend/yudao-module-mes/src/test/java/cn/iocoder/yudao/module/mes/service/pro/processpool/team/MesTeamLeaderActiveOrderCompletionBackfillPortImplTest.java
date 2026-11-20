@@ -51,6 +51,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     @Mock private MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper;
     @Mock private MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
     @Mock private MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper;
+    @Mock private MesActiveOrderReplenishmentQueryService replenishmentQuery;
     @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper eventMapper;
     @Mock private MesProcessPoolSubmissionReviewMapper reviewMapper;
 
@@ -63,6 +64,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 completionMapper, taskMapper, detailMapper, workOrderMapper, lossSourceReader, backfillMapper,
                 pickListBindingMapper, pickListBindingItemMapper,
                 eventMapper, reviewMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(port, "replenishmentQuery", replenishmentQuery);
         { org.springframework.test.util.ReflectionTestUtils.setField(port, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         var event = new MesProProcessPoolEventDO().setId(401L).setWorkOrderId(30L).setRouteId(40L)
                 .setRouteProcessId(101L).setProcessId(1L).setEventType("PRODUCTION_SUBMIT").setRawPayload("{}")
@@ -287,7 +289,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         var draft = port.prepare(20L, order(), command());
         verify(lossSourceReader).read(any());
         assertTrue(draft.getZeroLossConfirmationSnapshot().contains("\"evaluatedBy\":20"));
-        assertTrue(draft.getZeroLossConfirmationSnapshot().contains("\"determinationMode\":\"SOURCE_QUERY\""));
+        assertTrue(draft.getZeroLossConfirmationSnapshot().contains("\"determinationMode\":\"REPLENISHMENT_LIST_ONLY\""));
         assertTrue(draft.getZeroLossConfirmationSnapshot().contains("\"confirmNoReplenishmentInfo\":false"));
         assertFalse(draft.getZeroLossConfirmationSnapshot().contains("\"confirmedBy\""));
     }
@@ -393,6 +395,25 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         var error = assertThrows(ServiceException.class, () -> port.prepare(20L, order(), command()));
         assertTrue(error.getMessage().contains("FORMAL_PICK_LIST_BINDINGS_REQUIRED"));
         org.mockito.Mockito.verifyNoInteractions(lossSourceReader, backfillMapper);
+    }
+
+    @Test
+    void replenishmentDocumentsAreFrozenOnceAtOrderLevelWithoutProcessLoss() {
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
+        var line = new MesActiveOrderReplenishmentQueryService.Line("1", "91", "BL-91", "MO-30",
+                "LABEL", "不干胶", "LOT-1", new BigDecimal("510"), "C", "source-1");
+        when(replenishmentQuery.readSources(30L)).thenReturn(List.of(line));
+        var before = port.prepare(20L, order(), command());
+        var frozen = JsonUtils.parseTree(before.getFormalSourceSnapshotJson()).path("replenishmentDocuments");
+        assertEquals(1, frozen.size());
+        assertEquals("BL-91", frozen.get(0).path("billNo").asText());
+        assertEquals(510, frozen.get(0).path("actualQuantity").asInt());
+        assertFalse(before.getHasActualLoss());
+        assertEquals(BigDecimal.ZERO, before.getLossQuantity());
+        when(replenishmentQuery.readSources(30L)).thenReturn(List.of(new MesActiveOrderReplenishmentQueryService.Line(
+                "1", "91", "BL-91", "MO-30", "LABEL", "不干胶", "LOT-1", new BigDecimal("511"), "C", "source-2")));
+        var after = port.prepare(20L, order(), command());
+        org.junit.jupiter.api.Assertions.assertNotEquals(before.getSourceSnapshotHash(), after.getSourceSnapshotHash());
     }
 
     @Test

@@ -14,4 +14,8 @@ public interface MesMdWorkstationCapacityService {
     Map<Long, MesMdWorkstationCapacityMetrics> getCapacityMetricsUsingShiftHours(
             Collection<MesMdWorkstationDO> workstations);
 
+    /** 列表允许展示未配置班次小时的工作站，其班次产能为 null。 */
+    Map<Long, MesMdWorkstationCapacityMetrics> getCapacityMetricsForList(
+            Collection<MesMdWorkstationDO> workstations);
+
 }

@@ -1,10 +1,13 @@
 <template>
   <ContentWrap>
     <ActiveOrderDetailLayout data-team-leader-active-order-detail-page>
-      <ReplenishmentProcessBinding
+      <ActiveOrderReplenishmentList
         v-if="detail && !handoffReadOnly"
         :active-order-id="requireActiveOrderId()"
-        @saved="loadDetail"
+      />
+      <ActiveOrderMaterialSourceNotices
+        v-if="detail && !handoffReadOnly"
+        :active-order-id="requireActiveOrderId()"
       />
       <ActiveOrderSubmissionDetailPanel
         :read-only="handoffReadOnly"
@@ -33,7 +36,8 @@ import { ElMessage } from 'element-plus'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import ActiveOrderSubmissionDetailPanel from './components/ActiveOrderSubmissionDetailPanel.vue'
 import ActiveOrderDetailLayout from './components/ActiveOrderDetailLayout.vue'
-import ReplenishmentProcessBinding from './components/ReplenishmentProcessBinding.vue'
+import ActiveOrderReplenishmentList from './components/ActiveOrderReplenishmentList.vue'
+import ActiveOrderMaterialSourceNotices from './components/ActiveOrderMaterialSourceNotices.vue'
 import {
   getTeamLeaderActiveOrderDetail,
   getTeamLeaderActiveOrderProductionMaterialLists,

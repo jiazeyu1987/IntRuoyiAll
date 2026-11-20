@@ -28,7 +28,7 @@ assert(
 )
 assert(
   workstationPage.includes('{{ formatWorkstationIntegerCapacity(scope.row.machineryStandardHourlyCapacity) }}') &&
-    workstationPage.includes('{{ formatWorkstationIntegerCapacity(scope.row.todayCapacity) }}'),
+    workstationPage.includes("{{ formatWorkstationIntegerCapacity(scope.row.todayCapacity, '未计算') }}"),
   '设备标准小时产能和班次产能必须通过整数展示函数渲染。'
 )
 assert(

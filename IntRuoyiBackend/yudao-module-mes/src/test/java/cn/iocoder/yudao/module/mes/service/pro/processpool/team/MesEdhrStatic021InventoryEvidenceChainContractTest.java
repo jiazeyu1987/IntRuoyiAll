@@ -19,12 +19,12 @@ class MesEdhrStatic021InventoryEvidenceChainContractTest {
         assertTrue(source.contains("MesActiveOrderTransferTraceService activeOrderTransferTraceService"),
                 "active-order completion must depend on the formal inventory trace service");
         assertTrue(source.contains(
-                        "activeOrderTransferTraceService.recordProductIssueInventoryTracesForActiveOrder(activeOrder);"),
+                        "activeOrderTransferTraceService.recordFormalPickListTracesForActiveOrder(activeOrder);"),
                 "normal completion must write inventory trace evidence from formal product issue details");
 
         int backfillWrite = source.indexOf("backfillPort.write(draft, activeOrder.getId());");
         int traceWrite = source.indexOf(
-                "activeOrderTransferTraceService.recordProductIssueInventoryTracesForActiveOrder(activeOrder);");
+                "activeOrderTransferTraceService.recordFormalPickListTracesForActiveOrder(activeOrder);");
         int markCompleted = source.indexOf("activeOrderMapper.markCompleted(");
         assertTrue(backfillWrite >= 0 && traceWrite > backfillWrite && traceWrite < markCompleted,
                 "trace evidence must be written after formal source backfill succeeds and before active-order completion");
@@ -37,24 +37,23 @@ class MesEdhrStatic021InventoryEvidenceChainContractTest {
         String serviceImpl = source("src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/"
                 + "MesActiveOrderTransferTraceServiceImpl.java");
 
-        assertTrue(serviceInterface.contains("recordProductIssueInventoryTracesForActiveOrder"),
+        assertTrue(serviceInterface.contains("recordFormalPickListTracesForActiveOrder"),
                 "trace service API must expose the normal product-issue inventory evidence producer");
-        assertTrue(serviceImpl.contains("MesWmProductIssueDO")
-                        && serviceImpl.contains("MesWmProductIssueDetailDO"),
+        assertTrue(serviceImpl.contains("ErpKingdeeProductionPickListDO")
+                        && serviceImpl.contains("ErpKingdeeProductionPickListItemDO"),
                 "trace service must read the formal finished product-issue headers and details");
         assertTrue(serviceImpl.contains("SOURCE_TYPE_TRANSFER")
                         && serviceImpl.contains("SOURCE_TYPE_SHIPMENT")
                         && serviceImpl.contains("SOURCE_TYPE_BATCH_TRACE"),
                 "formal product issue details must generate transfer, shipment and batch-trace readiness evidence");
-        assertTrue(serviceImpl.contains("\"WM_PRODUCT_ISSUE_DETAIL\""),
+        assertTrue(serviceImpl.contains("\"ERP_PRODUCTION_PICK_LIST_ITEM\""),
                 "trace rows must point to the formal product issue detail source object");
-        assertTrue(serviceImpl.contains(".materialStockId(detail.getMaterialStockId())")
-                        && serviceImpl.contains(".batchId(detail.getBatchId())")
-                        && serviceImpl.contains(".itemId(detail.getItemId())")
-                        && serviceImpl.contains(".sourceObjectCode(issue.getCode())"),
-                "each generated trace must retain stock, material, batch and source document identity");
-        assertTrue(serviceImpl.contains("\"active-order-\" + activeOrder.getId() + \"-product-issue-\""),
-                "product issue trace rows must use a stable active-order scoped idempotency key");
+        assertTrue(serviceImpl.contains("pickListSourceResolver.resolve(activeOrder.getWorkOrderId())")
+                        && serviceImpl.contains("binding.getSourceSnapshotHash()")
+                        && serviceImpl.contains("snapshot.put(\"pickListItem\", itemFacts)"),
+                "trace evidence must retain the verified frozen ERP source and original item facts");
+        assertTrue(serviceImpl.contains("\"-pick-list-\" + header.getId()"),
+                "pick list trace rows must use a stable source-scoped idempotency key");
     }
 
     private static String source(String relative) throws Exception {

@@ -130,7 +130,7 @@ class AuthControllerTest extends BaseMockitoUnitTest {
                 .setCode(RoleCodeEnum.SUPER_ADMIN.getCode())
                 .setStatus(CommonStatusEnum.ENABLE.getStatus());
         MenuDO systemMenu = menu(900L, 0L, "系统管理", "/system", null, MenuTypeEnum.DIR.getType());
-        MenuDO systemPermission = menu(901L, 900L, "用户查询", "user", "system:user:query", MenuTypeEnum.BUTTON.getType());
+        MenuDO systemPermission = menu(901L, 900L, "用户查询", "user", "system:user:query", MenuTypeEnum.MENU.getType());
         MenuDO srmRoot = menu(991000L, 0L, "SRM", "/srm", null, MenuTypeEnum.DIR.getType());
         MenuDO srmPage = menu(991001L, 991000L, "供应商门户审核", "supplier-portal-review",
                 "srm:supplier-portal:review", MenuTypeEnum.MENU.getType());
@@ -170,6 +170,7 @@ class AuthControllerTest extends BaseMockitoUnitTest {
                 .setCode(RoleCodeEnum.SRM_ADMIN.getCode())
                 .setStatus(CommonStatusEnum.ENABLE.getStatus());
         MenuDO systemMenu = menu(900L, 0L, "系统管理", "/system", null, MenuTypeEnum.DIR.getType());
+        MenuDO systemPage = menu(901L, 900L, "用户查询", "user", "system:user:query", MenuTypeEnum.MENU.getType());
         MenuDO srmRoot = menu(991000L, 0L, "SRM", "/srm", null, MenuTypeEnum.DIR.getType());
         MenuDO srmPage = menu(991001L, 991000L, "供应商门户审核", "supplier-portal-review",
                 "srm:supplier-portal:review", MenuTypeEnum.MENU.getType());
@@ -177,11 +178,11 @@ class AuthControllerTest extends BaseMockitoUnitTest {
         when(userService.getUser(eq(loginUserId))).thenReturn(user);
         when(permissionService.getUserRoleIdListByUserId(eq(loginUserId))).thenReturn(asSet(1L, 2L));
         when(roleService.getRoleList(eq(asSet(1L, 2L)))).thenReturn(toList(superAdminRole, srmAdminRole));
-        when(permissionService.getRoleMenuListByRoleId(eq(asSet(1L, 2L)))).thenReturn(asSet(900L, 991000L, 991001L));
+        when(permissionService.getRoleMenuListByRoleId(eq(asSet(1L, 2L)))).thenReturn(asSet(900L, 901L, 991000L, 991001L));
         when(menuService.getMenuList(anyCollection()))
-                .thenReturn(toList(systemMenu, srmRoot, srmPage));
+                .thenReturn(toList(systemMenu, systemPage, srmRoot, srmPage));
         when(menuService.filterDisableMenus(anyList()))
-                .thenReturn(toList(systemMenu, srmRoot, srmPage));
+                .thenReturn(toList(systemMenu, systemPage, srmRoot, srmPage));
 
         try (MockedStatic<SecurityFrameworkUtils> mockedSecurity = mockStatic(SecurityFrameworkUtils.class)) {
             mockedSecurity.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(loginUserId);

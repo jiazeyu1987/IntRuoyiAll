@@ -83,7 +83,6 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.system.api.permission.PermissionApi permissionApi;
     @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
 
-    @jakarta.annotation.Resource private MesActiveOrderReplenishmentBindingService replenishmentBindings;
     @jakarta.annotation.Resource private MesLocalTestRunSourceGuard localSources;
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseAccess marketReleaseAccess;
 
@@ -252,7 +251,6 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
         FormalInputSourceSnapshot inputSourceSnapshot = resolveInputSourceSnapshot(activeOrder, activeOrderId);
         attachInputMaterials(activeOrder, activeOrderId, accumulators, inputSourceSnapshot, archivedFormalSource);
-        attachSupplementMaterials(first.getWorkOrderCode(), activeOrder.getWorkOrderId(), activeOrderId, accumulators);
         var pqcSubmissions = readPqcSubmissions(activeOrder, activeOrderId, signatureId, revisionEventId);
         MesProcessPoolActiveOrderReleaseApplicationDO application =
                 releaseApplicationMapper.selectLatestByActiveOrderId(activeOrderId);
@@ -752,20 +750,33 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                                        Map<ProcessIdentity, ProcessAccumulator> accumulators,
                                        FormalInputSourceSnapshot inputSourceSnapshot,
                                        boolean archivedFormalSource) {
-        FormalInputSourceSnapshot resolvedInputSourceSnapshot = inputSourceSnapshot;
-        for (ProcessAccumulator accumulator : accumulators.values()) {
+        // Classify by the frozen route, before matching external pick-list evidence.
+        // An input produced inside this order does not require a second warehouse issue.
+        Map<ProcessIdentity, List<MesFrontlineProcessMaterial>> materialsByProcess = new LinkedHashMap<>();
+        Set<Long> routeOutputMaterialIds = new LinkedHashSet<>();
+        for (var entry : accumulators.entrySet()) {
+            ProcessAccumulator accumulator = entry.getValue();
             MesTeamLeaderActiveOrderDetail.ProcessDetail process = accumulator.process;
             List<MesFrontlineProcessMaterial> frozenMaterials = archivedFormalSource
                     ? processMaterialService.listArchivedFrozenMaterials(activeOrderId, activeOrder.getRouteId(),
                     process.getRouteProcessId(), process.getProcessId())
                     : processMaterialService.listFrozenMaterials(activeOrderId, activeOrder.getRouteId(),
                     process.getRouteProcessId(), process.getProcessId());
+            materialsByProcess.put(entry.getKey(), frozenMaterials);
+            frozenMaterials.stream()
+                    .filter(material -> MesFrontlineProcessMaterial.ROLE_OUTPUT.equals(material.materialRole()))
+                    .map(MesFrontlineProcessMaterial::materialId)
+                    .forEach(routeOutputMaterialIds::add);
+        }
+        for (var entry : accumulators.entrySet()) {
             List<MesTeamLeaderActiveOrderDetail.InputMaterialDetail> inputMaterials =
-                    frozenMaterials.stream()
+                    materialsByProcess.get(entry.getKey()).stream()
                             .filter(material -> MesFrontlineProcessMaterial.ROLE_INPUT.equals(material.materialRole()))
-                            .map(material -> toCompletedInputMaterialDetail(material, resolvedInputSourceSnapshot))
+                            .map(material -> routeOutputMaterialIds.contains(material.materialId())
+                                    ? toInputMaterialDetail(material)
+                                    : toCompletedInputMaterialDetail(material, inputSourceSnapshot))
                             .toList();
-            accumulator.setInputMaterials(inputMaterials);
+            entry.getValue().setInputMaterials(inputMaterials);
         }
     }
 
@@ -786,7 +797,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .collect(Collectors.toMap(ErpKingdeeProductionPickListDO::getId, Function.identity(),
                         (left, right) -> left));
         if (headersById.size() != pickListIds.size()) {
-            throw invalidCompletedInput("领料单正式表头缺失：" + pickListIds);
+            throw invalidCompletedInput(activeOrderId, "领料单正式表头缺失：" + pickListIds);
         }
         List<ErpKingdeeProductionPickListItemDO> items = pickListItemMapper.selectListByPickListIds(pickListIds);
         Map<Long, List<String>> productionOrderNosByPickListId = items.stream()
@@ -827,7 +838,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 || !"BATCH_RECORD".equals(payload.getString("type"))
                 || trimToNull(backfill.getSourceSnapshotHash()) == null
                 || !Objects.equals(backfill.getSourceSnapshotHash(), payload.getString("sourceSnapshotHash"))) {
-            throw invalidCompletedInput("完工领料回填身份或状态不一致");
+            throw invalidCompletedInput(order.getId(), "完工领料回填身份或状态不一致");
         }
         JSONObject sources = JSON.parseObject(payload.getString("formalSourceSnapshot"));
         JSONObject orderBinding = sources == null ? null : sources.getJSONObject("activeOrderBinding");
@@ -835,9 +846,9 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 || !Objects.equals(order.getWorkOrderId(), orderBinding.getLong("workOrderId"))
                 || sources.getJSONArray("pickListBindings") == null
                 || sources.getJSONObject("pickListBindingItems") == null) {
-            throw invalidCompletedInput("完工领料回填缺少正式来源");
+            throw invalidCompletedInput(order.getId(), "完工领料回填缺少正式来源");
         }
-        return new FormalInputSourceSnapshot(sources, backfill.getSourceSnapshotHash());
+        return new FormalInputSourceSnapshot(order.getId(), sources, backfill.getSourceSnapshotHash());
     }
 
     private MesTeamLeaderActiveOrderDetail.InputMaterialDetail toCompletedInputMaterialDetail(
@@ -854,7 +865,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         for (Object rawHeader : sources.getJSONArray("pickListBindings")) {
             JSONObject header = (JSONObject) rawHeader;
             var rows = rowsByBinding.getJSONArray(header.getString("id"));
-            if (rows == null) throw invalidCompletedInput("完工领料回填缺少来源明细");
+            if (rows == null) throw invalidCompletedInput(inputSourceSnapshot.activeOrderId(), "完工领料回填缺少来源明细");
             for (Object rawItem : rows) {
                 JSONObject item = (JSONObject) rawItem;
                 if (!Objects.equals(material.materialCode(), trimToNull(item.getString("materialNumber")))) continue;
@@ -864,7 +875,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 BigDecimal itemActualQuantity = item.getBigDecimal("actualQuantity");
                 if (lot == null || billNo == null || pickId == null || itemId == null
                         || itemActualQuantity == null || !itemIds.add(itemId)) {
-                    throw invalidCompletedInput("完工输入物料批号或来源身份缺失、重复：" + material.materialCode());
+                    throw invalidCompletedInput(inputSourceSnapshot.activeOrderId(), "完工输入物料批号或来源身份缺失、重复：" + material.materialCode());
                 }
                 batches.add(lot);
                 pickIds.add(pickId);
@@ -874,7 +885,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 if (item.getBigDecimal("baseActualQuantity") != null) baseActual = baseActual.add(item.getBigDecimal("baseActualQuantity"));
             }
         }
-        if (batches.isEmpty()) throw invalidCompletedInput("完工领料回填未匹配输入物料：" + material.materialCode());
+        if (batches.isEmpty()) throw invalidCompletedInput(inputSourceSnapshot.activeOrderId(), "完工领料回填未匹配输入物料：" + material.materialCode());
         return detail.setBatchCodes(List.copyOf(batches)).setSourcePickListIds(List.copyOf(pickIds))
                 .setSourcePickListNos(List.copyOf(pickNos)).setSourcePickListItemIds(List.copyOf(itemIds))
                 .setRequestedQuantity(requested).setActualQuantity(actual).setBaseActualQuantity(baseActual)
@@ -890,27 +901,27 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         JSONArray headers = sources.getJSONArray("pickListBindings");
         JSONObject rowsByBinding = sources.getJSONObject("pickListBindingItems");
         if (headers == null || rowsByBinding == null) {
-            throw invalidCompletedInput("订单级输入物料来源缺少正式领料明细");
+            throw invalidCompletedInput(inputSourceSnapshot.activeOrderId(), "订单级输入物料来源缺少正式领料明细");
         }
         Map<String, InputMaterialUsageAccumulator> usagesByCode = new LinkedHashMap<>();
         for (Object rawHeader : headers) {
             if (!(rawHeader instanceof JSONObject header)) {
-                throw invalidCompletedInput("订单级输入物料来源表头结构无效");
+                throw invalidCompletedInput(inputSourceSnapshot.activeOrderId(), "订单级输入物料来源表头结构无效");
             }
             JSONArray rows = rowsByBinding.getJSONArray(header.getString("id"));
             if (rows == null) {
-                throw invalidCompletedInput("订单级输入物料来源缺少表体明细");
+                throw invalidCompletedInput(inputSourceSnapshot.activeOrderId(), "订单级输入物料来源缺少表体明细");
             }
             for (Object rawItem : rows) {
                 if (!(rawItem instanceof JSONObject item)) {
-                    throw invalidCompletedInput("订单级输入物料来源表体结构无效");
+                    throw invalidCompletedInput(inputSourceSnapshot.activeOrderId(), "订单级输入物料来源表体结构无效");
                 }
                 String materialCode = trimToNull(item.getString("materialNumber"));
                 if (materialCode == null) {
-                    throw invalidCompletedInput("订单级输入物料来源缺少物料编码");
+                    throw invalidCompletedInput(inputSourceSnapshot.activeOrderId(), "订单级输入物料来源缺少物料编码");
                 }
                 usagesByCode.computeIfAbsent(materialCode, InputMaterialUsageAccumulator::new)
-                        .add(header, item, inputSourceSnapshot.sourceSnapshotHash());
+                        .add(inputSourceSnapshot.activeOrderId(), header, item, inputSourceSnapshot.sourceSnapshotHash());
             }
         }
         return usagesByCode.values().stream()
@@ -918,36 +929,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .toList();
     }
 
-    private static RuntimeException invalidCompletedInput(String reason) {
-        return exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING, reason);
-    }
-
-    private void attachSupplementMaterials(String workOrderCode, Long workOrderId, Long activeOrderId,
-                                           Map<ProcessIdentity, ProcessAccumulator> accumulators) {
-        List<ErpKingdeeProductionReplenishmentListItemDO> items = replenishmentListItemMapper
-                .selectListByProductionOrderNo(workOrderCode);
-        if (items == null || items.isEmpty()) {
-            return;
-        }
-        Map<Long, ErpKingdeeProductionReplenishmentListDO> headersById = loadReplenishmentHeaders(workOrderId, activeOrderId, items);
-        Map<String, MesMdItemDO> materialByCode = loadMaterialByCode(activeOrderId, items);
-        var explicitBindings = replenishmentBindings.read(activeOrderId);
-        for (ProcessAccumulator accumulator : accumulators.values()) {
-            Set<String> inputMaterialCodes = accumulator.inputMaterials.stream()
-                    .map(MesTeamLeaderActiveOrderDetail.InputMaterialDetail::getMaterialCode)
-                    .map(MesTeamLeaderActiveOrderDetailServiceImpl::trimToNull)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
-            var matchedItems = items.stream().filter(item -> {
-                var binding = explicitBindings.get(item.getId());
-                return binding != null
-                        ? Objects.equals(binding.routeProcessId(), accumulator.process.getRouteProcessId())
-                        : inputMaterialCodes.contains(trimToNull(item.getMaterialNumber()));
-            }).toList();
-            List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail> matched = groupSupplementMaterials(
-                    activeOrderId, matchedItems, headersById, materialByCode).values().stream().flatMap(List::stream).toList();
-            accumulator.setSupplementMaterials(matched);
-        }
+    private static RuntimeException invalidCompletedInput(Long activeOrderId, String reason) {
+        return exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING, activeOrderId, reason);
     }
 
     private Map<Long, ErpKingdeeProductionReplenishmentListDO> loadReplenishmentHeaders(
@@ -1495,7 +1478,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     private record ProcessIdentity(Long routeProcessId, Long processId) {
     }
 
-    private record FormalInputSourceSnapshot(JSONObject sources, String sourceSnapshotHash) {
+    private record FormalInputSourceSnapshot(Long activeOrderId, JSONObject sources, String sourceSnapshotHash) {
     }
 
     private record PqcSubmissionIdentity(ProcessIdentity processIdentity, Long qaProcessId, String qaItemCode,
@@ -1583,7 +1566,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             this.materialCode = materialCode;
         }
 
-        private void add(JSONObject header, JSONObject item, String sourceSnapshotHash) {
+        private void add(Long activeOrderId, JSONObject header, JSONObject item, String sourceSnapshotHash) {
             String lotNumber = trimToNull(item.getString("lotNumber"));
             String sourceBillNo = trimToNull(header.getString("sourceBillNo"));
             Long pickListId = header.getLong("pickListId");
@@ -1591,10 +1574,10 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             BigDecimal actualQuantity = item.getBigDecimal("actualQuantity");
             if (lotNumber == null || sourceBillNo == null || pickListId == null
                     || pickListItemId == null || actualQuantity == null) {
-                throw invalidCompletedInput("订单级输入物料来源缺少批号、来源身份或实发数量：" + materialCode);
+                throw invalidCompletedInput(activeOrderId, "订单级输入物料来源缺少批号、来源身份或实发数量：" + materialCode);
             }
             if (!pickListItemIds.add(pickListItemId)) {
-                throw invalidCompletedInput("订单级输入物料来源重复：" + materialCode);
+                throw invalidCompletedInput(activeOrderId, "订单级输入物料来源重复：" + materialCode);
             }
             batchCodes.add(lotNumber);
             pickListIds.add(pickListId);
@@ -1608,7 +1591,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             if (this.sourceSnapshotHash == null) {
                 this.sourceSnapshotHash = sourceSnapshotHash;
             } else if (!Objects.equals(this.sourceSnapshotHash, sourceSnapshotHash)) {
-                throw invalidCompletedInput("订单级输入物料来源快照不一致：" + materialCode);
+                throw invalidCompletedInput(activeOrderId, "订单级输入物料来源快照不一致：" + materialCode);
             }
             BigDecimal itemRequestedQuantity = zeroIfNull(item.getBigDecimal("requestedQuantity"));
             BigDecimal itemBaseActualQuantity = zeroIfNull(item.getBigDecimal("baseActualQuantity"));

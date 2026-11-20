@@ -53,6 +53,8 @@ public class MesProRouteVersionLifecycleServiceImpl implements MesProRouteVersio
     private MesProRouteSnapshotCanonicalizer routeSnapshotCanonicalizer;
     @Resource
     private MesProRouteControlledContentAdapter platformAdapter;
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<MesProRouteTreeService> routeTrees;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -81,7 +83,10 @@ public class MesProRouteVersionLifecycleServiceImpl implements MesProRouteVersio
                 || !MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(candidate.getRouteSnapshotJson())) {
             throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidate.getId());
         }
-        MesProRouteVersionSnapshotValidator.requireProductionLeaderAssignments(candidate.getRouteSnapshotJson());
+        // 目录模板不承担生产执行；实际流程仍须绑定负责该流程的生产组长。
+        if (!routeTrees.getObject().isGroup(candidate.getRouteId())) {
+            MesProRouteVersionSnapshotValidator.requireProductionLeaderAssignments(candidate.getRouteSnapshotJson());
+        }
         deviceIdentitySnapshots.require(candidate.getId(), MesProRouteDeviceIdentitySnapshotService.deviceIds(candidate));
         if (craftService.onRouteReady(candidate, publisherId)) {
             return routeVersionMapper.selectById(candidate.getId());

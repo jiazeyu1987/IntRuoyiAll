@@ -96,7 +96,14 @@
             prop="name"
             :width="getWorkstationColumnWidthString('name', 170)"
             v-bind="sortColumnAttrs('name')"
-          />
+          >
+            <template #default="scope">
+              <div>{{ scope.row.name }}</div>
+              <el-tag v-if="isWorkstationShiftHoursMissing(scope.row)" type="warning" size="small">
+                班次小时未配置
+              </el-tag>
+            </template>
+          </el-table-column>
           <el-table-column
             v-if="isWorkstationColumnVisible('address')"
             label="工作站地点"
@@ -198,7 +205,7 @@
             v-bind="sortColumnAttrs('shiftHours')"
           >
             <template #default="scope">
-              {{ scope.row.shiftHours ?? '-' }}
+              {{ isWorkstationShiftHoursMissing(scope.row) ? '未配置' : scope.row.shiftHours }}
             </template>
           </el-table-column>
           <el-table-column
@@ -210,7 +217,7 @@
             v-bind="sortColumnAttrs('todayCapacity')"
           >
             <template #default="scope">
-              {{ formatWorkstationIntegerCapacity(scope.row.todayCapacity) }}
+              {{ formatWorkstationIntegerCapacity(scope.row.todayCapacity, '未计算') }}
             </template>
           </el-table-column>
           <el-table-column
@@ -423,6 +430,9 @@ const formatWorkstationIntegerCapacity = (value?: number | string | null, emptyT
   }
   return Math.round(parsed).toString()
 }
+
+const isWorkstationShiftHoursMissing = (row: MdWorkstationVO) =>
+  row.shiftHours == null || Number(row.shiftHours) <= 0
 
 const workstationQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
   { key: 'code', label: '工作站编码', type: 'text', placeholder: '请输入工作站编码' },
@@ -711,13 +721,13 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
     key: 'shiftHours',
     label: '班次小时',
     type: 'text',
-    getValue: (row) => [row.shiftHours ?? '-'].join(' ')
+    getValue: (row) => [isWorkstationShiftHoursMissing(row) ? '未配置' : row.shiftHours].join(' ')
   },
   {
     key: 'todayCapacity',
     label: '班次产能',
     type: 'text',
-    getValue: (row) => [formatWorkstationIntegerCapacity(row.todayCapacity)].join(' ')
+    getValue: (row) => [formatWorkstationIntegerCapacity(row.todayCapacity, '未计算')].join(' ')
   },
   {
     key: 'status',

@@ -1,5 +1,5 @@
 <template>
-  <WorkflowInteractionLog :save-error="workflowLogSaveError" :saving="workflowLogSaving" />
+  <WorkflowInteractionLog v-if="isPqcMode" :save-error="workflowLogSaveError" :saving="workflowLogSaving" />
   <el-alert v-if="quantityDraftId && !isPqcMode" type="warning" :closable="false" :title="quantityDraftMessage" data-production-quantity-blocked />
   <section
     ref="frontlinePanelRef"
@@ -650,12 +650,9 @@
                 data-frontline-production-order-code
                 data-frontline-production-active-order-summary
               >
-                <span class="frontline-production-order-summary__code">
-                  订单号：{{ productionOrderLabel }}
+                <span class="frontline-production-order-summary__code" title="订单号/批次号">
+                  {{ productionOrderLabel }}<template v-if="selectedActiveOrder"> / <span data-frontline-production-batch-code>{{ selectedActiveOrder.batchCode || '-' }}</span></template>
                 </span><br />
-                <span v-if="selectedActiveOrder" class="frontline-production-order-summary__batch" data-frontline-production-batch-code>
-                  批次号：{{ selectedActiveOrder.batchCode || '批次号缺失' }}
-                </span>
                 <span class="frontline-production-order-summary__product">
                   {{ productionProductNameLabel }}
                 </span>

@@ -156,7 +156,7 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         assertEquals(101L, receiptCaptor.getValue().getBatchRecordId());
         assertEquals(102L, receiptCaptor.getValue().getProcessInspectionId());
         verify(processInspectionAggregationService).aggregateApprovedPqcSubmissionsForActiveOrder(10L);
-        verify(activeOrderTransferTraceService).recordProductIssueInventoryTracesForActiveOrder(order);
+        verify(activeOrderTransferTraceService).recordFormalPickListTracesForActiveOrder(order);
         verify(gxpAuditService).acquireLedgerLock();
         ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
         verify(gxpAuditService, org.mockito.Mockito.times(2)).append(auditCaptor.capture());
@@ -246,7 +246,7 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         assertThrows(RuntimeException.class, () -> service.complete(20L, command()));
 
         verify(backfillPort).write(any(), anyLong());
-        verify(activeOrderTransferTraceService, never()).recordProductIssueInventoryTracesForActiveOrder(any());
+        verify(activeOrderTransferTraceService, never()).recordFormalPickListTracesForActiveOrder(any());
         verify(activeOrderMapper, never()).markCompleted(anyLong(), any(), anyLong());
         verify(receiptMapper, never()).insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class));
     }

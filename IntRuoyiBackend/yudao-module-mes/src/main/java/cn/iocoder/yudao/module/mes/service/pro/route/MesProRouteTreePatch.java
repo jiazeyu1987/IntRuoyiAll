@@ -52,6 +52,7 @@ public final class MesProRouteTreePatch {
         JSONObject oldConfigs = normalized(before.getJSONObject("configSnapshots"), beforeIds);
         JSONObject newConfigs = normalized(after.getJSONObject("configSnapshots"), afterIds);
         JSONObject local = normalized(target.getJSONObject("configSnapshots"), targetIds);
+        applyLossReasonsByProcessName(oldConfigs, newConfigs, local);
         List<Long> oldOrder = order(before), newOrder = order(after), childOrder = order(target);
         // 工序删除覆盖该工序自身修改；其余个性化节点保留。
         Set<Long> removed = new HashSet<>(oldOrder); removed.removeAll(newOrder);
@@ -127,6 +128,52 @@ public final class MesProRouteTreePatch {
         ensureCandidateReferences(result);
         result.getJSONObject("configSnapshots").remove("craftChangeId");
         return result;
+    }
+
+    /** 损耗原因统一按目录中明确的工序名称同步绑定；不使用跨流程的工序库 ID。
+     * 仅处理已有工序的原因变更，新建/删除工序仍由结构变更处理。
+     */
+    private static void applyLossReasonsByProcessName(JSONObject before, JSONObject after, JSONObject target) {
+        JSONArray oldRows = before.getJSONArray("productionProcessConfigs");
+        JSONArray newRows = after.getJSONArray("productionProcessConfigs");
+        JSONArray childRows = target.getJSONArray("productionProcessConfigs");
+        if (oldRows == null || newRows == null) return;
+        Map<String, Object> oldByReference = index(oldRows, "routeProcessId");
+        for (JSONObject next : newRows.toJavaList(JSONObject.class)) {
+            JSONObject old = (JSONObject) oldByReference.get(next.getString("routeProcessId"));
+            if (old == null) continue;
+            Object oldReasons = old.get("lossReasons"), newReasons = next.get("lossReasons");
+            if (!sameBusinessValue(oldReasons, newReasons, "lossReasons")) {
+                String name = next.getString("processName");
+                if (name == null || name.isBlank()) throw invalid("损耗原因同步缺少工序名称");
+                if (newRows.toJavaList(JSONObject.class).stream()
+                        .filter(row -> name.equals(row.getString("processName"))).count() != 1)
+                    throw invalid("目录存在同名工序，无法同步损耗原因：" + name);
+                List<JSONObject> matches = childRows == null ? List.of() : childRows.toJavaList(JSONObject.class)
+                        .stream().filter(row -> name.equals(row.getString("processName"))).toList();
+                if (matches.size() != 1)
+                    throw invalid("下属流程必须存在唯一同名工序才能同步损耗原因：" + name);
+                if (!(newReasons instanceof JSONArray)) throw invalid("损耗原因配置必须为列表：" + name);
+                JSONArray reasons = matches.get(0).getJSONArray("lossReasons");
+                if (reasons == null) throw invalid("下属工序损耗原因列表缺失：" + name);
+                Map<String, Object> incoming = index((JSONArray) newReasons, "id");
+                if (oldReasons instanceof JSONArray previous) {
+                    for (JSONObject reason : previous.toJavaList(JSONObject.class))
+                        if (!Objects.equals(reason, incoming.get(reason.getString("id"))))
+                            throw invalid("工序已关联的损耗原因禁止修改或解除关联");
+                }
+                Map<String, Object> existing = index(reasons, "id");
+                for (Map.Entry<String, Object> reason : incoming.entrySet()) {
+                    Object bound = existing.get(reason.getKey());
+                    if (bound != null && !Objects.equals(bound, reason.getValue()))
+                        throw invalid("下属工序已有损耗原因内容冲突：" + name);
+                    if (bound == null) reasons.add(cloneValue(reason.getValue()));
+                }
+            }
+            // 原因已按独立业务规则同步；通用差异仍严格按工序 ID 处理其他配置。
+            old.remove("lossReasons");
+            next.remove("lossReasons");
+        }
     }
 
     private static Object patch(Object before, Object after, Object child, String path) {

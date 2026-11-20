@@ -60,6 +60,18 @@ public class MesMdWorkstationCapacityServiceImpl implements MesMdWorkstationCapa
         return buildCapacityMetrics(workstations, MesMdWorkstationDO::getShiftHours);
     }
 
+    @Override
+    public Map<Long, MesMdWorkstationCapacityMetrics> getCapacityMetricsForList(
+            Collection<MesMdWorkstationDO> workstations) {
+        if (CollUtil.isEmpty(workstations)) {
+            return Collections.emptyMap();
+        }
+        return buildCapacityMetrics(workstations, workstation -> {
+            BigDecimal hours = workstation.getShiftHours();
+            return hours != null && hours.signum() > 0 ? hours : null;
+        });
+    }
+
     private Map<Long, MesMdWorkstationCapacityMetrics> buildCapacityMetrics(
             Collection<MesMdWorkstationDO> workstations,
             Function<MesMdWorkstationDO, BigDecimal> effectiveHoursResolver) {
@@ -113,7 +125,10 @@ public class MesMdWorkstationCapacityServiceImpl implements MesMdWorkstationCapa
 
             BigDecimal effectiveHours = effectiveHoursResolver.apply(workstation);
             BigDecimal todayCapacity;
-            if (CollUtil.isNotEmpty(machines)) {
+            if (effectiveHours == null) {
+                // 列表明确保留“未计算”，禁止以零或默认工时补齐缺失配置。
+                todayCapacity = null;
+            } else if (CollUtil.isNotEmpty(machines)) {
                 todayCapacity = machineryStandardHourlyCapacity.multiply(effectiveHours);
             } else if (workstation.getSingleStandardHourlyCapacity() != null) {
                 todayCapacity = workstation.getSingleStandardHourlyCapacity().multiply(effectiveHours);

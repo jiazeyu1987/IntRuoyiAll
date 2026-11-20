@@ -33,7 +33,11 @@ class ErpDataRolePermissionTest extends BaseMockitoUnitTest {
         var unrelated=new MenuDO().setId(10L).setParentId(0L).setStatus(0).setPermission("mes:pro-feedback:query");
         when(roles.getRoleListFromCache(ids)).thenAnswer(i -> new ArrayList<>(List.of(new RoleDO().setId(1L).setCode(code).setStatus(0))));
         when(roles.hasAnySuperAdmin(ids)).thenReturn(code.equals("super_admin"));
-        when(menus.getMenuList()).thenReturn(List.of(product,query,unrelated));
+        if (code.equals("tenant_admin")) {
+            when(menus.getMenuListByTenant(any())).thenReturn(List.of(product,query,unrelated));
+        } else {
+            when(menus.getMenuList()).thenReturn(List.of(product,query,unrelated));
+        }
         when(grants.selectListByRoleId(ids)).thenReturn(List.of(new RoleMenuDO().setRoleId(1L).setMenuId(2565L),new RoleMenuDO().setRoleId(1L).setMenuId(2566L)));
         when(menus.getMenuIdListByPermissionFromCache("erp:product:query")).thenReturn(List.of(2566L));
         Set<Long> result=service.getRoleMenuListByRoleId(ids);

@@ -401,6 +401,114 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     }
 
     @Test
+    void completedDetailReportsOrderAndMissingMaterialWithoutBypassingSourceValidation() {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("ACTIVE").build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5001L, 6001L, "粗洗", "100", null, null, null, null, null)));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of(
+                new MesFrontlineProcessMaterial(3101L, "A006.011.2003", "物料A", "S1", "INPUT", null,
+                        List.of(), null, null, null, List.of(), List.of(), List.of(), null)));
+        String seed = """
+                {"activeOrderBinding":{"id":8101,"workOrderId":9001},
+                 "pickListBindings":[{"id":11,"pickListId":21,"sourceBillNo":"LL-21"},
+                                     {"id":12,"pickListId":22,"sourceBillNo":"LL-22"}],
+                 "pickListBindingItems":{"11":[{"pickListItemId":31,"materialNumber":"MAT-A","lotNumber":"LOT-A","requestedQuantity":6,"actualQuantity":5,"baseActualQuantity":5}],
+                                         "12":[{"pickListItemId":32,"materialNumber":"MAT-A","lotNumber":"LOT-B","requestedQuantity":4,"actualQuantity":4,"baseActualQuantity":4}]}}
+                """;
+        var backfill = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillDO.builder()
+                .id(71L).activeOrderId(8101L).workOrderId(9001L).backfillType("BATCH_RECORD").status("SUCCESS")
+                .sourceSnapshotHash("completion-hash")
+                .payloadJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(java.util.Map.of(
+                        "type", "BATCH_RECORD", "status", "SUCCESS", "sourceSnapshotHash", "completion-hash",
+                        "formalSourceSnapshot", seed))).build();
+        lenient().when(backfillMapper.selectByActiveOrderAndType(8101L, "BATCH_RECORD")).thenReturn(backfill);
+
+        var error = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.getDetail(3001L, 8101L));
+        assertEquals("活跃订单完成缺少正式三类回填来源：activeOrderId=8101，blocker=完工领料回填未匹配输入物料：A006.011.2003",
+                error.getMessage());
+    }
+
+    @Test
+    void completedDetailAcceptsFrozenRouteOutputAsInputWithoutInventingPickEvidence() {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("ACTIVE").build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5002L, 6002L, "粗洗", "100", null, null, null, null, null),
+                row(9102L, 5001L, 6001L, "组装", "100", null, null, null, null, null)));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of(
+                new MesFrontlineProcessMaterial(3101L, "A006.011.2003", "物料A", "S1", "INPUT", null,
+                        List.of(), null, null, null, List.of(), List.of(), List.of(), null)));
+        String seed = """
+                {"activeOrderBinding":{"id":8101,"workOrderId":9001},
+                 "pickListBindings":[{"id":11,"pickListId":21,"sourceBillNo":"LL-21"},
+                                     {"id":12,"pickListId":22,"sourceBillNo":"LL-22"}],
+                 "pickListBindingItems":{"11":[{"pickListItemId":31,"materialNumber":"MAT-A","lotNumber":"LOT-A","requestedQuantity":6,"actualQuantity":5,"baseActualQuantity":5}],
+                                         "12":[{"pickListItemId":32,"materialNumber":"MAT-A","lotNumber":"LOT-B","requestedQuantity":4,"actualQuantity":4,"baseActualQuantity":4}]}}
+                """;
+        var backfill = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillDO.builder()
+                .id(71L).activeOrderId(8101L).workOrderId(9001L).backfillType("BATCH_RECORD").status("SUCCESS")
+                .sourceSnapshotHash("completion-hash")
+                .payloadJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(java.util.Map.of(
+                        "type", "BATCH_RECORD", "status", "SUCCESS", "sourceSnapshotHash", "completion-hash",
+                        "formalSourceSnapshot", seed))).build();
+        lenient().when(backfillMapper.selectByActiveOrderAndType(8101L, "BATCH_RECORD")).thenReturn(backfill);
+
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5002L, 6002L)).thenReturn(List.of(
+                new MesFrontlineProcessMaterial(3101L, "A006.011.2003", "三通旋塞-Ⅰ", "S1", "OUTPUT", null,
+                        List.of(), null, null, null, List.of(), List.of(), List.of(), null)));
+        var detail = service.getDetail(3001L, 8101L);
+        var material = detail.getProcesses().get(1).getInputMaterials().get(0);
+        assertEquals("A006.011.2003", material.getMaterialCode());
+        assertEquals(List.of(), material.getSourcePickListIds());
+        assertEquals(List.of(), material.getBatchCodes());
+        assertNull(material.getActualQuantity());
+        assertNull(material.getSourceSnapshotHash());
+        assertEquals("MAT-A", detail.getInputMaterialUsages().get(0).getMaterialCode());
+        assertEquals(List.of("LOT-A", "LOT-B"), detail.getInputMaterialUsages().get(0).getBatchCodes());
+    }
+
+    @Test
+    void archivedReleaseDetailAcceptsFrozenRouteOutputAsInputWithoutInventingPickEvidence() {
+        when(activeOrderMapper.selectByIdIgnoreDeleted(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("ACTIVE").build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5002L, 6002L, "粗洗", "100", null, null, null, null, null),
+                row(9102L, 5001L, 6001L, "组装", "100", null, null, null, null, null)));
+        when(processMaterialService.listArchivedFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of(
+                new MesFrontlineProcessMaterial(3101L, "A006.011.2003", "物料A", "S1", "INPUT", null,
+                        List.of(), null, null, null, List.of(), List.of(), List.of(), null)));
+        String seed = """
+                {"activeOrderBinding":{"id":8101,"workOrderId":9001},
+                 "pickListBindings":[{"id":11,"pickListId":21,"sourceBillNo":"LL-21"},
+                                     {"id":12,"pickListId":22,"sourceBillNo":"LL-22"}],
+                 "pickListBindingItems":{"11":[{"pickListItemId":31,"materialNumber":"MAT-A","lotNumber":"LOT-A","requestedQuantity":6,"actualQuantity":5,"baseActualQuantity":5}],
+                                         "12":[{"pickListItemId":32,"materialNumber":"MAT-A","lotNumber":"LOT-B","requestedQuantity":4,"actualQuantity":4,"baseActualQuantity":4}]}}
+                """;
+        var backfill = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillDO.builder()
+                .id(71L).activeOrderId(8101L).workOrderId(9001L).backfillType("BATCH_RECORD").status("SUCCESS")
+                .sourceSnapshotHash("completion-hash")
+                .payloadJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(java.util.Map.of(
+                        "type", "BATCH_RECORD", "status", "SUCCESS", "sourceSnapshotHash", "completion-hash",
+                        "formalSourceSnapshot", seed))).build();
+        lenient().when(backfillMapper.selectByActiveOrderAndType(8101L, "BATCH_RECORD")).thenReturn(backfill);
+
+        when(processMaterialService.listArchivedFrozenMaterials(8101L, 9201L, 5002L, 6002L)).thenReturn(List.of(
+                new MesFrontlineProcessMaterial(3101L, "A006.011.2003", "三通旋塞-Ⅰ", "S1", "OUTPUT", null,
+                        List.of(), null, null, null, List.of(), List.of(), List.of(), null)));
+        var detail = service.getArchivedFormalDetail(8101L);
+        var material = detail.getProcesses().get(1).getInputMaterials().get(0);
+        assertEquals("A006.011.2003", material.getMaterialCode());
+        assertEquals(List.of(), material.getSourcePickListIds());
+        assertEquals(List.of(), material.getBatchCodes());
+        assertNull(material.getActualQuantity());
+        assertNull(material.getSourceSnapshotHash());
+        assertEquals("MAT-A", detail.getInputMaterialUsages().get(0).getMaterialCode());
+        assertEquals(List.of("LOT-A", "LOT-B"), detail.getInputMaterialUsages().get(0).getBatchCodes());
+    }
+
+    @Test
     void activeDetailDoesNotReadPickListBatchesBeforeCompletionBackfill() {
         when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
                 .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("ACTIVE").build());

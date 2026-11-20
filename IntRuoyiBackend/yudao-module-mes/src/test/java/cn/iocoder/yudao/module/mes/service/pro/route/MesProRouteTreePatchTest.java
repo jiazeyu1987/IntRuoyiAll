@@ -6,6 +6,34 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MesProRouteTreePatchTest {
+    @Test void lossReasonsSynchronizeSameNamedProcessAcrossIndependentProcessIds() {
+        JSONObject before = route(10, 1), after = copy(before), child = route(20, 2, 3);
+        config(before, 1).put("processName", "检测工序");
+        config(after, 1).put("processName", "检测工序");
+        config(child, 2).put("processName", "检测工序");
+        config(child, 3).put("processName", "包装工序");
+        config(before, 1).put("lossReasons", JSON.parseArray("[{id:1,reasonCode:'A',reasonName:'旧原因'}]"));
+        config(after, 1).put("lossReasons", JSON.parseArray("[{id:1,reasonCode:'A',reasonName:'旧原因'},{id:2,reasonCode:'B',reasonName:'新原因'}]"));
+        config(child, 2).put("lossReasons", JSON.parseArray("[{id:3,reasonCode:'C',reasonName:'子流程原因'}]"));
+        JSONObject original = copy(child);
+        JSONObject result = MesProRouteTreePatch.apply(before, after, child);
+        JSONArray expected = JSON.parseArray("[{id:3,reasonCode:'C',reasonName:'子流程原因'},{id:1,reasonCode:'A',reasonName:'旧原因'},{id:2,reasonCode:'B',reasonName:'新原因'}]");
+        assertEquals(expected, config(result, 2).get("lossReasons"));
+        config(original, 2).put("lossReasons", expected);
+        assertEquals(copy(original), copy(result), "仅同步目标工序原因，保留子流程身份、顺序和其他配置");
+        assertEquals("C", config(child, 2).getJSONArray("lossReasons").getJSONObject(0).getString("reasonCode"));
+        JSONObject cleared = copy(after); config(cleared, 1).put("lossReasons", new JSONArray());
+        assertThrows(RuntimeException.class, () -> MesProRouteTreePatch.apply(after, cleared, result));
+    }
+    @Test void lossReasonSyncRejectsMissingOrAmbiguousNames() {
+        JSONObject before = route(10, 1), after = copy(before), child = route(20, 2, 3);
+        config(before, 1).put("processName", "检测工序");
+        config(after, 1).put("processName", "检测工序");
+        config(after, 1).put("lossReasons", JSON.parseArray("[{id:2,reasonCode:'B'}]"));
+        assertThrows(RuntimeException.class, () -> MesProRouteTreePatch.apply(before, after, child));
+        config(child, 2).put("processName", "检测工序"); config(child, 3).put("processName", "检测工序");
+        assertThrows(RuntimeException.class, () -> MesProRouteTreePatch.apply(before, after, child));
+    }
     @Test void parentFieldOverridesChildAgainButPreservesOtherFields() {
         JSONObject parent = route(10, 1, 2), changed = copy(parent), child = route(20, 1, 2);
         config(child, 1).put("overagePercent", 9);

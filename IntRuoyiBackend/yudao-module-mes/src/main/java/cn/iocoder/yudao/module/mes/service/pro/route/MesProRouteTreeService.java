@@ -90,6 +90,9 @@ public class MesProRouteTreeService {
         Long sourceId = parentId == null || groupTemplate(parentId) == null ? sourceRouteId : parentId;
         if (sourceId == null) throw invalid("请选择分组的初始工艺模板");
         JSONObject source = snapshot(active(sourceId));
+        if (!MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(source.toJSONString())) {
+            throw invalid("初始工艺模板快照不完整，请先完成源流程生产配置迁移并发布后再创建目录");
+        }
         MesProRouteDO group = MesProRouteDO.builder().name(name.trim())
                 .code("GROUP-" + UUID.randomUUID().toString().replace("-", ""))
                 .parentId(parentId).nodeType("GROUP").status(1).build();
@@ -118,6 +121,9 @@ public class MesProRouteTreeService {
     private void finishInitialVersion(MesProRouteVersionDO version) {
         MesProRouteVersionPublishProjectionServiceImpl.ProjectionResult result = projection.projectCandidate(version);
         MesProRouteVersionSnapshotIdentityWriter.apply(version, result.rewrittenSnapshotJson());
+        if (!MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(version.getRouteSnapshotJson())) {
+            throw invalid("目录初始工艺快照不完整，创建失败");
+        }
         if (versions.updateById(version) != 1) throw invalid("初始配置保存失败");
         devices.captureCreated(version);
         platform.recordActiveRegisteredIfMissing(version, SecurityFrameworkUtils.getLoginUserId(), "树形工艺模板初始化");

@@ -43,6 +43,15 @@ class MesProRouteVersionBusinessApprovalSubmitServiceTest {
     private MesProRouteVersionWorkflowService workflowService;
     @Mock
     private BusinessApprovalOrchestrator businessApprovalOrchestrator;
+    @Mock
+    private org.springframework.beans.factory.ObjectProvider<MesProRouteTreeService> routeTrees;
+    @Mock
+    private MesProRouteTreeService routeTreeService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        when(routeTrees.getObject()).thenReturn(routeTreeService);
+    }
 
     @AfterEach
     void tearDown() {

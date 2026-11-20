@@ -252,7 +252,13 @@
 }
 
 .frontline-production-selection-card[data-frontline-production-active-order-card] {
-  padding: 14px 22px;
+  padding: 8px 22px;
+
+  .frontline-production-order-summary {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+  }
 }
 
 .frontline-production-employee-card {
@@ -341,6 +347,11 @@
   .frontline-production-order-summary__code {
     font-size: 16px;
     font-weight: 400;
+
+    > [data-frontline-production-batch-code] {
+      color: inherit;
+      font: inherit;
+    }
   }
 
   .frontline-production-order-summary__batch {

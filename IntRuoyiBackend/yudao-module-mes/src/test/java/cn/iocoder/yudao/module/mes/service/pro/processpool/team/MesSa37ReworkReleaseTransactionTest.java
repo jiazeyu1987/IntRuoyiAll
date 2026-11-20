@@ -134,6 +134,7 @@ class MesSa37ReworkReleaseTransactionTest {
         });
         backfill=new MesTeamLeaderActiveOrderCompletionBackfillPortImpl(snapshots,allocations,completions,tasks,details,
                 workOrders,loss,backfills,bindings,bindingItems,events,reviews);
+        org.springframework.test.util.ReflectionTestUtils.setField(backfill, "replenishmentQuery", org.mockito.Mockito.mock(MesActiveOrderReplenishmentQueryService.class));
         var completion=new MesTeamLeaderActiveOrderCompletionServiceImpl(orders,receipts,progress,backfill,
                 mock(MesTeamLeaderActiveOrderPickListCompletionSourceService.class),mock(MesActiveOrderTransferTraceService.class),
                 mock(MesPqcProcessInspectionAggregationService.class));

@@ -28,9 +28,8 @@ class TenantAdminBusinessPermissionTest extends BaseMockitoUnitTest {
         MenuDO policy = new MenuDO().setId(605071300L)
                 .setPermission("bpm:business-approval-policy:query").setStatus(0);
         when(roleMenuMapper.selectListByRoleId(roleIds)).thenReturn(List.of());
-        when(menuService.getMenuList()).thenReturn(List.of(policy));
+        when(menuService.getMenuListByTenant(any())).thenReturn(List.of(policy));
         when(menuService.getMenuIdListByPermissionFromCache(policy.getPermission())).thenReturn(List.of(policy.getId()));
-        when(menuService.getMenuList(List.of(policy.getId()))).thenReturn(List.of(policy));
 
         assertTrue(service.getRoleMenuListByRoleId(roleIds).contains(policy.getId()));
         assertTrue(service.hasAnyPermissionsInRoles(roleIds, policy.getPermission()));
@@ -43,9 +42,8 @@ class TenantAdminBusinessPermissionTest extends BaseMockitoUnitTest {
         MenuDO business = new MenuDO().setId(10L).setPermission("mes:pro-feedback:query").setStatus(0);
         MenuDO platform = new MenuDO().setId(11L).setPermission("system:tenant:update").setStatus(0);
         when(roleMenuMapper.selectListByRoleId(roleIds)).thenReturn(List.of());
-        when(menuService.getMenuList()).thenReturn(List.of(business, platform));
+        when(menuService.getMenuListByTenant(any())).thenReturn(List.of(business, platform));
         when(menuService.getMenuIdListByPermissionFromCache("mes:pro-feedback:query")).thenReturn(List.of(10L));
-        when(menuService.getMenuList(List.of(10L))).thenReturn(List.of(business));
         assertEquals(Set.of(10L), service.getRoleMenuListByRoleId(roleIds));
         assertTrue(service.hasAnyPermissionsInRoles(roleIds, "mes:pro-feedback:query"));
         assertFalse(service.hasAnyPermissionsInRoles(roleIds, "mes:unknown:query"));

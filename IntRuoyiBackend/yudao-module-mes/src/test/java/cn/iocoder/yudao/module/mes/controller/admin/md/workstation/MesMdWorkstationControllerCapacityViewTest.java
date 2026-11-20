@@ -29,6 +29,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -84,20 +85,22 @@ class MesMdWorkstationControllerCapacityViewTest {
         MesMdWorkstationPageReqVO reqVO = new MesMdWorkstationPageReqVO();
 
         when(workstationService.getWorkstationPage(reqVO))
-                .thenReturn(new PageResult<>(List.of(workstation), 1L));
+                .thenReturn(new PageResult<>(List.of(workstation,
+                        MesMdWorkstationDO.builder().id(3L).code("WS-03").name("未配置工位").build()), 2L));
         when(workshopService.getWorkshopMap(any()))
                 .thenReturn(Map.of(11L, MesMdWorkshopDO.builder().id(11L).name("车间1").build()));
         when(productionLineService.getProductionLineMap(any()))
                 .thenReturn(Map.of());
         when(processService.getProcessMap(any()))
                 .thenReturn(Map.of(22L, MesProProcessDO.builder().id(22L).name("工序A").build()));
-        when(workstationCapacityService.getCapacityMetricsUsingShiftHours(any()))
+        when(workstationCapacityService.getCapacityMetricsForList(any()))
                 .thenReturn(Map.of(2L, MesMdWorkstationCapacityMetrics.builder()
                         .configuredWorkerCount(3)
                         .currentWorkerCount(2)
                         .machineryStandardHourlyCapacity(new BigDecimal("100"))
                         .todayCapacity(new BigDecimal("750"))
-                        .build()));
+                        .build(), 3L, MesMdWorkstationCapacityMetrics.builder()
+                        .configuredWorkerCount(1).currentWorkerCount(0).todayCapacity(null).build()));
         when(workstationMachineService.getWorkstationMachineListByWorkstationIds(any()))
                 .thenReturn(List.of(
                         MesMdWorkstationMachineDO.builder()
@@ -136,6 +139,12 @@ class MesMdWorkstationControllerCapacityViewTest {
         assertEquals("EQ-01 / 裁切机 ×2；EQ-02 / 封口机 ×1", vo.getMachinerySummary());
         assertEquals(0, vo.getMachineryStandardHourlyCapacity().compareTo(new BigDecimal("100")));
         assertEquals(0, vo.getTodayCapacity().compareTo(new BigDecimal("750")));
-        verify(workstationCapacityService).getCapacityMetricsUsingShiftHours(any());
+        assertEquals(2L, response.getData().getTotal());
+        MesMdWorkstationRespVO missing = response.getData().getList().get(1);
+        assertEquals("WS-03", missing.getCode());
+        assertNull(missing.getShiftHours());
+        assertNull(missing.getTodayCapacity());
+        assertEquals(1, missing.getConfiguredWorkerCount());
+        verify(workstationCapacityService).getCapacityMetricsForList(any());
     }
 }

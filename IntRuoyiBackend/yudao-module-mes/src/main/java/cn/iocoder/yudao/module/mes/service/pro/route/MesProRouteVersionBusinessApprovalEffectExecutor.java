@@ -12,6 +12,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.ObjectProvider;
+import cn.iocoder.yudao.module.mes.service.pro.craft.MesProBatchChangeApprovalExecutor;
 
 import java.time.LocalDateTime;
 
@@ -32,6 +34,8 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
     private MesProRouteVersionMapper routeVersionMapper;
     @Resource
     private MesProRouteControlledContentAdapter platformAdapter;
+    @Resource
+    private ObjectProvider<MesProBatchChangeApprovalExecutor> batchApproval;
 
     @Override
     public String getExecutorCode() {
@@ -46,6 +50,10 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
     public void precheck(BusinessApprovalContext context) {
         craftService.lockCatalog();
         requireRouteVersionPublishContext(context);
+        if (isTree(context)) {
+            batchApproval.getObject().precheck(batchApproval.getObject().treeContext(context));
+            return;
+        }
         craftService.assertEditable(requireVersionWithStatus(context, MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT));
     }
 
@@ -54,6 +62,8 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
                                                       BusinessApprovalRequest request) {
         craftService.lockCatalog();
         requireRouteVersionPublishContext(context);
+        if (isTree(context)) return batchApproval.getObject().executeDirect(
+                batchApproval.getObject().treeContext(context), request);
         MesProRouteVersionDO candidate = requireVersionWithStatus(context,
                 MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT);
         Long applicantUserId = requireActorUserId(context.getApplicantUserId(), "applicantUserId");
@@ -80,6 +90,8 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
                                                     BusinessApprovalRequest request) {
         craftService.lockCatalog();
         requireRouteVersionPublishContext(context);
+        if (isTree(context)) return batchApproval.getObject().markPending(
+                batchApproval.getObject().treeContext(context), request);
         MesProRouteVersionDO candidate = requireVersionWithStatus(context,
                 MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT);
         Long applicantUserId = requireActorUserId(context.getApplicantUserId(), "applicantUserId");
@@ -105,6 +117,8 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
                                                         Long actorUserId) {
         craftService.lockCatalog();
         requireRouteVersionPublishContext(context);
+        if (isTree(context)) return batchApproval.getObject().executeApproved(
+                batchApproval.getObject().treeContext(context), request, actorUserId);
         if (craftService.cancelledBatch(routeVersionMapper.selectById(parseRouteVersionId(context)))) {
             return BusinessApprovalEffectResult.cancelled(MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED);
         }
@@ -129,6 +143,8 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
                                                String reason) {
         craftService.lockCatalog();
         requireRouteVersionPublishContext(context);
+        if (isTree(context)) return batchApproval.getObject().reject(
+                batchApproval.getObject().treeContext(context), request, actorUserId, reason);
         if (craftService.cancelledBatch(routeVersionMapper.selectById(parseRouteVersionId(context)))) {
             return BusinessApprovalEffectResult.cancelled(MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED);
         }
@@ -157,6 +173,8 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
                                                String reason) {
         craftService.lockCatalog();
         requireRouteVersionPublishContext(context);
+        if (isTree(context)) return batchApproval.getObject().cancel(
+                batchApproval.getObject().treeContext(context), request, actorUserId, reason);
         if (craftService.cancelledBatch(routeVersionMapper.selectById(parseRouteVersionId(context)))) {
             return BusinessApprovalEffectResult.cancelled(MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED);
         }
@@ -169,6 +187,11 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
         return BusinessApprovalEffectResult.cancelled(craftService.cancelledBatch(candidate)
                 ? MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED
                 : MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT);
+    }
+
+    private boolean isTree(BusinessApprovalContext context) {
+        return context.getVariables() != null
+                && context.getVariables().containsKey(MesProBatchChangeApprovalExecutor.TREE_CHANGE_ID);
     }
 
     private void requireRouteVersionPublishContext(BusinessApprovalContext context) {

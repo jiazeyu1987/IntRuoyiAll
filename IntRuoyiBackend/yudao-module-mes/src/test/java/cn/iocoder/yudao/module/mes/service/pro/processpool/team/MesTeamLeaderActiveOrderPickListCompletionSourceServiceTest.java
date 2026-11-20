@@ -168,7 +168,7 @@ class MesTeamLeaderActiveOrderPickListCompletionSourceServiceTest {
     }
 
     @Test
-    void existingExtraBindingConflicts() {
+    void removedSourcePreservesEarlierFrozenBindingWithoutBlocking() {
         ErpKingdeeProductionPickListItemDO firstItem = item(101L, 1001L);
         when(pickListItemMapper.selectListByProductionOrderNo("MO-001")).thenReturn(List.of(firstItem));
         when(pickListMapper.selectById(101L)).thenReturn(header(101L));
@@ -177,8 +177,24 @@ class MesTeamLeaderActiveOrderPickListCompletionSourceServiceTest {
                         .snapshotHash(header(101L), List.of(firstItem)));
         when(bindingMapper.selectListByActiveOrderId(10L)).thenReturn(List.of(first, binding(999L).setId(8999L)));
 
-        assertThrows(ServiceException.class, () -> service.freezeAll(order(), 20L, "complete-1"));
+        when(bindingItemMapper.selectListByBindingId(8101L)).thenReturn(List.of(frozen(8101L, firstItem)));
+        assertEquals(2, service.freezeAll(order(), 20L, "complete-1").size());
         verify(bindingMapper, never()).insert(any(MesProcessPoolActiveOrderPickListBindingDO.class));
+    }
+
+    @Test
+    void modifiedErpDocumentKeepsOriginalFrozenEvidenceAndDoesNotBlockCompletion() {
+        var original = item(101L, 1001L).setActualQuantity(new BigDecimal("7"));
+        var current = item(101L, 1001L).setActualQuantity(new BigDecimal("8")).setLotNumber(null);
+        var originalHash = MesFormalProductionPickListSourceResolver.snapshotHash(header(101L), List.of(original));
+        var frozenBinding = binding(101L).setId(8101L).setSourceSnapshotHash(originalHash);
+        when(pickListItemMapper.selectListByProductionOrderNo("MO-001")).thenReturn(List.of(current));
+        when(pickListMapper.selectById(101L)).thenReturn(header(101L));
+        when(bindingMapper.selectListByActiveOrderId(10L)).thenReturn(List.of(frozenBinding));
+        var result = service.freezeAll(order(), 20L, "complete-1");
+        assertEquals(originalHash, result.get(0).getSourceSnapshotHash());
+        verify(bindingMapper, never()).insert(any(MesProcessPoolActiveOrderPickListBindingDO.class));
+        org.mockito.Mockito.verifyNoInteractions(bindingItemMapper);
     }
 
     private MesProcessPoolActiveOrderDO order() {
