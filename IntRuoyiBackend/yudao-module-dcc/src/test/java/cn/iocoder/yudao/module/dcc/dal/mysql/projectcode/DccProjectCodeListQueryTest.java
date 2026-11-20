@@ -61,7 +61,8 @@ class DccProjectCodeListQueryTest {
         try (var db = java.sql.DriverManager.getConnection("jdbc:h2:mem:formal_project_route;MODE=MySQL;DB_CLOSE_DELAY=-1")) {
             var statement = db.createStatement();
             for (String ddl : List.of(
-                    "CREATE TABLE dcc_project_code(id BIGINT,tenant_id BIGINT,deleted INT,status VARCHAR,library_scope VARCHAR,project_name VARCHAR,project_code VARCHAR,product_master_id BIGINT,doc_control_no VARCHAR)",
+                    "CREATE TABLE dcc_project_code(id BIGINT,tenant_id BIGINT,deleted INT,status VARCHAR,library_scope VARCHAR,project_name VARCHAR,project_code VARCHAR,product_master_id BIGINT,doc_control_no VARCHAR,"
+                            + "category VARCHAR,commissioned_production BOOLEAN,project_leader VARCHAR,project_leader_user_id BIGINT,default_attributes_json VARCHAR,project_engineer VARCHAR,storage_location VARCHAR,priority VARCHAR,last_import_batch_id BIGINT,batch_record_total_recognition_json VARCHAR,create_time TIMESTAMP,update_time TIMESTAMP,creator VARCHAR,updater VARCHAR)",
                     "CREATE TABLE mes_pro_route(id BIGINT,tenant_id BIGINT,deleted INT)",
                     "CREATE TABLE mes_pro_route_dcc_project_binding(id BIGINT,route_id BIGINT,dcc_project_code_id BIGINT,tenant_id BIGINT,deleted INT)",
                     "CREATE TABLE mes_pro_route_version(id BIGINT,route_id BIGINT,tenant_id BIGINT,deleted INT,active INT,lifecycle_status VARCHAR,version_no VARCHAR)",
@@ -76,7 +77,7 @@ class DccProjectCodeListQueryTest {
                     "CREATE TABLE dcc_registration_certificate_file(id BIGINT,tenant_id BIGINT,deleted INT,status VARCHAR,dcc_project_code_id BIGINT)")) {
                 statement.execute(ddl);
             }
-            statement.execute("INSERT INTO dcc_project_code VALUES (1,9,0,'ENABLE','PROJECT','数显压力泵','IDE',NULL,'1'),(2,9,0,'ENABLE','PROJECT','未绑定项目','NONE',NULL,'2')");
+            statement.execute("INSERT INTO dcc_project_code(id,tenant_id,deleted,status,library_scope,project_name,project_code,product_master_id,doc_control_no) VALUES (1,9,0,'ENABLE','PROJECT','数显压力泵','IDE',NULL,'1'),(2,9,0,'ENABLE','PROJECT','未绑定项目','NONE',NULL,'2')");
             statement.execute("INSERT INTO mes_pro_route VALUES (40,9,0),(41,9,0),(42,9,1)");
             // Deleted and foreign-tenant bindings must not configure the second project.
             statement.execute("INSERT INTO mes_pro_route_dcc_project_binding VALUES (1,40,1,9,0),(2,41,2,9,1),(3,41,2,10,0),(4,42,2,9,0)");

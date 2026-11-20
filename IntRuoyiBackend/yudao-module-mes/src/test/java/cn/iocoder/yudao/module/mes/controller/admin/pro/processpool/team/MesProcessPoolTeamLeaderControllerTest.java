@@ -922,8 +922,10 @@ class MesProcessPoolTeamLeaderControllerTest {
                 new String[]{"/production-execution/trace"}, "mes:pro-process-pool-team-leader:query");
         assertEndpoint("getActiveOrderTransferTrace", new Class[]{Long.class}, GetMapping.class,
                 new String[]{"/active-order/transfer-trace"}, "mes:pro-process-pool-team-leader:query");
-        assertEndpoint("getActiveOrderDetail", new Class[]{Long.class}, GetMapping.class,
-                new String[]{"/active-order/detail"}, "mes:pro-process-pool-team-leader:query");
+        Method detail = MesProcessPoolTeamLeaderController.class.getDeclaredMethod("getActiveOrderDetail", Long.class);
+        assertArrayEquals(new String[]{"/active-order/detail"}, detail.getAnnotation(GetMapping.class).value());
+        assertEquals("@ss.hasAnyPermissions('mes:pro-process-pool-team-leader:query', 'mes:pro-in-process-order:query')",
+                detail.getAnnotation(PreAuthorize.class).value());
         assertEndpoint("previewRebuildActiveOrder", new Class[]{Long.class}, GetMapping.class,
                 new String[]{"/active-order/rebuild/preview"}, "mes:pro-process-pool-team-leader:maintain");
         assertEndpoint("rebuildActiveOrder", new Class[]{MesTeamLeaderActiveOrderRebuildReqVO.class},

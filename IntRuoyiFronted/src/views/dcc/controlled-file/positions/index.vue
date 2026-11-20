@@ -54,7 +54,14 @@
         </el-form>
       </template>
       <template #actions>
-
+        <el-button type="success" plain :loading="exportLoading" @click="handleExport"
+          v-hasPermi="['dcc:controlled-file:position:manage']">
+          <Icon icon="ep:download" class="mr-5px" />导出配置包
+        </el-button>
+        <el-button type="warning" plain :loading="importLoading" @click="openImport"
+          v-hasPermi="['dcc:controlled-file:position:manage']">
+          <Icon icon="ep:upload" class="mr-5px" />导入配置包
+        </el-button>
         <el-button
           type="primary"
           plain
@@ -236,6 +243,7 @@
       <el-button @click="dialogVisible = false">取消</el-button>
     </template>
   </Dialog>
+  <input ref="importInputRef" accept=".json" class="hidden" type="file" @change="handleImportFileChange" />
 </template>
 
 <script lang="ts" setup>
@@ -244,9 +252,12 @@ import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
+import download from '@/utils/download'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import {
   createApprovalPosition,
+  exportApprovalPositionConfigPackage,
+  importApprovalPositionConfigPackage,
   getApprovalPositionList,
   saveApprovalPositionAssignments,
   type ControlledFileApprovalPositionCreateReqVO,
@@ -266,6 +277,9 @@ const UPLOADER_DERIVED_POSITION_NAMES = new Set(['编制人直接主管', '部�
 const AUTHORIZED_REPRESENTATIVE_POSITION_NAMES = new Set(['部门授权代表'])
 
 const loading = ref(false)
+const exportLoading = ref(false)
+const importLoading = ref(false)
+const importInputRef = ref<HTMLInputElement>()
 const createLoading = ref(false)
 const saveLoading = ref(false)
 const positions = ref<ControlledFileApprovalPositionVO[]>([])
@@ -504,6 +518,37 @@ const saveAssignments = async () => {
     await loadData()
   } finally {
     saveLoading.value = false
+  }
+}
+
+const handleExport = async () => {
+  exportLoading.value = true
+  try {
+    const data = await exportApprovalPositionConfigPackage()
+    download.json(data, '审批角色配置包.json')
+  } finally {
+    exportLoading.value = false
+  }
+}
+
+const openImport = () => {
+  importInputRef.value!.click()
+}
+
+const handleImportFileChange = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  importLoading.value = true
+  try {
+    const data = new FormData()
+    data.append('file', file)
+    await importApprovalPositionConfigPackage(data)
+    message.success('审批角色配置包导入成功')
+    await loadData()
+  } finally {
+    importLoading.value = false
   }
 }
 
