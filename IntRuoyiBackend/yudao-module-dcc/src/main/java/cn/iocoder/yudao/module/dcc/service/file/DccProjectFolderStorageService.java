@@ -10,27 +10,29 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.*;
 import java.util.Objects;
 import static cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributeErrors.*;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_TYPE_STORAGE_INVALID;
 @Service
 public class DccProjectFolderStorageService {
  @Resource private DccProjectFolderStorageMappingMapper mappings;
  @Resource private DccFileDirectoryMapper directories;
  @Resource private DccFileTypeTaxonomyAdminService taxonomy;
- @Resource private DccControlledFileCategoryPermissionSupport permissions;
+ @Resource private DccControlledFileEditPermissionSupport editPermission;
  @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
  public DccDerivedUploadStorage resolve(Long actor,DccProjectCodeDO project,DccProjectFolderDO folder,Long category,Long type) {
   Long tenant=TenantContextHolder.getRequiredTenantId();
   if(TenantContextHolder.isIgnore() || actor==null || actor<=0 || project==null || folder==null
     || !Objects.equals(project.getTenantId(),tenant) || !Objects.equals(folder.getTenantId(),tenant)
     || !Objects.equals(folder.getProjectCodeId(),project.getId()) || !Boolean.TRUE.equals(folder.getActive())
-    || !"ENABLE".equals(project.getStatus()) || !Objects.equals(category,taxonomy.resolveActiveCategoryId(type))
-    || !permissions.hasEditableProjectCategory(actor,project.getId(),category)) throw fail(FOLDER_INVALID);
+    || !"ENABLE".equals(project.getStatus()) || !Objects.equals(category,taxonomy.resolveActiveCategoryId(type))) throw fail(FOLDER_INVALID);
+  editPermission.assertUploadProjectCategory(actor,project.getId(),category,type);
   var currentCategory=mappings.lockCurrentCategory(tenant,category);
   if(currentCategory==null || !Boolean.TRUE.equals(currentCategory.getActive())
      || !Objects.equals(type,currentCategory.getFileTypeTaxonomyId())) throw fail(FOLDER_INVALID);
   var bases=mappings.lockConfiguredBases(tenant,category);
-  if(bases.size()!=1) throw fail(FOLDER_INVALID);
+  if(bases.size()!=1) throw exception(CONTROLLED_FILE_TYPE_STORAGE_INVALID,currentCategory.getName());
   Long baseId=bases.get(0);var base=directories.selectTenantForUpdate(tenant,baseId);
-  if(base==null || !Boolean.TRUE.equals(base.getActive())) throw fail(FOLDER_INVALID);
+  if(base==null || !Boolean.TRUE.equals(base.getActive())) throw exception(CONTROLLED_FILE_TYPE_STORAGE_INVALID,currentCategory.getName());
   var mapping=mappings.lockMapping(tenant,folder.getId(),category);boolean created=false;
   if(mapping==null) {
    var leaf=DccFileDirectoryDO.builder().tenantId(tenant).parentId(baseId)

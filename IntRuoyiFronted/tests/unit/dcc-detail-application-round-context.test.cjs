@@ -73,6 +73,47 @@ test('historical application selection keeps its own business description and ti
     }
   } finally { p.app.unmount() }
 })
+
+test('controlled overview shows saved application attributes once and leaves revision fields to its parent', async () => {
+  const p = mount({ fileId: '10', displayMode: 'controlled-overview', primaryBpmRound: 'native-U' })
+  try {
+    await flush()
+    assert.deepEqual(clone(p.state.overviewAttributeFields), [
+      { label: '目标市场', value: 'NMPA 国内' }, { label: '注册人身份', value: '是' },
+      { label: '生产方身份', value: '否' }, { label: '文件转移', value: '否' }
+    ])
+    p.state.evidence = { ...p.state.evidence, recorded: false, actualAttributes: null }
+    assert.deepEqual(clone(p.state.overviewAttributeFields), [])
+    p.state.evidence = { ...p.state.evidence, recorded: true, actualAttributes: { libraryScope: 'QMS' } }
+    assert.deepEqual(clone(p.state.overviewAttributeFields), [{ label: '适用范围', value: 'QMS 文件库，项目属性不适用' }])
+    const source = read('src/views/dcc/controlled-file/detail/DetailApplicationHistory.vue')
+    assert.match(source, /<el-descriptions v-if="displayMode !== 'controlled-overview'"/)
+    assert.match(source, /<p v-if="displayMode !== 'controlled-overview'" class="font-600">申请信息/)
+    assert.match(source, /<slot name="file-fields" :selected-round="selectedRound"/)
+    assert.match(source, /<el-alert v-if="error" :title="error"/)
+    const overview = read('src/views/dcc/controlled-file/detail/ControlledFileBrowseRecords.vue')
+    assert.match(overview, /display-mode="controlled-overview"/)
+    assert.match(overview, /selectedRound \? selectedRound.applicationTime : file.submittedTime/)
+    assert.doesNotMatch(overview, /application-history[^\n]*display:\s*none/)
+  } finally { p.app.unmount() }
+})
+
+test('controlled overview preserves formal context errors and does not read evidence after permission change', async () => {
+  let authority = 'reader-1'
+  const p = mount({ fileId: '10', displayMode: 'controlled-overview', primaryBpmRound: 'native-U', readAuthority: () => authority })
+  try {
+    await flush()
+    const reads = p.calls.filter(call => call[0] === 'evidence').length
+    authority = 'reader-2'
+    await p.state.selectRound(p.state.roundKey(rows[0]))
+    assert.match(p.state.error, /权限上下文已变化/)
+    assert.equal(p.state.evidence, undefined)
+    assert.equal(p.calls.filter(call => call[0] === 'evidence').length, reads)
+    p.props.contextError = '正式轮次读取失败'
+    await flush()
+    assert.equal(p.state.error, '正式轮次读取失败')
+  } finally { p.app.unmount() }
+})
 test('approval route uses verified BPM read context rather than immediately trusting route or file native BPM', () => {
   const helper = moduleFrom(read('src/views/dcc/controlled-file/detail/application-round-context.ts'))
   const input = { fileId: '10', nativeBpmRound: 'native-U', requestedBpmRound: 'obsolete-O', requestedTaskId: 'task-O', contextKey: 'O:file10' }

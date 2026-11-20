@@ -63,6 +63,42 @@ class DccW08RoundFlowQueryDatabaseTest extends DccRoundFlowContractTest {
         assertEquals("HISTORICAL_CONTRACT_NOT_RECORDED",row.getFlowContract().unavailableReason());assertNull(row.getFlowContract().flowRule());
         assertEquals(before,original(20L));
     }
+    @ParameterizedTest @ValueSource(strings={"UPLOAD","REVISION"})
+    void completedPublicStillPointedToByFileWithoutLaterPreparationKeepsItsRealApplication(String type)throws Exception{
+        java.nio.file.Path root=java.nio.file.Path.of("").toAbsolutePath();
+        while(root!=null&&!java.nio.file.Files.isRegularFile(root.resolve("AGENTS.md")))root=root.getParent();
+        String key="UPLOAD".equals(type)?DccControlledFileProcessDefinitionKeys.UPLOAD:DccControlledFileProcessDefinitionKeys.REVISION;
+        String definition=deploy(java.nio.file.Files.readString(root.resolve("doc/tasks/20261011-dcc-w05-approval-signatures/bpmn-v5/"+type.toLowerCase(java.util.Locale.ROOT)+".bpmn20.xml")));
+        engine.getIdentityService().setAuthenticatedUserId("99");String bpm;
+        try{bpm=engine.getRuntimeService().createProcessInstanceBuilder().processDefinitionId(definition).businessKey("20")
+                .variables(Map.of("controlledFileId",20L,"needTraining",false)).start().getId();}
+        finally{engine.getIdentityService().setAuthenticatedUserId(null);}
+        tx().executeWithoutResult(status->{
+            int round="UPLOAD".equals(type)?rounds.requireDraft(type,20L):rounds.reserveDraft(5L,type,20L);
+            if("REVISION".equals(type))attributes.beginDraft(99L,5L,type,20L,round);
+            snapshots.submitReservedDraft(99L,5L,type,20L,round,bpm,actual);
+        });
+        engine.getRuntimeService().deleteProcessInstance(bpm,"completed historical public application");
+        jdbc.update("UPDATE dcc_controlled_file SET process_instance_id=?,process_definition_key=?,status='ACTIVE',revision_change_type=? WHERE id=20",bpm,key,"REVISION".equals(type)?"REPLACEMENT":"INITIAL");
+        query();var before=original(20L);var row=only();var flow=row.getFlowContract();
+        assertEquals(type,row.getApplicationType());assertEquals(bpm,row.getBpmRound());assertNotNull(row.getApplicationTime());
+        if("REVISION".equals(type))assertEquals("REPLACEMENT",row.getRevisionChangeType());
+        assertEquals(DccBoundWorkflowContractResolver.RoundContractStatus.NOT_RECORDED,flow.status());
+        assertEquals("HISTORICAL_CONTRACT_NOT_RECORDED",flow.unavailableReason());assertEquals(definition,flow.processDefinitionId());
+        assertNull(flow.executionContract());assertNull(flow.flowRule());assertEquals(before,original(20L));
+        verify(definitions,never()).getActiveProcessDefinition(anyString());
+    }
+    @ParameterizedTest @ValueSource(strings={"activeMissing","completedPartial","completedMismatch"})
+    void missingHistoricalPreparationDoesNotHideActiveOrInconsistentPreparation(String invalid)throws Exception{
+        String bpm=publicRound(false);
+        if(!"activeMissing".equals(invalid))engine.getRuntimeService().deleteProcessInstance(bpm,"completed negative fixture");
+        if("activeMissing".equals(invalid))jdbc.update("UPDATE dcc_controlled_file SET prepared_workflow_contract=NULL,prepared_process_definition_id=NULL,prepared_definition_digest=NULL WHERE id=20");
+        else if("completedPartial".equals(invalid))jdbc.update("UPDATE dcc_controlled_file SET prepared_definition_digest=NULL WHERE id=20");
+        else jdbc.update("UPDATE dcc_controlled_file SET prepared_definition_digest=? WHERE id=20","a".repeat(64));
+        query();var before=original(20L);var failure=assertThrows(IllegalStateException.class,this::rows);
+        assertEquals("activeMissing".equals(invalid)?"ROUND_FLOW_CURRENT_PUBLIC_PREPARATION_REQUIRED":"ROUND_FLOW_CURRENT_PREPARED_MISMATCH",failure.getMessage());
+        assertEquals(before,original(20L));
+    }
     @Test void actualCompletedUnknownModelRemainsSelectableWithoutAnyGuessedFlow(){
         String id=deploy(legacyXml.replace("name=\"培训等待\"","name=\"unknown exact historical graph\""));
         engine.getIdentityService().setAuthenticatedUserId("99");String bpm;

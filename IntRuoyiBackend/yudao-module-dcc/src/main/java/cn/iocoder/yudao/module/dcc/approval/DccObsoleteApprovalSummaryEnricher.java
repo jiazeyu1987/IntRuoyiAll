@@ -40,8 +40,12 @@ public class DccObsoleteApprovalSummaryEnricher implements ApprovalTaskSummaryEn
         summary.setBusinessTitle(file.getTitle());
         summary.setBusinessCode(file.getFileNumber());
         summary.setBusinessContextTags(summaries.buildDccBusinessContextTags(file, summary.getCurrentNodeName()));
-        summary.setDecisionDetailRoute(summary.getDetailRoute());
-        summary.setDecisionDetailQuery(Map.copyOf(summary.getDetailQuery()));
+        if ("BPM_PROCESS_INSTANCE".equals(summary.getSourceTaskType())) {
+            DccNativeApprovalSummaryEnricher.setApplicationDetail(summary, file.getId(), file.getVersionNo(), "OBSOLETE");
+        } else {
+            summary.setDecisionDetailRoute(summary.getDetailRoute());
+            summary.setDecisionDetailQuery(Map.copyOf(summary.getDetailQuery()));
+        }
         summary.setAvailableActions(Set.of("OPEN_DETAIL"));
     }
     @Override

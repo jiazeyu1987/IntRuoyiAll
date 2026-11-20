@@ -58,13 +58,17 @@
       "source": "IntRuoyiFronted/src/views/dcc/registration-certificate/index/index.vue",
       "kind": "permission",
       "value": "dcc:registration-certificate:delete",
-      "migrations": ["IntRuoyiBackend/sql/mysql/20261118_registration_certificate_delete_menu.sql"]
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261118_registration_certificate_delete_menu.sql"
+      ]
     },
     {
       "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/certificate/DccRegistrationCertificateCommandController.java",
       "kind": "permission",
       "value": "dcc:registration-certificate:delete",
-      "migrations": ["IntRuoyiBackend/sql/mysql/20261118_registration_certificate_delete_menu.sql"]
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261118_registration_certificate_delete_menu.sql"
+      ]
     },
     {
       "source": "IntRuoyiFronted/src/views/erp/sale/order/index.vue",
@@ -88,7 +92,7 @@
       "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
       "kind": "page",
       "value": "dcc/controlled-file/detail/index",
-      "reason": "既有受控文件维护详情内增加本人有效检出的 Word 及附件下载入口；沿用现有维护入口，后端按租户、启用账号、同一逻辑文件的有效检出人及所选未作废版本核验，不新增菜单、权限标识、角色或租户套餐授权，日常浏览不开放该入口。"
+      "reason": "既有受控文件维护详情内增加本人有效检出的 Word 及附件下载入口；沿用现有维护入口，后端按租户、启用账号、同一逻辑文件的有效检出人及所选未作废版本核验，不新增菜单、权限标识、角色或租户套餐授权，日常浏览不开放该入口。；既有受控文件培训待办详情复用新版四页签布局，保留原上传培训记录动作及后端授权；沿用现有详情路由和菜单，不新增权限或租户套餐授权。既有受控文件维护详情内增加本人有效检出的 Word 及附件下载入口；沿用现有维护入口，后端按租户、启用账号、同一逻辑文件的有效检出人及所选未作废版本核验，不新增菜单、权限标识、角色或租户套餐授权，日常浏览不开放该入口。受控浏览概览通过内部 DetailApplicationHistory 的显式 controlled-overview 展示模式合并申请字段、避免重复变更信息；继续复用原申请轮次和证据接口、bodyReadContext、readAuthority 及 selection-change 事件，仅调整字段布局，其他调用默认展示保持，不新增菜单、路由、权限或授权迁移。"
     },
     {
       "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
@@ -1156,7 +1160,9 @@
       "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryWorkbookService.java",
       "kind": "permission",
       "value": "mes:md-workshop:export",
-      "migrations": ["IntRuoyiBackend/sql/mysql/20261118_mes_workshop_export_permission.sql"]
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261118_mes_workshop_export_permission.sql"
+      ]
     },
     {
       "source": "IntRuoyiFronted/src/views/mes/dv/machinery/index.vue",
@@ -1604,7 +1610,7 @@
       "source": "IntRuoyiFronted/src/views/erp/sync/config/components/TableAutoSyncSetting.vue",
       "kind": "permission",
       "value": "erp:kingdee-sync:query",
-      "reason": "配置组件迁移、显式跳转及现有同步对象表增加增量同步按钮，复用既有 erp:kingdee-sync:query 可见性与单表同步接口；后端沿用 erp:data-config:operate 或对应表操作权限。不新增页面、路由或权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+      "reason": "配置组件迁移、显式跳转及现有同步对象表增加增量同步按钮，复用既有 erp:kingdee-sync:query 可见性与单表同步接口；后端沿用 erp:data-config:operate 或对应表操作权限。不新增页面、路由或权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。；配置组件迁移或显式跳转复用既有 erp:kingdee-sync:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
     },
     {
       "source": "IntRuoyiFronted/src/views/erp/sync/config/components/TableAutoSyncSetting.vue",
@@ -4784,6 +4790,24 @@
       "kind": "permission",
       "value": "srm:purchase-order:query",
       "reason": "业务单据编号跳转复用既有查询权限 srm:purchase-order:query，按单据类型打开现有业务列表；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/ControlledDetailDistributionPanel.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:distribute",
+      "reason": "受控文件详情的分发培训内部组件复用既有分发权限读取逐人回执，沿用原签收查询接口及所选版本校验；不新增菜单、权限、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/ControlledDetailDistributionPanel.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "reason": "受控文件详情的分发培训内部组件复用既有文件编辑权限查询分发回执，保持原接口授权；本组件仅展示实际记录，不新增页面、路由、菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/permission/PermissionServiceImpl.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:log:query",
+      "reason": "复用项目代码管理员既有文控日志查询权限，仅修复该业务角色分配时的日志拦截；不新增菜单、权限、角色菜单或租户套餐授权。"
     }
   ]
 }

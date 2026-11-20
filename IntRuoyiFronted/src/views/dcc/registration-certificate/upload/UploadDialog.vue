@@ -1,5 +1,6 @@
 <template>
-  <el-dialog v-model="dialogVisible" class="registration-certificate-upload-dialog" destroy-on-close :title="requestId ? '驳回申请修改重提' : '新建注册证'" width="960px" @closed="resetForm">
+  <el-dialog v-model="dialogVisible" class="registration-certificate-upload-dialog" top="5vh" append-to-body destroy-on-close :title="requestId ? '驳回申请修改重提' : '新建注册证'" width="960px" @closed="resetForm">
+    <div class="registration-certificate-upload-body">
     <el-form label-width="140px">
       <el-row :gutter="24">
         <el-col :span="12"><el-form-item label="数据所属公司" required><el-select v-model="companyId" filterable remote :remote-method="searchOwnerCompanies" :loading="companyLoading"><el-option v-for="item in companies" :key="item.id" :label="item.name" :value="item.id"/></el-select></el-form-item></el-col>
@@ -20,6 +21,7 @@
       <el-alert v-if="productError" :title="productError" type="error" :closable="false"/>
       <el-alert v-if="error" :title="error" type="error" :closable="false"/>
     </el-form>
+    </div>
     <template #footer><el-button :disabled="saving" @click="dialogVisible=false">取消</el-button><el-button type="primary" :loading="saving" :disabled="hydrating || (facts.ownProduct && (productLoading || !facts.projectProduct || !!productError))" @click="submit">确认提交审批</el-button></template>
   </el-dialog>
 </template>
@@ -32,7 +34,7 @@ import { getMyRegistrationCertificateUpload, getUploadEntrustedEnterprises, getU
 import { generateUUID } from '@/utils'
 import FactsFields from '../shared/FactsFields.vue'
 import { emptyFacts, validateFacts } from '../shared/facts'
-const props = defineProps<{modelValue:boolean;requestId?:number|string;taskProject?:{id:string;projectCode:string;projectName:string}}>()
+const props = defineProps<{modelValue:boolean;requestId?:number|string;handlingTaskId?:number|string;taskProject?:{id:string;projectCode:string;projectName:string}}>()
 const emit = defineEmits<{'update:modelValue':[boolean]; saved:[]}>()
 const dialogVisible=computed({get:()=>props.modelValue,set:(value:boolean)=>emit('update:modelValue',value)})
 const retainedFiles=ref<Array<{id:number|string;fileKind:string;originalName:string;retained:boolean}>>([])
@@ -77,7 +79,7 @@ const submit=async()=>{
   if(entrustedProduction.value&&!entrustedEnterpriseIds.value.length)throw new Error('委托生产为是时必须填写受托企业')
   if(!files.value.length&&!retainedFiles.value.some(f=>f.retained&&f.fileKind==='REGISTRATION_CERTIFICATE'))throw new Error('请上传注册证或FDA批准信函')
   if(facts.value.certificateType==='FDA'&&!descriptions.value.length&&!retainedFiles.value.some(f=>f.retained&&f.fileKind==='FDA_PRODUCT_DESCRIPTION'))throw new Error('FDA必须上传批准后的产品描述材料')
-  const payload=new FormData();if(props.requestId){payload.append('sourceRequestId',String(props.requestId));retainedFiles.value.filter(f=>f.retained).forEach(f=>payload.append('retainedFileIds',String(f.id)))}payload.append('companyId',String(companyId.value));payload.append('productName',productName.value.trim());if(projectCodeId.value)payload.append('projectCodeId',String(projectCodeId.value))
+  const payload=new FormData();if(props.handlingTaskId)payload.append('handlingTaskId',String(props.handlingTaskId));if(props.requestId){payload.append('sourceRequestId',String(props.requestId));retainedFiles.value.filter(f=>f.retained).forEach(f=>payload.append('retainedFileIds',String(f.id)))}payload.append('companyId',String(companyId.value));payload.append('productName',productName.value.trim());if(projectCodeId.value)payload.append('projectCodeId',String(projectCodeId.value))
   payload.append('factsJson',JSON.stringify(facts.value));payload.append('classification',facts.value.classification)
   for(const field of ['certificateNo','firstObtainedDate','effectiveDate','expiryDate','remark'])if(facts.value[field])payload.append(field,facts.value[field])
   payload.append('entrustedProduction',String(facts.value.certificateType==='FDA'?false:entrustedProduction.value));payload.append('selfProduction',String(facts.value.certificateType==='FDA'?false:selfProduction.value))
@@ -103,4 +105,7 @@ watch(()=>props.modelValue,async visible=>{if(!visible)return;hydrating.value=tr
  retainedFiles.value=result.files.map(file=>({...file,retained:true}))
 }}catch(e){error.value=e instanceof Error?e.message:String(e)}finally{await nextTick();hydrating.value=false;if(facts.value.ownProduct)await loadProjectProduct()}})
 </script>
-<style scoped>.registration-certificate-upload-dialog :deep(.el-dialog__body){max-height:70vh;overflow:auto}.el-select,.el-date-editor{width:100%}</style>
+<style scoped>
+.registration-certificate-upload-body { max-height: calc(90vh - 140px); overflow-y: auto; overflow-x: hidden; padding: 0 12px; }
+.el-select,.el-date-editor { width:100%; }
+</style>

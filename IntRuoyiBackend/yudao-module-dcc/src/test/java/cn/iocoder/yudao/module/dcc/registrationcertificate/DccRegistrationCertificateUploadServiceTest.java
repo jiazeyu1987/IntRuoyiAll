@@ -59,6 +59,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -136,8 +137,8 @@ class DccRegistrationCertificateUploadServiceTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"MDM", "CATALOG"})
-    void submitUploadUsesBoundDccProductRegardlessOfShowroomBinding(String productSource) {
+    @org.junit.jupiter.params.provider.CsvSource({"MDM,", "CATALOG,", "MDM,701"})
+    void submitUploadUsesBoundDccProductRegardlessOfShowroomBinding(String productSource, Long handlingTaskId) {
         mockOwnedCompany();
         if ("MDM".equals(productSource)) mockProjectCode();
         else mockProjectCodeWithoutProductBinding();
@@ -167,10 +168,11 @@ class DccRegistrationCertificateUploadServiceTest {
         }).when(requestMapper).insert(any(DccRegistrationCertificateAccessRequestDO.class));
         when(requestFileMapper.insert(any(DccRegistrationCertificateAccessRequestFileDO.class))).thenReturn(1);
         when(businessClock.now()).thenReturn(LocalDateTime.of(2026, 8, 29, 10, 0));
+        when(registrationHandlingTasks.resolveUploadTaskId(null, handlingTaskId)).thenReturn(handlingTaskId);
 
         DccRegistrationCertificateUploadSubmitResult result = uploadService.submitUploadForApproval(
                 TENANT_ID, ACTOR_ID, "UPLOAD-KEY-1", "TRACE-1",
-                uploadCommand(true, false, List.of(301L, 302L)));
+                uploadCommand(1001L, 501L, "一次性使用无菌导管", true, false, List.of(301L, 302L), handlingTaskId));
 
         assertEquals(9401L, result.requestId());
         assertEquals(9001L, result.certificateId());
@@ -184,6 +186,8 @@ class DccRegistrationCertificateUploadServiceTest {
         assertEquals(Boolean.TRUE, draft.getValue().entrustedProduction());
         assertEquals(Boolean.FALSE, draft.getValue().selfProduction());
         assertEquals(List.of(301L, 302L), draft.getValue().entrustedEnterpriseIds());
+        verify(registrationHandlingTasks).bindRequest(TENANT_ID, ACTOR_ID, 1001L, 9001L, 9401L, "UPLOAD", handlingTaskId);
+        if (handlingTaskId == null) verify(registrationHandlingTasks, never()).authorizesProjectUpload(anyLong(), anyLong());
     }
 
     @Test
@@ -315,12 +319,24 @@ class DccRegistrationCertificateUploadServiceTest {
                     uploadCommand(1001L, "name-mismatch".equals(failure) ? "其他产品" : "一次性使用无菌导管",
                             false, true, List.of())));
             assertEquals(("name-mismatch".equals(failure)
-                    ? cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCT_INVALID
+                    ? cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCT_NAME_MISMATCH
                     : cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH)
                     .getCode(), error.getCode());
+            if ("name-mismatch".equals(failure)) org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("一次性使用无菌导管"));
         }
         verify(commandService, never()).createDraft(any(), any(), any(), any(), any());
         org.mockito.Mockito.verifyNoInteractions(fileService, productApi);
+    }
+
+    @Test
+    void projectProductPreviewReturnsFormalCatalogNameAndRejectsWrongTenant() {
+        mockProjectCodeWithoutProductBinding();
+        var product = uploadService.getProjectProduct(TENANT_ID, ACTOR_ID, 1001L);
+        assertEquals("0313170202", product.productCode());
+        assertEquals("一次性使用无菌导管", product.productName());
+        var denied = assertThrows(ServiceException.class, () -> uploadService.getProjectProduct(999L, ACTOR_ID, 1001L));
+        assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_TENANT_MISMATCH.getCode(), denied.getCode());
+        org.mockito.Mockito.verifyNoInteractions(fileService, commandService);
     }
 
     @Test
@@ -536,6 +552,12 @@ class DccRegistrationCertificateUploadServiceTest {
     private DccRegistrationCertificateUploadCommand uploadCommand(
             Long projectCodeId, Long companyId, String productName,
             Boolean entrustedProduction, Boolean selfProduction, List<Long> entrustedEnterpriseIds) {
+        return uploadCommand(projectCodeId, companyId, productName, entrustedProduction, selfProduction, entrustedEnterpriseIds, null);
+    }
+
+    private DccRegistrationCertificateUploadCommand uploadCommand(
+            Long projectCodeId, Long companyId, String productName,
+            Boolean entrustedProduction, Boolean selfProduction, List<Long> entrustedEnterpriseIds, Long handlingTaskId) {
         return new DccRegistrationCertificateUploadCommand(
                 projectCodeId,
                 companyId,
@@ -551,7 +573,7 @@ class DccRegistrationCertificateUploadServiceTest {
                 "上传注册证审批",
                 new MockMultipartFile("file", "registration.pdf", "application/pdf",
                         "%PDF-1.4".getBytes(StandardCharsets.UTF_8)),
-                uploadFacts(projectCodeId!=null),List.of(),List.of(),null,List.of());
+                uploadFacts(projectCodeId!=null),List.of(),List.of(),null,List.of(),handlingTaskId);
     }
 
     private String uploadFacts(boolean ownProduct) {

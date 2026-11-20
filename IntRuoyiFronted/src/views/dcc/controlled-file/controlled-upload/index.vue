@@ -1,5 +1,5 @@
 <template>
-  <ContentWrap>
+  <ContentWrap class="controlled-upload-page">
     <ControlledFileWorkbenchEntry class="mb-12px" />
     <el-alert class="mb-16px" type="info" :closable="false" title="用于登记已经受控的文件，可同时上传附件。本次登记时间、生效时间及上传人由系统记录。" />
     <el-alert v-if="error" class="mb-16px" type="error" :closable="false" :title="error" />
@@ -20,52 +20,85 @@
         <el-button @click="reset">继续上传</el-button>
       </template>
     </el-result>
-    <el-form v-else v-loading="loading" label-width="120px" :disabled="submitting" @submit.prevent="submit">
-      <el-form-item label="目标范围" required>
-        <el-radio-group v-model="libraryScope" @change="loadScope">
-          <el-radio-button value="PROJECT">项目</el-radio-button>
-          <el-radio-button value="QMS">QMS 文件</el-radio-button>
-          <el-radio-button value="GENERAL">通用文件</el-radio-button>
-        </el-radio-group>
-      </el-form-item>
-      <el-form-item v-if="libraryScope === 'PROJECT'" label="目标项目" required>
-        <el-select v-model="projectId" filterable clearable class="!w-full" placeholder="选择有编辑授权的项目" @change="loadProject">
-          <el-option v-for="item in projects" :key="item.id" :value="String(item.id)" :label="`${item.projectName} / ${item.projectCode}`" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="存储目录" required>
-        <el-select v-model="folderId" filterable clearable class="!w-full" :disabled="!optionsReady" placeholder="选择项目目录">
-          <el-option v-for="item in folderOptions" :key="item.id" :value="String(item.id)" :label="item.path" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="文件类型" required>
-        <el-select v-model="categoryId" filterable clearable class="!w-full" :disabled="!optionsReady" placeholder="选择有编辑授权的文件类型">
-          <el-option v-for="item in options?.fileTypes || []" :key="item.categoryId" :value="String(item.categoryId)" :label="item.label" :disabled="Boolean(item.uploadBlocker)" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="文件编号" required><el-input v-model="fileNumber" maxlength="128" show-word-limit /></el-form-item>
-      <el-form-item label="版本" required><el-input v-model="versionNo" placeholder="如 A/1，按当前正式版本规范填写" /></el-form-item>
-      <el-form-item label="受控文件" required>
-        <el-upload :auto-upload="false" :limit="1" :file-list="files" :on-change="selectFile" :on-remove="removeFile">
-          <el-button>选择文件</el-button>
-        </el-upload>
-      </el-form-item>
-      <el-form-item label="附件">
-        <el-upload :auto-upload="false" multiple :file-list="attachmentFiles" :on-change="selectAttachment" :on-remove="removeAttachment">
-          <el-button>选择附件</el-button>
-        </el-upload>
-      </el-form-item>
-      <el-form-item label="文件名称"><el-input :model-value="file?.name || ''" readonly placeholder="自动读取所选文件名" /></el-form-item>
-      <el-form-item>
-        <el-button type="primary" :loading="submitting" :disabled="loading || !optionsReady" @click="submit">上传已受控文件</el-button>
-      </el-form-item>
+    <el-form v-else v-loading="loading" class="controlled-upload-form" label-width="96px" :disabled="submitting" @submit.prevent="submit">
+      <div class="controlled-upload-layout">
+        <div class="controlled-upload-fields">
+          <section class="upload-card">
+            <h2 class="upload-card-title">存放位置</h2>
+            <el-form-item label="目标范围" required>
+              <el-radio-group v-model="libraryScope" @change="loadScope">
+                <el-radio-button value="PROJECT">项目</el-radio-button>
+                <el-radio-button value="QMS">QMS 文件</el-radio-button>
+                <el-radio-button value="GENERAL">通用文件</el-radio-button>
+              </el-radio-group>
+            </el-form-item>
+            <el-form-item v-if="libraryScope === 'PROJECT'" label="目标项目" required>
+              <el-select v-model="projectId" filterable clearable class="!w-full" placeholder="选择有编辑授权的项目" @change="loadProject">
+                <el-option v-for="item in projects" :key="item.id" :value="String(item.id)" :label="`${item.projectName} / ${item.projectCode}`" />
+              </el-select>
+            </el-form-item>
+            <el-form-item :label="libraryScope === 'PROJECT' ? '项目目录' : libraryScope === 'QMS' ? 'QMS 目录' : '通用目录'" required>
+              <el-select v-model="folderId" filterable clearable class="!w-full" :disabled="!optionsReady" :placeholder="libraryScope === 'PROJECT' ? '选择项目目录' : libraryScope === 'QMS' ? '选择 QMS 文件目录' : '选择通用文件目录'">
+                <el-option v-for="item in folderOptions" :key="item.id" :value="String(item.id)" :label="item.path" />
+              </el-select>
+            </el-form-item>
+          </section>
+          <section class="upload-card">
+            <h2 class="upload-card-title">上传文件</h2>
+            <el-form-item label="受控文件" required>
+              <div class="main-file-row">
+                <template v-if="file">
+                  <Icon class="file-icon" icon="ep:document" :size="24" />
+                  <span class="file-name">{{ file.name }}</span>
+                </template>
+                <el-upload ref="mainUpload" :auto-upload="false" :limit="1" :show-file-list="false" :file-list="files" :on-change="selectFile" :on-remove="removeFile" :on-exceed="replaceFile">
+                  <el-button :text="!!file" :type="file ? 'primary' : 'default'">{{ file ? '更换' : '选择文件' }}</el-button>
+                </el-upload>
+                <el-button v-if="file" text type="danger" @click="removeFile">移除</el-button>
+              </div>
+            </el-form-item>
+            <div class="attachment-section">
+              <div class="attachment-header">
+                <span>附件（{{ attachmentFiles.length }}）<span class="optional-hint">选填</span></span>
+                <el-upload :auto-upload="false" multiple :show-file-list="false" :file-list="attachmentFiles" :on-change="selectAttachment" :on-remove="removeAttachment">
+                  <el-button plain type="primary" size="small">添加附件</el-button>
+                </el-upload>
+              </div>
+              <ul v-if="attachmentFiles.length" class="attachment-list">
+                <li v-for="attachment in attachmentFiles" :key="attachment.uid" class="attachment-row">
+                  <Icon class="file-icon" icon="ep:document" :size="20" />
+                  <span class="file-name">{{ attachment.name }}</span>
+                  <el-button text type="danger" @click="removeAttachment(attachment)">移除</el-button>
+                </li>
+              </ul>
+            </div>
+          </section>
+          <section class="upload-card">
+            <h2 class="upload-card-title">文件登记信息</h2>
+            <el-form-item label="文件类型" required>
+              <el-select v-model="categoryId" filterable clearable class="!w-full" :disabled="!optionsReady" placeholder="选择有编辑授权的文件类型">
+                <el-option v-for="item in options?.fileTypes || []" :key="item.categoryId" :value="String(item.categoryId)" :label="item.label" :disabled="Boolean(item.uploadBlocker)" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="文件编号" required><el-input v-model="fileNumber" maxlength="128" show-word-limit /></el-form-item>
+            <el-form-item label="版本" required>
+              <el-input v-model="versionNo" placeholder="如 A/1" />
+              <div class="version-hint">填写文件现有的受控版本，按当前正式版本规范填写。</div>
+            </el-form-item>
+          </section>
+        </div>
+        <div class="controlled-upload-preview-area">
+          <ControlledUploadPreview :file="file" />
+        </div>
+      </div>
+      <ControlledUploadActionBar :loading="submitting" :disabled="loading || !optionsReady || submitting" @submit="submit" />
     </el-form>
   </ContentWrap>
 </template>
 
 <script lang="ts" setup>
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
-import type { UploadFile, UploadUserFile } from 'element-plus'
+import type { UploadFile, UploadInstance, UploadRawFile, UploadUserFile } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { generateUUID } from '@/utils'
 import { formatDateTimeValue } from '@/utils/formatTime'
@@ -75,6 +108,8 @@ import {
   type ControlledImportOptions, type ControlledImportProject, type ControlledImportResult
 } from '@/api/dcc/controlledFile/controlledImports'
 import ControlledFileWorkbenchEntry from '../shared/ControlledFileWorkbenchEntry.vue'
+import ControlledUploadPreview from './ControlledUploadPreview.vue'
+import ControlledUploadActionBar from './ControlledUploadActionBar.vue'
 
 defineOptions({ name: 'DccControlledFileControlledUpload' })
 
@@ -89,6 +124,7 @@ const fileNumber = ref('')
 const versionNo = ref('')
 const attachmentFiles = ref<UploadUserFile[]>([])
 const files = ref<UploadUserFile[]>([])
+const mainUpload = ref<UploadInstance>()
 const file = ref<File>()
 const error = ref('')
 const loading = ref(false)
@@ -117,9 +153,16 @@ const buildFolderOptions = (folders: ControlledImportOptions['folders']) => {
 }
 const selectFile = (value: UploadFile) => { file.value = value.raw; files.value = [value] }
 const removeFile = () => { file.value = undefined; files.value = [] }
+const replaceFile = (values: File[]) => {
+  if (submitting.value) return
+  mainUpload.value!.clearFiles()
+  mainUpload.value!.handleStart(values[0] as UploadRawFile)
+}
 
 const selectAttachment = (_file: UploadFile, values: UploadFile[]) => { attachmentFiles.value = values }
-const removeAttachment = (_file: UploadFile, values: UploadFile[]) => { attachmentFiles.value = values }
+const removeAttachment = (value: UploadUserFile) => {
+  attachmentFiles.value = attachmentFiles.value.filter(item => item.uid !== value.uid)
+}
 
 const loadProject = async () => {
   const requestSequence = ++sequence
@@ -212,3 +255,178 @@ const loadScope = async () => {
 onMounted(loadScope)
 onBeforeUnmount(() => { sequence++ })
 </script>
+
+<style scoped lang="scss">
+.controlled-upload-form {
+  padding-bottom: 88px;
+}
+
+.controlled-upload-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 45fr) minmax(0, 55fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.controlled-upload-fields {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+
+.upload-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  background: var(--el-bg-color);
+
+  :deep(.el-form-item) {
+    margin-bottom: 12px;
+  }
+
+  :deep(.el-form-item:last-child) {
+    margin-bottom: 0;
+  }
+}
+
+.upload-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  font-size: 17px;
+  font-weight: 600;
+
+  &::before {
+    width: 4px;
+    height: 18px;
+    border-radius: 2px;
+    background: var(--el-color-primary);
+    content: '';
+  }
+}
+
+.main-file-row,
+.attachment-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  gap: 8px;
+
+  .el-button + .el-button {
+    margin-left: 0;
+  }
+}
+
+.file-icon {
+  flex-shrink: 0;
+  color: var(--el-text-color-secondary);
+}
+
+.file-name {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.attachment-section {
+  padding-top: 12px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.attachment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.optional-hint,
+.version-hint {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.optional-hint {
+  margin-left: 8px;
+}
+
+.version-hint {
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.attachment-list {
+  max-height: 168px;
+  padding: 0;
+  margin: 10px 0 0;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 4px;
+}
+
+.attachment-row {
+  box-sizing: border-box;
+  padding: 6px 10px;
+
+  & + & {
+    border-top: 1px solid var(--el-border-color-lighter);
+  }
+}
+
+.controlled-upload-preview-area {
+  position: sticky;
+  top: 12px;
+  height: max(480px, calc(100vh - 300px));
+  min-width: 0;
+  overflow: auto;
+
+  > :deep(*) {
+    height: 100%;
+    min-height: 0;
+  }
+}
+
+@media (max-width: 1000px) {
+  .controlled-upload-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .controlled-upload-preview-area {
+    position: static;
+    height: 600px;
+  }
+}
+
+@media (max-width: 767px) {
+  .controlled-upload-form {
+    padding-bottom: calc(112px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 480px) {
+  .upload-card {
+    padding: 12px;
+  }
+
+  .upload-card :deep(.el-form-item__label) {
+    width: 80px !important;
+  }
+
+  .upload-card :deep(.el-radio-button__inner) {
+    padding: 8px 10px;
+  }
+
+  .main-file-row {
+    flex-wrap: wrap;
+  }
+
+  .file-name {
+    flex-basis: 45%;
+  }
+}
+</style>

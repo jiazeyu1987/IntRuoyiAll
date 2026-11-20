@@ -55,14 +55,14 @@ test('a new checkin session leaves the remark empty even when the selected versi
   const c = { checkinSubmitting: ref(false), checkinCleanupLoading: ref(false), checkinUploadLoading: ref(false),
     checkinDrawingPdfLoading: ref(false), checkinAttachmentState: ref({}), checkinTarget: ref(), checkinDialogVisible: ref(false),
     checkinForm: { remark: 'previous-dialog-text' }, isValidBrowserOptionId: () => true, isCheckedOutByCurrentUser: () => true,
-    requireCheckinTrainingDefault: () => true, resetCheckinDialog: () => { c.checkinForm.remark = '' }, message: { warning: assert.fail, error: assert.fail } }
+    getCheckoutActionBlockReason: () => '', requireCheckinTrainingDefault: () => true, resetCheckinDialog: () => { c.checkinForm.remark = '' }, message: { warning: assert.fail, error: assert.fail } }
   vm.runInNewContext(transpile(declarations(['handleCheckin']) + '\nthis.open = handleCheckin'), c)
   c.open({ id: '55', remark: 'last-version-note' })
   assert.equal(c.checkinForm.remark, ''); assert.equal(c.checkinForm.needTraining, true); assert.equal(c.checkinDialogVisible.value, true)
 })
 test('revision entry keeps the formal baseline and selected working ID exact and blocks checked-out or unrelated work', () => {
   const c = { canEditVersion: file => file.requesterId === '9', isDccControlledFileActionAllowed: file => file.major === true,
-    calls: [], openManagement: (...args) => c.calls.push(args), Error }
+    calls: [], openManagement: (...args) => c.calls.push(args), checkPermi: () => true, Error }
   vm.runInNewContext(transpile(declarations(['hasRevisionBaseline', 'canStartRevision', 'openRevision'])
     + '\nthis.visible = hasRevisionBaseline; this.allowed = canStartRevision; this.open = openRevision'), c)
   const work = { id: '9007199254740993', requesterId: 'other-author', canEditFile: true, status: 'WORKING', revisionBaseActiveControlledFileId: '9007199254740991' }
@@ -116,7 +116,7 @@ test('checkin selects the refreshed exact draft without overwriting its edit gra
     const draft = Object.freeze({ id: '902', status: 'WORKING', canEditFile: granted,
       revisionBaseActiveControlledFileId: '900', checkedOut: false })
     const row = { id: '902', versionHistory: [draft, baseline] }
-    const c = { list: ref([row]), browserMode: ref('working') }
+    const c = { list: ref([row]), browserMode: ref('working'), checkPermi: () => true }
     vm.runInNewContext(transpile(declarations(['mergeCheckinResult', 'buildCurrentVersionOption', 'hasRevisionBaseline', 'canStartRevision'])
       + '\nthis.merge=mergeCheckinResult;this.allowed=canStartRevision'), c)
     c.merge({ ...draft, canEditFile: !granted }, '900')

@@ -24,6 +24,12 @@ public interface DccProjectBrowserMapper {
           AND folder.deleted=0 AND folder.active=1
         WHERE f.tenant_id=#{tenant} AND f.deleted=0
           AND f.status != 'REJECTED'
+          AND NOT (f.status='WITHDRAWN' AND f.controlled_time IS NULL)
+          AND (f.status != 'WORKING' OR EXISTS (
+            SELECT 1 FROM dcc_controlled_file_checkout checkin
+            WHERE checkin.tenant_id=f.tenant_id AND checkin.master_id=f.master_id AND checkin.deleted=0
+              AND checkin.base_iteration_id=f.predecessor_controlled_file_id
+              AND checkin.checkin_iteration_id=f.id AND checkin.status='CHECKED_IN'))
           AND (f.status != 'SUPERSEDED' OR f.controlled_time IS NOT NULL)
         <if test="query.browserScope == 'PROJECT_FOLDER'">
           AND f.controlled_time IS NOT NULL AND f.activated_time IS NOT NULL

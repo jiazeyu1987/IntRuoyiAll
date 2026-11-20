@@ -31,7 +31,7 @@
     <el-table-column label="时间（北京时间）" width="180"><template #default="{row}">{{formatRegistrationCertificateDateTime(row.createdAt)}}</template></el-table-column>
    </el-table>
   </template>
-  <UploadDialog v-model="uploadVisible" :task-project="detail?.project" :request-id="detail?.restartRequestId" @saved="load" />
+  <UploadDialog v-model="uploadVisible" :handling-task-id="taskId" :task-project="detail?.project" :request-id="detail?.restartRequestId" @saved="load" />
   <RenewalDialog v-model="renewalVisible" :certificate="detail?.certificate" @saved="load" />
  </ContentWrap>
 </template>

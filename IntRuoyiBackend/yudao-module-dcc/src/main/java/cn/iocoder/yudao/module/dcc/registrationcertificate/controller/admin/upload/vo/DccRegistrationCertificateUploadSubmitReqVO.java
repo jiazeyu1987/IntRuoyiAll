@@ -75,6 +75,8 @@ public class DccRegistrationCertificateUploadSubmitReqVO {
     private List<MultipartFile> attachments;
     private List<MultipartFile> productDescriptionFiles;
     @Positive private Long sourceRequestId;
+    @Schema(description = "从办理任务提交时的任务编号，普通新建不填写")
+    @Positive private Long handlingTaskId;
     private List<@Positive Long> retainedFileIds;
 
     @jakarta.validation.constraints.AssertTrue(message = "是否委托生产和是否自行生产不能同时为否")
@@ -96,6 +98,6 @@ public class DccRegistrationCertificateUploadSubmitReqVO {
         return new DccRegistrationCertificateUploadCommand(
                 projectCodeId, companyId, productName, certificateNo, firstObtainedDate,
                 effectiveDate, expiryDate, classification, entrustedProduction, selfProduction,
-                entrustedEnterpriseIds, remark, file, factsJson, attachments, productDescriptionFiles, sourceRequestId, retainedFileIds);
+                entrustedEnterpriseIds, remark, file, factsJson, attachments, productDescriptionFiles, sourceRequestId, retainedFileIds, handlingTaskId);
     }
 }

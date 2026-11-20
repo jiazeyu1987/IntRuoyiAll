@@ -35,9 +35,9 @@ export const loadBrowseMetadata = async (
   if (typeof selected.hasCurrentControlledSource !== 'boolean')
     throw new Error('当前受控版本事实缺失')
   let latest: ControlledFileRelationPermissions | undefined
-  if (selected.hasCurrentControlledSource) {
-    if (selected.latestControlledFileId == null)
-      throw new Error('最新受控版本不可见或正式版本身份未提供')
+  if (selected.hasCurrentControlledSource && selected.latestControlledFileId == null)
+    throw new Error('最新受控版本不可见或正式版本身份未提供')
+  if (selected.latestControlledFileId != null) {
     const latestId = detailIdentity(selected.latestControlledFileId)
     latest = latestId === id ? selected : await readers.getPermissions(latestId)
     if (

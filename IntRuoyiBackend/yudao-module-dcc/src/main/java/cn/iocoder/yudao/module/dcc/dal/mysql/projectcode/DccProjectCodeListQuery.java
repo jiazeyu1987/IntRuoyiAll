@@ -87,10 +87,15 @@ public final class DccProjectCodeListQuery {
                 + " UNION ALL SELECT rf.dcc_project_code_id AS project_id FROM dcc_registration_certificate_file rf WHERE rf.tenant_id=#{tenantId} AND rf.deleted=0 AND rf.status='BOUND'"
                 + ") linked WHERE linked.project_id IS NOT NULL GROUP BY linked.project_id) fc ON fc.project_id=p.id";
         String fileCount = "COALESCE(fc.file_count,0)";
-        return "SELECT p.*," + fileCount + " AS associated_file_count,"
+        // The legacy stored count must not collide with the live association count below.
+        return "SELECT p.id,p.library_scope,p.product_master_id,p.doc_control_no,p.project_name,p.project_code,"
+                + "p.category,p.commissioned_production,p.project_leader,p.project_leader_user_id,p.default_attributes_json,"
+                + "p.project_engineer,p.storage_location,p.priority,p.status,p.last_import_batch_id,"
+                + "p.batch_record_total_recognition_json,p.tenant_id,p.create_time,p.update_time,p.creator,p.updater,p.deleted,"
+                + fileCount + " AS associated_file_count,"
                 + "(" + routeCount + ">0) AS route_configured,(" + definitionCount + ">1 OR " + mainExists + ") AS main_batch_configured,"
                 + "(" + qaId + " IS NOT NULL) AS qa_configured,"
-                + "EXISTS(SELECT 1 FROM mdm_product mp WHERE mp.id=p.product_master_id AND mp.tenant_id=p.tenant_id AND mp.deleted=0 AND mp.status='ENABLE' AND mp.dcc_product_code IS NOT NULL) AS valid_dcc_product,"
+                + "CASE WHEN EXISTS(SELECT 1 FROM mdm_product mp WHERE mp.id=p.product_master_id AND mp.tenant_id=p.tenant_id AND mp.deleted=0 AND mp.status='ENABLE' AND mp.dcc_product_code IS NOT NULL) THEN 1 ELSE 0 END AS valid_dcc_product,"
                 + "CONCAT(CASE " + routeCount + " WHEN 0 THEN '未配置' WHEN 1 THEN '已配置' ELSE '重复' END,' ',COALESCE(" + routeVersions + ",'')) AS route_display,"
                 + "CONCAT(" + mainState + ",' ',COALESCE(" + mainVersions + ",'')) AS main_batch_display,"
                 + "CONCAT(CASE WHEN " + publishedExists + " THEN '已发布' WHEN " + qaId + " IS NOT NULL THEN '草稿' ELSE '未配置' END,' ',COALESCE(TRIM(" + publishedVersion + "),'')) AS qa_display"

@@ -4,7 +4,7 @@ const read=p=>fs.readFileSync(p,'utf8'),fileId='9007199254740993',bpm='actual-bp
 const query={management:'1',from:'workbench',returnTo:'/dcc/controlled-file/workbench',processInstanceId:bpm}
 const row={id:'native-id',moduleCode:'DCC',sourceTaskType:type,sourceTaskId:'DCC_OFFLINE_TRAINING_RECORD:1:'+fileId+':'+bpm,businessKey:fileId,businessTitle:'实际培训文件.docx',businessCode:'SOP-TRAIN',businessContextTags:['版本：A/1'],requiresSignature:false,availableActions:['PROCESS_IN_MODULE'],processInstanceId:bpm,detailRoute:'/dcc/controlled-file/detail/'+fileId,detailQuery:query}
 function mod(p,deps={}){
- if(p==='src/utils/notifyMessageNavigation.ts')deps={...deps,'@/utils/activeOrderHandoffNavigation':mod('src/utils/activeOrderHandoffNavigation.ts',{'@/api/mes/pro/handoff':{handoffNavigationContext:()=>{throw Error('Handoff API is outside the training navigation test')}}})}
+ if(p==='src/utils/notifyMessageNavigation.ts')deps={...deps,'@/store/modules/approvalCenterInvalidation':{useApprovalCenterInvalidationStore:()=>{throw Error('Approval session is outside the training navigation test')}},'@/utils/activeOrderHandoffNavigation':mod('src/utils/activeOrderHandoffNavigation.ts',{'@/api/mes/pro/handoff':{handoffNavigationContext:()=>{throw Error('Handoff API is outside the training navigation test')}}})}
  const c={exports:{},Error,String,Number,BigInt,Array,Object,Set,URL,URLSearchParams,JSON,Promise,console,window:{location:{origin:'http://localhost:8061'}},require:id=>deps[id]||(id.endsWith('edhrWorkTaskNavigation')?{EDHR_WORK_TASK_NOTIFY_PATHS:new Set()}:id==='./dccOfflineTrainingRecord'?helper():id==='./dccDistributionNavigation'?mod('src/utils/dccDistributionNavigation.ts'):(()=>{throw Error(id)})())};vm.runInNewContext(ts.transpileModule(read(p),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,c);return c.exports}
 function helper(){const p='src/utils/dccOfflineTrainingRecord.ts';assert.ok(fs.existsSync(p),'formal offline training route/queue helper');return mod(p)}
 function declaration(path,names){const ast=ts.createSourceFile('actual.ts',parse(read(path)).descriptor.scriptSetup.content,ts.ScriptTarget.Latest,true);return names.map(name=>{const st=ast.statements.find(n=>ts.isVariableStatement(n)&&n.declarationList.declarations.some(d=>ts.isIdentifier(d.name)&&d.name.text===name));assert.ok(st,'actual '+name);return st.getText(ast)}).join('\n')}
@@ -71,10 +71,13 @@ test('detail training upload is a standalone header button and opens the existin
   for(const child of node.children||[])visit(child,[...parents,node])
  }
  visit(descriptor.template.ast)
- assert.equal(paths.length,1,'one upload entry, with no duplicate dropdown item')
- assert.equal(paths[0].at(-1).tag,'el-button')
- assert.equal(paths[0].some(node=>node.tag==='el-dropdown'||node.tag==='el-dropdown-item'),false)
- assert.ok(paths[0].at(-2).props.some(prop=>prop.name==='class'&&prop.value?.content==='detail-action-bar'))
+ assert.equal(paths.length,2,'each mutually exclusive layout keeps its standalone upload entry')
+ for(const path of paths){
+  assert.equal(path.at(-1).tag,'el-button')
+  assert.equal(path.some(node=>node.tag==='el-dropdown'||node.tag==='el-dropdown-item'),false)
+ }
+ assert.ok(paths[0].some(node=>node.props?.some(prop=>prop.name==='if'&&prop.exp?.content==='useControlledDetailLayout')))
+ assert.ok(paths[1].some(node=>node.props?.some(prop=>prop.name==='if'&&prop.exp?.content==='!useControlledDetailLayout')))
  const projection=mod('src/api/form-center/actionProjection.ts')
  const lifecycle=mod('src/views/dcc/controlled-file/shared/lifecycle.ts',{'@/api/form-center/actionProjection':projection})
  for(const scenario of ['allowed','no-permission','no-training','completed','stale']){
@@ -92,4 +95,21 @@ test('detail training upload is a standalone header button and opens the existin
    assert.equal(c.applicantTrainingRecordDialog.visible,scenario==='allowed',scenario)
   }finally{button.close()}
  }
+})
+
+test('native training details use the new tabs while actual approval handling retains its action layout',()=>{
+ const c={exports:{},computed:vue.computed,route:vue.reactive({query:{management:'1'}}),isBrowserTraceabilityPage:vue.ref(false),isApprovalUploadHandlingPage:vue.ref(false),fileDetail:vue.ref({status:'PENDING_APPLICANT_TRAINING_RECORD'})}
+ vm.runInNewContext(ts.transpileModule(declaration('src/views/dcc/controlled-file/detail/index.vue',['useControlledDetailLayout'])+'\nexports.layout=useControlledDetailLayout',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c)
+ assert.equal(c.exports.layout.value,true)
+ c.isApprovalUploadHandlingPage.value=true;assert.equal(c.exports.layout.value,false)
+ c.isApprovalUploadHandlingPage.value=false;c.fileDetail.value.status='ACTIVE';delete c.route.query.management;assert.equal(c.exports.layout.value,true)
+})
+
+test('actual approval-center flow gate honors training timeline capability and blocks deleted records',()=>{
+ const c={exports:{},Boolean,isBpmProcessDetailOnly:()=>false}
+ vm.runInNewContext(ts.transpileModule(declaration('src/views/approval-center/index.vue',['hasTimelineCapability','canOpenFlow','resolveFlowDisabledReason'])+'\nexports.canOpen=canOpenFlow;exports.reason=resolveFlowDisabledReason',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c)
+ const training={...row,capabilities:['TIMELINE']}
+ assert.equal(c.exports.canOpen(training),true);assert.equal(c.exports.reason(training),'')
+ assert.equal(c.exports.canOpen({...training,businessDeleted:true}),false)
+ assert.equal(c.exports.canOpen({...training,capabilities:[]}),false)
 })

@@ -11,6 +11,29 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class DccProjectProductTaskDelegateTest {
+    @Test void directCreationTimelineShowsCreationWithoutInventingApproval() {
+        var service = mock(DccProjectProductCreateService.class);
+        var delegate = new DccProjectProductTaskDelegate(mock(DccProjectProductCreateRequestMapper.class),
+                mock(DccProjectProductActorSupport.class), service);
+        org.springframework.test.util.ReflectionTestUtils.setField(delegate, "reviewerRoles", new DccProjectReviewerRoleService());
+        var request = DccProjectProductCreateRequestDO.builder().id(76L).applicantUserId(910337L)
+                .reviewContract(DccProjectProductCreateService.DIRECT_CREATE_CONTRACT).status("COMPLETED")
+                .submittedTime(LocalDateTime.of(2026,11,18,14,24,56)).creationReason("创建项目").build();
+        request.setTenantId(1L);
+        when(service.getRequest(910337L,76L)).thenReturn(request);
+        var context = ApprovalTaskTimelineQueryContext.of(910337L, ApprovalModuleCode.DCC, DccProjectProductTaskDelegate.INITIATED,
+                "DCC_PROJECT_PRODUCT:1:76:DCC_PROJECT_PRODUCT_REQUEST", "76", "");
+        var entries = delegate.timeline(context);
+        assertEquals(1, entries.size());
+        assertEquals("CREATE", entries.get(0).getAction());
+        assertEquals("COMPLETED", entries.get(0).getStatus());
+        assertEquals(910337L, entries.get(0).getActorUserId());
+        assertEquals("直接新建项目产品", entries.get(0).getNodeName());
+        context.setSourceTaskType(DccProjectProductTaskDelegate.REVIEW)
+                .setSourceTaskId("DCC_PROJECT_PRODUCT:1:76:DCC_PROJECT_PRODUCT_REVIEW");
+        assertThrows(IllegalArgumentException.class, () -> delegate.timeline(context));
+    }
+
     @Test void completedReviewAndApprovalNeverBecomeRejectedBecauseOpinionIsAbsent() {
         var service=mock(DccProjectProductCreateService.class);
         var delegate=new DccProjectProductTaskDelegate(mock(DccProjectProductCreateRequestMapper.class),mock(DccProjectProductActorSupport.class),service);

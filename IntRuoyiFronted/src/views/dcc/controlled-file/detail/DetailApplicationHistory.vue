@@ -1,6 +1,6 @@
 <template>
   <ContentWrap class="dcc-detail-surface" v-loading="loading" data-testid="dcc-detail-application-history">
-    <p class="font-600">申请信息</p>
+    <p v-if="displayMode !== 'controlled-overview'" class="font-600">申请信息</p>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <el-select
       v-if="!lockPrimaryRound && rounds.length > 1"
@@ -17,8 +17,12 @@
       />
     </el-select>
     <p v-if="!loading && !error && !rounds.length">暂无申请信息</p>
+    <dl v-if="displayMode === 'controlled-overview'" class="controlled-detail-fields controlled-detail-fields--columns application-overview-fields">
+      <slot name="file-fields" :selected-round="selectedRound"></slot>
+      <div v-for="field in overviewAttributeFields" :key="field.label"><dt>{{ field.label }}</dt><dd>{{ field.value }}</dd></div>
+    </dl>
     <section v-if="evidence" v-loading="evidenceLoading" class="mt-12px">
-      <el-descriptions :column="3" border class="application-information">
+      <el-descriptions v-if="displayMode !== 'controlled-overview'" :column="3" border class="application-information">
         <el-descriptions-item label="申请类型">{{ applicationLabel(evidence.applicationType, selectedRound?.revisionChangeType) }}</el-descriptions-item>
         <el-descriptions-item label="申请时间">{{ formatControlledFileDateTime(selectedRound?.applicationTime) }}</el-descriptions-item>
         <template v-if="evidence.recorded && evidence.actualAttributes">
@@ -95,6 +99,7 @@ const props = defineProps<{
   contextKey?: string
   contextError?: string
   showNodeRecords?: boolean
+  displayMode?: 'controlled-overview'
   readAuthority?: () => string
 }>()
 const emit = defineEmits<{
@@ -119,6 +124,19 @@ const roundKey = (round: ControlledFileApplicationRound) =>
 const selectedRound = computed(() => rounds.value.find(round => roundKey(round) === selectedKey.value))
 const marketLabels: Record<string, string> = { NMPA: 'NMPA 国内', CE: 'CE 欧盟', FDA: 'FDA', MADSAP: 'MDSAP', OTHER: '其他', NA: '不适用' }
 const identityLabels: Record<string, string> = { Y: '是', N: '否', NA: '不适用' }
+const overviewAttributeFields = computed(() => {
+  const attributes = evidence.value?.recorded ? evidence.value.actualAttributes : undefined
+  if (!attributes) return []
+  if (attributes.libraryScope) return [{ label: '适用范围', value: `${attributes.libraryScope === 'QMS' ? 'QMS 文件库' : '通用文件库'}，项目属性不适用` }]
+  const fields = [] as { label: string; value: string }[]
+  if (attributes.targetMarkets.length) fields.push({ label: '目标市场', value: attributes.targetMarkets.map(market => marketLabels[market]).join('、') })
+  for (const [label, value] of [['注册人身份', attributes.licenseHolder], ['生产方身份', attributes.actualManufacturer], ['文件转移', attributes.documentTransfer]] as const) {
+    if (value) fields.push({ label, value: identityLabels[value] || '未记录' })
+  }
+  if (attributes.otherMarket) fields.push({ label: '其他市场说明', value: attributes.otherMarket })
+  if (attributes.documentTransfer === 'Y' && attributes.transferTo) fields.push({ label: '转移至', value: attributes.transferTo })
+  return fields
+})
 const applicationLabel = (type: DccApplicationType, revisionChangeType?: string | null) =>
   type === 'REVISION'
     ? (revisionChangeType === 'PARTIAL' ? '局部变更' : revisionChangeType === 'REPLACEMENT' ? '换版变更' : '变更类型未记录')

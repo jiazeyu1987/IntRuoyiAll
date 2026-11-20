@@ -99,7 +99,8 @@ public class DccRegistrationCertificatePrerequisiteValidator {
             }
             productName = projectProduct.productName();
             if (!isBlank(draft.productName()) && !Objects.equals(trim(draft.productName()), productName)) {
-                throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID);
+                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                        cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCT_NAME_MISMATCH, productName);
             }
         } else {
             if (facts.getProjectProduct() != null) throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID);

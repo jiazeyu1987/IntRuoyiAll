@@ -7,7 +7,7 @@
           ><el-checkbox
             :model-value="Boolean(selected(row.masterId))"
             :disabled="disabled"
-            @change="(value) => toggle(row.masterId, Boolean(value))" /></template
+            @update:model-value="(value) => toggle(row.masterId, Boolean(value))" /></template
       ></el-table-column>
       <el-table-column label="关联文件" prop="fileName" /><el-table-column
         label="审阅版本"

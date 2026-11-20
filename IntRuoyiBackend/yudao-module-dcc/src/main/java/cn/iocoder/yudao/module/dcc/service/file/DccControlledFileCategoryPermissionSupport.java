@@ -100,6 +100,12 @@ public class DccControlledFileCategoryPermissionSupport {
 
     public CategoryPermissionEvaluation evaluateCategoryPermission(Long categoryId, Long userId,
                                                                    DccFileCategoryPermissionActionEnum actionType) {
+        return DccReadRequestSnapshot.read("categoryPermission." + categoryId + "." + userId + "." + actionType,
+                () -> loadCategoryPermission(categoryId, userId, actionType));
+    }
+
+    private CategoryPermissionEvaluation loadCategoryPermission(Long categoryId, Long userId,
+                                                                   DccFileCategoryPermissionActionEnum actionType) {
         if (actionType == null) return CategoryPermissionEvaluation.denied();
         if (actionType == DccFileCategoryPermissionActionEnum.REVIEW || actionType == DccFileCategoryPermissionActionEnum.APPROVE)
             return evaluateExact(categoryId, userId, actionType);
@@ -117,6 +123,12 @@ public class DccControlledFileCategoryPermissionSupport {
     }
 
     private CategoryPermissionEvaluation evaluateExact(Long categoryId, Long userId,
+                                                        DccFileCategoryPermissionActionEnum actionType) {
+        return DccReadRequestSnapshot.read("categoryExact." + categoryId + "." + userId + "." + actionType,
+                () -> loadExact(categoryId, userId, actionType));
+    }
+
+    private CategoryPermissionEvaluation loadExact(Long categoryId, Long userId,
                                                         DccFileCategoryPermissionActionEnum actionType) {
         if (TenantContextHolder.isIgnore() || categoryId == null || userId == null || actionType == null) {
             return CategoryPermissionEvaluation.denied();

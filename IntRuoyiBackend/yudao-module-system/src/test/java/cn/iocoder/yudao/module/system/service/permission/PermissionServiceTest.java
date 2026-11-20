@@ -393,6 +393,8 @@ public class PermissionServiceTest extends BaseDbUnitTest {
     public void testGetRoleMenuIds_normal() {
         // 准备参数
         Long roleId = 100L;
+        when(roleService.getRoleListFromCache(eq(singleton(roleId))))
+                .thenReturn(singletonList(randomPojo(RoleDO.class).setId(roleId).setCode("test_role")));
         // mock 数据
         RoleMenuDO roleMenu01 = randomPojo(RoleMenuDO.class).setRoleId(100L).setMenuId(1L);
         roleMenuMapper.insert(roleMenu01);
@@ -572,10 +574,64 @@ public class PermissionServiceTest extends BaseDbUnitTest {
     }
 
     private void prepareAuditorAssignment(String permission) {
+        prepareLogRoleAssignment("edhr_auditor", permission);
+    }
+
+    @Test
+    public void testAssignUserRole_projectCodeAdminBusinessLogQueryAllowed() {
+        prepareLogRoleAssignment("dcc_project_code_admin", "dcc:controlled-file:log:query");
+
+        permissionService.assignUserRole(1L, Set.of(100L, 200L), "授予项目代码管理员", "TEST-PROJECT-ADMIN-QUERY");
+
+        assertEquals(Set.of(100L, 200L), userRoleMapper.selectListByUserId(1L).stream()
+                .map(UserRoleDO::getRoleId).collect(Collectors.toSet()));
+        verify(gxpAuditService).append(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"dcc:controlled-file:log:export", "dcc:controlled-file:log:delete",
+            "system:login-log:query", "system:operate-log:query"})
+    public void testAssignUserRole_projectCodeAdminOtherLogPermissionsForbidden(String permission) {
+        prepareLogRoleAssignment("dcc_project_code_admin", permission);
+
+        assertThrows(ServiceException.class, () -> permissionService.assignUserRole(1L, Set.of(100L, 200L),
+                "不得扩展其他日志权限", "TEST-PROJECT-ADMIN-LOG-FORBIDDEN"));
+        assertEquals(Set.of(100L), userRoleMapper.selectListByUserId(1L).stream()
+                .map(UserRoleDO::getRoleId).collect(Collectors.toSet()));
+        verify(gxpAuditService, never()).append(any());
+    }
+
+    @Test
+    public void testAssignUserRole_projectCodeAdminCannotMaskAnotherLogRole() {
+        prepareLogRoleAssignment("dcc_project_code_admin", "dcc:controlled-file:log:query");
+        roleMenuMapper.insert(randomPojo(RoleMenuDO.class).setRoleId(100L).setMenuId(3000L));
+        userRoleMapper.deleteListByUserId(1L);
+
+        assertThrows(ServiceException.class, () -> permissionService.assignUserRole(1L, Set.of(100L, 200L),
+                "不得借混合角色扩展授权", "TEST-PROJECT-ADMIN-MIXED-FORBIDDEN"));
+        assertTrue(userRoleMapper.selectListByUserId(1L).isEmpty());
+        verify(gxpAuditService, never()).append(any());
+    }
+
+    @Test
+    public void testAssignUserRole_existingProjectCodeAdminCannotEscalateToAdmin() {
+        prepareLogRoleAssignment("dcc_project_code_admin", "dcc:controlled-file:log:query");
+        userRoleMapper.deleteListByUserId(1L);
+        userRoleMapper.insert(randomPojo(UserRoleDO.class).setUserId(1L).setRoleId(200L).setTenantId(1L));
+        doReturn(List.of(new RoleDO().setId(300L).setCode(RoleCodeEnum.BPM_ADMIN.getCode())))
+                .when(roleService).getRoleListFromCache(eq(Set.of(300L)));
+
+        assertThrows(ServiceException.class, () -> permissionService.assignUserRole(1L, Set.of(300L),
+                "项目代码管理员不得升级系统管理员", "TEST-PROJECT-ADMIN-ESCALATION-FORBIDDEN"));
+        assertEquals(Set.of(200L), userRoleMapper.selectListByUserId(1L).stream()
+                .map(UserRoleDO::getRoleId).collect(Collectors.toSet()));
+    }
+
+    private void prepareLogRoleAssignment(String roleCode, String permission) {
         userRoleMapper.insert(randomPojo(UserRoleDO.class).setUserId(1L).setRoleId(100L).setTenantId(1L));
         roleMenuMapper.insert(randomPojo(RoleMenuDO.class).setRoleId(200L).setMenuId(3000L));
         List<RoleDO> roles = List.of(new RoleDO().setId(100L).setCode("normal_role"),
-                new RoleDO().setId(200L).setCode("edhr_auditor"));
+                new RoleDO().setId(200L).setCode(roleCode));
         when(roleService.getRoleListFromCache(any())).thenAnswer(invocation -> {
             Collection<Long> ids = invocation.getArgument(0);
             return roles.stream().filter(role -> ids.contains(role.getId())).collect(Collectors.toList());

@@ -425,7 +425,7 @@
                   · 检出时间：{{ getSelectedVersion(row).checkedOutTime == null ? '未记录' : formatControlledFileDateTime(getSelectedVersion(row).checkedOutTime) }}
                 </el-tag>
                 <el-button
-                  v-if="!getSelectedVersion(row).checkedOutBy && canCheckoutVersion(getSelectedVersion(row))"
+                  v-if="isValidBrowserOptionId(getSelectedVersion(row).id) && !getSelectedVersion(row).checkedOutBy && !getSelectedVersion(row).checkedOut"
                   data-testid="dcc-controlled-browser-checkout"
                   link
                   type="primary"
@@ -435,7 +435,7 @@
                   检出
                 </el-button>
                 <el-button
-                  v-if="isCheckedOutByCurrentUser(getSelectedVersion(row))"
+                  v-if="isValidBrowserOptionId(getSelectedVersion(row).id) && (getSelectedVersion(row).checkedOutBy || getSelectedVersion(row).checkedOut)"
                   data-testid="dcc-controlled-browser-checkin"
                   link
                   type="primary"
@@ -445,7 +445,7 @@
                   检入
                 </el-button>
                 <el-button
-                  v-if="isCheckedOutByCurrentUser(getSelectedVersion(row))"
+                  v-if="isValidBrowserOptionId(getSelectedVersion(row).id) && (getSelectedVersion(row).checkedOutBy || getSelectedVersion(row).checkedOut)"
                   data-testid="dcc-controlled-browser-cancel-checkout"
                   link
                   @click="handleCancelCheckout(getSelectedVersion(row))"
@@ -463,20 +463,12 @@
                 >
                   浏览
                 </el-button>
-                <el-button v-if="canStartRevision(getSelectedVersion(row), 'PARTIAL')"
-                  v-hasPermi="['dcc:controlled-file:edit']" data-testid="dcc-browser-partial-revision"
+                <el-button v-if="showRevisionActions(getSelectedVersion(row))"
+                  data-testid="dcc-browser-partial-revision"
                   link type="primary" @click="openRevision(getSelectedVersion(row), 'PARTIAL')">局部变更</el-button>
-                <span v-if="hasRevisionBaseline(getSelectedVersion(row))"
-                  class="browser-row-actions__item"
-                  v-hasPermi="['dcc:controlled-file:edit']"
-                  :title="canStartRevision(getSelectedVersion(row), 'REPLACEMENT') ? ''
-                    : getSelectedVersion(row).checkedOutBy || getSelectedVersion(row).checkedOut
-                      ? '文件已检出，请先检入或撤销检出后发起换版变更'
-                      : '当前账号没有本文件编辑权限'">
-                  <el-button data-testid="dcc-browser-replacement-revision" link type="primary"
-                    :disabled="!canStartRevision(getSelectedVersion(row), 'REPLACEMENT')"
-                    @click="openRevision(getSelectedVersion(row), 'REPLACEMENT')">换版变更</el-button>
-                </span>
+                <el-button v-if="showRevisionActions(getSelectedVersion(row))"
+                  data-testid="dcc-browser-replacement-revision" link type="primary"
+                  @click="openRevision(getSelectedVersion(row), 'REPLACEMENT')">换版变更</el-button>
                 <el-button v-if="getBrowserRowActionState(getSelectedVersion(row)).showObsolete"
                   data-testid="dcc-controlled-browser-obsolete" link type="danger"
                   @click="handleObsolete(getSelectedVersion(row))">作废</el-button>
@@ -1761,9 +1753,8 @@ const getBrowserCurrentActiveRowSummary = (row: ControlledFileBrowserRow) => {
 
 const hasBrowserRowActions = (row: ControlledFileBrowserRow) => {
   const file = getSelectedVersion(row)
-  return getBrowserRowActionState(file).canPreview || getBrowserRowActionState(file).showObsolete
-    || canCheckoutVersion(file) || isCheckedOutByCurrentUser(file)
-    || canStartRevision(file, 'PARTIAL') || canStartRevision(file, 'REPLACEMENT')
+  return isValidBrowserOptionId(file.id)
+    || getBrowserRowActionState(file).canPreview || getBrowserRowActionState(file).showObsolete
 }
 
 const getBrowserRowActionBlockReason = (row: ControlledFileBrowserRow) => {
@@ -1795,9 +1786,21 @@ const canCheckoutVersion = (file: ControlledFileVO | ControlledFileBrowserVersio
 
 
 
-
-
-
+const getCheckoutActionBlockReason = (
+  file: ControlledFileBrowserVersion, action: 'CHECKOUT' | 'CHECKIN' | 'CANCEL_CHECKOUT'
+) => {
+  if (!isValidBrowserOptionId(file.id)) return '文件缺少有效编号，请刷新后重试'
+  if (!checkPermi(['dcc:controlled-file:edit']) || !canEditVersion(file)) {
+    return '当前账号没有本文件编辑权限'
+  }
+  if (action === 'CHECKOUT') {
+    if (file.checkedOutBy || file.checkedOut) return '文件已检出，请先检入或撤销检出'
+    return canCheckoutVersion(file) ? '' : '当前文件状态不支持检出'
+  }
+  if (!file.checkedOutBy && !file.checkedOut) return '文件尚未检出，请先检出'
+  if (!isCheckedOutByCurrentUser(file)) return '文件由其他账号检出，仅检出人可以检入或撤销检出'
+  return ''
+}
 
 
 
@@ -1849,8 +1852,12 @@ const applyCheckoutProjection = (updatedFile: ControlledFileVO) => {
 }
 
 const handleCheckout = async (file: ControlledFileBrowserVersion) => {
+  const blockReason = getCheckoutActionBlockReason(file, 'CHECKOUT')
+  if (blockReason) {
+    message.warning(blockReason)
+    return
+  }
   const id = file.id
-  if (!isValidBrowserOptionId(id) || file.checkedOutBy) return
   checkoutLoadingId.value = id
   try {
     const { value: reason } = await ElMessageBox.prompt('请输入本次修改原因', '检出文件', {
@@ -1872,13 +1879,16 @@ const handleCheckout = async (file: ControlledFileBrowserVersion) => {
 }
 
 const handleCheckin = (file: ControlledFileBrowserVersion) => {
+  const blockReason = getCheckoutActionBlockReason(file, 'CHECKIN')
+  if (blockReason) {
+    message.warning(blockReason)
+    return
+  }
   if (checkinSubmitting.value || checkinCleanupLoading.value || checkinUploadLoading.value || checkinDrawingPdfLoading.value
     || checkinAttachmentState.value.uploading || checkinAttachmentState.value.cleaning) {
     message.warning('请先完成当前检入会话。')
     return
   }
-  const id = file.id
-  if (!isValidBrowserOptionId(id) || !isCheckedOutByCurrentUser(file)) return
   let needTraining: boolean
   try {
     needTraining = requireCheckinTrainingDefault(file)
@@ -2302,8 +2312,12 @@ const mergeCheckinResult = (updatedFile: ControlledFileVO, baseId: number | stri
 }
 
 const handleCancelCheckout = async (file: ControlledFileBrowserVersion) => {
+  const blockReason = getCheckoutActionBlockReason(file, 'CANCEL_CHECKOUT')
+  if (blockReason) {
+    message.warning(blockReason)
+    return
+  }
   const id = file.id
-  if (!isValidBrowserOptionId(id) || !isCheckedOutByCurrentUser(file)) return
   const { value: reason } = await ElMessageBox.prompt('请输入撤销检出的原因', '撤销检出', {
     inputValidator: (value) => value.trim() ? true : '请输入撤销原因',
     confirmButtonText: '撤销检出',
@@ -3750,12 +3764,26 @@ const hasRevisionBaseline = (file: ControlledFileBrowserVersion) =>
   ['ACTIVE', 'CONTROLLED_PENDING_EFFECTIVE'].includes(file.status || '')
     || (file.status === 'WORKING' && file.revisionBaseActiveControlledFileId != null)
 
+const showRevisionActions = (file: ControlledFileBrowserVersion) =>
+  file.status === 'WORKING' || getDccVersionDisplayText(file.versionNo) === '草稿' || hasRevisionBaseline(file)
+
 const canStartRevision = (file: ControlledFileBrowserVersion, _intent: 'PARTIAL' | 'REPLACEMENT') => {
   return hasRevisionBaseline(file) && !file.checkedOutBy && !file.checkedOut
-    && file.canEditFile === true
+    && checkPermi(['dcc:controlled-file:edit']) && file.canEditFile === true
 }
 const openRevision = (file: ControlledFileBrowserVersion, intent: 'PARTIAL' | 'REPLACEMENT') => {
-  if (!canStartRevision(file, intent)) return
+  if (!checkPermi(['dcc:controlled-file:edit']) || file.canEditFile !== true) {
+    message.warning('当前账号没有本文件编辑权限')
+    return
+  }
+  if (file.checkedOutBy || file.checkedOut) {
+    message.warning('文件已检出，请先检入或撤销检出后发起变更')
+    return
+  }
+  if (!canStartRevision(file, intent)) {
+    message.warning('当前文件状态不支持发起变更')
+    return
+  }
   const baselineId = file.status === 'WORKING' ? file.revisionBaseActiveControlledFileId : file.id
   if (baselineId == null) throw new Error('所选正文缺少正式受控来源，无法发起变更')
   openManagement(baselineId, { revisionIntent: intent,

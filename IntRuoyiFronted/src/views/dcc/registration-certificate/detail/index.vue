@@ -10,6 +10,7 @@
       :title="routeIdentityError"
     />
     <el-skeleton v-else-if="loading" :rows="8" animated />
+    <el-alert v-else-if="loadError" type="error" show-icon :closable="false" :title="loadError" />
     <el-empty v-else-if="!detail" description="未加载到注册证详情" />
     <div v-else class="registration-certificate-detail">
       <div class="detail-title">
@@ -376,7 +377,7 @@ import { parseFacts } from '../shared/facts'
 import { formatRegistrationCertificateChangeType, formatRegistrationCertificateChangeValue } from '../shared/changeDisplay'
 import ChangeConfirmationsPanel from '../components/ChangeConfirmationsPanel.vue'
 import RequestDetailPanel from '../approval/RequestDetailPanel.vue'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { formatRegistrationCertificateDateTime } from '../shared/dateTimeDisplay'
 import {
@@ -442,6 +443,8 @@ const viewMode = computed(() => {
 })
 const invalidRoute = computed(() => !routeCertificateId.value && !accessRequestId.value)
 const loading = ref(false)
+const loadError = ref('')
+let detailLoadVersion = 0
 const detail = ref<DccRegistrationCertificateDetailVO>()
 const history = ref<DccRegistrationCertificateHistoryItemVO[]>([])
 const routeIdentityError = ref('')
@@ -694,7 +697,7 @@ const downloadableFiles = computed<DownloadableFileOption[]>(() => {
   })
 })
 
-const loadDownloadGrantStatuses = async (isCurrent: () => boolean) => {
+const loadDownloadGrantStatuses = async (version: number) => {
   downloadAuthorizedFileIds.value = new Set()
   requestPendingFileIds.value = new Set()
   const businessFileIds = downloadableFiles.value.map((file) => file.businessFileId)
@@ -702,7 +705,7 @@ const loadDownloadGrantStatuses = async (isCurrent: () => boolean) => {
     return
   }
   const statuses = await getRegistrationCertificateFileDownloadGrantStatuses(businessFileIds)
-  if (!isCurrent()) return
+  if (version !== detailLoadVersion) return
   downloadAuthorizedFileIds.value = new Set(
     statuses
       .filter((status) => status.canDownload)
@@ -715,7 +718,8 @@ const loadDownloadGrantStatuses = async (isCurrent: () => boolean) => {
   )
 }
 
-const resolveCertificateIdForDetail = async (isCurrent: () => boolean) => {
+const resolveCertificateIdForDetail = async () => {
+  const version = detailLoadVersion
   if (routeCertificateId.value) {
     return routeCertificateId.value
   }
@@ -723,7 +727,7 @@ const resolveCertificateIdForDetail = async (isCurrent: () => boolean) => {
     return ''
   }
   const status = await getRegistrationCertificateAccessRequestStatus(accessRequestId.value)
-  if (!isCurrent()) return ''
+  if (version !== detailLoadVersion) return ''
   const resolvedCertificateId = parsePositiveRouteQueryId(status.certificateId)
   if (!resolvedCertificateId) {
     routeIdentityError.value = '注册证访问申请缺少正式注册证身份，无法加载详情'
@@ -733,7 +737,18 @@ const resolveCertificateIdForDetail = async (isCurrent: () => boolean) => {
   return resolvedCertificateId
 }
 
-const loadDetail = async (isCurrent: () => boolean) => {
+const loadDetail = async () => {
+  if (route.path !== detailPagePath) return
+  const version = ++detailLoadVersion
+  detail.value = undefined
+  history.value = []
+  loadError.value = ''
+  loading.value = false
+  previewDialogVisible.value = false
+  selectedPreviewSource.value = null
+  downloadAuthorizedFileIds.value = new Set()
+  requestPendingFileIds.value = new Set()
+  if(approvalRequestId.value && approvalProcessInstanceId.value)return
   routeIdentityError.value = ''
   accessRequestCertificateId.value = ''
   detail.value = undefined
@@ -746,35 +761,30 @@ const loadDetail = async (isCurrent: () => boolean) => {
   const versionId = detailVersionId.value
   loading.value = true
   try {
-    const resolvedCertificateId = await resolveCertificateIdForDetail(isCurrent)
-    if (!resolvedCertificateId || !isCurrent()) return
+    const resolvedCertificateId = await resolveCertificateIdForDetail()
+    if (!resolvedCertificateId || version !== detailLoadVersion) return
     const loadedDetail = await getRegistrationCertificateDetail(resolvedCertificateId, versionId)
-    if (!isCurrent()) return
+    if (version !== detailLoadVersion) return
+    if (!loadedDetail) throw new Error('注册证详情查询未返回数据，请重新打开详情')
     detail.value = loadedDetail
     const loadedHistory = await getRegistrationCertificateHistory(resolvedCertificateId, loadedDetail.versionId)
-    if (!isCurrent()) return
+    if (version !== detailLoadVersion) return
     history.value = loadedHistory
-    await loadDownloadGrantStatuses(isCurrent)
+    await loadDownloadGrantStatuses(version)
   } catch (error) {
-    if (isCurrent()) {
-      routeIdentityError.value = `注册证详情加载失败：${error instanceof Error ? error.message : String(error)}`
-    }
+    if (version !== detailLoadVersion) return
+    detail.value = undefined
+    history.value = []
+    loadError.value = error instanceof Error ? error.message : String(error)
   } finally {
-    if (isCurrent()) loading.value = false
+    if (version === detailLoadVersion) loading.value = false
   }
 }
 
-// Approval material and formal detail share a path; query changes do not remount it.
-watch(
-  [() => route.fullPath, () => props.id],
-  (_value, _oldValue, onCleanup) => {
-    let current = true
-    onCleanup(() => { current = false })
-    if (route.path !== detailPagePath) return
-    void loadDetail(() => current)
-  },
-  { immediate: true }
-)
+watch([routeCertificateId, accessRequestId, detailVersionId, approvalRequestId, approvalProcessInstanceId], loadDetail, { immediate: true })
+onActivated(() => {
+  if (!loading.value) void loadDetail()
+})
 
 const updateViewportWidth = () => {
   viewportWidth.value = window.innerWidth
@@ -785,6 +795,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  ++detailLoadVersion
   window.removeEventListener('resize', updateViewportWidth)
 })
 </script>

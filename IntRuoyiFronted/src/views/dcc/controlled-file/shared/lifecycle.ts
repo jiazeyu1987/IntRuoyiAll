@@ -88,15 +88,12 @@ export interface DccControlledFileRuntimeStageDefinition
 
 export const DCC_WITHDRAWABLE_CONTROLLED_FILE_STATUSES = [
   'PENDING_SUPERVISOR_REVIEW',
-  'PENDING_DOC_CONTROL_REVIEW',
   'PENDING_MATRIX_REVIEW',
-  'PENDING_MATRIX_APPROVAL',
-  'PENDING_DOC_CONTROL_APPROVAL',
-  'PENDING_APPLICANT_TRAINING_RECORD'
+  'PENDING_MATRIX_APPROVAL'
 ] as const
 
 export type DccPendingControlledFileStatus =
-  (typeof DCC_WITHDRAWABLE_CONTROLLED_FILE_STATUSES)[number]
+  (typeof DCC_WITHDRAWABLE_CONTROLLED_FILE_STATUSES)[number] | 'PENDING_DOC_CONTROL_REVIEW' | 'PENDING_DOC_CONTROL_APPROVAL'
 
 export const DCC_CONTROLLED_FILE_STATUS_DEFINITIONS: readonly DccControlledFileStatusDefinition[] =
   [
@@ -211,7 +208,7 @@ export const getDccControlledFileStatusTagType = (status: DccControlledFileStatu
 export const isDccControlledFileWithdrawableStatus = (
   status: DccControlledFileStatus | undefined
 ): status is DccPendingControlledFileStatus => {
-  return !!status && DCC_WITHDRAWABLE_CONTROLLED_FILE_STATUSES.includes(status as DccPendingControlledFileStatus)
+  return !!status && (DCC_WITHDRAWABLE_CONTROLLED_FILE_STATUSES as readonly string[]).includes(status)
 }
 
 export const getDccControlledFileStageByStatus = (status: DccControlledFileStatus | undefined) => {

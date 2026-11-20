@@ -20,7 +20,7 @@ function actions(request, blockedReason = '') {
     onMounted: () => {}, onBeforeUnmount: () => {}, getControlledFileTaskActionReadiness: request,
     resolveReadSideErrorMessage: e => e.message }
   scope.run(() => vm.runInNewContext(ts.transpileModule(source +
-    '\nglobalThis.state = { readiness, loading, error, canApprove, canReject, loadReadiness }',
+    '\nglobalThis.state = { readiness, loading, error, blockerText, canApprove, canReject, loadReadiness }',
   { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, env))
   return { props, state: env.state, stop: () => scope.stop() }
 }
@@ -55,6 +55,7 @@ test('failed condition reads remain visible, and an explicit successful recheck 
   failed = false
   await h.state.loadReadiness()
   assert.equal(h.state.canApprove.value, true)
+  assert.equal(h.state.blockerText.value, '')
   h.stop()
 })
 
@@ -97,7 +98,7 @@ test('page denies approval for missing permission, stale detail, wrong task and 
 test('supervisor has a current task section and keeps its actions in the fixed bar', () => {
   const page = parse(fs.readFileSync(path.join(root, 'index.vue'), 'utf8')).descriptor
   assert.match(page.template.content, /<section ref="reviewTaskRef" class="review-section">[\s\S]*?data-testid="dcc-approval-upload-action-panel"/)
-  assert.match(page.template.content, /<div v-if="!canShowSignoffAssignment && !isSupervisorReviewPage && !isActualSignoffReviewPage && !isMatrixApprovalPage"[^>]*class="mt-14px flex flex-wrap gap-8px"/)
+  assert.match(page.template.content, /<div v-if="!canShowSignoffAssignment && !isSupervisorReviewPage && !isActualSignoffReviewPage && !isMatrixApprovalPage && !isDocControlReviewPage"[^>]*class="mt-14px flex flex-wrap gap-8px"/)
   assert.match(page.template.content, /<SupervisorReviewActions v-if="isSupervisorReviewPage"/)
   const overview = page.template.content.indexOf('dcc-approval-upload-view')
   const body = page.template.content.indexOf('dcc-approval-upload-file-preview')
@@ -117,7 +118,7 @@ test('verified countersigner has the approval label while assignment verificatio
     fileDetail: vue.ref({ id: '101' }), resolveDccStageDisplayName: () => '直属主管审核' }
   vm.runInNewContext(ts.transpileModule(statement.getText(ast) + '\nglobalThis.name = currentApprovalTaskName',
     { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, env)
-  assert.equal(env.name.value, '会签批准')
+  assert.equal(env.name.value, '实际会签人会签')
   env.signoffAssignmentState.value.assigned = false
   assert.equal(env.name.value, '部门负责人签名指派')
   env.signoffAssignmentState.value.taskId = 'stale-task'
@@ -125,7 +126,7 @@ test('verified countersigner has the approval label while assignment verificatio
   env.isSignoffTask.value = false
   assert.equal(env.name.value, '直属主管审核')
   assert.match(page.template.content, /已完成 \{\{ actualSignoffStage\?\.completionText/)
-  assert.match(page.template.content, /<SupervisorReviewActions v-if="isActualSignoffReviewPage"[^>]*approve-text="批准通过"/)
+  assert.match(page.template.content, /<SupervisorReviewActions v-if="isActualSignoffReviewPage"[^>]*approve-text="审核通过"/)
 })
 
 

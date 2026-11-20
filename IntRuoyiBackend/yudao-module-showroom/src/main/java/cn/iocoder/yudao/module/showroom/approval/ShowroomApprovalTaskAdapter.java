@@ -11,10 +11,9 @@ import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskSummary;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskTimelineEntry;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskTimelineQueryContext;
 import cn.iocoder.yudao.module.bpm.approval.service.provider.ApprovalTaskProvider;
-import cn.iocoder.yudao.module.showroom.workflow.model.ShowroomApprovalDetail;
 import cn.iocoder.yudao.module.showroom.workflow.model.ShowroomApprovalSignatureRecord;
 import cn.iocoder.yudao.module.showroom.workflow.model.ShowroomChangeRequest;
-import cn.iocoder.yudao.module.showroom.workflow.service.ShowroomWorkflowFacade;
+import cn.iocoder.yudao.module.showroom.workflow.service.ShowroomPersistentWorkflowService;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -44,12 +43,12 @@ public class ShowroomApprovalTaskAdapter implements ApprovalTaskProvider {
             ApprovalTaskCapability.EVIDENCE_LEDGER
     );
 
-    private final ShowroomWorkflowFacade workflowFacade;
+    private final ShowroomPersistentWorkflowService workflowService;
     @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.showroom.dal.mysql.workflow.ShowroomApprovalQueryMapper approvalQueries;
 
-    public ShowroomApprovalTaskAdapter(ShowroomWorkflowFacade workflowFacade) {
-        this.workflowFacade = workflowFacade;
+    public ShowroomApprovalTaskAdapter(ShowroomPersistentWorkflowService workflowService) {
+        this.workflowService = workflowService;
     }
 
     @Override
@@ -99,22 +98,22 @@ public class ShowroomApprovalTaskAdapter implements ApprovalTaskProvider {
         query.last("ORDER BY (" + sortTime + ") IS NULL ASC," + sortTime
                 + " DESC,CAST(c.id AS BINARY) ASC LIMIT " + window.offset() + "," + window.limit());
         List<ApprovalTaskSummary> summaries = approvalQueries.window(query).stream()
-                .map(id -> toSummary(workflowFacade.getApproval(id).changeRequest())).toList();
+                .map(id -> toSummary(workflowService.getChangeRequest(id))).toList();
         return new PageResult<>(summaries, total);
     }
 
     @Override
     public List<ApprovalTaskTimelineEntry> listTimeline(ApprovalTaskTimelineQueryContext context) {
         Long changeRequestId = resolveChangeRequestId(context);
-        ShowroomApprovalDetail detail = workflowFacade.getApproval(changeRequestId);
-        ShowroomChangeRequest request = detail.changeRequest();
+        ShowroomChangeRequest request = workflowService.getChangeRequest(changeRequestId);
         if (!context.isGlobalView() && !isAccessible(request, context.getLoginUserId())) {
             throw new IllegalStateException("SHOWROOM_APPROVAL_ACCESS_DENIED: 当前用户无权查看该审批轨迹");
         }
         List<ApprovalTaskTimelineEntry> entries = new ArrayList<>();
+        var signatures = workflowService.getSignatureRecords(changeRequestId);
         entries.add(buildSubmissionEntry(request));
-        addSupervisorTimeline(entries, request, detail.signatureRecords());
-        addPublicityTimeline(entries, request, detail.signatureRecords());
+        addSupervisorTimeline(entries, request, signatures);
+        addPublicityTimeline(entries, request, signatures);
         return entries;
     }
 
@@ -333,7 +332,7 @@ public class ShowroomApprovalTaskAdapter implements ApprovalTaskProvider {
         if (!"REJECTED".equals(request.status()) || request.changeRequestId() == null) {
             return null;
         }
-        return workflowFacade.getApproval(request.changeRequestId()).signatureRecords().stream()
+        return workflowService.getSignatureRecords(request.changeRequestId()).stream()
                 .filter(signature -> "REJECT".equalsIgnoreCase(signature.actionType()))
                 .map(ShowroomApprovalSignatureRecord::comment)
                 .filter(comment -> comment != null && !comment.isBlank())

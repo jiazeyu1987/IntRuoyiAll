@@ -166,6 +166,11 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
 
     @Override
     public List<Long> listReadableProjectIds(Long userId) {
+        return cn.iocoder.yudao.module.dcc.service.file.DccReadRequestSnapshot.read("readableProjects." + userId,
+                () -> loadReadableProjectIds(userId));
+    }
+
+    private List<Long> loadReadableProjectIds(Long userId) {
         Long tenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
         AdminUserRespDTO user = userId == null ? null : adminUserApi.getUser(userId);
         if (!DccAccessUserIdentity.isEnabledTenantUser(userId, user)) throw exception(DCC_PROJECT_ACCESS_DENIED);
@@ -242,6 +247,13 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
     }
 
     private boolean hasProjectAccess(Long userId, Long projectCodeId, Set<String> allowedAccessLevels, Long requiredTenant) {
+        return cn.iocoder.yudao.module.dcc.service.file.DccReadRequestSnapshot.read(
+                "projectAccess." + requiredTenant + "." + userId + "." + projectCodeId + "."
+                        + allowedAccessLevels.stream().sorted().toList(),
+                () -> loadProjectAccess(userId, projectCodeId, allowedAccessLevels, requiredTenant));
+    }
+
+    private boolean loadProjectAccess(Long userId, Long projectCodeId, Set<String> allowedAccessLevels, Long requiredTenant) {
         if (userId == null || projectCodeId == null) {
             return false;
         }

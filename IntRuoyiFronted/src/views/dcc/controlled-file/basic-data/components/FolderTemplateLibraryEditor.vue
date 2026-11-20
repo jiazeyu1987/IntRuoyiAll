@@ -1,6 +1,5 @@
 <template>
   <Dialog v-model="visible" title="文件夹模板库" width="980px" @close="close">
-    <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <el-table :data="templates" highlight-current-row @current-change="choose" max-height="200">
       <el-table-column prop="name" label="模板名称" />
       <el-table-column label="状态"><template #default="{ row }">{{ row.active ? '启用' : '停用' }}</template></el-table-column>
@@ -27,7 +26,8 @@
       <el-alert class="mt-8px" title="已有项目目录独立保留；模板修改用于后续新申请。" type="info" :closable="false" />
     </el-form>
     <template #footer>
-      <el-button v-hasPermi="['dcc:project-code:update']" type="primary" :loading="loading" :disabled="!ready || !selectionValid" @click="save">保存</el-button>
+      <el-alert v-if="error" class="mb-8px" :title="error" type="error" :closable="false" show-icon />
+      <el-button v-hasPermi="['dcc:project-code:update']" type="primary" :loading="loading" :disabled="writing || !ready || !selectionValid" @click="save">保存</el-button>
       <el-button v-if="form.id && !selectedUsed" v-hasPermi="['dcc:project-code:update']" type="danger" :disabled="loading || !ready || !selectionValid" @click="removeTemplate">删除未使用模板</el-button>
       <el-button @click="close">关闭</el-button>
     </template>
@@ -35,7 +35,7 @@
 </template>
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { createSecureUuid } from '@/utils/uuid'
 import { getFolderTemplates, saveFolderTemplate, deleteFolderTemplate, type FolderTemplate, type FolderStructure } from '@/api/dcc/controlledFile/projectAttributes'
 const emit = defineEmits<{ saved: [] }>()
@@ -109,6 +109,8 @@ const save = async () => {
   const payload = JSON.parse(JSON.stringify(form))
   writing.value = true; loading.value = true; error.value = ''
   try {
+    if (!payload.name.trim()) throw new Error('请填写模板名称')
+    if (!payload.changeReason.trim() || payload.changeReason.length > 500) throw new Error('请填写500字以内的修改原因')
     const savedId = await saveFolderTemplate(payload)
     emit('saved') // 已提交成功与后续列表查询分别处理
     if (revision !== contextRevision) return
@@ -120,11 +122,19 @@ const save = async () => {
       const saved = rows.find(row => String(row.id) === String(savedId))
       if (!saved) throw new Error('刷新结果未包含已保存模板身份，请重新读取核对')
       selectedUsed.value = saved.everUsed
+      ElMessage.success('文件夹模板已保存，修改用于后续新申请')
+      close()
     } catch (cause) {
-      if (revision === contextRevision) { ready.value = false; error.value = '模板已保存，列表刷新失败：' + (cause instanceof Error ? cause.message : String(cause)) }
+      if (revision === contextRevision) {
+        ready.value = false; error.value = '模板已保存，列表刷新失败：' + (cause instanceof Error ? cause.message : String(cause))
+        ElMessage.warning(error.value)
+      }
     }
   } catch (cause) {
-    if (revision === contextRevision) error.value = cause instanceof Error ? cause.message : String(cause)
+    if (revision === contextRevision) {
+      error.value = '模板未保存：' + (cause instanceof Error ? cause.message : String(cause))
+      ElMessage.error(error.value)
+    }
   } finally { writing.value = false; if (revision === contextRevision) loading.value = false }
 }
 const removeTemplate = async () => {

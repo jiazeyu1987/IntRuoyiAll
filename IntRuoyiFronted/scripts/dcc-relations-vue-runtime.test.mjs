@@ -40,6 +40,10 @@ const loadComponent=name=>{
   const source=compileScript(descriptor,{id:name,inlineTemplate:true}).content
   const context={exports:{},Error,Map,Array,require:module=>{
     if(module==='vue')return Vue
+    if(module==='@/views/system/user/components/UserSelectV2.vue')return {__esModule:true,default:{
+      props:['modelValue','disabled','userOptions'],emits:['update:modelValue'],
+      setup:(props,{emit})=>()=>Vue.h('el-select',{'model-value':props.modelValue,disabled:props.disabled,'onUpdate:modelValue':value=>emit('update:modelValue',value)})}}
+    if(module==='../shared/ArchiveDownloadEntry.vue')return {__esModule:true,default:{render:()=>null}}
     if(module==='../shared/version-display')return navigationModule(fileURLToPath(new URL('../src/views/dcc/controlled-file/shared/version-display.ts',import.meta.url)))
     if(module==='./selector-project-directory')return navigationModule(fileURLToPath(new URL('../src/views/dcc/controlled-file/relations/selector-project-directory.ts',import.meta.url)))
     if(module==='./selector-state'||module==='./relation-editor-state'||module==='./arrangement-form'){
@@ -234,7 +238,7 @@ test('mounted arrangement panel loads exact version round, validates explicit se
   const mounted=mount('DccRelationArrangementPanel.vue',{contextKey:'t1:f100:r1',sourceFileId:'100',applicationRound:'r1',readonly:false,relations:[candidate],assignees:[{id:'8',name:'责任甲'}],loadArrangements:async(...args)=>{calls.push(args);return []},onChange:value=>changes.push(value)})
   try{
     await settle();assert.deepEqual(calls[0],['100','r1']);assert.equal(mounted.exposed().validate().length,0)
-    find(mounted.root,'el-checkbox').props.onChange(true);await settle()
+    find(mounted.root,'el-checkbox').props['onUpdate:modelValue'](true);await settle()
     assert.throws(()=>mounted.exposed().validate(),/负责人/)
     find(mounted.root,'el-select').props['onUpdate:modelValue']('8');await settle()
     assert.throws(()=>mounted.exposed().validate(),/期限/)

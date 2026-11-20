@@ -88,6 +88,38 @@ class DccLibraryFolderMaintenanceTest {
         assertThrows(RuntimeException.class,()->service.save(7L,10L,input()));
         verifyNoInteractions(folders,audit,jdbc);
     }
+    @Test void formalProjectLeaderMaintainsFoldersWithoutGlobalMenuPermission() {
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
+                new org.apache.ibatis.builder.MapperBuilderAssistant(new com.baomidou.mybatisplus.core.MybatisConfiguration(), ""),
+                DccProjectFolderDO.class);
+        project.setProjectLeaderUserId(7L);
+        var rules = mock(DccProjectAccessRuleMapper.class);
+        ReflectionTestUtils.setField(access,"accessRuleMapper",rules);
+        var owner = new DccProjectAccessRuleDO();owner.setTenantId(1L);owner.setSubjectType("USER");
+        owner.setSubjectId(7L);owner.setAccessLevel("OWNER");
+        when(rules.selectActiveRules(eq(10L),any())).thenReturn(List.of(owner));
+        when(permissions.getUserRoleIdListByUserId(7L)).thenReturn(Set.of());
+        var row = new DccProjectFolderDO();row.setId(20L);row.setTenantId(1L);row.setProjectCodeId(10L);row.setActive(true);
+        when(folders.listByProjectForUpdate(10L)).thenReturn(List.of());
+        when(folders.insert(any(DccProjectFolderDO.class))).thenAnswer(call -> {call.<DccProjectFolderDO>getArgument(0).setId(20L);return 1;});
+        when(folders.selectById(20L)).thenReturn(row);
+        assertSame(row,service.save(7L,10L,input()));
+        row.setParentId(0L);row.setName("目录");
+        when(folders.listByProjectForUpdate(10L)).thenReturn(List.of(row));
+        when(folders.update(isNull(),any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(1);
+        assertSame(row,service.save(7L,10L,new DccProjectFolderMaintenanceService.Save(20L,0L,"改名",0,"负责人编辑目录")));
+        when(jdbc.queryForList(anyString(),eq(Long.class),eq(1L),eq(10L),eq(20L)))
+                .thenReturn(List.of(20L),List.of(),List.of(),List.of());
+        when(folders.selectByIdForUpdate(10L,20L)).thenReturn(row);
+        when(jdbc.update(anyString(),eq(1L),eq(10L),eq(20L))).thenReturn(1);
+        when(jdbc.queryForMap(anyString(),eq(1L),eq(10L),eq(20L))).thenReturn(Map.of("deleted",1));
+        assertDoesNotThrow(()->service.delete(7L,10L,20L,true,"负责人删除空目录"));
+        verify(audit,times(3)).append(any());
+        verify(permissions,never()).hasAnyPermissions(7L,"dcc:project-code:update");
+        users.getUser(7L).setStatus(1);
+        assertThrows(RuntimeException.class,()->service.save(7L,10L,input()));
+        verify(audit,times(3)).append(any());
+    }
     @Test void editorCannotUseForeignParentOrFolderOrCreateCycle() {
         project.setLibraryScope("QMS");
         when(permissions.hasAnyPermissions(7L,"dcc:library:qms:edit")).thenReturn(true);

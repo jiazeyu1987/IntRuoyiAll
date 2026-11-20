@@ -43,6 +43,34 @@ class DccControlledFileAssignmentScopeServiceTest extends BaseMockitoUnitTest {
     @AfterEach
     void tearDown() {
         TenantContextHolder.clear();
+        org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
+    }
+
+    @Test
+    void requestSnapshotReusesUnrestrictedScopeButDoesNotCrossRequestTenantOrUser() {
+        var request = new org.springframework.web.context.request.ServletRequestAttributes(
+                new org.springframework.mock.web.MockHttpServletRequest("GET", "/"));
+        org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(request);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:scope:all")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(100L, "dcc:controlled-file:scope:all")).thenReturn(true);
+        assertTrue(service.isWithinAssignedFileScope(99L, 1L));
+        assertTrue(service.isWithinAssignedFileScope(99L, 2L));
+        verify(permissionApi).hasAnyPermissions(99L, "dcc:controlled-file:scope:all");
+        assertNull(service.resolveActiveAssignedControlledFileIds(100L));
+        verify(permissionApi).hasAnyPermissions(100L, "dcc:controlled-file:scope:all");
+        TenantContextHolder.setTenantId(32L);
+        assertNull(service.resolveActiveAssignedControlledFileIds(99L));
+        verify(permissionApi, org.mockito.Mockito.times(2)).hasAnyPermissions(99L, "dcc:controlled-file:scope:all");
+        org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(
+                new org.springframework.web.context.request.ServletRequestAttributes(new org.springframework.mock.web.MockHttpServletRequest("GET", "/")));
+        when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:scope:all")).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        when(assignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(eq(99L), any())).thenReturn(List.of(7L));
+        when(distributionRecipientMapper.selectActiveElectronicControlledFileIdsByUserId(32L, 99L)).thenReturn(List.of(8L));
+        assertFalse(service.isWithinAssignedFileScope(99L, 1L));
+        assertTrue(service.isWithinAssignedFileScope(99L, 8L));
+        verify(assignmentFileMapper).selectActiveControlledFileIdsByAssigneeUserId(eq(99L), any());
+        verify(distributionRecipientMapper).selectActiveElectronicControlledFileIdsByUserId(32L, 99L);
     }
 
     @Test

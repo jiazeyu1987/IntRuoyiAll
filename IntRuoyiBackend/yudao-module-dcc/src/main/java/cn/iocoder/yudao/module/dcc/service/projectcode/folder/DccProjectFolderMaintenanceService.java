@@ -125,7 +125,8 @@ public class DccProjectFolderMaintenanceService {
         var project = projectId == null ? null : projects.selectById(projectId);
         if (userId == null || project == null
                 || !Objects.equals(project.getTenantId(), TenantContextHolder.getRequiredTenantId())) throw fail(TEMPLATE_FORBIDDEN);
-        // 独立库由本库 EDIT 授权维护；普通项目继续要求项目配置权限。
-        if (!project.isLibrary() && !permissions.hasAnyPermissions(userId, "dcc:project-code:update")) throw fail(TEMPLATE_FORBIDDEN);
+        // 正式项目负责人无需全局项目配置权限；仍须通过后续账号及项目 EDIT/OWNER 检查。
+        if (!project.isLibrary() && !Objects.equals(userId, project.getProjectLeaderUserId())
+                && !permissions.hasAnyPermissions(userId, "dcc:project-code:update")) throw fail(TEMPLATE_FORBIDDEN);
     }
 }
