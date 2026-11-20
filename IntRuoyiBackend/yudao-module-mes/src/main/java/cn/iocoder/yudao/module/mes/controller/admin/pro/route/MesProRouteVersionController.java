@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProR
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteVersionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteVersionNameSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteProductionProcessConfigSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteProductionConfigMigrateReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteCandidateConfigService;
@@ -80,7 +81,14 @@ public class MesProRouteVersionController {
         Set<Long> userIds = versions.stream().map(MesProRouteVersionDO::getLastSavedBy)
                 .filter(Objects::nonNull).collect(Collectors.toSet());
         Map<Long, AdminUserRespDTO> users = userIds.isEmpty() ? Map.of() : adminUserApi.getUserMap(userIds);
+        Map<Long, MesProRouteVersionDO> versionMap = versions.stream()
+                .collect(Collectors.toMap(MesProRouteVersionDO::getId, version -> version));
         return BeanUtils.toBean(versions, MesProRouteVersionRespVO.class, vo -> {
+            JSONObject root = JSON.parseObject(versionMap.get(vo.getId()).getRouteSnapshotJson());
+            JSONObject configs = root == null ? null : root.getJSONObject("configSnapshots");
+            vo.setLegacyProductionConfigMissing(configs != null
+                    && !configs.containsKey("productionProcessConfigSchemaVersion")
+                    && !configs.containsKey("productionProcessConfigs"));
             AdminUserRespDTO user = vo.getLastSavedBy() == null ? null : users.get(vo.getLastSavedBy());
             if (user != null) {
                 vo.setLastSavedUserName(user.getNickname());
@@ -186,6 +194,14 @@ public class MesProRouteVersionController {
                 "productionProcessConfigSchemaVersion", reqVO.getSchemaVersion(),
                 "productionProcessConfigs", reqVO.getProductionProcessConfigs()));
         return success(Boolean.TRUE);
+    }
+
+    @PostMapping("/production-process-config/migrate")
+    @Operation(summary = "显式迁移旧版生产配置到工艺路线草稿")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:version-update')")
+    public CommonResult<MesProRouteVersionRespVO> migrateProductionConfig(
+            @Valid @RequestBody MesProRouteProductionConfigMigrateReqVO reqVO) {
+        return success(toVersionResponses(List.of(workflowService.migrateProductionConfig(reqVO))).get(0));
     }
 
     @PostMapping("/submit")

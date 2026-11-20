@@ -151,6 +151,8 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
     @Resource
     private MesMdItemMapper itemMapper;
     @Resource
+    private cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService itemService;
+    @Resource
     private BusinessApprovalPolicyMapper businessApprovalPolicyMapper;
     @Resource
     private MesProEdhrProcessFormPermissionRuleMapper processFormPermissionRuleMapper;
@@ -572,6 +574,7 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
             if (products == null || products.isEmpty() || products.get(0).getId() == null) {
                 throw new IllegalArgumentException("product does not exist: " + productName);
             }
+            itemService.validateItemExistsAndEnable(products.get(0).getId());
             routeProductMapper.insert(MesProRouteProductDO.builder()
                     .routeId(routeId)
                     .itemId(products.get(0).getId())
@@ -584,6 +587,7 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
         if (itemId == null) {
             throw new IllegalArgumentException("product item id is required");
         }
+        itemService.validateItemExistsAndEnable(itemId);
         routeProductMapper.insert(MesProRouteProductDO.builder()
                 .routeId(routeId)
                 .itemId(itemId)
@@ -747,6 +751,7 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
                     .batchRecordVersionId(null)
                     .formSlotType(formSlotType)
                     .formBindingKey(formBindingKey)
+                    .globalSyncKey(binding.getString("globalSyncKey"))
                     .formTemplateId(formTemplateId)
                     .formTemplateNameSnapshot(requireText(binding, "formTemplateName"))
                     .lastPublishedTemplateVersionId(binding.getLong("lastPublishedTemplateVersionId"))

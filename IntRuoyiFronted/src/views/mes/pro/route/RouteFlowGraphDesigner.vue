@@ -117,7 +117,7 @@
                   fit-input-width
                   :fetch-suggestions="queryConnectionSourceSuggestions"
                   placeholder="请选择起始工序"
-                  :teleported="false"
+                  :teleported="true"
                   trigger-on-focus
                   value-key="value"
                   @clear="handleConnectionSourceClear"
@@ -136,7 +136,7 @@
                   fit-input-width
                   :fetch-suggestions="queryConnectionTargetSuggestions"
                   placeholder="请选择目标工序"
-                  :teleported="false"
+                  :teleported="true"
                   trigger-on-focus
                   value-key="value"
                   @clear="handleConnectionTargetClear"
@@ -1079,6 +1079,7 @@
               :route-version-id="selectedProcessRouteConfigCache.readableRouteVersionId"
               :snapshot="selectedProcessRouteConfigCache.productionProcessConfigSnapshot"
               :read-only="!isProcessDetailFieldEditable('lossReasons')"
+              :disabled="hasProductionProcessConfigJsonDraftChanges(selectedRouteProcessId) || hasRouteProcessStructureChanges()"
               @saved="handleLossReasonBindingSaved"
             />
             <el-alert
@@ -2682,6 +2683,7 @@ const routeEdges = ref<RouteFlowEdgeVO[]>([])
 const boundaryEdges = ref<RouteFlowBoundaryEdgeVO[]>([])
 const flowNodes = ref<RouteFlowVueNode[]>([])
 const flowEdges = ref<RouteFlowVueEdge[]>([])
+const flowElementsSyncing = ref(false)
 const graphCanvasRef = ref<HTMLElement>()
 const processOptions = ref<ProProcessVO[]>([])
 const pendingDeletedRouteProcessIds = ref<Set<MesRouteId>>(new Set())
@@ -5694,6 +5696,14 @@ const refreshProductionProcessConfigSnapshot = async (routeVersionId: MesRouteId
     await ProRouteApi.getRouteProductionProcessConfig(routeVersionId)
 }
 
+const refreshProductionProcessConfigLock = async (routeVersionId: MesRouteId) => {
+  const cache = selectedProcessRouteConfigCache.value
+  if (!cache || String(cache.readableRouteVersionId) !== String(routeVersionId)) {
+    throw new Error('配置已保存，但当前版本锁缓存不可用，请重新读取版本。')
+  }
+  const latest = await ProRouteApi.getRouteProductionProcessConfig(routeVersionId)
+  cache.productionProcessConfigSnapshot.routeSnapshotSha256 = latest.routeSnapshotSha256
+}
 const isRouteProcessDeviceParameterMutationCurrent = (
   requestId: number,
   routeVersionId: MesRouteId,
@@ -6872,7 +6882,7 @@ const bindCapacityWorkstationToRouteProcess = async (
   targetRouteProcess: ProRouteProcessVO,
   binding: CapacityWorkstationRepairBinding
 ) => {
-  requireCandidateRouteVersionId('工作站绑定')
+  const routeVersionId = requireCandidateRouteVersionId('工作站绑定')
   if (!targetRouteProcess.id) {
     throw new Error('工作站绑定失败：缺少目标路线工序编号。')
   }
@@ -6887,6 +6897,7 @@ const bindCapacityWorkstationToRouteProcess = async (
   if (!result.valid) {
     throw new Error(buildValidationErrorMessage(result))
   }
+  await refreshProductionProcessConfigLock(routeVersionId)
   markRouteProcessGraphSaveClean()
 }
 
@@ -7038,6 +7049,7 @@ const submitCapacityOverride = async () => {
       payload.hourlyCapacity = hourlyCapacity
     }
     await ProRouteApi.saveScheduleConfig(payload)
+    await refreshProductionProcessConfigLock(routeVersionId)
     await syncCapacityOverrideDraftBaseline(routeVersionId, routeProcessId)
     await closeCapacityOverrideDialog()
     message.success('产能覆盖已保存')
@@ -7395,7 +7407,6 @@ const loadGraph = async () => {
     clearRouteProcessKeyFlagBaselines()
     clearRouteProcessCheckFlagBaselines()
     clearRouteProcessWorkstationIdBaselines()
-    applyDefaultKeyProcessLocally()
     resetRouteProcessKeyFlagBaselines()
     resetRouteProcessCheckFlagBaselines()
     resetRouteProcessWorkstationIdBaselines()
@@ -7431,23 +7442,6 @@ const normalizeNodes = (sourceNodes: RouteFlowNodeVO[]) => {
       y: typeof node.y === 'number' ? node.y : defaultPosition.y
     }
   })
-}
-
-const findDefaultKeyProcessNode = () => {
-  if (routeNodes.value.length === 0) return undefined
-  const sorted = routeNodes.value.slice().sort((left, right) => {
-    const sortResult = (left.sort || 0) - (right.sort || 0)
-    return sortResult !== 0 ? sortResult : String(left.routeProcessId).localeCompare(String(right.routeProcessId), undefined, { numeric: true })
-  })
-  return sorted[sorted.length - 1]
-}
-
-const applyDefaultKeyProcessLocally = () => {
-  if (!canMutateRouteFlow.value || routeNodes.value.length === 0) return
-  if (routeNodes.value.some((node) => Boolean(node.keyFlag))) return
-  const defaultNode = findDefaultKeyProcessNode()
-  if (!defaultNode) return
-  syncRouteNodeKeyFlag(defaultNode.routeProcessId, true)
 }
 
 const resetRouteProcessKeyFlagBaselines = () => {
@@ -7554,10 +7548,12 @@ const buildRouteProcessUpdatePayload = (): RouteFlowRouteProcessUpdateReqVO[] =>
 }
 
 const syncFlowElements = () => {
+  flowElementsSyncing.value = true
   flowNodes.value = routeNodes.value.filter(isActiveRouteNode).map(toFlowNode)
   flowEdges.value = []
   void nextTick(() => {
     flowEdges.value = routeEdges.value.filter(isActiveRouteEdge).map(toFlowEdge)
+    flowElementsSyncing.value = false
   })
 }
 
@@ -7680,7 +7676,7 @@ const displayFlowNodes = computed<RouteFlowVueNode[]>({
   }
 })
 const displayFlowEdges = computed<RouteFlowVueEdge[]>({
-  get: () => [...createBoundaryFlowEdges(), ...flowEdges.value],
+  get: () => flowElementsSyncing.value ? [] : [...createBoundaryFlowEdges(), ...flowEdges.value],
   set: (edges) => {
     flowEdges.value = edges.filter((edge) => !isBoundaryEdgeId(edge.id))
   }
@@ -8012,10 +8008,12 @@ const validateBeforeSubmit = async () => {
 const saveFromParent = async () => {
   operationError.value = ''
   saving.value = true
+  let persistedRouteVersionId: MesRouteId | undefined
   try {
     syncRouteNodesFromFlow()
     await ensureSelectedProcessRouteConfigCache()
     const result = await persistRouteProcessDraftChanges()
+    persistedRouteVersionId = resolveRouteVersionIdForSave() ?? undefined
     applyValidation(result)
     if (!result.valid) {
       throw new Error(buildValidationErrorMessage(result))
@@ -8038,6 +8036,15 @@ const saveFromParent = async () => {
     return result
   } catch (error) {
     operationError.value = resolveErrorMessage(error, '工艺流程保存失败')
+    if (persistedRouteVersionId != null && selectedProcessRouteConfigCache.value) {
+      try {
+        const latest = await ProRouteApi.getRouteProductionProcessConfig(persistedRouteVersionId)
+        selectedProcessRouteConfigCache.value.productionProcessConfigSnapshot.routeSnapshotSha256 = latest.routeSnapshotSha256
+      } catch (refreshError) {
+        operationError.value += '；读取最新版本锁失败：' + resolveErrorMessage(refreshError, '请重新读取版本后再保存')
+        message.error(operationError.value)
+      }
+    }
     throw error
   } finally {
     saving.value = false
@@ -10500,6 +10507,8 @@ defineExpose({
 }
 
 .route-flow-graph-designer__toolbar {
+  position: relative;
+  z-index: 40;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -10633,7 +10642,7 @@ defineExpose({
 }
 
 .route-flow-graph-designer__connection-control {
-  position: relative;
+  position: static;
   display: inline-flex;
 }
 
@@ -10642,7 +10651,8 @@ defineExpose({
   top: calc(100% + 8px);
   right: 0;
   z-index: 30;
-  width: min(650px, calc(100vw - 32px));
+  box-sizing: border-box;
+  width: min(650px, 100%);
   padding: 12px;
   background: #ffffff;
   border: 1px solid #dbe3ef;

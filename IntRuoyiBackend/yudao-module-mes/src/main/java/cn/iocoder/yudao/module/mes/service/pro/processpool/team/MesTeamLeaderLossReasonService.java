@@ -6,6 +6,8 @@ public interface MesTeamLeaderLossReasonService {
 
     List<MesTeamLeaderLossReasonRow> listLossReasonRows(Long leaderUserId);
 
+    List<MesTeamLeaderLossReasonRow> listLossReasonRowsForRoute(Long leaderUserId, Long routeId);
+
     Long createLossReason(MesTeamLeaderLossReasonSaveReqBO reqBO);
 
     void updateLossReason(MesTeamLeaderLossReasonUpdateReqBO reqBO);

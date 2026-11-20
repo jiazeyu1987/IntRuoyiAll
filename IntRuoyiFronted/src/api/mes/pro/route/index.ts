@@ -147,6 +147,8 @@ export interface ProRouteVersionVO {
   versionNo: string
   active: boolean
   lifecycleStatus: ProRouteVersionLifecycleStatus
+  legacyProductionConfigMissing?: boolean
+  routeSnapshotSha256?: string
   sourceRouteVersionId?: number
   lastSavedBy?: number
   lastSavedUserName?: string
@@ -601,6 +603,15 @@ export const ProRouteApi = {
       params: { id }
     })
   },
+
+  migrateProductionConfig: async (data: {
+    routeVersionId: MesRouteId
+    expectedRouteSnapshotSha256: string
+    missingOveragePercent?: number
+  }) => request.post<ProRouteVersionVO>({
+    url: `${PRO_ROUTE_VERSION_BASE_URL}/production-process-config/migrate`,
+    data
+  }),
 
   getRouteLossCoefficient: async (id: MesRouteId) => request.get<{
     routeVersionId: MesRouteId

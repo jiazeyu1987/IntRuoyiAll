@@ -802,6 +802,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         }
         return new MesProRouteFlowFormBindingSaveReqVO()
                 .setFormBindingKey(binding.getString("formBindingKey"))
+                .setGlobalSyncKey(binding.getString("globalSyncKey"))
                 .setFormTemplateId(templateId)
                 .setFormTemplateName(StrUtil.blankToDefault(binding.getString("formTemplateName"),
                         binding.getString("formTemplateNameSnapshot")))
@@ -834,6 +835,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .map(binding -> {
                     MesProRouteFlowFormBindingRespVO vo = new MesProRouteFlowFormBindingRespVO();
                     vo.setFormBindingKey(StrUtil.trim(binding.getFormBindingKey()));
+                    vo.setGlobalSyncKey(binding.getGlobalSyncKey());
                     vo.setFormTemplateId(binding.getFormTemplateId());
                     vo.setFormTemplateName(StrUtil.trim(binding.getFormTemplateName()));
                     String formSlotType = resolveConfiguredFormSlotType(binding);
@@ -2307,6 +2309,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .batchRecordVersionId(null)
                     .formSlotType(formSlotType)
                     .formBindingKey(resolveFormBindingKey(processConfig.getRouteProcessId(), binding, index + 1))
+                    .globalSyncKey(binding.getGlobalSyncKey())
                     .formTemplateId(binding.getFormTemplateId())
                     .formTemplateNameSnapshot(StrUtil.trim(binding.getFormTemplateName()))
                     .lastPublishedTemplateVersionId(binding.getLastPublishedTemplateVersionId())
@@ -2497,6 +2500,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             String archiveVisibility = resolveArchiveVisibility(binding.getArchiveVisibility());
             MesProRouteFlowFormBindingSaveReqVO normalizedBinding = new MesProRouteFlowFormBindingSaveReqVO()
                     .setFormBindingKey(resolveFormBindingKey(saveConfig.getRouteProcessId(), binding, index + 1))
+                    .setGlobalSyncKey(binding.getGlobalSyncKey())
                     .setFormTemplateId(binding.getFormTemplateId())
                     .setFormTemplateName(StrUtil.trim(publishedVersion.getTemplateName()))
                     .setFormSlotType(formSlotType)
@@ -2722,6 +2726,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .map(record -> {
                     MesProRouteFlowFormBindingRespVO vo = new MesProRouteFlowFormBindingRespVO();
                     vo.setFormBindingKey(record.getFormBindingKey());
+                    vo.setGlobalSyncKey(record.getGlobalSyncKey());
                     String formSlotType = resolveFormSlotType(record, null);
                     vo.setFormSlotType(formSlotType);
                     vo.setFormTemplateId(record.getFormTemplateId());

@@ -140,8 +140,7 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
     @Transactional(rollbackFor = Exception.class)
     public Long saveConfig(MesProRouteScheduleConfigSaveReqVO reqVO) {
         MesProRouteVersionDO routeVersion = requireDraftCandidateVersion(reqVO.getRouteVersionId());
-        MesProRouteProcessDO routeProcess = routeProcessService.resolveCurrentRouteProcess(
-                reqVO.getRouteProcessId(), routeVersion.getRouteId(), null);
+        MesProRouteProcessDO routeProcess = resolveDraftScheduleRouteProcess(routeVersion, reqVO.getRouteProcessId());
         if (routeProcess == null || !routeVersion.getRouteId().equals(routeProcess.getRouteId())) {
             throw exception(PRO_ROUTE_FLOW_CONFIG_PROCESS_REQUIRED);
         }
@@ -155,6 +154,22 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
         routeCandidateConfigService.saveConfigSnapshot(routeVersion.getId(), SCHEDULE_CONFIGS_KEY,
                 buildMergedScheduleConfigSnapshot(reqVO, routeVersion, routeProcess));
         return routeVersion.getId();
+    }
+
+    private MesProRouteProcessDO resolveDraftScheduleRouteProcess(MesProRouteVersionDO version, Long id) {
+        requireCandidateRouteProcessId(version, resolveCandidateRouteProcessIds(version), id);
+        JSONObject graph = toScheduleConfigJson(resolveCandidateConfigSnapshot(version, FLOW_GRAPH_KEY), version);
+        for (Object value : graph.getJSONArray("nodes")) {
+            JSONObject node = toScheduleConfigJson(value, version);
+            Long nodeId = node.getLong("routeProcessId");
+            if (nodeId == null) nodeId = node.getLong("clientRouteProcessId");
+            if (Objects.equals(id, nodeId)) {
+                return MesProRouteProcessDO.builder().id(id).routeId(version.getRouteId())
+                        .processId(node.getLong("processId")).sort(node.getInteger("sort"))
+                        .workstationId(node.getLong("routeProcessWorkstationId")).build();
+            }
+        }
+        throw exception(PRO_ROUTE_FLOW_CONFIG_PROCESS_REQUIRED);
     }
 
     private MesProRouteVersionDO requireDraftCandidateVersion(Long routeVersionId) {

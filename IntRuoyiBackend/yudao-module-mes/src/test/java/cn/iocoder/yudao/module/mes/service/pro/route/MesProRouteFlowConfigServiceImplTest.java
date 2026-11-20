@@ -76,6 +76,18 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteFlowConfigServiceImplTest {
+    @Test
+    void candidateFormBindingRoundTripPreservesGlobalGroup() {
+        var json = com.alibaba.fastjson.JSON.parseObject("{formBindingKey:'B1',globalSyncKey:'GLOBAL-16',formTemplateId:1,reportSort:1}");
+        cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowFormBindingSaveReqVO binding =
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "toCandidateFormBindingSaveReqVO", json, 1);
+        assertEquals("GLOBAL-16", binding.getGlobalSyncKey());
+        var config = new cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowProcessConfigSaveReqVO();
+        config.setFormBindings(java.util.List.of(binding));
+        java.util.List<cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowFormBindingRespVO> rows =
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "toCandidateFormBindingRespList", config);
+        assertEquals("GLOBAL-16", rows.get(0).getGlobalSyncKey());
+    }
     @org.mockito.Mock
     private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
 

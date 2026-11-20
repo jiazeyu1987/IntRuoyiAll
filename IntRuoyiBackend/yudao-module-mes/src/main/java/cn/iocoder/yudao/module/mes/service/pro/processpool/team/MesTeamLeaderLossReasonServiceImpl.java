@@ -60,6 +60,16 @@ public class MesTeamLeaderLossReasonServiceImpl implements MesTeamLeaderLossReas
     public List<MesTeamLeaderLossReasonRow> listLossReasonRows(Long leaderUserId) {
         List<MesProRouteProcessDO> routeProcesses = routeStartAuthorizationService
                 .listAuthorizedRouteProcesses(leaderUserId);
+        return toLossReasonRows(routeProcesses);
+    }
+
+    @Override
+    public List<MesTeamLeaderLossReasonRow> listLossReasonRowsForRoute(Long leaderUserId, Long routeId) {
+        routeStartAuthorizationService.assertCanJoinRoute(leaderUserId, routeId);
+        return toLossReasonRows(routeProcessMapper.selectListByRouteId(routeId));
+    }
+
+    private List<MesTeamLeaderLossReasonRow> toLossReasonRows(List<MesProRouteProcessDO> routeProcesses) {
         if (routeProcesses.isEmpty()) {
             return List.of();
         }

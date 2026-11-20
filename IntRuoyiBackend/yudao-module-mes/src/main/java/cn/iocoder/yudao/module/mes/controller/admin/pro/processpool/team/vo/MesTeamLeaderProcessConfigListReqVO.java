@@ -10,6 +10,9 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class MesTeamLeaderProcessConfigListReqVO {
 
+    @Schema(description = "精确查询工艺路线编号，仍校验当前组长的路线权限")
+    private Long routeId;
+
     @Schema(description = "工艺路线编码或名称关键字")
     @Size(max = 128, message = "工艺路线关键字长度不能超过 128 个字符")
     private String routeKeyword;

@@ -3,7 +3,7 @@
     <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon />
     <el-form label-position="top">
       <el-form-item label="损耗系数">
-        <el-input-number v-model="value" :min="1" :precision="4" :step="0.01"
+        <el-input-number :key="disabled || !loaded || saving ? 'disabled' : 'enabled'" v-model="value" :min="1" :precision="4" :step="0.01"
           :disabled="disabled || !loaded || saving" data-route-loss-coefficient />
       </el-form-item>
       <p>适用于当前工艺流程的全部工序，默认1.1。完成下限为订单数量，累计上限为订单数量×损耗系数。</p>

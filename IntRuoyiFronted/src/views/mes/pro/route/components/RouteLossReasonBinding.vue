@@ -1,6 +1,7 @@
 <template>
   <section v-loading="saving" data-flow-panel="route-loss-reasons">
     <el-alert v-if="error" :title="error" type="error" :closable="false" class="mb-12px" />
+    <el-alert v-if="!readOnly && disabled" title="请先使用顶部保存生产配置和工序结构，再添加损耗原因。" type="warning" :closable="false" />
     <div v-if="!readOnly" class="loss-reason-picker">
       <el-select
         v-model="selectedId"
@@ -9,7 +10,7 @@
         :loading="loading"
         placeholder="输入编码或描述选择损耗原因"
         aria-label="选择损耗原因"
-        :disabled="saving"
+        :disabled="disabled || saving"
       >
         <el-option
           v-for="reason in catalog"
@@ -19,7 +20,7 @@
           :disabled="boundIds.has(String(reason.id))"
         />
       </el-select>
-      <el-button type="primary" :disabled="!selectedId || saving || loading" @click="add"
+      <el-button type="primary" :disabled="disabled || !selectedId || saving || loading" @click="add"
         >添加</el-button
       >
       <el-button :disabled="saving || loading" @click="load">刷新原因库</el-button>
@@ -43,6 +44,7 @@ const props = defineProps<{
   routeProcessId: number | string
   routeVersionId: number | string
   readOnly: boolean
+  disabled: boolean
   snapshot: {
     routeSnapshotSha256: string
     productionProcessConfigs: RouteApi.ProRouteProductionProcessConfigVO[]
@@ -74,7 +76,7 @@ const load = async () => {
   }
 }
 const add = async () => {
-  if (props.readOnly || saving.value || !selectedId.value) return
+  if (props.readOnly || props.disabled || saving.value || !selectedId.value) return
   const source = catalog.value.find((r) => String(r.id) === selectedId.value)
   if (!source || !config.value || boundIds.value.has(String(source.id))) {
     error.value = '工序配置未加载或损耗原因已添加，请重新选择'

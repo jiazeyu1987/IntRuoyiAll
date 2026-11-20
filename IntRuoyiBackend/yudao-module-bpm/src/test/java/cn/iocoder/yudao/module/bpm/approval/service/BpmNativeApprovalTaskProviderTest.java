@@ -51,6 +51,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -287,6 +288,12 @@ class BpmNativeApprovalTaskProviderTest {
         ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "REG-UPLOAD", 1, 10)).getList().get(0);
 
+        assertEquals(Set.of("OPEN_DETAIL"), summary.getAvailableActions());
+        when(centerQuery.hasNativeTaskAuthority("task-regcert-access-summary", 100L)).thenReturn(true);
+        ApprovalTaskSummary eligible = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "REG-UPLOAD", 1, 10)).getList().get(0);
+        assertTrue(eligible.getAvailableActions().contains("APPROVE"));
+        verify(centerQuery, times(2)).hasNativeTaskAuthority("task-regcert-access-summary", 100L);
         assertEquals("注册证上传审批 国械注准20263000001", summary.getBusinessTitle());
         assertNull(summary.getBusinessCode());
         assertEquals(Boolean.TRUE, summary.getBusinessIdentifierHidden());

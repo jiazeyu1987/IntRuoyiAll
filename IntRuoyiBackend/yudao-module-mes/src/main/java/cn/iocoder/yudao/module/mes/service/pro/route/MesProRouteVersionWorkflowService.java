@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.route;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteVersionBlockerRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteVersionCreateReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteProductionConfigMigrateReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 
 import java.util.List;
@@ -16,6 +17,8 @@ public interface MesProRouteVersionWorkflowService {
     MesProRouteVersionDO getVersion(Long id);
 
     MesProRouteVersionDO createCandidate(MesProRouteVersionCreateReqVO reqVO);
+
+    MesProRouteVersionDO migrateProductionConfig(MesProRouteProductionConfigMigrateReqVO reqVO);
 
     MesProRouteVersionDO submitCandidate(Long id);
 

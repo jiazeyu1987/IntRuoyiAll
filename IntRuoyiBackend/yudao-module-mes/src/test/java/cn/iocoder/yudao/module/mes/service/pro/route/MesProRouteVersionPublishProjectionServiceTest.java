@@ -61,6 +61,9 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteVersionPublishProjectionServiceTest {
+    @org.mockito.Mock
+    private cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService itemService;
+
 
     @InjectMocks
     private MesProRouteVersionPublishProjectionServiceImpl service;

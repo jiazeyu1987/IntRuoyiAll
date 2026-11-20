@@ -31,6 +31,29 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteScheduleConfigServiceImplTest {
+    @Mock
+    private MesProRouteCandidateConfigService routeCandidateConfigService;
+
+    @Test
+    void saveConfig_usesSavedDraftNodeInsteadOfResolvingNegativeIdInPublishedProcesses() {
+        MesProRouteVersionDO version = MesProRouteVersionDO.builder().id(633L).routeId(980091L)
+                .active(false).lifecycleStatus("DRAFT").routeSnapshotJson("""
+                {"configSnapshots":{"flowGraph":{"nodes":[{"routeProcessId":-8,"processId":99,"sort":8}]},"scheduleConfigs":{}}}
+                """).build();
+        when(routeVersionMapper.selectById(633L)).thenReturn(version);
+        var request = new cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.scheduleconfig.MesProRouteScheduleConfigSaveReqVO();
+        request.setRouteVersionId(633L); request.setRouteProcessId(-8L);
+        request.setCapacityMode("MANUAL_OVERRIDE"); request.setHourlyCapacity(BigDecimal.TEN);
+        request.setNightShiftEnabled(false);
+        assertEquals(633L, scheduleConfigService.saveConfig(request));
+        org.mockito.Mockito.verifyNoInteractions(routeProcessService);
+        org.mockito.Mockito.verify(routeCandidateConfigService).saveConfigSnapshot(
+                org.mockito.ArgumentMatchers.eq(633L), org.mockito.ArgumentMatchers.eq("scheduleConfigs"),
+                org.mockito.ArgumentMatchers.argThat(value -> value instanceof com.alibaba.fastjson.JSONObject configs
+                        && configs.getJSONObject("-8").getLongValue("routeProcessId") == -8L));
+        request.setRouteProcessId(-9L);
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class, () -> scheduleConfigService.saveConfig(request));
+    }
 
     @InjectMocks
     private MesProRouteScheduleConfigServiceImpl scheduleConfigService;

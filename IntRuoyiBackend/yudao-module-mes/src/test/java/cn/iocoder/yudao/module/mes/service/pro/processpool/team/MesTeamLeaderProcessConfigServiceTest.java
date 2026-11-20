@@ -58,6 +58,15 @@ class MesTeamLeaderProcessConfigServiceTest {
     }
 
     @Test
+    void exactRouteQueryShouldNotReadUnrelatedRoutes() {
+        when(lossReasonService.listLossReasonRowsForRoute(3001L, 9001L)).thenReturn(List.of());
+        assertTrue(service.listProcessConfigs(3001L,
+                new MesTeamLeaderProcessConfigListReqVO().setRouteId(9001L)).isEmpty());
+        org.mockito.Mockito.verify(lossReasonService).listLossReasonRowsForRoute(3001L, 9001L);
+        org.mockito.Mockito.verify(lossReasonService, org.mockito.Mockito.never()).listLossReasonRows(any());
+    }
+
+    @Test
     void runtimeConstructor_hasAutowiredAnnotationSoSpringDoesNotRequireDefaultConstructor() throws NoSuchMethodException {
         Constructor<MesTeamLeaderProcessConfigServiceImpl> runtimeConstructor =
                 MesTeamLeaderProcessConfigServiceImpl.class.getConstructor(

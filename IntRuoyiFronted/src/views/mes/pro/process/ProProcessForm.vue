@@ -105,6 +105,15 @@
             show-icon
             class="process-associated-config__alert"
           />
+          <ProcessCraftBindingPanel
+            ref="craftBindingPanel"
+            v-if="dialogVisible && canShowAssociatedConfig && selectedRouteId && selectedRouteProcessId"
+            :key="`${formData.id}:${selectedRouteId}:${selectedRouteProcessId}`"
+            :process-id="formData.id"
+            :route-id="selectedRouteId"
+            :route-process-id="selectedRouteProcessId"
+            :readonly="isDetail || formLoading"
+          />
           <div
             v-if="canShowAssociatedConfig && selectedRouteId !== undefined"
             class="process-associated-config__actions"
@@ -139,6 +148,7 @@ import { getRouteProjectOptions, type RouteProjectOption } from '@/api/mes/pro/r
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { ProProcessApi, ProProcessRouteVO, ProProcessVO } from '@/api/mes/pro/process'
 import { ProRouteProcessApi } from '@/api/mes/pro/route/process'
+import ProcessCraftBindingPanel from './ProcessCraftBindingPanel.vue'
 import { ProProcessContentApi, type ProProcessContentVO } from '@/api/mes/pro/process/content'
 const processContents = ref<ProProcessContentVO[]>([])
 import { UploadFile } from '@/components/UploadFile'
@@ -158,6 +168,7 @@ type ProProcessFormOpenContext = {
 const { t } = useI18n() // 国际化
 const message = useMessage() // 消息弹窗
 const router = useRouter()
+const craftBindingPanel = ref<InstanceType<typeof ProcessCraftBindingPanel>>()
 
 const codeProjects = ref<RouteProjectOption[]>([])
 const dialogVisible = ref(false) // 弹窗的是否展示
@@ -169,6 +180,7 @@ const routeOptions = ref<ProProcessRouteVO[]>([])
 const selectedRouteId = ref<number>()
 const selectedRouteProcessId = ref<number>()
 const associatedConfigLoading = ref(false)
+let routeContextRequestId = 0
 const routeContextError = ref('')
 const formData = ref<ProProcessVO>({
   id: undefined,
@@ -279,8 +291,10 @@ const handleRouteContextChange = async () => {
 }
 
 const resolveSelectedRouteProcess = async () => {
+  const requestId = ++routeContextRequestId
   selectedRouteProcessId.value = undefined
   routeContextError.value = ''
+  associatedConfigLoading.value = false
   if (!formData.value.id || !selectedRouteId.value) return
   associatedConfigLoading.value = true
   try {
@@ -288,15 +302,17 @@ const resolveSelectedRouteProcess = async () => {
       selectedRouteId.value,
       formData.value.id
     )
+    if (requestId !== routeContextRequestId) return
     if (!routeProcess?.id) {
       throw new Error('未找到当前工序在该工艺路线中的路线工序，请先在工艺流程中添加该工序。')
     }
     selectedRouteProcessId.value = routeProcess.id
   } catch (error) {
+    if (requestId !== routeContextRequestId) return
     routeContextError.value = resolveErrorMessage(error, '路线工序加载失败，请联系管理员。')
     message.error(routeContextError.value)
   } finally {
-    associatedConfigLoading.value = false
+    if (requestId === routeContextRequestId) associatedConfigLoading.value = false
   }
 }
 
@@ -313,13 +329,19 @@ const openAssociatedRouteConfig = () => {
     message.error(errorMessage)
     throw new Error(errorMessage)
   }
+  const version = craftBindingPanel.value?.selectedVersion
   dialogVisible.value = false
   router.push({
     name: 'MesProRouteEdit',
     params: { id: selectedRouteId.value },
     query: {
       tab: 'flow',
-      routeProcessId: String(selectedRouteProcessId.value)
+      routeProcessId: String(selectedRouteProcessId.value),
+      ...(version ? {
+        routeVersionId: String(version.id),
+        routeVersionNo: version.versionNo,
+        routeVersionStatus: version.lifecycleStatus
+      } : {})
     }
   })
 }
@@ -355,6 +377,7 @@ const submitForm = async () => {
 
 /** 重置表单 */
 const resetForm = () => {
+  routeContextRequestId++
   processContents.value = []
   formData.value = {
     id: undefined,

@@ -270,6 +270,15 @@
       <el-form-item label="审批模式" prop="policyMode">
         <el-segmented v-model="policyFormData.policyMode" :options="policyModeSegmentOptions" />
       </el-form-item>
+      <el-form-item
+        v-if="policyFormData.policyMode === 'BPM_REQUIRED'"
+        label="审批流程"
+        prop="processDefinitionKey"
+      >
+        <el-select v-model="policyFormData.processDefinitionKey" filterable clearable placeholder="请选择已发布的审批流程">
+          <el-option v-for="process in processDefinitionOptions" :key="process.key" :value="process.key" :label="`${process.name}（${process.key}）`" />
+        </el-select>
+      </el-form-item>
       <el-form-item label="领域执行器" prop="effectExecutorCode">
         <el-input v-model="policyFormData.effectExecutorCode" placeholder="请输入领域执行器编码" />
       </el-form-item>
@@ -296,6 +305,7 @@ import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { computed } from 'vue'
+import { getSimpleProcessDefinitionList } from '@/api/bpm/definition'
 import { dateFormatter } from '@/utils/formatTime'
 import { promptSignatureCredential } from '@/utils/signaturePrompt'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -515,12 +525,9 @@ const policyFormData = ref<BusinessApprovalPolicySaveReqVO>({
   remark: ''
 })
 
+const processDefinitionOptions = ref<{ key: string; name: string }[]>([])
 const policyModeSegmentOptions = computed(() =>
-  policyModeOptions.filter(
-    (item) =>
-      item.value !== 'SIGNATURE_REQUIRED' &&
-      (item.value !== 'BPM_REQUIRED' || Boolean(policyFormData.value.processDefinitionKey))
-  )
+  policyModeOptions.filter((item) => item.value !== 'SIGNATURE_REQUIRED')
 )
 
 const policyFormRules = reactive({
@@ -530,6 +537,17 @@ const policyFormRules = reactive({
   actionCode: [{ required: true, message: '动作编码不能为空', trigger: 'blur' }],
   objectState: [{ required: true, message: '对象状态不能为空', trigger: 'blur' }],
   policyMode: [{ required: true, message: '审批模式不能为空', trigger: 'change' }],
+  processDefinitionKey: [{
+    validator: (_rule: unknown, value: string | undefined, callback: (error?: Error) => void) => {
+      if (policyFormData.value.policyMode === 'BPM_REQUIRED' &&
+          !processDefinitionOptions.value.some((process) => process.key === value)) {
+        callback(new Error('请选择已发布的审批流程'))
+        return
+      }
+      callback()
+    },
+    trigger: 'change'
+  }],
   effectExecutorCode: [{ required: true, message: '领域执行器编码不能为空', trigger: 'blur' }]
 })
 
@@ -557,7 +575,9 @@ const resetPolicyForm = () => {
   policyFormRef.value?.resetFields()
 }
 
-const openPolicyForm = (source?: BusinessApprovalPolicyVO) => {
+const openPolicyForm = async (source?: BusinessApprovalPolicyVO) => {
+  const processes: { key: string; name: string }[] = await getSimpleProcessDefinitionList()
+  processDefinitionOptions.value = Array.from(new Map(processes.map((process) => [process.key, process])).values())
   policyFormVisible.value = true
   policyFormTitle.value = source ? '复制新增平台业务审批策略' : '新增平台业务审批策略'
   resetPolicyForm()

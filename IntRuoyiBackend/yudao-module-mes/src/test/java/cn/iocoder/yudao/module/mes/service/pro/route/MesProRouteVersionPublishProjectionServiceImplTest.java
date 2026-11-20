@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
@@ -58,6 +59,22 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteVersionPublishProjectionServiceImplTest {
+    @Test
+    void projectionRejectsUnavailableProductBeforeInsertingBinding() {
+        org.mockito.Mockito.doThrow(new IllegalStateException("missing item")).when(itemService).validateItemExistsAndEnable(99L);
+        var candidate = MesProRouteVersionDO.builder().id(10L).routeId(1L).routeSnapshotJson("""
+                {"routeId":1,"routeCode":"R1","routeName":"test","configSnapshots":{"flowGraph":{"nodes":[{"routeProcessId":11,"processId":21,"sort":1}],"edges":[],"boundaryEdges":[],"layouts":[]},"products":[{"itemId":99}],"scheduleConfigs":{},"batchUseConfigs":[],"scheduleUseConfigs":[]}}
+                """).build();
+        org.mockito.Mockito.doAnswer(call -> { MesProRouteProcessDO node = call.getArgument(0); node.setId(31L); return 1; }).when(routeProcessMapper).insert(any(MesProRouteProcessDO.class));
+        IllegalStateException error = assertThrows(IllegalStateException.class, () ->
+                service.projectCandidate(candidate));
+        assertEquals("missing item", error.getMessage());
+        verify(itemService).validateItemExistsAndEnable(99L);
+        org.mockito.Mockito.verify(routeProductMapper, org.mockito.Mockito.never()).insert(org.mockito.ArgumentMatchers.any(cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO.class));
+    }
+    @org.mockito.Mock
+    private cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService itemService;
+
 
     @Test
     void projectCandidate_shouldReturnRewrittenSnapshotIdentityResult() throws Exception {
@@ -222,6 +239,8 @@ class MesProRouteVersionPublishProjectionServiceImplTest {
 
     @BeforeEach
     void setUpProcessPoolConfigMappers() {
+        lenient().when(routeMapper.selectById(any(Long.class))).thenAnswer(invocation ->
+                MesProRouteDO.builder().id(invocation.getArgument(0)).nodeType("FLOW").build());
         var generatedBindingId = new java.util.concurrent.atomic.AtomicLong(70000L);
         lenient().when(routeFlowProcessBatchRecordMapper.insert(any(MesProRouteFlowProcessBatchRecordDO.class)))
                 .thenAnswer(invocation -> {

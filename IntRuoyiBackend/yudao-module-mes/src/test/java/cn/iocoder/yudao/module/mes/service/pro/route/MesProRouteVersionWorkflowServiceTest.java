@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.bpm.api.task.BpmProcessInstanceApi;
 import cn.iocoder.yudao.module.bpm.api.task.dto.BpmProcessInstanceCreateReqDTO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteVersionBlockerRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteVersionCreateReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteProductionConfigMigrateReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
@@ -67,6 +68,79 @@ class MesProRouteVersionWorkflowServiceTest {
     private MesProRouteControlledContentAdapter platformAdapter;
     @Mock
     private MesTeamLeaderProcessConfigService teamLeaderProcessConfigService;
+
+    @Mock
+    private MesProRouteCandidateConfigService candidateConfigService;
+
+    @Test
+    void migrateProductionConfig_shouldOnlyAddProductionConfigToSelectedDraftAndPreserveFormalPercent() {
+        MesProRouteVersionDO candidate = draftCandidate(activeVersion());
+        candidate.setRouteSnapshotJson(snapshotWithoutProductionConfigs());
+        candidate.setRouteSnapshotSha256("draft-sha");
+        when(routeVersionMapper.selectByIdForUpdate(candidate.getId())).thenReturn(candidate);
+        when(routeVersionMapper.selectById(candidate.getId())).thenReturn(candidate);
+        when(teamLeaderProcessConfigService.listProcessConfigs(eq(507L), any()))
+                .thenReturn(List.of(legacyProcessConfig(new BigDecimal("12"))));
+        var request = migrationRequest(candidate);
+        request.setMissingOveragePercent(new BigDecimal("5"));
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(507L);
+            service.migrateProductionConfig(request);
+        }
+        ArgumentCaptor<java.util.Map<String, Object>> configs = ArgumentCaptor.forClass(java.util.Map.class);
+        verify(candidateConfigService).saveConfigSnapshots(eq(candidate.getId()), eq("draft-sha"), configs.capture());
+        assertEquals(java.util.Set.of("productionProcessConfigSchemaVersion", "productionProcessConfigs"),
+                configs.getValue().keySet());
+        var process = ((JSONArray) configs.getValue().get("productionProcessConfigs")).getJSONObject(0);
+        assertEquals(12, process.getBigDecimal("overagePercent").intValueExact());
+        assertEquals("CLEANING", process.getJSONArray("deviceSelectionGroups").getJSONObject(0).getString("deviceGroupKey"));
+        verify(versionOperateLogService).route("迁移生产配置", candidate, candidate, 507L);
+        verify(routeVersionMapper, never()).insert(any(MesProRouteVersionDO.class));
+    }
+
+    @Test
+    void migrateProductionConfig_shouldRejectActiveStaleAndExistingSnapshotsWithoutSaving() {
+        for (String condition : List.of("active", "pending", "stale", "existing")) {
+            MesProRouteVersionDO candidate = draftCandidate(activeVersion());
+            candidate.setRouteSnapshotJson(snapshotWithoutProductionConfigs());
+            candidate.setRouteSnapshotSha256("draft-sha");
+            if (condition.equals("active")) candidate.setActive(true);
+            if (condition.equals("pending")) candidate.setLifecycleStatus("PENDING_APPROVAL");
+            if (condition.equals("existing")) candidate.setRouteSnapshotJson(validSnapshotJson(9001L, "RT", "路线"));
+            when(routeVersionMapper.selectByIdForUpdate(candidate.getId())).thenReturn(candidate);
+            var request = migrationRequest(candidate);
+            if (condition.equals("stale")) request.setExpectedRouteSnapshotSha256("old-sha");
+            try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+                security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(507L);
+                assertThrows(ServiceException.class, () -> service.migrateProductionConfig(request));
+            }
+        }
+        verify(candidateConfigService, never()).saveConfigSnapshots(any(), any(), any());
+    }
+
+    @Test
+    void migrateProductionConfig_shouldRejectMissingBusinessPercentWithoutDefault() {
+        MesProRouteVersionDO candidate = draftCandidate(activeVersion());
+        candidate.setRouteSnapshotJson(snapshotWithoutProductionConfigs());
+        candidate.setRouteSnapshotSha256("draft-sha");
+        when(routeVersionMapper.selectByIdForUpdate(candidate.getId())).thenReturn(candidate);
+        when(teamLeaderProcessConfigService.listProcessConfigs(eq(507L), any()))
+                .thenReturn(List.of(legacyProcessConfig(null)));
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(507L);
+            ServiceException error = assertThrows(ServiceException.class,
+                    () -> service.migrateProductionConfig(migrationRequest(candidate)));
+            assertTrue(error.getMessage().contains("未配置超量比例"));
+        }
+        verify(candidateConfigService, never()).saveConfigSnapshots(any(), any(), any());
+    }
+
+    private MesProRouteProductionConfigMigrateReqVO migrationRequest(MesProRouteVersionDO candidate) {
+        var request = new MesProRouteProductionConfigMigrateReqVO();
+        request.setRouteVersionId(candidate.getId());
+        request.setExpectedRouteSnapshotSha256("draft-sha");
+        return request;
+    }
 
     @Test
     void createCandidate_shouldExplicitlyMigrateFormalTeamLeaderProductionConfig() {
@@ -667,7 +741,8 @@ class MesProRouteVersionWorkflowServiceTest {
 
     private String snapshotWithoutProductionConfigs() {
         JSONObject snapshot = JSON.parseObject(validSnapshotJson(9001L, "RT-9001", "工艺路线 V1"));
-        snapshot.getJSONObject("configSnapshots").put("productionProcessConfigs", new JSONArray());
+        snapshot.getJSONObject("configSnapshots").remove("productionProcessConfigSchemaVersion");
+        snapshot.getJSONObject("configSnapshots").remove("productionProcessConfigs");
         return snapshot.toJSONString();
     }
 

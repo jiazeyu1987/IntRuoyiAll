@@ -637,6 +637,11 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
             for (String field : List.of("processCode", "processName")) {
                 if (previous.containsKey(field)) node.put(field, previous.get(field));
             }
+            if (Objects.equals(previous.getLong("routeProcessWorkstationId"), routeProcess.getWorkstationId())) {
+                for (String field : List.of("workstationId", "workstationCode", "workstationName")) {
+                    if (previous.containsKey(field)) node.put(field, previous.get(field));
+                }
+            }
         } else {
             MesProProcessDO process = processService.getProcess(routeProcess.getProcessId());
             if (process == null) throw exception(PRO_PROCESS_NOT_EXISTS);

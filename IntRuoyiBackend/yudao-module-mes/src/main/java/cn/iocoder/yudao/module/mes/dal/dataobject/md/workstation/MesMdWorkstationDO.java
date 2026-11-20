@@ -92,6 +92,7 @@ public class MesMdWorkstationDO extends BaseDO {
     /**
      * 班次小时数
      */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private BigDecimal shiftHours;
     /**
      * 状态

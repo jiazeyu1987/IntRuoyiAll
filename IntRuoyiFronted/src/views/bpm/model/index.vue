@@ -31,6 +31,9 @@
     >
       <template #actions>
         <el-button v-hasPermi="['bpm:business-approval-policy:query']" @click="router.push('/approval-center/manager/business-approval-policy')">业务审批策略</el-button>
+        <el-button v-hasPermi="['bpm:model:create']" @click="openModelForm('create')">
+          新建 BPMN 模型
+        </el-button>
         <el-button
           type="primary"
           @click="openCreateApprovalParticipantConfig"
@@ -1319,6 +1322,10 @@ const openCreateApprovalParticipantConfig = async () => {
 }
 
 const openApprovalParticipantConfig = async (row: ModelInfo) => {
+  if (Number(row.type) === BpmModelType.BPMN) {
+    await openModelForm('update', row.id)
+    return
+  }
   participantConfigMode.value = 'update'
   participantConfigLoading.value = true
   try {

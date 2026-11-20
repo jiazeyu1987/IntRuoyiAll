@@ -194,12 +194,16 @@ public class ApprovalFlowableTaskQueryService {
 
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public void requireNativeTaskAuthority(String taskId,Long actor) {
+        if (!hasNativeTaskAuthority(taskId, actor)) throw new cn.iocoder.yudao.framework.common.exception.ServiceException(403, "当前用户不具备该待办的审批资格，请刷新待办或联系管理员核对审批候选配置");
+    }
+
+    @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
+    public boolean hasNativeTaskAuthority(String taskId,Long actor) {
         var context=ApprovalTaskQueryContext.of(actor,ApprovalTaskViewType.TODO,
                 cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode.BPM,null,1,1,false);
         var p=parameters(context,"BPM",false);p.put("taskId",taskId);verify(p);
-        if(mapper.count(p)!=1) throw new IllegalStateException("APPROVAL_TASK_AUTHORITY_REQUIRED");
+        return mapper.count(p)==1;
     }
-
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public boolean isFormalRegistrationCandidate(String taskId,Long actor) {
         var context=ApprovalTaskQueryContext.of(actor,ApprovalTaskViewType.TODO,

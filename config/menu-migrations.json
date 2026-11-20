@@ -1,5 +1,8 @@
 {
   "changes": [
+    {"source":"IntRuoyiFronted/src/views/mes/pro/process/ProcessCraftBindingPanel.vue","kind":"permission","value":"mes:pro-route:version-create","reason":"工序编辑内部组件复用既有路线候选版本创建权限，创建后仍使用原审批发布流程；不新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
+    {"source":"IntRuoyiFronted/src/views/mes/pro/process/ProcessCraftBindingPanel.vue","kind":"permission","value":"mes:pro-route:version-update","reason":"工序编辑内部组件的工艺绑定和旧版生产配置显式迁移复用既有草稿修改权限，后端仍校验草稿状态及版本校验值；不新增菜单、权限标识或角色及租户套餐授权。"},
+    {"source": "IntRuoyiFronted/src/views/bpm/model/index.vue", "kind": "permission", "value": "bpm:model:create", "reason": "流程模型页恢复现有 BPMN 创建表单入口，复用 bpm:model:create 和 BpmModelCreate 既有路由；BPMN 修改进入原编辑器保留业务表单和流程类型，无新增菜单、路由、权限标识、角色或租户套餐授权，无需迁移。"},
     {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesActiveOrderWorkOrderController.java", "kind": "permission", "value": "mes:pro-process-pool-team-leader:query", "reason": "生产组长订单详情弹框及空批次号补填复用已有查询、维护权限，后端校验所属组长；无新增菜单、路由、权限或角色及租户套餐授权，无需迁移。"},
     {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesActiveOrderWorkOrderController.java", "kind": "permission", "value": "mes:pro-process-pool-team-leader:maintain", "reason": "生产组长订单详情弹框及空批次号补填复用已有查询、维护权限，后端校验所属组长；无新增菜单、路由、权限或角色及租户套餐授权，无需迁移。"},
     {"source": "IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderWorkOrderDialog.vue", "kind": "permission", "value": "mes:pro-process-pool-team-leader:maintain", "reason": "内部订单详情弹框复用生产组长维护权限补填空批次号，无新增菜单、路由、权限或角色及租户套餐授权，无需迁移。"},

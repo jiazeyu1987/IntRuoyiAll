@@ -49,6 +49,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VER
 @Service
 @Validated
 public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersionWorkflowService {
+    @Resource
+    private MesProRouteCandidateConfigService candidateConfigService;
 
     @jakarta.annotation.Resource
     private MesVersionOperateLogService versionOperateLogService;
@@ -112,6 +114,10 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
                     throw exception(PRO_ROUTE_VERSION_CONFLICT,
                             reqVO.getRouteId(), openCandidate.getSourceRouteVersionId(), active.getId());
                 }
+                if (Boolean.TRUE.equals(reqVO.getMigrateLegacyProductionConfig())) {
+                    throw cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.invalid(
+                            "该路线已有草稿，请选择现有草稿并执行生产配置迁移");
+                }
                 return openCandidate;
             }
             throw exception(PRO_ROUTE_VERSION_CONFLICT,
@@ -148,6 +154,34 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
         return candidate;
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProRouteVersionDO migrateProductionConfig(
+            cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteProductionConfigMigrateReqVO reqVO) {
+        craftService.lockCatalog();
+        MesProRouteVersionDO candidate = getVersionForUpdate(reqVO.getRouteVersionId());
+        if (Boolean.TRUE.equals(candidate.getActive())
+                || !MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(candidate.getLifecycleStatus())) {
+            throw exception(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE,
+                    candidate.getId(), candidate.getLifecycleStatus());
+        }
+        craftService.assertEditable(candidate);
+        if (StrUtil.isBlank(reqVO.getExpectedRouteSnapshotSha256())
+                || !Objects.equals(candidate.getRouteSnapshotSha256(), reqVO.getExpectedRouteSnapshotSha256())) {
+            throw exception(PRO_ROUTE_VERSION_CONFLICT, candidate.getRouteId(),
+                    reqVO.getExpectedRouteSnapshotSha256(), candidate.getRouteSnapshotSha256());
+        }
+        JSONObject migrated = JSON.parseObject(migrateLegacyProductionConfigs(
+                candidate, candidate.getRouteSnapshotJson(), reqVO.getMissingOveragePercent()))
+                .getJSONObject("configSnapshots");
+        candidateConfigService.saveConfigSnapshots(candidate.getId(), reqVO.getExpectedRouteSnapshotSha256(),
+                Map.of("productionProcessConfigSchemaVersion", 1,
+                        "productionProcessConfigs", migrated.getJSONArray("productionProcessConfigs")));
+        MesProRouteVersionDO saved = getVersion(candidate.getId());
+        versionOperateLogService.route("迁移生产配置", candidate, saved, SecurityFrameworkUtils.getLoginUserId());
+        return saved;
+    }
+
     private String migrateLegacyProductionConfigs(MesProRouteVersionDO active, String routeSnapshotJson,
                                                   BigDecimal missingOveragePercent) {
         Long operatorId = SecurityFrameworkUtils.getLoginUserId();
@@ -161,6 +195,11 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
         }
         JSONObject snapshot = JSON.parseObject(routeSnapshotJson);
         JSONObject configSnapshots = snapshot == null ? null : snapshot.getJSONObject("configSnapshots");
+        if (configSnapshots != null && (configSnapshots.containsKey("productionProcessConfigSchemaVersion")
+                || configSnapshots.containsKey("productionProcessConfigs"))) {
+            throw cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.invalid(
+                    "该版本已存在生产配置快照，不能重复迁移或覆盖已有配置");
+        }
         JSONObject flowGraph = configSnapshots == null ? null : configSnapshots.getJSONObject("flowGraph");
         JSONArray nodes = flowGraph == null ? null : flowGraph.getJSONArray("nodes");
         if (nodes == null || nodes.isEmpty()) {
@@ -168,7 +207,7 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
         }
         Map<ProductionProcessIdentity, MesTeamLeaderProcessConfigRow> rowsByIdentity = new LinkedHashMap<>();
         for (MesTeamLeaderProcessConfigRow row : teamLeaderProcessConfigService.listProcessConfigs(
-                operatorId, new MesTeamLeaderProcessConfigListReqVO())) {
+                operatorId, new MesTeamLeaderProcessConfigListReqVO().setRouteId(active.getRouteId()))) {
             if (row == null || !Objects.equals(active.getRouteId(), row.getRouteId())) {
                 continue;
             }
@@ -190,8 +229,13 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
                 throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, active.getId());
             }
             MesTeamLeaderProcessConfigRow row = rowsByIdentity.get(identity);
-            if (row == null || (row.getOveragePercent() == null && missingOveragePercent == null)) {
-                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, active.getId());
+            if (row == null) {
+                throw cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.invalid(
+                        "当前账号无法取得路线工序 " + identity.routeProcessId() + " 的正式生产配置，请核查工序维护权限");
+            }
+            if (row.getOveragePercent() == null && missingOveragePercent == null) {
+                throw cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.invalid(
+                        "工序“" + row.getProcessName() + "”未配置超量比例，请填写缺失工序超量比例后迁移");
             }
             migratedConfigs.add(toMigratedProductionConfig(active.getId(), row, missingOveragePercent));
         }

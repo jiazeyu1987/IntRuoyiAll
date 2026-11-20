@@ -36,6 +36,30 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteProductServiceImplTest {
+    @Test
+    void candidateCreateRejectsUnavailableItemBeforeSnapshotWrite() {
+        var version = MesProRouteVersionDO.builder().id(10L).routeId(1L).active(false).lifecycleStatus("DRAFT").build();
+        when(routeVersionMapper.selectById(10L)).thenReturn(version);
+        var request = new cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductSaveReqVO();
+        request.setRouteId(1L); request.setRouteVersionId(10L); request.setItemId(99L);
+        org.mockito.Mockito.doThrow(new IllegalStateException("disabled item")).when(itemService).validateItemExistsAndEnable(99L);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> routeProductService.createRouteProduct(request));
+        verify(routeCandidateConfigService, never()).saveConfigSnapshot(any(), any(), any());
+    }
+    @org.mockito.Mock
+    private cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService itemService;
+
+
+    @Test
+    void updateCandidateRejectsInvalidTargetBeforeSnapshotWrite() {
+        when(routeVersionMapper.selectById(10L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(10L).routeId(1L).active(false).lifecycleStatus("DRAFT").build());
+        org.mockito.Mockito.doThrow(new IllegalStateException("disabled item")).when(itemService).validateItemExistsAndEnable(99L);
+        var request = new MesProRouteProductSaveReqVO();
+        request.setRouteId(1L); request.setRouteVersionId(10L); request.setItemId(99L);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> routeProductService.updateRouteProduct(request));
+        org.mockito.Mockito.verifyNoInteractions(routeCandidateConfigService);
+    }
 
     @InjectMocks
     private MesProRouteProductServiceImpl routeProductService;

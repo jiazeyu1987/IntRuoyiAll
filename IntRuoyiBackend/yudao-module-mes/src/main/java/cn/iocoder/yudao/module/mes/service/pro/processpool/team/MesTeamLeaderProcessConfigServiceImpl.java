@@ -87,7 +87,9 @@ public class MesTeamLeaderProcessConfigServiceImpl implements MesTeamLeaderProce
         if (reqVO == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "processConfigQuery");
         }
-        List<MesTeamLeaderLossReasonRow> authorizedRows = lossReasonService.listLossReasonRows(leaderUserId).stream()
+        List<MesTeamLeaderLossReasonRow> authorizedRows = (reqVO.getRouteId() == null
+                ? lossReasonService.listLossReasonRows(leaderUserId)
+                : lossReasonService.listLossReasonRowsForRoute(leaderUserId, reqVO.getRouteId())).stream()
                 .sorted(Comparator
                         .comparing(MesTeamLeaderLossReasonRow::getRouteId, Comparator.nullsLast(Long::compareTo))
                         .thenComparing(MesTeamLeaderLossReasonRow::getSort, Comparator.nullsLast(Integer::compareTo))

@@ -128,3 +128,66 @@ test('pending import blocks duplicate submissions and cancellation sends no requ
   assert.equal(calls, 1)
   assert.equal(p.refreshed, 1)
 })
+
+function policyActions(loadProcesses = async () => []) {
+  const source = read('src/views/bpm/businessApprovalPolicy/index.vue')
+  const messages = [], submitted = []
+  const context = {
+    exports: {}, Error, Map, Array, Boolean,
+    ref: value => ({ value }), reactive: value => value, computed: fn => ({ get value() { return fn() } }),
+    policyModeOptions: [{value:'DIRECT'}, {value:'BPM_REQUIRED'}, {value:'SIGNATURE_REQUIRED'}],
+    policyFormData: { value: { policyMode:'DIRECT' } },
+    policyFormVisible: { value:false }, policyFormTitle:{value:''}, policyFormLoading:{value:false},
+    resetPolicyForm() { context.policyFormData.value = { policyMode:'DIRECT' } },
+    getSimpleProcessDefinitionList: loadProcesses,
+    BusinessApprovalPolicyApi: { savePolicy: async data => submitted.push(data) },
+    message: { success: value => messages.push(value), error: value => messages.push(value) },
+    t: value => value, getList: async () => {}, resolveBusinessApprovalPolicyErrorMessage: e => e.message
+  }
+  const script = source.slice(source.indexOf('const processDefinitionOptions'), source.indexOf('const formatPolicyMode')) +
+    source.slice(source.indexOf('const openPolicyForm'), source.indexOf('const deleteDraftPolicy'))
+  vm.runInNewContext(ts.transpileModule(script + '\nexports.actions = {openPolicyForm,submitPolicyForm,policyFormRules,policyModeSegmentOptions,processDefinitionOptions};', {
+    compilerOptions: {module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}
+  }).outputText, context)
+  context.policyFormRef = { value: { validate: async () => {
+    await new Promise((resolve,reject) => context.exports.actions.policyFormRules.processDefinitionKey[0]
+      .validator({},context.policyFormData.value.processDefinitionKey,e => e ? reject(e) : resolve()))
+    return true
+  } } }
+  return { ...context.exports.actions, context, submitted, messages }
+}
+
+test('BPM policy creation offers deployed processes by stable key and requires an available choice', async () => {
+  const p = policyActions(async () => [{key:'route',name:'v2'}, {key:'route',name:'v1'}])
+  await p.openPolicyForm()
+  assert.equal(p.processDefinitionOptions.value.length,1)
+  assert.ok(p.policyModeSegmentOptions.value.some(x => x.value === 'BPM_REQUIRED'))
+  p.context.policyFormData.value = {policyMode:'BPM_REQUIRED',processDefinitionKey:'missing'}
+  await p.submitPolicyForm()
+  assert.equal(p.submitted.length,0)
+  p.context.policyFormData.value.processDefinitionKey = 'route'
+  await p.submitPolicyForm()
+  assert.equal(p.submitted[0].processDefinitionKey,'route')
+})
+
+test('DIRECT policy preserves the selected process for later mode switches and loading failures remain visible', async () => {
+  const p = policyActions()
+  await p.openPolicyForm()
+  p.context.policyFormData.value = {policyMode:'DIRECT',processDefinitionKey:'route'}
+  await p.submitPolicyForm()
+  assert.equal(p.submitted[0].processDefinitionKey,'route')
+  const broken = policyActions(async () => { throw new Error('流程加载失败') })
+  await assert.rejects(broken.openPolicyForm(), /流程加载失败/)
+  assert.equal(broken.context.policyFormVisible.value,false)
+})
+
+test('editing a BPMN model opens the existing editor without converting it into a SIMPLE model', async () => {
+  const source = read('src/views/bpm/model/index.vue')
+  const script = source.slice(source.indexOf('const openApprovalParticipantConfig'), source.indexOf('const handleSaveParticipantConfig'))
+  const routes = [], context = { exports:{}, Number, BpmModelType:{BPMN:10}, openModelForm:async (...args) => routes.push(args) }
+  vm.runInNewContext(ts.transpileModule(script + '\nexports.open = openApprovalParticipantConfig;', {
+    compilerOptions:{module:ts.ModuleKind.CommonJS}
+  }).outputText, context)
+  await context.exports.open({id:'target-model',type:10})
+  assert.deepEqual(routes,[['update','target-model']])
+})

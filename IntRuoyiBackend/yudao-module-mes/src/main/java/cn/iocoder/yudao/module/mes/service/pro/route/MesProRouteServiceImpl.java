@@ -1187,6 +1187,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         binding.put("formSlotType", record.getFormSlotType());
         binding.put("formBindingKey", record.getFormBindingKey());
         binding.put("globalSyncKey", record.getGlobalSyncKey());
+        binding.put("globalSyncKey", record.getGlobalSyncKey());
         binding.put("formTemplateId", record.getFormTemplateId());
         binding.put("formTemplateName", record.getFormTemplateNameSnapshot());
         binding.put("lastPublishedTemplateVersionId", record.getLastPublishedTemplateVersionId());

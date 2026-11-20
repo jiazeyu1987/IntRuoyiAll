@@ -24,6 +24,12 @@ public class MesProRouteVersionRespVO {
     @Schema(description = "生命周期状态")
     private String lifecycleStatus;
 
+    @Schema(description = "是否缺少旧版生产配置快照，需要显式迁移")
+    private Boolean legacyProductionConfigMissing;
+
+    @Schema(description = "版本快照校验值，供草稿迁移并发校验")
+    private String routeSnapshotSha256;
+
     @Schema(description = "来源路线版本编号")
     private Long sourceRouteVersionId;
 

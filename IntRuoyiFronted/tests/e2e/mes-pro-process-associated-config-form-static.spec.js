@@ -47,7 +47,8 @@ assertNotIncludes(
   '工序弹窗不得继续引用已下线的旧配置面板'
 )
 assertIncludes(formSource, 'ProRouteProcessApi', '工序弹窗必须解析当前路线工序编号')
-assertIncludes(formSource, '批记录与填写配置', '工序弹窗必须展示关联配置区域标题')
+assertIncludes(formSource, 'ProcessCraftBindingPanel', '工序弹窗必须展示已绑定工艺及绑定入口')
+assertNotIncludes(formSource, '>批记录与填写配置</el-divider>', '工序弹窗不得恢复用户已删除的配置标题')
 assertIncludes(formSource, 'label="所属工艺路线"', '工序弹窗必须允许选择配置所属工艺路线')
 assertIncludes(formSource, 'v-model="selectedRouteId"', '所属工艺路线选择必须绑定 selectedRouteId')
 assertIncludes(
@@ -72,9 +73,10 @@ assert.match(
 assertIncludes(routeEditPageSource, 'route.query.routeProcessId', '工艺路线编辑页必须接收目标路线工序参数')
 assert.match(
   routeFlowGraphSource,
-  /props\.targetRouteProcessId[\s\S]*selectedRouteProcessId\.value = restoredRouteProcessId/,
+  /props\.targetRouteProcessId[\s\S]*resolveExplicitRouteFlowRouteProcessId\(\)[\s\S]*routeProcessId: explicitRouteProcessId/,
   '流转关系图必须用目标路线工序参数恢复当前工序'
 )
+assertIncludes(routeFlowGraphSource, 'selectRouteProcessNode(routeProcessId, { persist: false })', '恢复路线工序选择必须实际选中目标节点')
 assertNotIncludes(routeFlowGraphSource, 'data-flow-action="save-selected-process-settings"', '流转关系图不得保留专门保存工序设置入口')
 
 console.log('PASS: MES pro process associated config form contract is satisfied')

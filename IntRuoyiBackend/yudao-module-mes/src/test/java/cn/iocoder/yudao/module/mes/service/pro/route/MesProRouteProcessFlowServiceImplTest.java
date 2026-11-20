@@ -63,6 +63,27 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteProcessFlowServiceImplTest {
+    @Test
+    void savingUnchangedNodePreservesFrozenIdentityAndWorkstationDisplay() {
+        var previous = com.alibaba.fastjson.JSON.parseObject("""
+                {"processId":201,"processCode":"ER-201","processName":"冻结名称",
+                 "routeProcessWorkstationId":81,"workstationId":81,"workstationCode":"WS81","workstationName":"冻结岗位"}
+                """);
+        var node = MesProRouteProcessDO.builder().id(21L).processId(201L).workstationId(81L)
+                .sort(1).keyFlag(true).checkFlag(true).build();
+        Map<String,Object> saved = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                flowService, "buildCandidateFlowNodeSnapshot", node, previous);
+        assertEquals("ER-201", saved.get("processCode"));
+        assertEquals("冻结名称", saved.get("processName"));
+        assertEquals("WS81", saved.get("workstationCode"));
+        assertEquals("冻结岗位", saved.get("workstationName"));
+        assertEquals(true, saved.get("keyFlag")); assertEquals(true, saved.get("checkFlag"));
+        node.setWorkstationId(82L);
+        Map<String,Object> changed = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                flowService, "buildCandidateFlowNodeSnapshot", node, previous);
+        assertNull(changed.get("workstationCode"));
+        assertEquals(82L, changed.get("routeProcessWorkstationId"));
+    }
 
     @InjectMocks
     private MesProRouteProcessFlowServiceImpl flowService;

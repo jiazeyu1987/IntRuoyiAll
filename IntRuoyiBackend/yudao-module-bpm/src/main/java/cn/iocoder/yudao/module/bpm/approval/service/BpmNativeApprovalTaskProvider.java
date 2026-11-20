@@ -399,7 +399,9 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
                 .decisionDetailQuery(ownership.requiresDomainReview() ? ownership.decisionQuery() : decisionDetailQuery)
                 .availableActions(ownership.requiresDomainReview()
                         ? ownership.decisionRoute() == null ? DETAIL_ACTIONS : Set.of("OPEN_DETAIL", "PROCESS_IN_MODULE")
-                        : TODO_ACTIONS)
+                        : isRegistrationCertificateAccessApproval(variables)
+                                && !centerQuery.hasNativeTaskAuthority(task.getId(), loginUserId)
+                                ? DETAIL_ACTIONS : TODO_ACTIONS)
                 .capabilities(CAPABILITIES)
                 .build(), processInstance.getProcessDefinitionKey());
     }

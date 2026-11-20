@@ -125,7 +125,7 @@ class MesMdWorkstationServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void updateWorkstation_persistShiftHours() {
+    void updateWorkstation_persistClearAndRestoreShiftHours() {
         MesMdWorkstationDO existing = MesMdWorkstationDO.builder()
                 .code("WS-CAP-02")
                 .name("产能测试工位2")
@@ -167,6 +167,19 @@ class MesMdWorkstationServiceImplTest extends BaseDbUnitTest {
 
         MesMdWorkstationDO workstation = workstationMapper.selectById(existing.getId());
         assertEquals(0, workstation.getShiftHours().compareTo(new BigDecimal("6.5")));
+
+        reqVO.setShiftHours(null);
+        workstationService.updateWorkstation(reqVO);
+        MesMdWorkstationDO cleared = workstationMapper.selectById(existing.getId());
+        assertNull(cleared.getShiftHours());
+        assertEquals(0, cleared.getSingleStandardHourlyCapacity().compareTo(new BigDecimal("12")));
+        assertEquals(existing.getWorkshopId(), cleared.getWorkshopId());
+        assertEquals(existing.getProcessId(), cleared.getProcessId());
+
+        reqVO.setShiftHours(new BigDecimal("7.5"));
+        workstationService.updateWorkstation(reqVO);
+        assertEquals(0, workstationMapper.selectById(existing.getId()).getShiftHours()
+                .compareTo(new BigDecimal("7.5")));
     }
 
     @Test

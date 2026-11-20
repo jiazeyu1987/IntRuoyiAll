@@ -42,6 +42,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.*;
 @Service
 @Validated
 public class MesProRouteProductServiceImpl implements MesProRouteProductService {
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService itemService;
 
     private static final String PRODUCTS_CONFIG_KEY = "products";
     private static final Set<String> READABLE_ROUTE_VERSION_STATUSES = Set.of(
@@ -76,6 +78,7 @@ public class MesProRouteProductServiceImpl implements MesProRouteProductService 
         MesProRouteVersionDO candidateVersion = requireDraftCandidateVersion(
                 createReqVO.getRouteVersionId(), createReqVO.getRouteId());
         if (candidateVersion != null) {
+            itemService.validateItemExistsAndEnable(createReqVO.getItemId());
             routeCandidateConfigService.saveConfigSnapshot(candidateVersion.getId(), PRODUCTS_CONFIG_KEY,
                     buildRouteProductsSnapshotWith(candidateVersion, createReqVO.getRouteId(), buildProductSnapshot(createReqVO)));
             return candidateVersion.getId();
@@ -226,6 +229,7 @@ public class MesProRouteProductServiceImpl implements MesProRouteProductService 
         MesProRouteVersionDO candidateVersion = requireDraftCandidateVersion(
                 copyReqVO.getRouteVersionId(), sourceProduct.getRouteId());
         if (candidateVersion != null) {
+            itemService.validateItemExistsAndEnable(copyReqVO.getTargetItemId());
             MesProRouteProductDO targetProduct = buildCopiedProduct(sourceProduct, copyReqVO);
             routeCandidateConfigService.saveConfigSnapshot(candidateVersion.getId(), "products",
                     buildRouteProductsSnapshotWith(candidateVersion, sourceProduct.getRouteId(), buildProductSnapshot(targetProduct)));
@@ -255,6 +259,7 @@ public class MesProRouteProductServiceImpl implements MesProRouteProductService 
     @Transactional(rollbackFor = Exception.class)
     public Long copyCandidateRouteProduct(Long routeId, Long routeVersionId, Long sourceItemId, Long targetItemId) {
         MesProRouteVersionDO candidateVersion = requireDraftCandidateVersion(routeVersionId, routeId);
+        itemService.validateItemExistsAndEnable(targetItemId);
         Map<String, Object> products = resolveRouteProductsSnapshot(candidateVersion, routeId);
         Object sourceSnapshot = products.get(String.valueOf(sourceItemId));
         if (sourceSnapshot == null) {
@@ -292,6 +297,7 @@ public class MesProRouteProductServiceImpl implements MesProRouteProductService 
         MesProRouteVersionDO candidateVersion = requireDraftCandidateVersion(
                 updateReqVO.getRouteVersionId(), updateReqVO.getRouteId());
         if (candidateVersion != null) {
+            itemService.validateItemExistsAndEnable(updateReqVO.getItemId());
             routeCandidateConfigService.saveConfigSnapshot(candidateVersion.getId(), PRODUCTS_CONFIG_KEY,
                     buildRouteProductsSnapshotWith(candidateVersion, updateReqVO.getRouteId(), buildProductSnapshot(updateReqVO)));
             return;
