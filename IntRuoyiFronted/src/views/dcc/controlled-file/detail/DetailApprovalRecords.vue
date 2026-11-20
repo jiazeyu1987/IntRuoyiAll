@@ -26,7 +26,7 @@
       <el-table-column label="审批意见" min-width="200">
         <template #default="{ row }">
           <div>{{ getDccSignatureOpinionLabel(row.comment) }}</div>
-          <p v-for="field in row.confirmedFields.filter(field => !['signoffAssignee', 'obligationDepartment'].includes(field.field))" :key="field.field" class="approval-record-secondary">{{ field.label }}：{{ field.value || '未记录' }}</p>
+          <p v-for="field in row.confirmedFields.filter(field => !['signoffAssignee', 'obligationDepartment', 'fileOwner'].includes(field.field))" :key="field.field" class="approval-record-secondary">{{ field.label }}：{{ field.value || '未记录' }}</p>
           <DetailRelationStageEvidence
             v-if="evidence.relationEvidence && row.relationStages.some(stage => stage.snapshot.members.some(member => member.assigneeUserId != null))"
             :evidence="evidence.relationEvidence" :tenant-id="evidence.relationEvidence.tenantId"

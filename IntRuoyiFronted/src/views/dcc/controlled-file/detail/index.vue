@@ -71,14 +71,14 @@
       <section class="controlled-detail-header">
         <div class="controlled-detail-header__main">
           <div class="controlled-detail-header__identity">
-            <h1>{{ fileDetail?.fileName || fileDetail?.title || '受控文件详情' }}</h1>
-            <el-tag v-if="fileDetail" :type="getDetailStatusTagType(fileDetail.status)">{{ getDetailStatusLabel(fileDetail.status) }}</el-tag>
+            <h1>{{ isWorkingBrowserDetailCurrent ? fileDetail?.fileName || fileDetail?.title || '受控文件详情' : '受控文件详情' }}</h1>
+            <el-tag v-if="fileDetail && isWorkingBrowserDetailCurrent" :type="getDetailStatusTagType(fileDetail.status)">{{ getDetailStatusLabel(fileDetail.status) }}</el-tag>
           </div>
           <div v-if="fileDetail && isWorkingBrowserDetailCurrent" class="controlled-detail-header__facts">
             <span>文件编号 <strong>{{ fileDetail.fileNumber || '未记录' }}</strong></span>
             <span>查看版本 <strong>{{ getDccVersionDisplayText(fileDetail.versionNo) }}</strong>
-              <em v-if="isCurrentActiveVersion">当前受控版本</em></span>
-            <span v-if="!isCurrentActiveVersion && fileDetail.currentActiveVersionNo">当前受控版本 <strong>{{ getDccVersionDisplayText(fileDetail.currentActiveVersionNo) }}</strong></span>
+              <em v-if="isViewedControlledVersionCurrent">当前受控版本</em></span>
+            <span v-if="!isViewedControlledVersionCurrent && fileDetail.currentActiveVersionNo">当前受控版本 <strong>{{ getDccVersionDisplayText(fileDetail.currentActiveVersionNo) }}</strong></span>
             <span>实际生效时间 <strong>{{ effectiveFacts(fileDetail).effectiveText }}</strong></span>
           </div>
         </div>
@@ -90,12 +90,12 @@
             <Icon icon="ep:upload" class="mr-5px" />上传培训记录
           </el-button>
           <el-dropdown trigger="click" :disabled="!fileDetail || !isWorkingBrowserDetailCurrent || !!viewerIdentityError">
-            <el-button>更多<Icon icon="ep:arrow-down" class="ml-4px" /></el-button>
-            <template #dropdown><el-dropdown-menu>
+            <el-button :disabled="!fileDetail || !isWorkingBrowserDetailCurrent || !!viewerIdentityError">更多<Icon icon="ep:arrow-down" class="ml-4px" /></el-button>
+            <template #dropdown><el-dropdown-menu class="controlled-detail-menu">
               <el-dropdown-item :disabled="!canReadDistributionReceipts" @click="openDistributionReceipts">发送与签收</el-dropdown-item>
               <el-dropdown-item :disabled="!detailActionState.canPreview" @click="openPreview">预览受控文件</el-dropdown-item>
-              <el-dropdown-item :disabled="!controlledDownloadAllowed || controlledDownloadLoading" @click="handleDetailMoreCommand('download-body')">
-                <div>下载正文<small v-if="!controlledDownloadAllowed" class="controlled-detail-menu-reason">{{ fileDetail?.accessExplanation?.downloadDeniedReason || '当前权限不可下载' }}</small></div>
+              <el-dropdown-item :disabled="!(checkoutDownloadAllowed || controlledDownloadAllowed) || controlledDownloadLoading" @click="handleDetailMoreCommand('download-body')">
+                <div>下载正文<small v-if="!(checkoutDownloadAllowed || controlledDownloadAllowed)" class="controlled-detail-menu-reason">{{ formatDownloadDeniedReason(fileDetail?.accessExplanation?.downloadDeniedReason) }}</small></div>
               </el-dropdown-item>
               <el-dropdown-item :disabled="!canOpenBpmDetail" @click="handleDetailMoreCommand('bpm-detail')">BPM 详情</el-dropdown-item>
               <el-dropdown-item :disabled="!canEditMetadata" @click="handleDetailMoreCommand('edit-metadata')">修改基础信息</el-dropdown-item>
@@ -119,11 +119,21 @@
           :directory-name="directoryNameMap.get(fileDetail.directoryId) || fileDetail.directoryPath || '未记录'"
           :user-names="userNameMap" :department-names="deptNameMap" @refresh="reloadAll" @open-project="openDccProjectCode" />
         <ControlledDetailVersionPanel v-if="controlledDetailTab === 'version'" :file="fileDetail" :user-names="userNameMap"
-          :can-view-artifacts="detailActionState.canPreview" @view-artifacts="openPreview" @open-version="openHistoryDetail" />
+          :can-view-artifacts="detailActionState.canPreview" :can-partial-revision="canStartControlledRevision" :can-replacement-revision="canStartControlledRevision"
+          @revision="openControlledRevision" @view-artifacts="openPreview" @open-version="openHistoryDetail" />
+        <ControlledDetailApprovalPanel v-if="controlledDetailTab === 'approval'" :file="fileDetail"
+          :bpm-round="detailReadSelectionState.selection?.bpmRound" :application-type="detailReadSelectionState.selection?.applicationType"
+          :body-read-context="detailReadSelectionState.selection?.bodyReadContext" :read-authority="readDetailAuthority"
+          :context-key="route.fullPath" :context-error="detailReadSelectionState.error" :user-names="approvalUserNameMap" />
         <ControlledDetailDistributionPanel v-if="controlledDetailTab === 'distribution'" :file="fileDetail" :user-names="userNameMap"
           :department-names="deptNameMap" :read-authority="readDetailAuthority" @locate-training-attachment="locateControlledTrainingAttachment" />
       </template>
     </section>
+    <el-dialog v-if="useControlledDetailLayout" v-model="controlledRevisionVisible" :title="controlledRevisionIntent === 'PARTIAL' ? '局部变更申请' : '换版变更申请'" width="min(1100px, calc(100vw - 24px))" destroy-on-close>
+      <DetailApplicationPanel v-if="fileDetail && controlledRevisionVisible && canStartControlledRevision" :key="`${fileDetail.id}-${controlledRevisionIntent}`"
+        :file="fileDetail" initial-open :initial-intent="controlledRevisionIntent"
+        @submitted="controlledRevisionVisible = false; handleApplicationSubmitted($event)" @prepare-body="prepareApplicationBody" />
+    </el-dialog>
     <div class="dcc-detail-layout" :class="{ 'dcc-review-layout': isApprovalUploadHandlingPage }">
     <template v-if="!useControlledDetailLayout">
 
@@ -2873,8 +2883,11 @@ import SignatureCredentialInput from '@/components/SignatureCredentialInput/Sign
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import ControlledFileBrowseRecords from './ControlledFileBrowseRecords.vue'
+import { getControlledDetailPersonText } from './controlled-detail-people'
+import ControlledDetailApprovalPanel from './ControlledDetailApprovalPanel.vue'
 import ControlledDetailVersionPanel from './ControlledDetailVersionPanel.vue'
 import ControlledDetailDistributionPanel from './ControlledDetailDistributionPanel.vue'
+import { canReadControlledDistributionReceipts } from './controlled-detail-distribution'
 import { assertRelationApplicationSelection, type DetailRelationApplicationSelection } from './relation-contract'
 import { getDccVersionDisplayText } from '../shared/version-display'
 import ControlledFileAttachments from './ControlledFileAttachments.vue'
@@ -3128,6 +3141,7 @@ const categoryNameMap = ref(new Map<number, string>())
 const directoryNameMap = ref(new Map<number, string>())
 const directoryPathMap = ref(new Map<number, string>())
 const userNameMap = ref(new Map<number, string>())
+const approvalUserNameMap = ref(new Map<number, string>())
 const deptNameMap = ref(new Map<number, string>())
 const departmentList = ref<DeptVO[]>([])
 const approvalTodoTask = ref<any>()
@@ -3755,8 +3769,22 @@ const showDetailManagementActions = computed(
 )
 const useControlledDetailLayout = computed(() => isBrowserTraceabilityPage.value
   || (!isApprovalUploadHandlingPage.value
-    && (route.query.management !== '1' || fileDetail.value?.status === 'PENDING_APPLICANT_TRAINING_RECORD')))
+    && ['ACTIVE', 'CONTROLLED_PENDING_EFFECTIVE', 'SUPERSEDED', 'OBSOLETE', 'PENDING_APPLICANT_TRAINING_RECORD'].includes(fileDetail.value?.status || '')))
+const isViewedControlledVersionCurrent = computed(() => Boolean(fileDetail.value?.currentActiveVersionNo)
+  && fileDetail.value?.currentActiveVersionNo === fileDetail.value?.versionNo)
 const controlledDetailTab = ref('overview')
+const controlledRevisionVisible = ref(false)
+const controlledRevisionIntent = ref<RevisionIntent>('PARTIAL')
+const canStartControlledRevision = computed(() => isWorkingBrowserDetailCurrent.value && !detailReadSelectionState.value.error
+  && !pendingRevisions.value.length && !isExternalReviewProcess.value
+  && checkPermi(['dcc:controlled-file:submit', 'dcc:controlled-file:edit']) && canPrepareFileApplication.value
+  && ['ACTIVE', 'CONTROLLED_PENDING_EFFECTIVE'].includes(fileDetail.value?.status || ''))
+const openControlledRevision = (intent: RevisionIntent) => {
+  if (!canStartControlledRevision.value || !ensureCurrentDetailContext()) return
+  controlledRevisionIntent.value = intent
+  controlledRevisionVisible.value = true
+}
+watch(() => route.fullPath, () => { controlledDetailTab.value = 'overview'; controlledRevisionVisible.value = false })
 const controlledBrowseRecordsRef = ref<InstanceType<typeof ControlledFileBrowseRecords>>()
 const locateControlledTrainingAttachment = async (id: number | string) => {
   controlledDetailTab.value = 'overview'
@@ -5179,9 +5207,12 @@ const loadData = async (sequence: number, requestedId: string, requestedRoute: s
   )
   userNameMap.value = new Map(
     users.map((item: UserVO) => {
-      const displayName = buildDetailUserDisplayName(item)
+      const displayName = getControlledDetailPersonText(buildDetailUserDisplayName(item))
       return [item.id, displayName === '-' ? `用户#${item.id}` : displayName]
     })
+  )
+  approvalUserNameMap.value = new Map(
+    users.map((item: UserVO) => [item.id, item.nickname || item.username || ''])
   )
   departmentList.value = departments
   deptNameMap.value = new Map(departments.map((item: DeptVO) => [item.id as number, item.name]))
@@ -5507,6 +5538,16 @@ const reloadAll = async () => {
   }
 }
 
+const formatDownloadDeniedReason = (reason?: string) => {
+  const reasonLabels: Record<string, string> = {
+    CATEGORY_DOWNLOAD_DENIED: '当前账号未获此文件分类的下载权限',
+    DIRECTORY_DOWNLOAD_DENIED: '当前账号未获此目录的下载权限',
+    PUBLISHED_FILE_MISSING: '发布文件尚未生成，暂不可下载',
+    STATUS_NOT_ACTIVE: '当前查看版本尚未启用，暂不可下载'
+  }
+  if (!reason) return '当前权限不可下载'
+  return reasonLabels[reason] || (/[\u4e00-\u9fff]/.test(reason) ? reason : '当前权限不可下载，请联系文控确认')
+}
 const formatAccessExplanation = (source?: string, reason?: string) => {
   if (!source && !reason) {
     return '-'
@@ -6633,8 +6674,8 @@ const handleAcknowledgeTraining = async () => {
 }
 
 const workflowDistributionVisible = ref(false)
-const canReadDistributionReceipts = computed(() => Boolean(fileDetail.value?.processInstanceId)
-  && checkPermi(['dcc:controlled-file:distribute', 'dcc:controlled-file:edit']))
+const canReadDistributionReceipts = computed(() => canReadControlledDistributionReceipts(fileDetail.value,
+  checkPermi(['dcc:controlled-file:distribute', 'dcc:controlled-file:edit'])))
 const readDistributionAuthorityKey = () => JSON.stringify([String(currentUserId.value),
   String(getVisitTenantId() || getTenantId() || ''), canReadDistributionReceipts.value])
 const distributionReceiptReader = createDistributionReceiptReader(() => {
@@ -7998,99 +8039,6 @@ const listColumnFilterDefinitions4 = computed<ListColumnFilterDefinition[]>(() =
 </script>
 
 <style scoped>
-.action-signature-file {
-  padding: 20px;
-  margin-bottom: 16px;
-  background: var(--el-fill-color-light);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
-}
-
-.action-signature-file__heading {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.action-signature-file__icon {
-  flex-shrink: 0;
-  font-size: 32px;
-  color: var(--el-text-color-secondary);
-}
-
-.action-signature-file__name {
-  min-width: 0;
-  font-size: 18px;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-
-.action-signature-file__facts {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  gap: 16px 24px;
-  margin: 0;
-}
-
-.action-signature-file__facts > div {
-  display: flex;
-  gap: 16px;
-  min-width: 0;
-}
-
-.action-signature-file__facts dt {
-  flex-shrink: 0;
-  color: var(--el-text-color-secondary);
-}
-
-.action-signature-file__facts dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.action-signature-file__signer {
-  grid-column: 1 / -1;
-}
-
-.action-signature-flow {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 16px 20px;
-  margin-bottom: 20px;
-  background: #e6f8f1;
-  border-radius: 8px;
-}
-
-.action-signature-flow > strong {
-  flex-shrink: 0;
-  color: #00695c;
-}
-
-.action-signature-flow > span {
-  padding-left: 20px;
-  border-left: 1px solid var(--el-border-color);
-  overflow-wrap: anywhere;
-}
-
-.action-signature-flow--reject {
-  background: var(--el-color-danger-light-9);
-}
-
-.action-signature-flow--reject > strong {
-  color: var(--el-color-danger-dark-2);
-}
-
-.action-signature-confirm--approve {
-  --el-button-bg-color: #008f7a;
-  --el-button-border-color: #008f7a;
-  --el-button-hover-bg-color: #20a18b;
-  --el-button-hover-border-color: #20a18b;
-  --el-button-active-bg-color: #007563;
-  --el-button-active-border-color: #007563;
-}
-
 .approval-file-overview-scroll { overflow-x: auto; }
 .approval-file-overview { min-width: 900px; }
 .approval-file-overview :deep(.el-descriptions__table) { table-layout: fixed; }
@@ -8895,3 +8843,56 @@ const listColumnFilterDefinitions4 = computed<ListColumnFilterDefinition[]>(() =
   gap: 16px;
 }
 </style>
+
+<style>
+.controlled-detail-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; color: var(--el-text-color-primary); font-size: 14px; line-height: 22px; }
+.controlled-detail-header, .controlled-detail-layout .controlled-detail-card { background: var(--el-bg-color); border: 1px solid var(--el-border-color-light); border-radius: 6px; }
+.controlled-detail-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; padding: 20px 20px 0; column-gap: 20px; }
+.controlled-detail-header__main { min-width: 0; }
+.controlled-detail-header__identity { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 12px; }
+.controlled-detail-header h1 { margin: 0; font-size: 24px; line-height: 32px; overflow-wrap: anywhere; }
+.controlled-detail-header__facts { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 14px; line-height: 22px; margin-top: 8px; }
+.controlled-detail-header__facts strong { margin-left: 6px; font-weight: 600; }
+.controlled-detail-header__facts em { margin-left: 6px; font-style: normal; color: var(--el-color-primary); }
+.controlled-detail-header__actions { display: flex; align-items: flex-start; gap: 8px; }
+.controlled-detail-header__actions .el-button + .el-button { margin-left: 0; }
+.controlled-detail-tabs { grid-column: 1 / -1; margin-top: 16px; min-width: 0; }
+.controlled-detail-tabs .el-tabs__header { margin-bottom: 0; }
+.controlled-detail-tabs .el-tabs__nav-wrap::after { height: 1px; }
+.controlled-detail-tabs .el-tabs__item { font-size: 14px; line-height: 22px; }
+.controlled-detail-tabs .el-tabs__item:not(:focus-visible) { box-shadow: none; outline: none; }
+.controlled-detail-tabs .el-tabs__item:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: -3px; border-radius: 2px; }
+.controlled-detail-menu .el-dropdown-menu__item { font-size: 14px; line-height: 22px; }
+.controlled-detail-menu-reason { display: block; font-size: 13px; line-height: 20px; }
+.controlled-detail-layout .controlled-detail-version, .controlled-detail-layout .controlled-detail-distribution, .controlled-detail-layout .controlled-detail-approval { gap: 16px; }
+.controlled-detail-layout .controlled-detail-version__top { gap: 16px; align-items: stretch; }
+.controlled-detail-layout .controlled-detail-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 16px; align-items: stretch; }
+.controlled-detail-layout .controlled-detail-card { min-width: 0; padding: 20px; }
+.controlled-detail-layout h3, .controlled-detail-layout .controlled-detail-section h3 { margin: 0 0 12px; font-size: 18px; line-height: 26px; font-weight: 600; }
+.controlled-detail-layout .controlled-detail-section__heading h3 { margin-bottom: 0; }
+.controlled-detail-layout .controlled-detail-fields { margin: 0; }
+.controlled-detail-layout .controlled-detail-fields > div { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 0 12px; padding: 10px 0; border-bottom: 1px solid var(--el-border-color-lighter); }
+.controlled-detail-layout .controlled-detail-fields > div:last-child { border-bottom: 0; }
+.controlled-detail-layout dt { color: var(--el-text-color-secondary); }
+.controlled-detail-layout dd { margin: 0; overflow-wrap: anywhere; color: var(--el-text-color-primary); }
+.controlled-detail-layout .controlled-detail-fields--columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 24px; }
+.controlled-detail-layout .el-table { color: var(--el-text-color-primary); font-size: 14px; line-height: 22px; }
+.controlled-detail-layout .el-table th, .controlled-detail-layout .el-table td { text-align: left; vertical-align: top; }
+.controlled-detail-layout .el-table th { background: var(--el-fill-color-light); color: var(--el-text-color-primary); font-weight: 500; }
+.controlled-detail-layout .el-table .cell { white-space: normal; overflow-wrap: anywhere; line-height: 22px; }
+.controlled-detail-layout .el-button, .controlled-detail-layout .el-link { font-size: 14px; line-height: 22px; }
+.controlled-detail-layout .el-button.is-link { white-space: normal; height: auto; text-align: left; }
+.controlled-detail-layout .el-tag, .controlled-detail-layout .controlled-detail-muted, .controlled-detail-layout .controlled-detail-note, .controlled-detail-layout .approval-secondary { font-size: 13px; line-height: 20px; }
+.controlled-detail-layout .el-tag { height: auto; min-height: 22px; white-space: normal; }
+.controlled-detail-layout .el-descriptions__label { width: 120px; }
+.controlled-detail-layout .el-descriptions__content { color: var(--el-text-color-primary); }
+.controlled-detail-layout .controlled-detail-facts--labels > div { grid-template-columns: 120px minmax(0, 1fr); gap: 12px; }
+.controlled-detail-layout .controlled-detail-header__facts strong, .controlled-detail-layout .el-table .cell, .controlled-detail-layout dd, .controlled-detail-layout .el-descriptions__content { font-variant-numeric: tabular-nums; }
+@media (max-width: 1000px) {
+  .controlled-detail-header { grid-template-columns: minmax(0, 1fr); }
+  .controlled-detail-header__actions { margin-top: 12px; }
+  .controlled-detail-layout .controlled-detail-grid, .controlled-detail-layout .controlled-detail-fields--columns { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+
+<style scoped src="../shared/approval-signature.css"></style>

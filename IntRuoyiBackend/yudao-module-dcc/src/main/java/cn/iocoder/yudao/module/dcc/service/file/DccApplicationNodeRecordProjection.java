@@ -39,9 +39,10 @@ public final class DccApplicationNodeRecordProjection {
                 if(!Objects.equals(a.getTenantId(),file.getTenantId()) || !Objects.equals(a.getControlledFileId(),file.getId())
                         || !round.equals(a.getProcessInstanceId()) || !task.getId().equals(a.getBpmTaskId())
                         || !Objects.equals(task.getTaskDefinitionKey(),a.getStageCode()) || Boolean.TRUE.equals(a.getDeleted())
-                        || !Objects.equals(a.getLeaderUserId(),signed.getActorId()) || !Objects.equals(a.getAssignedTime(),signed.getSignedAt())
+                        || !Objects.equals(a.getLeaderUserId(),signed.getActorId()) || a.getAssignedTime()==null
                         || a.getAssigneeUserId()==null)
                     throw new IllegalStateException("前序指派快照与签名、实际任务或轮次不一致");
+                // The explicit signature/task/round binding identifies the assignment; its time is a separate recorded fact.
                 target=new DccApplicationNodeRecord.AssignmentTarget(a.getAssigneeUserId(),a.getAssigneeName(),a.getDepartmentName());
                 fields.add(new DccApplicationNodeRecord.ConfirmedField("signoffAssignee","指派会签人",a.getAssigneeName()));
                 fields.add(new DccApplicationNodeRecord.ConfirmedField("obligationDepartment","会签义务部门",a.getDepartmentName()));

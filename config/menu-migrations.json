@@ -34,7 +34,7 @@
       "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
       "kind": "page",
       "value": "dcc/controlled-file/detail/index",
-      "reason": "既有培训待办详情复用新版四页签布局并保留培训上传按钮，同时补齐详情已引用的版本、分发内部组件；沿用原菜单及授权，无新增权限或租户套餐授权。既有受控文件维护详情内增加本人有效检出的 Word 及附件下载入口；沿用现有维护入口，后端按租户、启用账号、同一逻辑文件的有效检出人及所选未作废版本核验，不新增菜单、权限标识、角色或租户套餐授权，日常浏览不开放该入口。"
+      "reason": "既有受控文件培训待办详情复用新版四页签布局，保留原上传培训记录动作及后端授权；沿用现有详情路由和菜单，不新增权限或租户套餐授权。既有受控文件维护详情内增加本人有效检出的 Word 及附件下载入口；沿用现有维护入口，后端按租户、启用账号、同一逻辑文件的有效检出人及所选未作废版本核验，不新增菜单、权限标识、角色或租户套餐授权，日常浏览不开放该入口。受控浏览概览通过内部 DetailApplicationHistory 的显式 controlled-overview 展示模式合并申请字段、避免重复变更信息；继续复用原申请轮次和证据接口、bodyReadContext、readAuthority 及 selection-change 事件，仅调整字段布局，其他调用默认展示保持，不新增菜单、路由、权限或授权迁移。"
     },
     {
       "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",

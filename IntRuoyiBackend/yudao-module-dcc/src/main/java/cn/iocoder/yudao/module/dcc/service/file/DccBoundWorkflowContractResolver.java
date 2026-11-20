@@ -66,7 +66,11 @@ public class DccBoundWorkflowContractResolver {
             if(any){if(file.getPreparedWorkflowContract()==null||!Objects.equals(file.getPreparedProcessDefinitionId(),exact.definitionId())
                     ||!Objects.equals(file.getPreparedDefinitionDigest(),exact.digest()))throw new IllegalStateException("ROUND_FLOW_CURRENT_PREPARED_MISMATCH");
                 graph=DccWorkflowDefinitionCatalog.require(file.getPreparedWorkflowContract(),key,exact.digest());}
-            else if(graph!=null&&!"LEGACY_V4_ACTION".equals(graph.executionContract()))throw new IllegalStateException("ROUND_FLOW_CURRENT_PUBLIC_PREPARATION_REQUIRED");
+            else if(graph!=null&&!"LEGACY_V4_ACTION".equals(graph.executionContract())){
+                if(!exact.completed())throw new IllegalStateException("ROUND_FLOW_CURRENT_PUBLIC_PREPARATION_REQUIRED");
+                // A completed round can remain the file pointer without having the later preparation fields.
+                return result(file,row,exact,null,null,null,null,RoundContractStatus.NOT_RECORDED,"HISTORICAL_CONTRACT_NOT_RECORDED");
+            }
         }
         if(saved==null||!Boolean.TRUE.equals(saved.getSubmitted())){
             boolean recordedCurrent=current&&(file.getPreparedWorkflowContract()!=null||file.getPreparedProcessDefinitionId()!=null||file.getPreparedDefinitionDigest()!=null);

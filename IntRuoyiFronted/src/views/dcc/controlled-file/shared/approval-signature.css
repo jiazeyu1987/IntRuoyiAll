@@ -1,0 +1,98 @@
+.action-signature-file {
+  padding: 20px;
+  margin-bottom: 16px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+}
+
+.action-signature-file__heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.action-signature-file__icon {
+  flex-shrink: 0;
+  font-size: 32px;
+  color: var(--el-text-color-secondary);
+}
+
+.action-signature-file__name {
+  min-width: 0;
+  font-size: 18px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.action-signature-file__facts {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 16px 24px;
+  margin: 0;
+}
+
+.action-signature-file__facts > div {
+  display: flex;
+  gap: 16px;
+  min-width: 0;
+}
+
+.action-signature-file__facts dt {
+  flex-shrink: 0;
+  color: var(--el-text-color-secondary);
+}
+
+.action-signature-file__facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.action-signature-file__signer {
+  grid-column: 1 / -1;
+}
+
+.action-signature-flow {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  background: #e6f8f1;
+  border-radius: 8px;
+}
+
+.action-signature-flow > strong {
+  flex-shrink: 0;
+  color: #00695c;
+}
+
+.action-signature-flow > span {
+  padding-left: 20px;
+  border-left: 1px solid var(--el-border-color);
+  overflow-wrap: anywhere;
+}
+
+.action-signature-flow--reject {
+  background: var(--el-color-danger-light-9);
+}
+
+.action-signature-flow--reject > strong {
+  color: var(--el-color-danger-dark-2);
+}
+
+.action-signature-confirm--approve {
+  --el-button-bg-color: #008f7a;
+  --el-button-border-color: #008f7a;
+  --el-button-hover-bg-color: #20a18b;
+  --el-button-hover-border-color: #20a18b;
+  --el-button-active-bg-color: #007563;
+  --el-button-active-border-color: #007563;
+}
+
+.action-signature-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
