@@ -122,6 +122,7 @@ class MesTeamLeaderActiveOrderReleaseSourceSnapshotHasherTest {
         return MesPqcInspectionTaskDO.builder().id(6000L + routeProcessId)
                 .activeOrderId(2001L).workOrderId(3001L).routeId(4001L).routeVersionId(4002L)
                 .routeProcessId(routeProcessId).processId(processId)
+                .regulationVersionId(9001L).qaProcessId(routeProcessId)
                 .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED).build();
     }
 
@@ -129,6 +130,6 @@ class MesTeamLeaderActiveOrderReleaseSourceSnapshotHasherTest {
         return MesPqcProcessInspectionAggregateDetailDO.builder().id(7000L + routeProcessId)
                 .pqcTaskId(6000L + routeProcessId).activeOrderId(2001L).workOrderId(3001L)
                 .routeId(4001L).routeVersionId(4002L)
-                .routeProcessId(routeProcessId).processId(processId).build();
+                .routeProcessId(routeProcessId).processId(processId).itemCode("ITEM-" + routeProcessId).build();
     }
 }

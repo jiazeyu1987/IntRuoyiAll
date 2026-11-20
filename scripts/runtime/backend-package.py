@@ -7,6 +7,27 @@ from pathlib import Path
 import subprocess
 
 
+def assert_no_active_maven(root):
+    """Do not clean shared target directories underneath another Windows build."""
+    if os.name != 'nt':
+        return
+    env = dict(os.environ, INTRUOYI_BUILD_ROOT=str(root.resolve()))
+    result = subprocess.run([
+        'powershell.exe', '-NoProfile', '-Command',
+        "$ErrorActionPreference='Stop'; "
+        "Get-CimInstance Win32_Process -Filter \"Name='java.exe'\" | "
+        "Where-Object { $_.CommandLine -and "
+        "$_.CommandLine.Contains('org.codehaus.plexus.classworlds.launcher.Launcher') -and "
+        "$_.CommandLine.IndexOf($env:INTRUOYI_BUILD_ROOT, "
+        "[System.StringComparison]::OrdinalIgnoreCase) -ge 0 } | "
+        "ForEach-Object { $_.ProcessId }"
+    ], env=env, check=True, capture_output=True, text=True)
+    pids = result.stdout.split()
+    if pids:
+        raise RuntimeError('Another Maven build is using this backend checkout (PID: '
+                           + ', '.join(pids) + '); wait for it to finish before building')
+
+
 def digest(path):
     # Managed Windows worktrees can exceed MAX_PATH for Java package names.
     if os.name == 'nt':
@@ -62,6 +83,7 @@ def main():
     root = args.root.resolve()
     jar = root / 'yudao-server/target/yudao-server-exec.jar'
     if args.action == 'build':
+        assert_no_active_maven(root)
         before = fingerprint(root)
         manifest = jar.with_suffix('.provenance.json')
         manifest.unlink(missing_ok=True)

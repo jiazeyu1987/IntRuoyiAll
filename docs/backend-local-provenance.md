@@ -8,6 +8,8 @@ Build without stopping the running service:
 python scripts/runtime/backend-package.py build --root IntRuoyiBackend
 ```
 
+On Windows the build entry checks for an existing Maven process in the same backend checkout before deleting any package or receipt. A busy checkout fails with the owning PID; let that build finish before retrying. Keep all Maven commands for a checkout sequential, including tests: concurrent compilers share `target` and can remove classes while another command compiles its tests. The entry check does not prevent a separately invoked Maven command from starting later.
+
 After a successful build and verification, stop only the authorized backend process and run `scripts/runtime/start-branch-backend.ps1`. `-Build` performs the same certified clean build, but requires the port to be free first.
 
 The receipt binds the executable JAR SHA-256 to module POMs, module `src/main` files and `.mvn` inputs, including uncommitted and untracked source files. Source changes during the build invalidate certification. A missing receipt, changed source, or replaced package blocks startup. The launcher checks again after copying the JAR and saves the receipt next to its runtime copy.
