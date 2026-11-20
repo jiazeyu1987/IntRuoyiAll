@@ -1,0 +1,7 @@
+-- release-target-preflight: migrationId=20261022_historical_schema_forward; allowedEnvironments=test,prod,backup
+SELECT CASE WHEN
+ (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('mes_pro_batch_record_cell_link_rule','mes_pro_batch_record_approval_snapshot','mes_pro_batch_record_version_approval_event'))=3
+ AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND ((TABLE_NAME='mes_pro_batch_record_approval_snapshot' AND COLUMN_NAME='process_instance_id' AND COLUMN_TYPE='varchar(64)' AND COLLATION_NAME='utf8mb4_unicode_ci') OR (TABLE_NAME='mes_pro_batch_record_version_approval_event' AND COLUMN_NAME='approval_instance_id' AND COLUMN_TYPE='varchar(128)' AND COLLATION_NAME='utf8mb4_unicode_ci')))=2
+ AND NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='mes_pro_batch_record_cell_link_rule' AND ((COLUMN_NAME='route_process_id' AND (COLUMN_TYPE<>'bigint' OR IS_NULLABLE<>'YES')) OR (COLUMN_NAME='aggregation_strategy' AND (COLUMN_TYPE<>'varchar(32)' OR IS_NULLABLE<>'YES'))))
+ AND NOT EXISTS(SELECT 1 FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='release_20261022_schema_forward')
+ THEN 'TARGET_PREFLIGHT_PASS:20261022_historical_schema_forward' ELSE 'TARGET_PREFLIGHT_BLOCKED:20261022_historical_schema_forward:SCHEMA_OR_INTERRUPTED_OPERATION' END;

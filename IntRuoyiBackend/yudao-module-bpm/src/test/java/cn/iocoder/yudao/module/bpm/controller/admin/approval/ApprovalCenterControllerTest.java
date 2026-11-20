@@ -126,6 +126,18 @@ class ApprovalCenterControllerTest {
     }
 
     @Test
+    void todoCountUsesLoggedInActorAndExistingQueryPermission() throws Exception {
+        when(approvalCenterService.getTodoCount(100L)).thenReturn(319L);
+        try (MockedStatic<WebFrameworkUtils> web = mockStatic(WebFrameworkUtils.class)) {
+            web.when(WebFrameworkUtils::getLoginUserId).thenReturn(100L);
+            assertEquals(319L, controller.getTodoCount().getData());
+        }
+        var method = ApprovalCenterController.class.getDeclaredMethod("getTodoCount");
+        assertArrayEquals(new String[]{"/tasks/todo-count"}, method.getAnnotation(GetMapping.class).value());
+        assertEquals("@ss.hasPermission('bpm:task:query')", method.getAnnotation(PreAuthorize.class).value());
+    }
+
+    @Test
     void controllerRoutesAndPermissionsAreStable() throws Exception {
         assertArrayEquals(new String[]{"/approval-center"},
                 ApprovalCenterController.class.getAnnotation(RequestMapping.class).value());

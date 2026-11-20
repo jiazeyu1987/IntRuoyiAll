@@ -1,0 +1,5 @@
+-- release-target-preflight: migrationId=20261118_mes_route_tree; allowedEnvironments=test,backup,prod
+SELECT CASE
+ WHEN NOT EXISTS(SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='mes_pro_route') OR NOT EXISTS(SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bpm_business_approval_policy') THEN 'TARGET_PREFLIGHT_BLOCKED:20261118_mes_route_tree:TABLE_MISSING'
+ WHEN EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='mes_pro_route' AND ((COLUMN_NAME='parent_id' AND DATA_TYPE<>'bigint') OR (COLUMN_NAME='node_type' AND (DATA_TYPE<>'varchar' OR CHARACTER_MAXIMUM_LENGTH<>16 OR IS_NULLABLE<>'NO')))) THEN 'TARGET_PREFLIGHT_BLOCKED:20261118_mes_route_tree:COLUMN_CONFLICT'
+ ELSE 'TARGET_PREFLIGHT_PASS:20261118_mes_route_tree' END;

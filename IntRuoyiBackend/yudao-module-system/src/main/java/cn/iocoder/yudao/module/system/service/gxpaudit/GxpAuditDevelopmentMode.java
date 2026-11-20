@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
+import java.util.Map;
+import java.util.function.Supplier;
 
 /** Immutable for the life of this process. Saved configuration is consumed on the next startup. */
 @Component
@@ -16,14 +18,21 @@ import org.springframework.stereotype.Component;
 public class GxpAuditDevelopmentMode {
     public static final String STATUS = "DEVELOPMENT_DISABLED";
     private static volatile GxpAuditMode currentMode = GxpAuditMode.FORMAL;
+    private final Supplier<GxpAuditMode> configuredMode;
 
     @Autowired
     public GxpAuditDevelopmentMode(Environment environment, ConfigMapper configs) {
-        this(environment, readRequired(configs));
+        this(environment, () -> readRequired(configs));
     }
 
     @VisibleForTesting
     public GxpAuditDevelopmentMode(Environment environment, GxpAuditMode mode) {
+        this(environment, () -> mode);
+    }
+
+    private GxpAuditDevelopmentMode(Environment environment, Supplier<GxpAuditMode> configuredMode) {
+        this.configuredMode = configuredMode;
+        GxpAuditMode mode = configuredMode.get();
         try {
             mode.validateEnvironment(environment);
         } catch (IllegalArgumentException ex) {
@@ -42,6 +51,10 @@ public class GxpAuditDevelopmentMode {
     }
 
     public static GxpAuditMode currentMode() { return currentMode; }
+    public Map<String, String> releaseState() {
+        return Map.of("gxpAuditMode", currentMode.name(),
+                "configuredGxpAuditMode", configuredMode.get().name());
+    }
     public static boolean disabled() { return currentMode == GxpAuditMode.DEVELOPMENT_DISABLED; }
     public boolean localPolicyEnabled() { return currentMode == GxpAuditMode.LOCAL_POLICY; }
     public static boolean auditBindingAccepted(String status) {

@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20261118_mes_route_batch_change_approval,20261118_mes_route_batch_change_bpm_seed; type=schema; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20261118_mes_route_batch_change_approval,20261118_mes_route_batch_change_bpm_seed; type=schema; riskLevel=medium; requiresTargetPreflight=true
 -- 仅添加树形配置管理归属，不改动历史版本与生产记录。
 SET @route_tree_parent = IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='mes_pro_route' AND column_name='parent_id'), 'SELECT 1', 'ALTER TABLE mes_pro_route ADD COLUMN parent_id BIGINT NULL, ADD INDEX idx_route_tree_parent (tenant_id,parent_id,deleted)');
 PREPARE tree_parent_stmt FROM @route_tree_parent;

@@ -181,6 +181,20 @@ function assertPreservedIdentity(h) {
     'same-session refresh must not clear and recreate authenticated identity caches')
 }
 
+test('HTTP login creates a stable session, refresh preserves it and next login rotates it', () => {
+  const h = session({ httpCrypto: true })
+  h.auth.setToken(newTokens)
+  const first = h.auth.getAuthSessionId()
+  assert.match(first, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+  assert.equal(h.auth.getAuthSessionId(), first)
+  h.auth.setRefreshedToken(oldTokens)
+  assert.equal(h.auth.getAuthSessionId(), first)
+  h.auth.removeToken()
+  assert.equal(h.auth.getAuthSessionId(), undefined)
+  h.auth.setToken(newTokens)
+  assert.notEqual(h.auth.getAuthSessionId(), first)
+})
+
 function assertNewTokenPair(h) {
   assert.equal(h.auth.getAccessToken(), newTokens.accessToken)
   assert.equal(h.auth.getRefreshToken(), newTokens.refreshToken)

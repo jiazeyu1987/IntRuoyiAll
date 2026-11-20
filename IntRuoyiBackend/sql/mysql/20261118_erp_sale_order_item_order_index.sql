@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=none; type=schema; riskLevel=low
+-- release-migration: allowedEnvironments=test,backup,prod; type=schema; riskLevel=low; requiresTargetPreflight=true
 -- Existing-order synchronization reads its active items by tenant and order ID.
 -- The tenant-only index scans roughly 74,000 items for every order update.
 -- Non-unique access index only: no business records or identity rules change.

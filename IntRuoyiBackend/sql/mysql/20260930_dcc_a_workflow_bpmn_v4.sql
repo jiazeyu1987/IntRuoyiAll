@@ -1,5 +1,6 @@
 -- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260930_dcc_a_lifecycle,20260926_dcc_three_workflow_matrix_multi_instance_fix; type=seed; riskLevel=high
 -- IC-1 v4, new deployments only; no rewriting existing definitions or running process variables.
+-- Ordinary process versions are not Flowable derived definitions.
 SET NAMES utf8mb4;
 SET @dcc_upload_bpmn = '<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
@@ -211,7 +212,7 @@ SELECT CONCAT(p.process_key, ':4:dcc-three-workflow-tenant-', t.tenant_id_text),
        CONCAT(p.process_key, '-deploy-v4-tenant-', t.tenant_id_text),
        old_procdef.RESOURCE_NAME_, old_procdef.DGRM_RESOURCE_NAME_, old_procdef.DESCRIPTION_,
        old_procdef.HAS_START_FORM_KEY_, old_procdef.HAS_GRAPHICAL_NOTATION_, 1,
-       t.tenant_id_text, old_procdef.ENGINE_VERSION_, old_procdef.ID_, old_procdef.DERIVED_FROM_ROOT_, 0
+       t.tenant_id_text, old_procdef.ENGINE_VERSION_, NULL, NULL, 0
 FROM tmp_dcc_three_workflow_processes p
 JOIN (SELECT '1' AS tenant_id_text UNION ALL SELECT '122') t
 JOIN act_re_procdef old_procdef

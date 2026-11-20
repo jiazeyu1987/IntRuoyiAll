@@ -38,6 +38,7 @@ BEGIN
     (6020, 2563, 1, 'production', '', '生产管理', '生产业务'),
     (6401, 6400, 1, 'md', '', '基础数据', '仓储档案'),
     (6814, 6800, 2, 'controlled-file/approval-tasks', 'dcc/controlled-file/approval-tasks/index', '受控浏览', '文控审批'),
+    (900411, 900218, 2, 'signature-records', 'signature-governance/index', '签名记录', '签名治理'),
     (900438, 991516, 2, '/mes/pro/feedback/edhr-batch-pqc-fill', 'mes/pro/edhr-batch/BatchPqcFillPage', '过程检验', '检验填报'),
     (980102, 980100, 2, 'product', 'showroom-admin/index', '产品管理', '展品管理'),
     (980104, 980100, 2, 'approval', 'showroom-admin/index', '审批中心', '展厅审批'),

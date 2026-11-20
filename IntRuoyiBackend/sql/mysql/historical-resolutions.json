@@ -1,0 +1,266 @@
+{
+  "schemaVersion": "historical-resolutions/v1",
+  "scope": "22 executable historical differences; immutable originals remain selected for ledger IDs",
+  "remoteWrites": false,
+  "resolutions": [
+    {
+      "file": "20260515_dcc_runtime_schema_repair.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20260817_dcc_registration_certificate_core.sql"
+      ],
+      "reason": "现基线没有注册证版本表；08-17创建并检查remark varchar(1024)。旧file_number/title初始回填已完成入账，不重放，也不将现存标题或编号置NULL；长度防护仅针对旧初始化代码，现列本身varchar(64)。",
+      "originalSha256": "77115f5b5ae37ec67ceb0fe56c92589ec73ae49e6a709db8033763bc89847f2f",
+      "reviewedSourceSha256": "5c01ef4c352e6a818a83f3caade20aa7578faf4aa9a57cf02eb4bce888c993b1",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260528_dcc_controlled_file_protection.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20260914_dcc_download_record_direct_download_schema.sql"
+      ],
+      "reason": "基线仍为encryption_status及旧加密字段；09-14显式变更download_status并移除已废弃下载加密字段，保留plain_sha256。",
+      "originalSha256": "a658c910a28a40e9fd0a88db0a1574bcbaae734b6edb755f4d78e288d2c6b09a",
+      "reviewedSourceSha256": "013bd971c50fff4e7071f02126d024df9d4aaf4b4c44bfe4f3ca20e75146b0dc",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260611_mes_edhr_multi_signature_approval.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20260907_mes_edhr_review_source_type_length.sql"
+      ],
+      "reason": "两表当前review_source_type均varchar(16)；09-07显式扩展为varchar(64)，无需重放旧CREATE TABLE。",
+      "originalSha256": "2df70410b165b368b606ccf88cfc71bf8bab318d15462fb037c127b8608aee97",
+      "reviewedSourceSha256": "5cef01cfd7d362dac2c624737c962130128e03d86fb8133048306925bfe5f5fd",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260613_mes_kingdee_production_material_list.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20260909_mes_kingdee_production_material_list_erp_columns.sql"
+      ],
+      "reason": "真实表mes_kingdee_production_material_list缺drawing_number；09-09独立添加varchar(128)。",
+      "originalSha256": "a2a6b91920f0d0c94fc5075a4b200a43febcb725469ddc9da5f1d84f38c56e2a",
+      "reviewedSourceSha256": "8fb5ab8719fd6691ef6484c26b3495fcedb2098766e305abd310317861ba7284",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260613_mes_nightly_replan_job_2am.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20261022_historical_business_contract.sql"
+      ],
+      "reason": "三服真实唯一job为id5601、handler mesProNightlyReplanJob、cron 0 30 2 * * ?、status1；保留02:30，仅断言唯一handler与现行cron。不采纳缺少业务请求的02:00调整，不创建固定5616或重复job。",
+      "originalSha256": "de3313dd80b0099d733c3b49b377c599c88b6b939d3f5d55ba4cf9d2cb1d883f",
+      "reviewedSourceSha256": "352ecc517e63686c2c9185f3dd51f7ebcc132042ffdfbcfebefd233f3817149d",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260618_mes_edhr_release_precheck_engine.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20260923_mes_release_transaction_signature_id.sql"
+      ],
+      "reason": "真实release_transaction缺approval_signature_id；09-23独立添加并校验bigint可空批准签名关联。",
+      "originalSha256": "5cd36f2ba7568991a862c47885959f333c6b2bfe49a83fab0833c28588856c81",
+      "reviewedSourceSha256": "b53211903d5a5cd6fb386e1a8d769e1654d7e55397082c1499c105254b416f0e",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260710_mes_route_process_single_entry_multi_exit.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20260826_mes_route_process_allow_multi_predecessor.sql"
+      ],
+      "reason": "基线仍有uk_mes_route_process_flow_target；07-10boundary虽有SKIPPED_ALREADY_APPLIED台账但实际索引未移除，因此采用未入账08-26显式DROP目标入边唯一索引，不以旧台账推导结构已满足。",
+      "originalSha256": "5623d41be0d160108064b6a36d8857d6eff85ecd2b30da8fd0fb32cfef56e37b",
+      "reviewedSourceSha256": "a211abb6e949c53ed67c8a5605cb3272dc0dd814a19da6cce0861dcc4a436187",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260710_dcc_product_catalog_database.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20261022_historical_business_contract.sql"
+      ],
+      "reason": "已有DCC目录属于业务数据；当前旧文件重排产品、注册证、分类、品牌、日期、URL等不纳入本次最小发布。新脚本只确认现存目录表，不INSERT/UPDATE/DELETE目录，不覆盖已有种子或推导撤销。",
+      "originalSha256": "68d3626167206f34c24db1d23e32d007884aa251da1b7fdc8b0586eb948425e5",
+      "reviewedSourceSha256": "3d9d8e4ab76b6512e993810dc971341193d3273e5d6a68a83cca39c1d70fef5d",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260513_dcc_base_schema.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20260919_dcc_controlled_file_dual_version.sql",
+        "20260903_dcc_controlled_file_checkout.sql",
+        "20260802_dcc_controlled_print_record.sql",
+        "20260728_dcc_nas_transfer_project_code.sql",
+        "20260910_dcc_access_log_reason_capacity.sql",
+        "20260914_dcc_download_record_direct_download_schema.sql",
+        "20260803_dcc_product_onboarding_flow.sql",
+        "20260902_dcc_project_code_batch_record_total_recognition_json.sql",
+        "20260919_dcc_dual_version_download_permissions.sql"
+      ],
+      "reason": "逐列覆盖：09-19只读/可编辑文件ID；09-03检出人/时间/索引；08-02打印表及打印权限；07-28 NAS项目码；09-10 reason2000；09-14普通下载状态与旧字段移除；08-03项目product_master_id/索引及入库申请表；09-02识别JSON；09-19双版本下载权限。基线缺相应新增结构，均由独立后续DDL执行，不重放base建表或种子。",
+      "originalSha256": "fea457db362b6f7eec1c8c70a872ae1e2f89ce012261100b40f2b8657677b68a",
+      "reviewedSourceSha256": "1b69dcecaa1386761cff7629715975082bb0f979a55dc58a28333506db10ef45",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260523_dcc_nas_transfer_task.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20260728_dcc_nas_transfer_project_code.sql"
+      ],
+      "reason": "真实NAS任务表缺dcc_project_code_id；07-28在已有表上独立ADD bigint可空字段。",
+      "originalSha256": "9835250c4ae048fa0af6a7cfc74bbf477b624da8172723724f8e50eaeac50635",
+      "reviewedSourceSha256": "d481711d4a58fe83cd4b6848d713337f04212518e9db6208208cdfaf926decb6",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260721_form_template_upgrade_bpm_seed.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20261022_historical_business_contract.sql"
+      ],
+      "reason": "三服租户1/122已发布FORM_TEMPLATE/UPGRADE/DRAFT策略实际均为BPM_REQUIRED、form-template-upgrade-v1、FORM_TEMPLATE_UPGRADE。保留数据并执行精确断言；不重写租户策略，其他合法模式不强制改BPM_REQUIRED。",
+      "originalSha256": "14e1000c56e0fccb23da338e846ec6baf69e423ac9c3c0b991e70db04dcd1f2e",
+      "reviewedSourceSha256": "0dff9aac463180b2e81baaa1933a158d5db9b3d612dde6d2ddb216d809798f12",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260706_mes_edhr_process_form_permission_rule.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20260723_mes_edhr_process_form_permission_rule_version_index_repair.sql",
+        "20260727_mes_edhr_visual_fill_config_scope.sql"
+      ],
+      "reason": "基线缺scope_key及fillable_scope_json、旧唯一键不含scope；07-23独立补两列及显式重建唯一键，07-27补可视化scope迁移。",
+      "originalSha256": "7466c120e7a9fef1c48fe90b802c6f1b2b36c2f753d03e2e9abe24ebb0e0ee4d",
+      "reviewedSourceSha256": "099e05549ec933936e76de6e58cc8a767e936266a8247ab6e4de2eb9b71182ca",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260711_mes_batch_record_cell_link_rule.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20260726_mes_batch_record_cell_link_work_order_source.sql",
+        "20260830_mes_batch_record_cell_link_structured_source_widths.sql",
+        "20261022_historical_schema_forward.sql"
+      ],
+      "reason": "07-26补来源type/code/name；08-30补source_cell_key等宽度。无后续脚本补route_process_id与aggregation_strategy，10-22独立ADD nullable bigint/varchar(32)，保留既有值且不推导关联/聚合策略。",
+      "originalSha256": "6cc20636c278b7f3fd5c25bb3fa539143574a52e3ad94228f9e888dc0e621faa",
+      "reviewedSourceSha256": "fd27f0e5dcd22b139332dacc68eea9214681a9e712496607457abd25e5312f2a",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260719_business_approval_policy.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20260723_unify_form_action_policy_into_business_approval_policy.sql"
+      ],
+      "reason": "基线business policy缺form_policy_type/form_slots_json；07-23独立补列并合并原form action政策。",
+      "originalSha256": "cf26a7eb97d11aa3249817de153feded68af8b48339684e2fabb66994bf5e9ce",
+      "reviewedSourceSha256": "3c51d352f2d0245efea952d2fc08a9d559aaf29cff119159ac257d93d65fe299",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260720_dcc_obsolete_approval_bpm_seed.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20260723_unify_form_action_policy_into_business_approval_policy.sql"
+      ],
+      "reason": "旧原件向form_action_policy写种子已入账；07-23将原政策迁移到business policy、映射审批模式/流程key并补form字段，保留原历史来源，不改旧seed目标隐式补写。",
+      "originalSha256": "6eaf520e2a30e1e197d32a306bdd7fd02cfe78e2d33fc271b235dad619879189",
+      "reviewedSourceSha256": "67f46da506124d3fa0675eb22e139fbfa9fa01362f88c2c0603c6f8a92972173",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260721_form_action_policy_approval_mode.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20260723_unify_form_action_policy_into_business_approval_policy.sql",
+        "20261022_historical_business_contract.sql"
+      ],
+      "reason": "原件对旧form_action_policy.approval_mode的历史变更保留；07-23统一到business policy并补form字段，新10-22检查BPM_REQUIRED/DIRECT/SIGNATURE_REQUIRED及BPM流程key，拒绝未知模式。",
+      "originalSha256": "e85fb7f6d8b7e62c03efc29149918cad7833a12f8bc2e23fdc32509007504ebb",
+      "reviewedSourceSha256": "adf3dd0af074077573fda5258305b7360be81475677c1b2ac2f3f40025881eee",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260526_edhr_approval_archive_schema_contract.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20261022_historical_schema_forward.sql"
+      ],
+      "reason": "三服approval_snapshot.process_instance_id实际varchar(64) NOT NULL，无后续覆盖。10-22在检查类型/排序规则后仅放宽NULL，不回填、不覆盖已有流程实例。",
+      "originalSha256": "f3d1f903da199a535379eb23041c52573f6ffd40aaaa109a6e10598a2aa87324",
+      "reviewedSourceSha256": "c5173dbe7c2b4945007fb9310969128f62b123c88c474381c7d2b3721eeaca67",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260607_product_master_data.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20261022_historical_business_contract.sql"
+      ],
+      "reason": "当前文件删掉菜单seed INSERT并不构成撤销现有mdm:product:map-showroom授权的业务要求。本次保留已部署菜单/角色/套餐，仅拒绝活跃permission身份重复，不新建或删除该菜单。",
+      "originalSha256": "12f8d1cd90f6354010608a2c6e6b69598b400ef138d17d8c1519353be03d4a63",
+      "reviewedSourceSha256": "111c3764d90c95ec51d73f0e1023d1232a3161631898d6c36fdc903bd240cee5",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260629_mes_smart_scheduling_role_scope.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20260728_mes_scheduler_route_flow_list_permission.sql",
+        "20261022_scheduler_current_route_permission.sql"
+      ],
+      "reason": "900122已由07-09退休并映射5727，不复活。07-28按现行套餐规则提供5723/5730；10-22显式supersede未执行07-08旧900122grant，仅在退休/替代身份已核验后补现行5727给有套餐资格的排产角色，保留套餐范围。",
+      "originalSha256": "dacb6ead2d2bf03c89a86bc52e36455f3dc6f34be7cc769e7bda84701a8fc667",
+      "reviewedSourceSha256": "93073955381700f755073177ec710d7f29d458f64588c7c2bc99abe04ba2dbdb",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260708_mes_batch_record_version_phase_one.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20260723_mes_edhr_process_form_permission_rule_version_index_repair.sql",
+        "20261022_historical_schema_forward.sql"
+      ],
+      "reason": "基线version.approval_instance_id已可空，无需改；approval_event同列varchar(128)仍NOT NULL，10-22仅放宽该列。权限scope两列/唯一键由07-23独立覆盖。",
+      "originalSha256": "5d1a7501c768bd97c34272f0c4267024176ea3ae6fb8bd056b3d7e068394b859",
+      "reviewedSourceSha256": "b490298f06824705cacfdb7b7ad836088e7032e568a0ba2843ae84b1eed64df7",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260715_mes_edhr_template_config_menu_removal.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20260804_mes_edhr_qa_menu.sql",
+        "20260805_mes_edhr_frontline_pqc_menu.sql",
+        "20260829_mes_form_center_unified_import_menu.sql",
+        "20261022_edhr_trace_menu_forward.sql"
+      ],
+      "reason": "三服仍有900235/900260旧可见入口。08-04提供追溯新路由及八入口顺序，08-05发展为九入口，08-29保留后来的表单中心标签；新10-22仅隐藏900235/900260并挂900025、迁移旧900260子权限，不恢复已过时四入口顺序、不覆盖后续标签、不删除角色/套餐授权。",
+      "originalSha256": "e846dfbf9eb11348e5041bab124af4aea1b98d89c94e623e95e39334b244aa2b",
+      "reviewedSourceSha256": "32ac1f5184ea295fd5ca75df83dfdffbb6ee61e302e14c47132ae7886768ddf4",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    },
+    {
+      "file": "20260717_bpm_form_center.sql",
+      "disposition": "forward-migrations",
+      "successors": [
+        "20260722_form_center_business_action_page_retire.sql"
+      ],
+      "reason": "07-22未入账独立迁移完整实现605071209退役、实例权限归父级、角色旧入口与套餐清理；不重放已应用旧form center seed。",
+      "originalSha256": "58b6611bf4eff20fe0885f1d48d794e262570a41e2a1e1a16d31270e363c7786",
+      "reviewedSourceSha256": "efbb62110581dda5fff647914b16f8deff11d8921016633eeab559a2c3824a7e",
+      "baselineEvidence": "baseline-57/58/59.private.json schema plus current-forward-inspect-{prod,test,backup}.json; read-only SHOW TABLES/DESCRIBE preceded row queries"
+    }
+  ]
+}

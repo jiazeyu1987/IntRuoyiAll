@@ -1,0 +1,3 @@
+# Published migration checksums use CRLF bytes; pin checkout independently of host settings.
+*.sql text eol=crlf
+# historical/.gitattributes preserves every recovered original byte without conversion.

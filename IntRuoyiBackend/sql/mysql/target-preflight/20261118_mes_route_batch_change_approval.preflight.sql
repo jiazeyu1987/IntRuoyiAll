@@ -1,0 +1,5 @@
+-- release-target-preflight: migrationId=20261118_mes_route_batch_change_approval; allowedEnvironments=test,backup,prod
+SELECT CASE
+ WHEN NOT EXISTS(SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='mes_pro_craft_change') OR NOT EXISTS(SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bpm_business_approval_policy') THEN 'TARGET_PREFLIGHT_BLOCKED:20261118_mes_route_batch_change_approval:TABLE_MISSING'
+ WHEN EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='mes_pro_craft_change' AND ((COLUMN_NAME='approval_scope' AND (DATA_TYPE<>'varchar' OR CHARACTER_MAXIMUM_LENGTH<>16 OR IS_NULLABLE<>'NO')) OR (COLUMN_NAME='approval_request_id' AND (DATA_TYPE<>'bigint' OR IS_NULLABLE<>'YES')) OR (COLUMN_NAME='approval_process_instance_id' AND (DATA_TYPE<>'varchar' OR CHARACTER_MAXIMUM_LENGTH<>64 OR IS_NULLABLE<>'YES')))) THEN 'TARGET_PREFLIGHT_BLOCKED:20261118_mes_route_batch_change_approval:COLUMN_CONFLICT'
+ ELSE 'TARGET_PREFLIGHT_PASS:20261118_mes_route_batch_change_approval' END;

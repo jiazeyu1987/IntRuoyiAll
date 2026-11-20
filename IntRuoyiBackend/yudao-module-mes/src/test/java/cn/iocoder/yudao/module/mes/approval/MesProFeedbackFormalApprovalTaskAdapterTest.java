@@ -63,6 +63,18 @@ class MesProFeedbackFormalApprovalTaskAdapterTest {
         assertEquals(1L, second.getTotal()); assertTrue(second.getList().isEmpty());
     }
 
+    @Test void countOnlyRetainsFormalDecisionAndReviewerEligibility() {
+        MesProFeedbackDO approvedSource = feedback(5660L).setApproveUserId(341L);
+        MesProFeedbackDO pending = feedback(5661L).setApproveUserId(341L);
+        when(feedbackMapper.selectUnifiedApprovalList(eq(341L), isNull(), anyList(), isNull()))
+                .thenReturn(List.of(approvedSource, pending));
+        when(projection.read(List.of(pending, approvedSource))).thenReturn(Map.of(5660L, approved()));
+        var result = adapter.window(query(341L, ApprovalTaskViewType.TODO, 1, 10), new ApprovalQueryWindow(0, 0));
+        assertEquals(1L, result.getTotal());
+        assertTrue(result.getList().isEmpty());
+        verifyNoInteractions(feedbackService);
+    }
+
     @Test void timelineUsesOriginalSubmitAndActualReviewFactsForParticipant() {
         MesProFeedbackDO source = feedback(5660L);
         when(feedbackMapper.selectById(5660L)).thenReturn(source);

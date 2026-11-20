@@ -3,6 +3,8 @@
 -- Qualification follows 20260630_dcc_admin_full_config_menu: preserve existing category:manage grants.
 -- Do not infer qualification from tenant-admin, project-admin, role names, or registration-certificate grants.
 -- No taxonomy/category business data or user-role membership is created.
+-- Preserve a fully identified legacy taxonomy node, including ID 990230.
+-- Roles belonging to deleted tenants are historical records, outside this upgrade.
 SET NAMES utf8mb4;
 DROP PROCEDURE IF EXISTS restore_dcc_taxonomy_menu_20261117;
 DELIMITER $$
@@ -26,7 +28,12 @@ BEGIN
  ELSEIF EXISTS(SELECT 1 FROM system_menu WHERE id=target_id) THEN
   SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Reserved taxonomy menu ID 605072160 occupied';
  END IF;
- IF target_id=990230 THEN
+ IF target_id=990230 AND NOT EXISTS(
+  SELECT 1 FROM system_menu WHERE id=990230
+   AND component='dcc/controlled-file/basic-data/file-type-taxonomy/index'
+   AND path='file-type-taxonomy' AND permission='dcc:controlled-file:category:manage'
+   AND type=2 AND status=0 AND deleted=b'0'
+ ) THEN
   SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Legacy taxonomy ID 990230 requires explicit reconciliation';
  END IF;
  IF EXISTS(SELECT 1 FROM system_menu WHERE parent_id=parent_menu_id AND path='file-type-taxonomy' AND id<>target_id AND deleted=b'0') THEN
@@ -38,7 +45,8 @@ BEGIN
  SELECT DISTINCT r.id,r.tenant_id FROM system_role r
  JOIN system_role_menu rm ON rm.role_id=r.id AND rm.tenant_id=r.tenant_id AND rm.deleted=b'0'
  JOIN system_menu m ON m.id=rm.menu_id AND m.permission='dcc:controlled-file:category:manage' AND m.status=0 AND m.deleted=b'0'
- WHERE r.status=0 AND r.deleted=b'0';
+ WHERE r.status=0 AND r.deleted=b'0'
+  AND (r.tenant_id=0 OR EXISTS(SELECT 1 FROM system_tenant t WHERE t.id=r.tenant_id AND t.deleted=b'0'));
  IF NOT EXISTS(SELECT 1 FROM dcc_taxonomy_qualified_roles) THEN
   SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='No existing active category-manage role; business authorization required';
  END IF;

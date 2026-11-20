@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=none; type=schema; riskLevel=low
+-- release-migration: allowedEnvironments=test,backup,prod; type=schema; riskLevel=low; requiresTargetPreflight=true
 -- ERP full order synchronization resolves each source material by tenant/code.
 -- The tenant-only index scans the entire material catalogue for every lookup.
 -- Non-unique: this migration changes access cost, not data or uniqueness rules.

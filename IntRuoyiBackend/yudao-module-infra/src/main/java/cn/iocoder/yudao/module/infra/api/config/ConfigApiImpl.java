@@ -21,13 +21,9 @@ public class ConfigApiImpl implements ConfigApi {
     @Resource
     private cn.iocoder.yudao.module.infra.service.config.TenantConfigService tenantConfigService;
 
-    @Resource
-    private cn.iocoder.yudao.module.infra.service.file.TenantFileConfigInitializer fileConfigInitializer;
-
     @Override
     public void initializeTenantConfiguration() {
         tenantConfigService.initializeFromPlatformTemplate();
-        fileConfigInitializer.initialize();
     }
 
     @Override

@@ -20,17 +20,11 @@ public class FileClientFactoryImpl implements FileClientFactory {
      * 文件客户端 Map
      * key：配置编号
      */
-    private record ClientKey(Long tenantId, Long configId) {}
-
-    private ClientKey key(Long configId) {
-        return new ClientKey(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(), configId);
-    }
-
-    private final ConcurrentMap<ClientKey, AbstractFileClient<?>> clients = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, AbstractFileClient<?>> clients = new ConcurrentHashMap<>();
 
     @Override
     public FileClient getFileClient(Long configId) {
-        AbstractFileClient<?> client = clients.get(key(configId));
+        AbstractFileClient<?> client = clients.get(configId);
         if (client == null) {
             log.error("[getFileClient][配置编号({}) 找不到客户端]", configId);
         }
@@ -40,11 +34,11 @@ public class FileClientFactoryImpl implements FileClientFactory {
     @Override
     @SuppressWarnings("unchecked")
     public <Config extends FileClientConfig> void createOrUpdateFileClient(Long configId, Integer storage, Config config) {
-        AbstractFileClient<Config> client = (AbstractFileClient<Config>) clients.get(key(configId));
+        AbstractFileClient<Config> client = (AbstractFileClient<Config>) clients.get(configId);
         if (client == null) {
             client = this.createFileClient(configId, storage, config);
             client.init();
-            clients.put(key(configId), client);
+            clients.put(client.getId(), client);
         } else {
             client.refresh(config);
         }

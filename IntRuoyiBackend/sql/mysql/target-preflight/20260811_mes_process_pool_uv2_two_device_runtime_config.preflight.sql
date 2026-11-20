@@ -111,7 +111,7 @@ conflicting_metering_valid AS (
 )
 SELECT CASE WHEN
   (SELECT table_count FROM schema_tables) = 4
-  AND (SELECT source_binding_count FROM source_bindings) >= 0
+  AND (SELECT source_binding_count FROM source_bindings) > 0
   AND (SELECT missing_target_device_count FROM missing_target_devices) = 0
   AND (SELECT missing_source_rule_count FROM missing_source_rules) = 0
   AND (SELECT conflicting_metering_valid_count FROM conflicting_metering_valid) = 0

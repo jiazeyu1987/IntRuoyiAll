@@ -5,7 +5,12 @@ DROP PROCEDURE IF EXISTS migrate_erp_data_roles_20261116;
 DELIMITER $$
 CREATE PROCEDURE migrate_erp_data_roles_20261116()
 BEGIN
+ DECLARE replenishment_page BIGINT;
  DECLARE EXIT HANDLER FOR SQLEXCEPTION BEGIN ROLLBACK; RESIGNAL; END;
+ IF (SELECT COUNT(*) FROM system_menu WHERE component='erp/production/replenishment-list/index' AND parent_id=991511 AND type=2 AND deleted=0 AND status=0)<>1 THEN
+  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='ERP replenishment page identity missing or ambiguous';
+ END IF;
+ SELECT id INTO replenishment_page FROM system_menu WHERE component='erp/production/replenishment-list/index' AND parent_id=991511 AND type=2 AND deleted=0 AND status=0;
  DROP TEMPORARY TABLE IF EXISTS tmp_erp_data_roles;
  CREATE TEMPORARY TABLE tmp_erp_data_roles(page_id BIGINT PRIMARY KEY,permission_id BIGINT UNIQUE,name VARCHAR(50),code VARCHAR(100),permission VARCHAR(100),sort INT) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
  INSERT INTO tmp_erp_data_roles VALUES
@@ -14,7 +19,7 @@ BEGIN
  (6023,605073602,'物料清单','erp_data_bom_operator','erp:data-bom:operate',3),
  (6021,605073603,'生产用料清单','erp_data_material_operator','erp:data-material:operate',4),
  (6032,605073604,'生产领料单','erp_data_pick_operator','erp:data-pick:operate',5),
- (605071322,605073605,'生产补料单','erp_data_replenishment_operator','erp:data-replenishment:operate',6),
+ (replenishment_page,605073605,'生产补料单','erp_data_replenishment_operator','erp:data-replenishment:operate',6),
  (6025,605073606,'即时库存','erp_data_inventory_operator','erp:data-inventory:operate',7),
  (5530,605073607,'生产订单','erp_data_order_operator','erp:data-order:operate',8),
  (6013,605073608,'ERP配置','erp_data_config_operator','erp:data-config:operate',9);
@@ -78,7 +83,7 @@ BEGIN
  WHERE r.deleted=0 AND r.code IN('tenant_admin','super_admin','mes_workshop_director','mes_team_leader','mes_scheduler')
  AND (rm.menu_id=991511 OR rm.menu_id IN(SELECT id FROM tmp_erp_data_nodes) OR rm.menu_id IN(SELECT permission_id FROM tmp_erp_data_roles));
  DROP TEMPORARY TABLE IF EXISTS tmp_erp_data_grants;
- CREATE TEMPORARY TABLE tmp_erp_data_grants(code VARCHAR(100),menu_id BIGINT,PRIMARY KEY(code,menu_id));
+ CREATE TEMPORARY TABLE tmp_erp_data_grants(code VARCHAR(100),menu_id BIGINT,PRIMARY KEY(code,menu_id)) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
  INSERT IGNORE INTO tmp_erp_data_grants SELECT n.code,d.id FROM tmp_erp_data_roles n JOIN tmp_erp_data_nodes d ON d.page_id=n.page_id;
  INSERT IGNORE INTO tmp_erp_data_grants SELECT code,permission_id FROM tmp_erp_data_roles;
  INSERT IGNORE INTO tmp_erp_data_grants SELECT code,991511 FROM tmp_erp_data_roles;
@@ -107,7 +112,7 @@ BEGIN
  UPDATE system_tenant_package SET menu_ids=JSON_ARRAY_APPEND(menu_ids,'$',605073604),updater='erp-data-roles',update_time=NOW()
  WHERE deleted=0 AND JSON_CONTAINS(menu_ids,'6032','$') AND NOT JSON_CONTAINS(menu_ids,'605073604','$');
  UPDATE system_tenant_package SET menu_ids=JSON_ARRAY_APPEND(menu_ids,'$',605073605),updater='erp-data-roles',update_time=NOW()
- WHERE deleted=0 AND JSON_CONTAINS(menu_ids,'605071322','$') AND NOT JSON_CONTAINS(menu_ids,'605073605','$');
+ WHERE deleted=0 AND JSON_CONTAINS(menu_ids,CAST(replenishment_page AS JSON),'$') AND NOT JSON_CONTAINS(menu_ids,'605073605','$');
  UPDATE system_tenant_package SET menu_ids=JSON_ARRAY_APPEND(menu_ids,'$',605073606),updater='erp-data-roles',update_time=NOW()
  WHERE deleted=0 AND JSON_CONTAINS(menu_ids,'6025','$') AND NOT JSON_CONTAINS(menu_ids,'605073606','$');
  UPDATE system_tenant_package SET menu_ids=JSON_ARRAY_APPEND(menu_ids,'$',605073607),updater='erp-data-roles',update_time=NOW()

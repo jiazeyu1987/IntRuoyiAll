@@ -252,7 +252,7 @@ const receiveCodeLink = async () => {
   queryParams.pageNo = 1
   queryParams.name = undefined
   queryParams.code = typeof route.query.code === 'string' ? route.query.code.trim() || undefined : undefined
-  
+
   currentWarehouse.value = { id: '', name: '' }
   queryParams.warehouseId = undefined
   await loadWarehouseContext(generation)

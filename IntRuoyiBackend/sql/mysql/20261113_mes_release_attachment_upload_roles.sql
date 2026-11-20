@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260918_mes_edhr_batch_execution_upload_permission,20261028_mes_edhr_dossier_completion_notify; type=menu; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20261026_merge_production_tasks_into_workbench,20260918_mes_edhr_batch_execution_upload_permission,20261028_mes_edhr_dossier_completion_notify; type=menu; riskLevel=medium
 -- Four existing attachment roles receive market-release read/upload and personal task read only.
 SET NAMES utf8mb4;
 DROP PROCEDURE IF EXISTS grant_mes_release_attachment_upload;
@@ -11,8 +11,8 @@ BEGIN
       AND ((id=900033 AND type=2 AND permission='mes:pro-edhr-batch-execution:query')
         OR (id=900034 AND parent_id=900033 AND type=3 AND permission='mes:pro-edhr-batch-execution:query')
         OR (id=900043 AND parent_id=900033 AND type=3 AND permission='mes:pro-edhr-batch-execution:upload')
-        OR (id=900230 AND type=2 AND permission='mes:pro-edhr-work-task:query')
-        OR (id=900231 AND parent_id=900230 AND type=3 AND permission='mes:pro-edhr-work-task:query'))) <> 5 THEN
+        OR (id=900230 AND parent_id=991516 AND type=3 AND path='' AND component='' AND permission='mes:pro-edhr-work-task:query')
+        OR (id=900231 AND parent_id=991516 AND type=3 AND permission='mes:pro-edhr-work-task:query'))) <> 5 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Missing or invalid release upload/read/task menus';
   END IF;
   DROP TEMPORARY TABLE IF EXISTS tmp_release_upload_roles;
@@ -22,7 +22,7 @@ BEGIN
      'BATCH_ATTACHMENT_FINISHED_PRODUCT_INSPECTION_REPORT_UPLOAD_1','BATCH_ATTACHMENT_FINISHED_PRODUCT_INSPECTION_RECORD_UPLOAD_1');
   DROP TEMPORARY TABLE IF EXISTS tmp_release_upload_menus;
   CREATE TEMPORARY TABLE tmp_release_upload_menus (id BIGINT PRIMARY KEY);
-  -- Query permissions are reused by other pages; grant only these two page trees.
+  -- Retain the merged work-task permission buttons; grant only the selected IDs and ancestors.
   INSERT INTO tmp_release_upload_menus SELECT id FROM system_menu WHERE deleted=b'0' AND status=0
     AND id IN (900033,900034,900043,900230,900231);
   DROP TEMPORARY TABLE IF EXISTS tmp_release_upload_parents;

@@ -10,12 +10,24 @@ BEGIN
   DECLARE root_menu BIGINT;
   DECLARE added INT DEFAULT 1;
   DECLARE EXIT HANDLER FOR SQLEXCEPTION BEGIN ROLLBACK; RESIGNAL; END;
+  START TRANSACTION;
   IF (SELECT COUNT(*) FROM system_menu WHERE deleted=b'0' AND status=0
       AND component='mes/pro/processpool/PqcLeaderWorkbenchPage') <> 1 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Missing or duplicate PQC leader workbench';
   END IF;
   SELECT id INTO root_menu FROM system_menu WHERE deleted=b'0' AND status=0
     AND component='mes/pro/processpool/PqcLeaderWorkbenchPage';
+  -- Define the permission used by the existing event-revision API before assigning it.
+  IF EXISTS (SELECT 1 FROM system_menu WHERE permission='mes:pro-process-pool:event-revision:update'
+      AND (deleted<>0 OR status<>0 OR type<>3 OR parent_id<>root_menu))
+    OR (SELECT COUNT(*) FROM system_menu WHERE permission='mes:pro-process-pool:event-revision:update')>1 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Invalid existing PQC event revision permission';
+  END IF;
+  INSERT INTO system_menu(name,permission,type,sort,parent_id,path,status,visible,keep_alive,always_show,
+      creator,create_time,updater,update_time,deleted)
+    SELECT 'PQC原始记录修改','mes:pro-process-pool:event-revision:update',3,90,root_menu,'',0,b'0',b'1',b'0',
+      'pqc-packaging-leader',NOW(),'pqc-packaging-leader',NOW(),b'0'
+    WHERE NOT EXISTS (SELECT 1 FROM system_menu WHERE permission='mes:pro-process-pool:event-revision:update');
   DROP TEMPORARY TABLE IF EXISTS tmp_pqc_packaging_menu;
   CREATE TEMPORARY TABLE tmp_pqc_packaging_menu (id BIGINT PRIMARY KEY);
   INSERT INTO tmp_pqc_packaging_menu SELECT id FROM system_menu WHERE deleted=b'0' AND status=0
@@ -51,7 +63,7 @@ BEGIN
   DROP TEMPORARY TABLE IF EXISTS tmp_pqc_packaging_tenant;
   CREATE TEMPORARY TABLE tmp_pqc_packaging_tenant (id BIGINT PRIMARY KEY);
   INSERT INTO tmp_pqc_packaging_tenant SELECT t.id FROM system_tenant t
-    WHERE t.deleted=b'0' AND t.status=0 AND (t.package_id=-1
+    WHERE t.deleted=b'0' AND t.status=0 AND (t.package_id IN(-1,0)
       OR t.package_id IN (SELECT id FROM tmp_pqc_packaging_package));
   IF EXISTS (SELECT 1 FROM tmp_pqc_packaging_tenant t WHERE
       (SELECT COUNT(*) FROM system_role_category c WHERE c.tenant_id=t.id
@@ -59,12 +71,13 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Eligible tenant missing unique enabled menu role category';
   END IF;
   IF EXISTS (SELECT 1 FROM system_role r JOIN tmp_pqc_packaging_tenant t ON t.id=r.tenant_id
-      WHERE r.code='pqc_packaging_leader_permission' GROUP BY r.tenant_id HAVING COUNT(*)>1)
-    OR EXISTS (SELECT 1 FROM system_role r JOIN tmp_pqc_packaging_tenant t ON t.id=r.tenant_id
+      WHERE r.code='pqc_packaging_leader_permission' GROUP BY r.tenant_id HAVING COUNT(*)>1) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Existing packaging role is duplicate, deleted or disabled';
+  END IF;
+  IF EXISTS (SELECT 1 FROM system_role r JOIN tmp_pqc_packaging_tenant t ON t.id=r.tenant_id
       WHERE r.code='pqc_packaging_leader_permission' AND (r.deleted<>b'0' OR r.status<>0)) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Existing packaging role is duplicate, deleted or disabled';
   END IF;
-  START TRANSACTION;
   INSERT INTO system_role (name,code,sort,category_id,data_scope,data_scope_dept_ids,status,type,remark,
       creator,create_time,updater,update_time,deleted,tenant_id)
   SELECT 'PQC包装组长','pqc_packaging_leader_permission',900439,c.id,1,'',0,2,

@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=none; type=schema; riskLevel=low
+-- release-migration: allowedEnvironments=test,backup,prod; type=schema; riskLevel=low; requiresTargetPreflight=true
 -- New-sale-order creation checks a generated local number within the tenant.
 -- Actual synchronization sampled repeated tenant-only scans (~24,159 rows).
 -- Non-unique access index: retain existing number validation and business data.

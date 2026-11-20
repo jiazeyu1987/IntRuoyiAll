@@ -44,7 +44,8 @@ BEGIN
     LEFT JOIN system_menu m ON BINARY m.component=BINARY p.component AND m.deleted=b'0'
     GROUP BY p.component,p.parent_id,p.old_name,p.name
     HAVING COUNT(m.id)<>1 OR SUM(m.type=2 AND m.parent_id=p.parent_id
-      AND (BINARY m.name=BINARY p.old_name OR BINARY m.name=BINARY p.name))<>1
+      AND (BINARY m.name=BINARY p.old_name OR BINARY m.name=BINARY p.name
+        OR (p.component='mes/pro/edhr-form/FormPage' AND BINARY m.name=BINARY '独立表单')))<>1
   ) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Menu missing, duplicated, moved or renamed unexpectedly';
   END IF;

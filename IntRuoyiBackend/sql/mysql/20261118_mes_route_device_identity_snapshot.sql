@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20261021_mes_craft_library; type=schema; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20261021_mes_craft_library; type=schema; riskLevel=medium; requiresTargetPreflight=true
 -- 单独保留设备身份，不改写已发布路线 JSON/hash 或订单、批记录。
 -- LEGACY_BASELINE 是迁移时的设备资料基线，不声称恢复从未记录的历史名称。
 CREATE TABLE IF NOT EXISTS mes_pro_route_device_identity_snapshot (

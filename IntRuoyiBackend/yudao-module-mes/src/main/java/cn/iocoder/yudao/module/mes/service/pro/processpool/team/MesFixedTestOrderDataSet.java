@@ -22,8 +22,8 @@ enum MesFixedTestOrderDataSet {
     }
 
     Map<String, Object> document(Map<String, Object> source) {
-        if (this == FIRST) return source;
         Map<String, Object> result = new LinkedHashMap<>(source);
+        if (this == FIRST) return result;
         for (String field : List.of("source_fid", "source_bill_no", "source_entry_id", "source_line_key",
                 "production_material_list_no")) {
             Object value = source.get(field);
@@ -42,7 +42,7 @@ enum MesFixedTestOrderDataSet {
         reference.put("tenantId", MesFixedTestOrderReferenceGraph.SOURCE_TENANT);
         reference.put("recordId", source.get("id"));
         reference.put("rawPayload", source.get("raw_payload"));
-        return JsonUtils.toJsonString(Map.of("testDataSet", 2, "workOrderCode", workOrderCode(),
+        return JsonUtils.toJsonString(Map.of("testDataSet", this == SECOND ? 2 : 1, "workOrderCode", workOrderCode(),
                 "document", document, "reference", reference));
     }
 

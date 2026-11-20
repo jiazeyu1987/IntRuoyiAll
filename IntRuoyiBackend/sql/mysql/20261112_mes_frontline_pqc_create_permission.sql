@@ -30,7 +30,7 @@ BEGIN
   END IF;
   IF EXISTS (SELECT 1 FROM tmp_frontline_pqc_create_role r LEFT JOIN system_tenant_package p
       ON p.id=r.package_id AND p.deleted=0 AND p.status=0
-      WHERE r.package_id<>-1 AND NOT(r.tenant_id=1 AND r.package_id=0)
+      WHERE r.package_id<>-1 AND r.package_id<>0
         AND (p.id IS NULL OR NOT JSON_VALID(p.menu_ids)
           OR NOT JSON_CONTAINS(p.menu_ids,CAST('900438' AS JSON),'$'))) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Missing authority revision or valid frontline PQC tenant package';

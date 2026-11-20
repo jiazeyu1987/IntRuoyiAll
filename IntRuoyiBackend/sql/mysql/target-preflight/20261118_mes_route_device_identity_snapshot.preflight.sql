@@ -1,0 +1,5 @@
+-- release-target-preflight: migrationId=20261118_mes_route_device_identity_snapshot; allowedEnvironments=test,backup,prod
+SELECT CASE
+ WHEN NOT EXISTS(SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='mes_pro_route_version') OR NOT EXISTS(SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='mes_pro_process_pool_team_device') THEN 'TARGET_PREFLIGHT_BLOCKED:20261118_mes_route_device_identity_snapshot:SOURCE_TABLE_MISSING'
+ WHEN EXISTS(SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='mes_pro_route_device_identity_snapshot') AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='mes_pro_route_device_identity_snapshot' AND COLUMN_NAME IN ('tenant_id','route_version_id','identities_json','identities_sha256','capture_source','captured_at','captured_by'))<>7 THEN 'TARGET_PREFLIGHT_BLOCKED:20261118_mes_route_device_identity_snapshot:SNAPSHOT_SCHEMA_CONFLICT'
+ ELSE 'TARGET_PREFLIGHT_PASS:20261118_mes_route_device_identity_snapshot' END;

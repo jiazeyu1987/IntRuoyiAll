@@ -358,6 +358,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             MesQaInspectionRegulationVersionDO version = versionMapper.selectById(process.getRegulationVersionId());
             task.setQaRegulationVersionNo(version.getVersionNo());
             if (pqcTaskMapper.insert(task) != 1) throw new IllegalStateException("巡检任务创建失败");
+            handoffService.pqcReady(task.getId(),loginUserId);
             count++;
         }
         if (count == 0) {
@@ -406,6 +407,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             if (pqcTaskMapper.updateById(new MesPqcInspectionTaskDO().setId(task.getId())
                     .setTaskStatus("CANCELLED").setCancelReason("确认撤销第 " + roundNo + " 轮巡检").setCancelledBy(loginUserId)
                     .setCancelledAt(cancelledAt)) != 1) throw new IllegalStateException("巡检撤销失败");
+            handoffService.cancelPqcHandoff(task.getId(),loginUserId);
         }
         actionLog.record(loginUserId, activeOrderId, "PQC_PATROL_CANCEL", Map.of("roundNo", roundNo, "taskCount", tasks.size()));
     }
@@ -440,6 +442,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                     .setTaskStatus(PQC_TASK_STATUS_PENDING)) != 1) {
                 throw new IllegalStateException("巡检恢复失败");
             }
+            handoffService.restorePqcHandoff(task.getId(),loginUserId);
         }
         actionLog.record(loginUserId, activeOrderId, "PQC_PATROL_RESTORE", Map.of("roundNo", roundNo, "taskCount", tasks.size()));
     }
@@ -479,6 +482,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                     .taskStatus("PENDING").simulated(order.getSimulated()).simulationStage(order.getSimulationStage())
                     .simulationRunId(order.getSimulationRunId()).build();
             if (pqcTaskMapper.insert(task) != 1) throw new IllegalStateException("末检创建失败");
+            handoffService.pqcReady(task.getId(),loginUserId);
             count++;
         }
         if (count == 0) throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID, "当前订单没有开启末检的检验工序");

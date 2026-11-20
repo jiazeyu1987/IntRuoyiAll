@@ -3,7 +3,7 @@
 START TRANSACTION;
 INSERT INTO bpm_category(name,code,description,status,sort,creator,create_time,updater,update_time,deleted,tenant_id)
 SELECT '工艺路线批量变更','ROUTE_BATCH_CHANGE','共享资料变更整单审批',0,21,'1',NOW(),'1',NOW(),b'0',t.id
-FROM system_tenant t WHERE t.deleted=b'0' AND t.id IN (1,122)
+FROM system_tenant t WHERE t.deleted=b'0' AND t.status=0 AND t.id IN (1,122)
 AND NOT EXISTS(SELECT 1 FROM bpm_category c WHERE c.tenant_id=t.id AND c.code='ROUTE_BATCH_CHANGE' AND c.deleted=b'0');
 SET @route_version_admin_role_id_tenant_1 = (
     SELECT id FROM system_role
@@ -123,7 +123,8 @@ FROM (
     UNION ALL
     SELECT 'rbc-approval-deploy-tenant-122' AS deploy_id, '122' AS tenant_id_text
 ) tenant_scope
-WHERE NOT EXISTS (
+WHERE EXISTS (SELECT 1 FROM system_tenant t WHERE t.id=CAST(tenant_scope.tenant_id_text AS UNSIGNED) AND t.deleted=b'0' AND t.status=0)
+AND NOT EXISTS (
     SELECT 1 FROM act_re_procdef p
     WHERE p.KEY_ = 'mes-route-batch-change-approval-v1'
       AND p.TENANT_ID_ = tenant_scope.tenant_id_text
@@ -140,7 +141,8 @@ FROM (
            '122' AS tenant_id_text,
            @route_version_approval_bpmn_tenant_122 AS bpmn_xml
 ) tenant_scope
-WHERE NOT EXISTS (
+WHERE EXISTS (SELECT 1 FROM system_tenant t WHERE t.id=CAST(tenant_scope.tenant_id_text AS UNSIGNED) AND t.deleted=b'0' AND t.status=0)
+AND NOT EXISTS (
     SELECT 1 FROM act_re_procdef p
     WHERE p.KEY_ = 'mes-route-batch-change-approval-v1'
       AND p.TENANT_ID_ = tenant_scope.tenant_id_text
@@ -169,7 +171,8 @@ FROM (
            '122' AS tenant_id_text,
            CONCAT('{"icon":null,"description":"MES route batch change approval","type":10,"formType":20,"formId":null,"formCustomCreatePath":"/mes/pro/craft","formCustomViewPath":"/mes/pro/craft","visible":false,"startUserIds":null,"startDeptIds":null,"managerUserIds":[', @route_version_admin_user_id_tenant_122, '],"sort":1784083200000,"allowCancelRunningProcess":null,"allowWithdrawTask":null,"processIdRule":null,"autoApprovalType":null,"titleSetting":{"enable":true,"title":"工艺路线批量变更 {changeId}"},"summarySetting":{"enable":true,"summary":["changeId","affectedRouteCount","changeReason"]},"processBeforeTriggerSetting":null,"processAfterTriggerSetting":null,"taskBeforeTriggerSetting":null,"taskAfterTriggerSetting":null,"printTemplateSetting":null}') AS meta_info
 ) tenant_scope
-WHERE NOT EXISTS (
+WHERE EXISTS (SELECT 1 FROM system_tenant t WHERE t.id=CAST(tenant_scope.tenant_id_text AS UNSIGNED) AND t.deleted=b'0' AND t.status=0)
+AND NOT EXISTS (
     SELECT 1 FROM act_re_procdef p
     WHERE p.KEY_ = 'mes-route-batch-change-approval-v1'
       AND p.TENANT_ID_ = tenant_scope.tenant_id_text
@@ -189,7 +192,8 @@ FROM (
            '122' AS tenant_id_text,
            @route_version_approval_bpmn_tenant_122 AS bpmn_xml
 ) tenant_scope
-WHERE NOT EXISTS (
+WHERE EXISTS (SELECT 1 FROM system_tenant t WHERE t.id=CAST(tenant_scope.tenant_id_text AS UNSIGNED) AND t.deleted=b'0' AND t.status=0)
+AND NOT EXISTS (
     SELECT 1 FROM act_re_procdef p
     WHERE p.KEY_ = 'mes-route-batch-change-approval-v1'
       AND p.TENANT_ID_ = tenant_scope.tenant_id_text
@@ -215,7 +219,8 @@ FROM (
            'rbc-approval-deploy-tenant-122' AS deploy_id,
            '122' AS tenant_id_text
 ) tenant_scope
-WHERE NOT EXISTS (
+WHERE EXISTS (SELECT 1 FROM system_tenant t WHERE t.id=CAST(tenant_scope.tenant_id_text AS UNSIGNED) AND t.deleted=b'0' AND t.status=0)
+AND NOT EXISTS (
     SELECT 1 FROM act_re_procdef p
     WHERE p.KEY_ = 'mes-route-batch-change-approval-v1'
       AND p.TENANT_ID_ = tenant_scope.tenant_id_text
@@ -247,7 +252,8 @@ FROM (
            @route_version_admin_user_id_tenant_122 AS manager_user_ids,
            122 AS tenant_id
 ) tenant_scope
-WHERE NOT EXISTS (
+WHERE EXISTS (SELECT 1 FROM system_tenant t WHERE t.id=tenant_scope.tenant_id AND t.deleted=b'0' AND t.status=0)
+AND NOT EXISTS (
     SELECT 1 FROM bpm_process_definition_info i
     WHERE i.process_definition_id = tenant_scope.procdef_id
       AND i.tenant_id = tenant_scope.tenant_id

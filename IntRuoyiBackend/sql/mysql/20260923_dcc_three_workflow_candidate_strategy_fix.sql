@@ -2,6 +2,7 @@
 -- Purpose: publish DCC three-workflow BPMN version 2 so approval and document-control tasks
 -- resolve the assignee snapshot supplied by the DCC workflow instead of the first-node strategy.
 
+-- Ordinary process versions are not Flowable derived definitions.
 SET NAMES utf8mb4;
 
 START TRANSACTION;
@@ -115,8 +116,8 @@ SELECT CONCAT(p.process_key, ':2:dcc-three-workflow-tenant-', t.tenant_id_text),
        1,
        t.tenant_id_text,
        old_procdef.ENGINE_VERSION_,
-       old_procdef.ID_,
-       old_procdef.DERIVED_FROM_ROOT_,
+       NULL,
+       NULL,
        0
 FROM tmp_dcc_three_workflow_processes p
 JOIN (SELECT '1' AS tenant_id_text UNION ALL SELECT '122') t

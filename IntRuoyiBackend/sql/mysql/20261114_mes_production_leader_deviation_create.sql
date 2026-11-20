@@ -4,7 +4,7 @@ SET NAMES utf8mb4;
 DROP PROCEDURE IF EXISTS grant_production_deviation_create;
 DELIMITER $$
 CREATE PROCEDURE grant_production_deviation_create()
-BEGIN
+migration: BEGIN
   DECLARE EXIT HANDLER FOR SQLEXCEPTION BEGIN ROLLBACK; RESIGNAL; END;
   START TRANSACTION;
   IF NOT EXISTS (SELECT 1 FROM system_menu WHERE id=900436 AND deleted=0 AND status=0 AND type=2
@@ -24,8 +24,12 @@ BEGIN
   INSERT INTO tmp_production_deviation_create_role SELECT r.id,r.tenant_id,t.package_id FROM system_role r
     JOIN system_tenant t ON t.id=r.tenant_id AND t.deleted=0 AND t.status=0
     WHERE r.code='production_leader_permission' AND r.deleted=0 AND r.status=0;
+  -- This migration only changes an existing permission role; do not invent or remap one.
   IF NOT EXISTS (SELECT 1 FROM tmp_production_deviation_create_role) THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Missing active production leader role';
+    DROP TEMPORARY TABLE tmp_production_deviation_create_role;
+    COMMIT;
+    SELECT 'NOT_APPLICABLE: no active production_leader_permission role' AS migration_scope;
+    LEAVE migration;
   END IF;
   IF EXISTS (SELECT 1 FROM tmp_production_deviation_create_role r
       LEFT JOIN system_approval_authority_revision a ON a.tenant_id=r.tenant_id

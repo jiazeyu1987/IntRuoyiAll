@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20261021_mes_craft_library,20260721_mes_route_version_publish_business_approval_policy_seed; type=schema; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20261021_mes_craft_library,20260721_mes_route_version_publish_business_approval_policy_seed; type=schema; riskLevel=medium; requiresTargetPreflight=true
 -- 新类别默认关闭；现有审批请求继续使用创建时的策略及原执行器。
 SET @batch_scope_ddl = IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='mes_pro_craft_change' AND column_name='approval_scope'), 'SELECT 1', 'ALTER TABLE mes_pro_craft_change ADD COLUMN approval_scope VARCHAR(16) NOT NULL DEFAULT ''ROUTE''');
 PREPARE batch_scope_stmt FROM @batch_scope_ddl;

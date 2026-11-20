@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=none; type=schema; riskLevel=low
+-- release-migration: allowedEnvironments=test,backup,prod; type=schema; riskLevel=low
 -- Append-only tenant catalog; existing route/production snapshots are not rewritten.
 SET NAMES utf8mb4;
 CREATE TABLE IF NOT EXISTS mes_pro_loss_reason_sequence (

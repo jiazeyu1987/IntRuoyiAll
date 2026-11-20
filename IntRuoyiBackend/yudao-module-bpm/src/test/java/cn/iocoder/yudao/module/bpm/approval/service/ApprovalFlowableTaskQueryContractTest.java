@@ -7,6 +7,39 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ApprovalFlowableTaskQueryContractTest {
+    @Test void indexedIdentityPredicatesRetainExactTenantAndProvenanceChecks() throws Exception {
+        var configuration = new Configuration();
+        String resource = "mapper/approval/ApprovalFlowableTaskQueryMapper.xml";
+        try (var input = Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream(resource))) {
+            new XMLMapperBuilder(input, configuration, resource, configuration.getSqlFragments()).parse();
+        }
+        for (boolean done : List.of(false, true)) for (boolean global : List.of(false, true))
+            for (boolean voidOnly : List.of(false, true)) {
+                var p = new HashMap<String, Object>();
+                p.put("done", done); p.put("global", global); p.put("edhrVoidOnly", voidOnly);
+                p.put("candidateGroups", List.of("quality")); p.put("projection", "BPM");
+                for (String query : List.of("countBrokenProvenance", "ownerships", "count", "window")) {
+                    String statement = sql(configuration, query, p);
+                    assertTrue(statement.contains("o.tenant_id=? AND o.process_instance_id=CONVERT(t.PROC_INST_ID_ USING utf8mb4) COLLATE utf8mb4_bin AND CAST(o.process_instance_id AS BINARY)=CAST(t.PROC_INST_ID_ AS BINARY)"));
+                    assertTrue(statement.contains("t.TENANT_ID_=?"));
+                    if (!done && !global) {
+                        assertTrue(statement.contains("il.TASK_ID_=t.ID_ AND CAST(il.TASK_ID_ AS BINARY)=CAST(t.ID_ AS BINARY)"));
+                    }
+                    if (!voidOnly) {
+                        assertTrue(statement.contains("rb.bpm_process_instance_id=CONVERT(t.PROC_INST_ID_ USING utf8mb4) COLLATE utf8mb4_unicode_ci AND CAST(rb.bpm_process_instance_id AS BINARY)=CAST(t.PROC_INST_ID_ AS BINARY)"));
+                        assertTrue(statement.contains("rr.id=rb.request_id"));
+                    }
+                }
+                String validation = sql(configuration, "countBrokenProvenance", p);
+                assertTrue(validation.contains("br.id=CAST(o.authority_id AS UNSIGNED)"));
+                assertTrue(validation.contains("CAST(CAST(br.id AS CHAR) AS BINARY)=CAST(o.authority_id AS BINARY)"));
+                assertTrue(validation.contains("CAST(br.object_version AS BINARY)=CAST(o.authority_version AS BINARY)"));
+                assertTrue(validation.contains("x.process_instance_id=CONVERT(t.PROC_INST_ID_ USING utf8mb4) COLLATE utf8mb4_unicode_ci AND CAST(x.process_instance_id AS BINARY)=CAST(t.PROC_INST_ID_ AS BINARY)"));
+                assertTrue(validation.contains("x.bpm_process_instance_id=CONVERT(t.PROC_INST_ID_ USING utf8mb4) COLLATE utf8mb4_unicode_ci AND CAST(x.bpm_process_instance_id AS BINARY)=CAST(t.PROC_INST_ID_ AS BINARY)"));
+                if (!done) assertTrue(validation.contains("o.id IS NULL OR"));
+                assertTrue(validation.contains("d.TENANT_ID_ != ?"));
+            }
+    }
     @Test void countAndWindowShareEligibilityAndProjectionForBothCandidateModes() throws Exception {
         var configuration=new Configuration();
         String resource="mapper/approval/ApprovalFlowableTaskQueryMapper.xml";

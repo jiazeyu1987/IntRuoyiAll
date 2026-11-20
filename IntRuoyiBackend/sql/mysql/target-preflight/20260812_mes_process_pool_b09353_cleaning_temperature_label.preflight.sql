@@ -25,5 +25,5 @@ candidate_rules AS (
 )
 SELECT CASE WHEN
   (SELECT table_count FROM dependency_tables) = 3
-  AND (SELECT candidate_rule_count FROM candidate_rules) >= 0
+  AND (SELECT candidate_rule_count FROM candidate_rules) > 0
 THEN 'TARGET_PREFLIGHT_PASS:20260812_mes_process_pool_b09353_cleaning_temperature_label' ELSE 'TARGET_PREFLIGHT_BLOCKED:20260812_mes_process_pool_b09353_cleaning_temperature_label' END;

@@ -100,6 +100,8 @@ public interface MesActiveOrderHandoffTaskMapper extends BaseMapperX<MesActiveOr
     }
     @Select("SELECT * FROM mes_active_order_handoff_task WHERE tenant_id=#{tenant} AND deleted=FALSE AND FIND_IN_SET(#{actor},candidate_user_snapshot)>0 ORDER BY create_time DESC,id DESC")
     List<MesActiveOrderHandoffTaskDO> own(@Param("tenant") Long tenant,@Param("actor") Long actor);
+    @Update("UPDATE mes_active_order_handoff_task SET status='TODO',completed_by=NULL,completion_source_id=NULL,completed_at=NULL,row_version=row_version+1,update_time=NOW() WHERE tenant_id=#{tenant} AND id=#{id} AND row_version=#{version} AND status='CANCELED' AND task_type='PQC_HANDOFF' AND deleted=FALSE")
+    int reopen(@Param("tenant") Long tenant,@Param("id") Long id,@Param("version") Integer version);
     @Update("UPDATE mes_active_order_handoff_task SET status=#{status},completed_by=#{actor},completion_source_id=#{source},completed_at=#{at},row_version=row_version+1,update_time=#{at} WHERE tenant_id=#{tenant} AND id=#{id} AND row_version=#{version} AND status='TODO' AND deleted=FALSE")
     int close(@Param("tenant") Long tenant,@Param("id") Long id,@Param("version") Integer version,
               @Param("status") String status,@Param("actor") Long actor,@Param("source") Long source,@Param("at") LocalDateTime at);

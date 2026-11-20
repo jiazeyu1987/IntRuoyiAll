@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test; dependsOn=20261011_edhr_approval_runtime_v2; type=schema; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20261022_edhr_approval_release_runtime; type=schema; riskLevel=medium
 -- Execute once before deploying the application. Fail on existing columns or missing prerequisite triggers.
 -- All existing and future identities start with PIN signing (initial PIN 888888).
 -- Existing login/signature passwords and historical signature/audit evidence are preserved.

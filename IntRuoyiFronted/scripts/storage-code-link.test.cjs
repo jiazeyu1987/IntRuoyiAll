@@ -73,4 +73,3 @@ async function testRoutes(){
  }
 }
 Promise.resolve().then(testLink).then(testRoutes).then(()=>console.log('storage code link Vue and route behavior PASS')).catch(e=>{console.error(e);process.exitCode=1})
-

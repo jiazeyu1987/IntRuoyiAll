@@ -96,7 +96,7 @@ class MesFixedTestOrderReplenishmentTest {
         MesFixedTestOrderDataService.DocumentResult result = ReflectionTestUtils.invokeMethod(service, "prepareIssues",
                 "replenishment", "补料单明细", 186L, 20L, false, MesFixedTestOrderDataSet.FIRST,
                 null, Map.of("id", 100L, "code", code));
-        assertEquals(new MesFixedTestOrderDataService.DocumentResult("补料单明细", 0, 0, 0, 0), result);
+        assertEquals(new MesFixedTestOrderDataService.DocumentResult("补料单明细", 0, 0, 0, 0, 0), result);
         verifyNoInteractions(audit);
     }
 }

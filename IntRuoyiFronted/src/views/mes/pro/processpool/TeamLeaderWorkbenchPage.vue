@@ -1665,7 +1665,7 @@
     />
     <el-alert
       v-if="activeOrderTestDataReceipt"
-      :type="activeOrderTestDataReceipt.success ? 'success' : 'error'"
+      :type="activeOrderTestDataReceipt.warning ? 'warning' : activeOrderTestDataReceipt.success ? 'success' : 'error'"
       :closable="false"
       :title="activeOrderTestDataReceipt.message"
       data-team-leader-test-data-result
@@ -1715,7 +1715,7 @@
           type="warning"
           :loading="activeOrderTestDataSubmitting && activeOrderTestDataSet === 1"
           :disabled="activeOrderTestResetBlocked"
-          title="补齐固定测试订单单据，已有数据跳过；无补料来源不生成补料单，并移除旧工具复制的模拟补料"
+          title="补齐第一套订单及本套生产用料清单，领补料关联本套清单；已投产旧关联保留并提示；移除旧工具复制的模拟补料"
           data-team-leader-prepare-fixed-test-data
           @click="handlePrepareFixedTestOrderData(1)"
         >
@@ -1728,7 +1728,7 @@
           type="warning"
           :loading="activeOrderTestDataSubmitting && activeOrderTestDataSet === 2"
           :disabled="activeOrderTestResetBlocked"
-          title="补齐第二套独立生产订单及关联单据，已有数据跳过；修复本工具生成且尚未投产的用料单关联"
+          title="补齐第二套独立订单及本套生产用料清单，与第一套清单不同；已投产旧关联保留并提示"
           data-team-leader-prepare-second-test-data
           @click="handlePrepareFixedTestOrderData(2)"
         >
@@ -4544,7 +4544,7 @@ const activeOrderSimulationSubmittingId = ref<number | string>()
 const activeOrderTestResetSubmitting = ref(false)
 const activeOrderTestDataSubmitting = ref(false)
 const activeOrderTestDataSet = ref<1 | 2>(1)
-const activeOrderTestDataReceipt = ref<{ success: boolean; message: string }>()
+const activeOrderTestDataReceipt = ref<{ success: boolean; warning?: boolean; message: string }>()
 const activeOrderTestResetReceipt = ref<{ state: 'success' | 'rejected' | 'unknown'; message: string }>()
 const activeOrderTestResetBlocked = computed(() =>
   !testModeEnabled.value ||
@@ -10482,19 +10482,24 @@ const handlePrepareFixedTestOrderData = async (dataSet: 1 | 2) => {
   activeOrderTestDataReceipt.value = undefined
   try {
     const result = await (dataSet === 2 ? prepareSecondFixedTestOrderData() : prepareFixedTestOrderData())
-    if (!result?.workOrderCode?.trim() || result.documents?.length !== 4 ||
+    if (!result?.workOrderCode?.trim() || !result.productionMaterialListNo?.trim() || result.documents?.length !== 4 ||
       result.documents.some(row => !row.name || !Number.isInteger(row.createdCount) || row.createdCount < 0 ||
         !Number.isInteger(row.deletedCount) || row.deletedCount < 0 || !Number.isInteger(row.skippedCount) || row.skippedCount < 0 ||
-        !Number.isInteger(row.repairedCount) || row.repairedCount < 0)) {
+        !Number.isInteger(row.repairedCount) || row.repairedCount < 0 ||
+        !Number.isInteger(row.preservedReferenceCount) || row.preservedReferenceCount < 0)) {
       throw new Error('数据回执不完整，请核对单据后再操作')
     }
     const label = dataSet === 2 ? '数据2' : '数据'
-    const message = `${label}补齐完成（生产订单：${result.workOrderCode}）：` + result.documents
-      .map(row => `${row.name}新增${row.createdCount}条、移除旧模拟数据${row.deletedCount}条、跳过已有${row.skippedCount}条、修复关联${row.repairedCount}条`).join('；')
-    activeOrderTestDataReceipt.value = { success: true, message }
-    ElMessage.success(result.documents.some(row => row.deletedCount > 0)
-      ? `${label}补齐完成，旧模拟补料已移除` : result.documents.some(row => row.repairedCount > 0)
-      ? `${label}补齐完成，错误用料单关联已修复` : `${label}补齐完成，已有数据已跳过`)
+    const warning = result.documents.some(row => row.preservedReferenceCount > 0)
+    const message = `${label}${warning ? '处理完成，旧关联未修复' : '补齐完成'}（生产订单：${result.workOrderCode}）；本套生产用料清单：${result.productionMaterialListNo}：` + result.documents
+      .map(row => `${row.name}新增${row.createdCount}条、跳过已有${row.skippedCount}条、修复关联${row.repairedCount}条、移除旧模拟数据${row.deletedCount}条、已投产保留旧关联${row.preservedReferenceCount}条`).join('；')
+    activeOrderTestDataReceipt.value = { success: !warning, warning, message }
+    if (warning) {
+      ElMessage.warning(`${label}已投产，旧关联保留、未修复；生产记录保持不变`)
+    } else {
+      ElMessage.success(result.documents.some(row => row.repairedCount > 0)
+        ? `${label}补齐完成，错误用料单关联已修复` : `${label}补齐完成，已有数据已跳过`)
+    }
   } catch (error) {
     const message = resolveErrorMessage(error, '数据补齐失败，请核对单据')
     activeOrderTestDataReceipt.value = { success: false, message }

@@ -1,3 +1,4 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=medium
 -- eDHR 不合格评审多材料事实清单
 -- 首次执行：为评审单保存当前有效材料清单和上传/删除操作记录。
 -- 重复执行：information_schema 守护，保持幂等。
@@ -16,4 +17,3 @@ SET @ddl := IF(@column_exists = 0,
 PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260921_mes_edhr_nonconformance_review_material_preview; type=schema; riskLevel=medium
