@@ -71,7 +71,7 @@
                   </el-descriptions-item>
                   <el-descriptions-item label="状态">{{ executionStatusText }}</el-descriptions-item>
                   <el-descriptions-item label="工单">
-                    {{ execution.workOrderCode || execution.workOrderId || '--' }}
+                    <WorkOrderCodeLink :code="execution.workOrderCode" :work-order-id="execution.workOrderId" v-if="execution.workOrderCode" /><span v-else>{{ execution.workOrderId || '--' }}</span>
                   </el-descriptions-item>
                   <el-descriptions-item label="批次">
                     <ProductionBatchCodeLink :code="execution.batchCode" />
@@ -1550,6 +1550,7 @@
 </template>
 
 <script setup lang="ts">
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { createSecureUuid } from '@/utils/uuid'
 import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
@@ -5106,7 +5107,7 @@ const loadExecution = async () => {
     try {
       await loadAssistBatchTaskPreviewExecution(batchExecutionId, batchTaskId, currentExecutionContextKey, isCurrent)
     } catch (error) {
-    if (!isCurrent()) throw error
+      if (!isCurrent()) throw error
       execution.value = undefined
       loadedExecutionContextKey.value = ''
       latestArchive.value = undefined

@@ -26,7 +26,8 @@
         </el-tag>
       </div>
 
-      <el-form label-width="140px"><FactsFields :model-value="parseFacts(detail.factsJson)" readonly/></el-form>
+      <el-alert v-if="detail.status === 'OLD'" title="已被替换的旧版本；以下证载状态为历史记录" type="info" :closable="false" class="mb-16px" />
+      <el-form label-width="140px"><FactsFields :model-value="parseFacts(detail.factsJson)" :historical-record="detail.status === 'OLD'" readonly/></el-form>
       <EvidencePanel :certificate-id="detail.certificateId" :version-id="detail.versionId" @preview="openAttachmentPreview" @download="downloadAttachment" @request-download="openDownloadRequest"/>
       <el-descriptions :column="detailDescriptionColumns" border>
         <el-descriptions-item label="版本号">第 {{ detail.versionNo }} 版</el-descriptions-item>

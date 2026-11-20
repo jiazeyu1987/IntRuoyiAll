@@ -120,6 +120,37 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
         reset(projectCodeService, fileService, permissionApi);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"valid", "tenant", "certificate", "version", "file", "no-grant"})
+    void supportingDocumentDownloadUsesExistingGrantAndRejectsBrokenOwnerScope(String boundary) throws Exception {
+        var fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND", "receipt.pdf");
+        jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_supporting_document
+                (id,tenant_id,owner_company_id,certificate_id,version_id,business_file_id,document_type,status,uploaded_at,uploaded_by)
+                VALUES (88001,1,10,?,?,?,'RENEWAL_ACCEPTANCE_RECEIPT','EFFECTIVE',CURRENT_TIMESTAMP,99)
+                """, fixture.certificateId(), fixture.versionId(), fixture.businessFileId());
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_file SET owner_type='SUPPORTING_DOCUMENT', owner_id=88001,file_kind='RENEWAL_ACCEPTANCE_RECEIPT' WHERE id=?",fixture.businessFileId());
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_access_request_file SET file_kind='RENEWAL_ACCEPTANCE_RECEIPT' WHERE business_file_id=?",fixture.businessFileId());
+        switch (boundary) {
+            case "tenant" -> jdbcTemplate.update("UPDATE dcc_registration_certificate_supporting_document SET tenant_id=2 WHERE id=88001");
+            case "certificate" -> jdbcTemplate.update("UPDATE dcc_registration_certificate_supporting_document SET certificate_id=99999 WHERE id=88001");
+            case "version" -> jdbcTemplate.update("UPDATE dcc_registration_certificate_supporting_document SET version_id=99999 WHERE id=88001");
+            case "file" -> jdbcTemplate.update("UPDATE dcc_registration_certificate_supporting_document SET business_file_id=99999 WHERE id=88001");
+            case "no-grant" -> jdbcTemplate.update("DELETE FROM dcc_registration_certificate_grant WHERE id=?",fixture.grantId());
+        }
+        if (!"valid".equals(boundary)) {
+            assertThrows(ServiceException.class, () -> deliveryService.download(1L,99L,fixture.businessFileId(),"support-reject",context("SUPPORT-REJECT")));
+            verify(fileService, never()).getFileContent(any(), any());
+            return;
+        }
+        when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture,"receipt.pdf"));
+        when(projectCodeService.getProjectCode(40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE,20L));
+        when(fileService.getFileContent(fixture.infraConfigId(),fixture.infraPath())).thenReturn(new byte[]{1,2});
+        var result = deliveryService.download(1L,99L,fixture.businessFileId(),"support-ok",context("SUPPORT-OK"));
+        assertArrayEquals(new byte[]{1,2}, result.bytes());
+        assertEquals("延续受理单_receipt.pdf", result.fileName());
+    }
+
     @Test
     void downloadReturnsServerOwnedFileNameAndConsumesOnlyOnceBeforeLaterStorageRead() throws Exception {
         FormalFixture fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND", "registration.pdf");

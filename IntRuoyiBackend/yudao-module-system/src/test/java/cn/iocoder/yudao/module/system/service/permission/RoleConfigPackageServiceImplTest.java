@@ -20,6 +20,8 @@ import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
 import cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import cn.iocoder.yudao.module.system.service.tenant.TenantService;
+import cn.iocoder.yudao.module.system.service.dept.DeptService;
+import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.service.tenant.handler.TenantMenuHandler;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -68,6 +70,21 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
     @MockitoBean
     private TenantService tenantService;
 
+    @MockitoBean
+    private DeptService deptService;
+
+    private void allowDepartments(Long... ids) {
+        Set<Long> departmentIds = Set.of(ids);
+        org.mockito.Mockito.when(deptService.getDeptList(departmentIds)).thenReturn(
+                departmentIds.stream().map(id -> {
+                    DeptDO dept = new DeptDO();
+                    dept.setId(id);
+                    dept.setTenantId(1L);
+                    dept.setStatus(CommonStatusEnum.ENABLE.getStatus());
+                    return dept;
+                }).toList());
+    }
+
     @BeforeEach
     void prepareAuthority() {
         org.mockito.Mockito.when(approvalAuthority.lockTenantApprovalAuthority(org.mockito.ArgumentMatchers.anyLong()))
@@ -82,6 +99,87 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
             call.<TenantMenuHandler>getArgument(0).handle(ids);
             return null;
         }).when(tenantService).handleTenantMenu(any());
+    }
+
+    @Test
+    void importPackage_shouldRejectMissingDepartmentBeforeAnyPackageWrites() {
+        var payload = boundaryPayload(List.of());
+        payload.getRoles().get(0).setDataScope(DataScopeEnum.DEPT_CUSTOM.getScope());
+        payload.getRoles().get(0).setDataScopeDeptIds(Set.of(12345L));
+        var validRole = boundaryPayload(List.of()).getRoles().get(0);
+        validRole.setCode("valid_before_missing_department");
+        payload.setRoles(List.of(validRole, payload.getRoles().get(0)));
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload)));
+
+        assertEquals(ErrorCodeConstants.CONFIG_PACKAGE_REFERENCE_MISSING.getCode(), error.getCode());
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("目标租户不存在或未启用"));
+        assertNull(roleCategoryMapper.selectByCode("package_boundary"));
+        assertNull(roleMapper.selectByCode("package_boundary_role"));
+        assertNull(roleMapper.selectByCode("valid_before_missing_department"));
+        verifyNoInteractions(permissionService, approvalAuthority, gxpAuditService, tenantService);
+    }
+
+    @Test
+    void importPackage_shouldRejectForeignDepartmentEvenIfLookupReturnsIt() {
+        var payload = boundaryPayload(List.of());
+        var role = payload.getRoles().get(0);
+        role.setDataScope(DataScopeEnum.DEPT_CUSTOM.getScope());
+        role.setDataScopeDeptIds(Set.of(900L));
+        DeptDO dept = new DeptDO();
+        dept.setId(900L);
+        dept.setTenantId(2L);
+        dept.setStatus(CommonStatusEnum.ENABLE.getStatus());
+        org.mockito.Mockito.when(deptService.getDeptList(Set.of(900L))).thenReturn(List.of(dept));
+
+        assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload)));
+
+        assertNull(roleCategoryMapper.selectByCode("package_boundary"));
+        assertNull(roleMapper.selectByCode("package_boundary_role"));
+        verifyNoInteractions(permissionService, approvalAuthority, gxpAuditService, tenantService);
+    }
+
+    @Test
+    void importPackage_shouldAcceptTargetDepartmentsWithoutChangingTheirIds() {
+        var payload = boundaryPayload(List.of());
+        var role = payload.getRoles().get(0);
+        role.setDataScope(DataScopeEnum.DEPT_CUSTOM.getScope());
+        role.setDataScopeDeptIds(Set.of(901L));
+        allowDepartments(901L);
+
+        roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload));
+
+        assertEquals(Set.of(901L), roleMapper.selectByCode(role.getCode()).getDataScopeDeptIds());
+        verify(permissionService).assignRoleDataScope(any(), eq(2), eq(Set.of(901L)), anyString(), anyString());
+    }
+
+    @Test
+    void importPackage_shouldRejectDisabledTargetDepartment() {
+        var payload = boundaryPayload(List.of());
+        var role = payload.getRoles().get(0);
+        role.setDataScope(DataScopeEnum.DEPT_CUSTOM.getScope());
+        role.setDataScopeDeptIds(Set.of(902L));
+        DeptDO dept = new DeptDO();
+        dept.setId(902L);
+        dept.setTenantId(1L);
+        dept.setStatus(CommonStatusEnum.DISABLE.getStatus());
+        org.mockito.Mockito.when(deptService.getDeptList(Set.of(902L))).thenReturn(List.of(dept));
+        assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload)));
+        assertNull(roleCategoryMapper.selectByCode("package_boundary"));
+        verifyNoInteractions(permissionService, approvalAuthority, gxpAuditService, tenantService);
+    }
+
+    @Test
+    void importPackage_shouldRejectUnknownDataScopeBeforeAnyPackageWrites() {
+        var payload = boundaryPayload(List.of());
+        payload.getRoles().get(0).setDataScope(999);
+        assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload)));
+        assertNull(roleCategoryMapper.selectByCode("package_boundary"));
+        verifyNoInteractions(permissionService, approvalAuthority, gxpAuditService, tenantService);
     }
 
     @Test
@@ -174,6 +272,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
 
     @Test
     void importPackage_shouldAllowSystemRoleRoundTripWithoutDataScopeMutation() {
+        allowDepartments(100L, 200L);
         insertButtonMenu("角色查询", "system:role:query");
         insertButtonMenu("角色更新", "system:role:update");
         MenuDO queryMenu = menuMapper.selectListByPermission("system:role:query").get(0);
@@ -226,6 +325,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
 
     @Test
     void importPackage_shouldCreateMissingSystemRoleWithoutCallingDataScopeMutation() {
+        allowDepartments(300L, 400L);
         insertButtonMenu("角色创建", "system:role:create");
         insertButtonMenu("角色更新", "system:role:update");
         MenuDO createMenu = menuMapper.selectListByPermission("system:role:create").get(0);
@@ -577,6 +677,33 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
                 () -> roleConfigPackageService.exportPackage(List.of(role.getCategoryId())));
 
         org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("当前租户套餐菜单未提供"));
+        verifyNoInteractions(permissionService);
+    }
+
+    @Test
+    void exportAllPackage_shouldIncludeEveryCategoryAndRole() {
+        RoleDO first = insertExportRole("reviewer");
+        Long secondCategory = insertCategory("production", "生产");
+        RoleDO second = new RoleDO();
+        second.setCode("operator"); second.setName("操作人"); second.setSort(2); second.setStatus(0);
+        second.setType(RoleTypeEnum.CUSTOM.getType()); second.setDataScope(DataScopeEnum.ALL.getScope());
+        second.setCategoryId(secondCategory);
+        roleMapper.insert(second);
+        var payload = JsonUtils.parseObject(roleConfigPackageService.exportAllPackage(),
+                RoleConfigPackageServiceImpl.RoleConfigPackage.class);
+        assertEquals(Set.of("export_boundary", "production"), payload.getCategories().stream()
+                .map(RoleConfigPackageServiceImpl.RoleCategoryConfigItem::getCode).collect(java.util.stream.Collectors.toSet()));
+        assertEquals(Set.of(first.getCode(), second.getCode()), payload.getRoles().stream()
+                .map(RoleConfigPackageServiceImpl.RoleConfigItem::getCode).collect(java.util.stream.Collectors.toSet()));
+    }
+
+    @Test
+    void exportAllPackage_shouldRejectUnclassifiedRolesInsteadOfOmittingThem() {
+        RoleDO role = insertExportRole("reviewer");
+        role.setCategoryId(99999999L);
+        roleMapper.updateById(role);
+        ServiceException error = assertThrows(ServiceException.class, () -> roleConfigPackageService.exportAllPackage());
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("缺少有效分类"));
         verifyNoInteractions(permissionService);
     }
 

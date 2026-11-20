@@ -7,6 +7,8 @@ const {parse,compileScript,compileTemplate}=require('vue/compiler-sfc')
 const transpile=source=>ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText
 const factsModule={};new Function('exports',transpile(fs.readFileSync('src/views/dcc/registration-certificate/shared/facts.ts','utf8')))(factsModule)
 function loadDisplayModule(path){const out={};new Function('exports','require',transpile(fs.readFileSync(path,'utf8')))(out,id=>loadDisplayModule(id==='@/utils/businessTime'?'src/utils/businessTime.ts':'src/views/dcc/registration-certificate/shared/dateTimeDisplay.ts'));return out}
+const pathModule=require('node:path')
+const loadTs=file=>{const exports={};new Function('exports','require',transpile(fs.readFileSync(file,'utf8')))(exports,id=>loadTs(id.startsWith('@/')?'src/'+id.slice(2)+'.ts':pathModule.join(pathModule.dirname(file),id+'.ts')));return exports}
 const drain=async()=>{for(let i=0;i<30;i++)await Promise.resolve();await vue.nextTick()}
 function mount(path,props,api={}){
  const source=fs.readFileSync('src/views/dcc/registration-certificate/'+path,'utf8')
@@ -15,11 +17,12 @@ function mount(path,props,api={}){
  const exports={},messages=[]
  new Function('exports','require','useMessage',transpile(script.content))(exports,id=>{
   if(id==='vue')return vue
-  if(id==='@/api/dcc/registrationCertificate')return api
+  if(id==='@/api/dcc/registrationCertificate')return {getUploadEntrustedEnterprises:async()=>[],...api}
   if(id==='@/utils')return {generateUUID:()=> 'test-key'}
   if(id.endsWith('/applicationDisplay'))return loadDisplayModule('src/views/dcc/registration-certificate/shared/applicationDisplay.ts')
   if(id.endsWith('/state')){const state={};new Function('exports',transpile(fs.readFileSync('src/views/dcc/registration-certificate/shared/state.ts','utf8')))(state);return state}
   if(id.endsWith('/facts'))return factsModule
+  if(id.startsWith('../shared/')&&!id.endsWith('.vue'))return loadTs('src/views/dcc/registration-certificate/shared/'+id.split('/').pop()+'.ts')
   if(id.endsWith('.vue'))return {default:{}}
   throw Error('unexpected import '+id)
  },()=>({success:value=>messages.push(['success',value]),error:value=>messages.push(['error',value])}))
@@ -34,7 +37,7 @@ async function fillUpload(s,facts){s.facts=facts;await drain();s.companyId=10;s.
 const raw=name=>({name,raw:new Blob([name],{type:'application/pdf'})})
 test('real upload rejects FDA missing either required file and accepts its two distinct file kinds',async()=>{
  const calls=[],c=mount('upload/UploadDialog.vue',{modelValue:false},uploadApi({submitRegistrationCertificateUpload:async data=>calls.push(data)}))
- try{c.props.modelValue=true;await drain();c.state.facts.certificateType='FDA';await drain();await fillUpload(c.state,{certificateType:'FDA',ownProduct:false,classification:'II',submissionType:'EXEMPT',customerHeld:false,approvalLetterStatus:'VALID',factoryRegistrationStatus:'ACTIVE',ceCertificates:[]})
+ try{c.props.modelValue=true;await drain();c.state.facts.certificateType='FDA';await drain();await fillUpload(c.state,{certificateType:'FDA',ownProduct:false,classification:'II',submissionType:'EXEMPT',customerHeld:false,approvalLetterStatus:'VALID',factoryRegistrationStatus:'ACTIVE',ceCertificates:[]});await drain();c.state.companyId=10;c.state.productName='测试产品';c.state.entrustedProduction=false;c.state.selfProduction=true
   await c.state.submit();assert.match(c.state.error,/批准信函/);assert.equal(calls.length,0)
   c.state.files=[raw('letter.pdf')];await c.state.submit();assert.match(c.state.error,/产品描述/);assert.equal(calls.length,0)
   c.state.descriptions=[raw('description.pdf')];await c.state.submit();assert.equal(c.state.error,'');assert.equal(calls.length,1)
@@ -43,7 +46,7 @@ test('real upload rejects FDA missing either required file and accepts its two d
 })
 test('CE revision certificate number and issue date remain independently optional in actual upload payload',async()=>{
  const calls=[],c=mount('upload/UploadDialog.vue',{modelValue:false},uploadApi({submitRegistrationCertificateUpload:async data=>calls.push(data)}))
- try{c.props.modelValue=true;await drain();c.state.facts.certificateType='CE';await drain();await fillUpload(c.state,{certificateType:'CE',ownProduct:false,certificateStatus:'SUSPENDED',classification:'IIa',expiryDate:'2030-01-01',ceCertificates:[{revision:'1',certificateNo:'CE-1',issueDate:''},{revision:'2',certificateNo:'',issueDate:'2026-10-01'},{revision:'3',certificateNo:'',issueDate:''}]});c.state.files=[raw('ce.pdf')]
+ try{c.props.modelValue=true;await drain();c.state.facts.certificateType='CE';await drain();await fillUpload(c.state,{certificateType:'CE',ownProduct:false,certificateStatus:'SUSPENDED',classification:'IIa',firstObtainedDate:'2024-01-01',expiryDate:'2030-01-01',ceCertificates:[{revision:'1',certificateNo:'CE-1',issueDate:''},{revision:'2',certificateNo:'',issueDate:'2026-10-01'},{revision:'3',certificateNo:'',issueDate:''}]});c.state.files=[raw('ce.pdf')]
   await c.state.submit();assert.equal(c.state.error,'');assert.equal(calls.length,1)
   assert.deepEqual(JSON.parse(calls[0].get('factsJson')).ceCertificates,c.state.facts.ceCertificates)
  }finally{c.app.unmount()}
@@ -61,9 +64,9 @@ test('rejected CHANGE request opens change dialog, not first upload form',async(
  }finally{c.app.unmount()}
 })
 test('rejected change restores submitted facts and values, retains approval file, submits latest row version',async()=>{
- const calls=[],facts={...domestic(),certificateNo:'拒绝当次证号'},frozen={operation:'CHANGE_CERTIFICATE',factsJson:JSON.stringify(facts),draft:{...current(),productName:'拒绝当次产品',modelSpecification:'拒绝当次未改型号'},structuredValues:{PRODUCT_NAME:'拒绝当次产品'},approvalDate:'2026-10-01',otherDescription:'拒绝当次说明'}
+ const calls=[],facts=domestic(),frozen={operation:'CHANGE_CERTIFICATE',factsJson:JSON.stringify(facts),draft:{...current(),productName:'拒绝当次产品',modelSpecification:'拒绝当次未改型号'},structuredValues:{PRODUCT_NAME:'拒绝当次产品'},approvalDate:'2026-10-01',otherDescription:'拒绝当次说明'}
  const c=mount('change/ChangeDialog.vue',{modelValue:false,requestId:'42'},{getMyRegistrationCertificateUpload:async()=>({request:{status:'REJECTED',certificateId:100,detailJson:JSON.stringify(frozen)},files:[{id:7,fileKind:'CHANGE_APPROVAL',originalName:'批件.pdf'}]}),getRegistrationCertificateDetail:async()=>current(),getRegistrationCertificateEvidence:async()=>({files:[{fileKind:'REGISTRATION_CERTIFICATE',originalName:'已批准原证.pdf'},{fileKind:'CERTIFICATE_ATTACHMENT',originalName:'已批准附件.pdf'},{fileKind:'FDA_PRODUCT_DESCRIPTION',originalName:'已批准描述.pdf'}]}),submitRegistrationCertificateChange:async(id,data)=>calls.push([id,data])})
- try{c.props.modelValue=true;await drain();assert.equal(c.state.facts.certificateNo,'拒绝当次证号');assert.equal(c.state.values.PRODUCT_NAME,'拒绝当次产品');assert.equal(c.state.values.MODEL_SPECIFICATION,'拒绝当次未改型号');assert.equal(c.state.approvalDate,'2026-10-01');assert.deepEqual(c.state.currentFiles.map(f=>f.originalName),['已批准原证.pdf','已批准附件.pdf','已批准描述.pdf'])
+ try{c.props.modelValue=true;await drain();assert.equal(c.state.facts.certificateNo,'原证号');assert.equal(c.state.values.PRODUCT_NAME,'拒绝当次产品');assert.equal(c.state.values.MODEL_SPECIFICATION,'拒绝当次未改型号');assert.deepEqual(c.state.selected,['PRODUCT_NAME','OTHER_CONTENT']);assert.equal(c.state.approvalDate,'2026-10-01');assert.deepEqual(c.state.currentFiles.map(f=>f.originalName),['已批准原证.pdf','已批准附件.pdf','已批准描述.pdf'])
   await c.state.submit();assert.equal(c.state.error,'');assert.equal(calls.length,1);assert.equal(calls[0][1].get('sourceRequestId'),'42');assert.deepEqual(calls[0][1].getAll('retainedFileIds'),['7']);assert.equal(calls[0][1].get('expectedRowVersion'),'8');assert.equal(calls[0][1].get('file'),null);assert.equal(calls[0][1].get('structuredValues[PRODUCT_NAME]'),'拒绝当次产品')
  }finally{c.app.unmount()}
 })
@@ -99,7 +102,7 @@ test('Other domestic submits stated project code while keeping system associatio
  }finally{c.app.unmount()}
  const changeCalls=[],currentOther={...current(),factsJson:JSON.stringify({...domestic(),projectCode:'CUSTOMER-PRJ-01'})}
  const change=mount('change/ChangeDialog.vue',{modelValue:false,certificate:{certificateId:100}},{getRegistrationCertificateDetail:async()=>currentOther,getRegistrationCertificateEvidence:async()=>({files:[]}),submitRegistrationCertificateChange:async(id,data)=>changeCalls.push(data)})
- try{change.props.modelValue=true;await drain();assert.equal(change.state.facts.projectCode,'CUSTOMER-PRJ-01');change.state.facts.projectCode='CUSTOMER-PRJ-02';change.state.files=[raw('batch.pdf')];change.state.approvalDate='2026-10-30';await change.state.submit();assert.equal(change.state.error,'');assert.equal(changeCalls.length,1);assert.equal(JSON.parse(changeCalls[0].get('structuredValues[CERTIFICATE_INFORMATION]')).projectCode,'CUSTOMER-PRJ-02')
+ try{change.props.modelValue=true;await drain();assert.equal(change.state.facts.projectCode,'CUSTOMER-PRJ-01');assert.ok(change.state.lockedFields.includes('projectCode'));change.state.selected=['PRODUCT_NAME'];change.state.values.PRODUCT_NAME='变更后产品';change.state.files=[raw('batch.pdf')];change.state.approvalDate='2026-10-30';await change.state.submit();assert.equal(change.state.error,'');assert.equal(changeCalls.length,1);assert.equal(changeCalls[0].get('structuredValues[CERTIFICATE_INFORMATION]'),null);assert.equal(changeCalls[0].get('structuredValues[PRODUCT_NAME]'),'变更后产品');assert.equal(change.state.facts.projectCode,'CUSTOMER-PRJ-01')
  }finally{change.app.unmount()}
 })
 
@@ -135,3 +138,10 @@ test('binding an existing project submits normally while the task entry submits 
   }finally{c.app.unmount()}
  }
 })
+ test('direct CE model addition deletion and Rev number edits submit without selecting change content',async()=>{
+ const calls=[],original={certificateType:'CE',ownProduct:false,classification:'IIa',certificateStatus:'VALID',expiryDate:'2030-01-01',modelSpecifications:['A'],ceCertificates:[{revision:'1',certificateNo:'CE-OLD'}]}
+ const c=mount('change/ChangeDialog.vue',{modelValue:false,certificate:{certificateId:100}},{getRegistrationCertificateDetail:async()=>({...current(),factsJson:JSON.stringify(original)}),getRegistrationCertificateEvidence:async()=>({files:[]}),submitRegistrationCertificateChange:async(id,data)=>calls.push(data)})
+ try{c.props.modelValue=true;await drain();c.state.facts.modelSpecifications.push('B');c.state.facts.ceCertificates[0].certificateNo='CE-NEW';c.state.files=[raw('change.pdf')];c.state.approvalDate='2026-11-01';await c.state.submit();assert.equal(c.state.error,'');let sent=JSON.parse(calls[0].get('structuredValues[CERTIFICATE_INFORMATION]'));assert.deepEqual(sent.modelSpecifications,['A','B']);assert.equal(sent.classification,'IIa');assert.equal(sent.ceCertificates[0].certificateNo,'CE-NEW');assert.deepEqual(c.state.selected,[])
+ c.state.facts.modelSpecifications.splice(0,1);await c.state.submit();sent=JSON.parse(calls[1].get('structuredValues[CERTIFICATE_INFORMATION]'));assert.deepEqual(sent.modelSpecifications,['B'])
+ }finally{c.app.unmount()}
+ })

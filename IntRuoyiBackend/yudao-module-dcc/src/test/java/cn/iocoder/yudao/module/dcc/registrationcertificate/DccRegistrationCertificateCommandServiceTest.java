@@ -1029,11 +1029,12 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
             facts.setKpNumber("K-FOREIGN-DRAFT");
             facts.setApprovalDate(LocalDate.of(2026, 2, 1));
         } else {
+            facts.setModelSpecifications(List.of("CE Model A", "CE Model B"));
             facts.setCertificateStatus("VALID");
             facts.setExpiryDate(LocalDate.of(2031, 2, 1));
         }
         DccRegistrationCertificateDraftData draft = new DccRegistrationCertificateDraftData(
-                10L, null, "Foreign manual product", null, null, null,
+                10L, null, "Foreign manual product", null, facts.getFirstObtainedDate(), null,
                 facts.getApprovalDate(), null, facts.getExpiryDate(), "II",
                 null, null, null, null, null, null, null, false, !facts.isFda(),
                 List.of(), null, facts.toJson());
@@ -1043,6 +1044,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
 
         var version = dbVersionMapper.selectList().stream()
                 .filter(row -> certificateId.equals(row.getCertificateId())).findFirst().orElseThrow();
+        assertEquals(facts.getFirstObtainedDate(), dbCertificateMapper.selectById(certificateId).getFirstObtainedDate());
         assertNull(version.getCertificateNo());
         assertNull(version.getEffectiveDate());
         assertEquals(facts.getExpiryDate(), version.getExpiryDate());
@@ -1050,6 +1052,12 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
         assertEquals(1, snapshots.size());
         var snapshot = snapshots.get(0);
         assertEquals(facts.toJson(), snapshot.getFactsJson());
+        if ("CE".equals(certificateType)) {
+            assertEquals("CE Model A\nCE Model B", snapshot.getModelSpecification());
+            var savedFacts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshot.getFactsJson());
+            assertEquals(List.of("CE Model A", "CE Model B"), savedFacts.getModelSpecifications());
+            assertNull(savedFacts.getFirstObtainedDate());
+        }
         assertEquals("SUCCESS", dbAuditMapper.selectByTenantIdAndEventKey(
                 1L, "create-foreign-" + certificateType).getResult());
     }

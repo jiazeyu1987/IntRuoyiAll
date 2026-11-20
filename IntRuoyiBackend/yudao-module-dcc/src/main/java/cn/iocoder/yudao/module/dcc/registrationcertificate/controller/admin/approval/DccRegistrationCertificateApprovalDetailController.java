@@ -38,7 +38,41 @@ public class DccRegistrationCertificateApprovalDetailController {
         result.put("completedAt", request.getCompletedAt());
         result.put("rejectReason", request.getRejectReason());
         result.put("withdrawReason", request.getWithdrawReason());
-        result.put("submission", JsonUtils.parseObject(request.getDetailJson(), Map.class));
+        Map<String, Object> submission = new LinkedHashMap<>(JsonUtils.parseObject(request.getDetailJson(), Map.class));
+        // Older download applications did not persist the company display name.
+        // Resolve only those records; preserve the submitted name snapshot when present.
+        Object submittedCompanyName = submission.get("ownerCompanyName");
+        if ("DOWNLOAD_FILE".equals(request.getRequestType())
+                && (!(submittedCompanyName instanceof String name) || name.isBlank())) {
+            var names = jdbc.queryForList("""
+                SELECT name FROM mdm_enterprise
+                 WHERE tenant_id=? AND id=? AND type='OWNED_COMPANY' AND deleted=0
+                """, String.class, tenantId, request.getOwnerCompanyId());
+            if (names.size() != 1 || names.get(0) == null || names.get(0).isBlank()) {
+                throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "下载申请所属公司不存在或名称为空");
+            }
+            submission.put("ownerCompanyName", names.get(0));
+        }
+        if ("DOWNLOAD_FILE".equals(request.getRequestType()) && (!(submission.get("certificateName") instanceof String name) || name.isBlank())) {
+            var names = jdbc.queryForList("""
+                SELECT s.product_name FROM dcc_registration_certificate_access_request_file rf
+                LEFT JOIN dcc_registration_certificate_file f ON f.id=rf.business_file_id AND f.tenant_id=rf.tenant_id AND f.deleted=0
+                LEFT JOIN dcc_registration_certificate_version v ON v.tenant_id=f.tenant_id AND v.deleted=0
+                 AND v.id=CASE f.owner_type
+                   WHEN 'VERSION' THEN f.owner_id
+                   WHEN 'CHANGE' THEN (SELECT c.source_version_id FROM dcc_registration_certificate_change c WHERE c.id=f.owner_id AND c.tenant_id=f.tenant_id AND c.certificate_id=? AND c.deleted=0)
+                   WHEN 'SUPPORTING_DOCUMENT' THEN (SELECT sd.version_id FROM dcc_registration_certificate_supporting_document sd WHERE sd.id=f.owner_id AND sd.tenant_id=f.tenant_id AND sd.business_file_id=f.id AND sd.certificate_id=? AND sd.deleted=0)
+                 END
+                LEFT JOIN dcc_registration_certificate_snapshot s ON s.version_id=v.id AND s.tenant_id=v.tenant_id AND s.deleted=0 AND v.certificate_id=?
+                 AND s.id=(SELECT s2.id FROM dcc_registration_certificate_snapshot s2 WHERE s2.version_id=v.id AND s2.tenant_id=v.tenant_id AND s2.deleted=0 ORDER BY s2.revision_no DESC,s2.id DESC LIMIT 1)
+                WHERE rf.tenant_id=? AND rf.request_id=? AND rf.deleted=0 ORDER BY rf.id
+                """, String.class, request.getCertificateId(), request.getCertificateId(), request.getCertificateId(), tenantId, requestId);
+            if (names.isEmpty() || names.stream().anyMatch(n -> n==null || n.isBlank())) {
+                throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400,"申请文件关联的注册证名称缺失");
+            }
+            submission.put("certificateName",String.join("；", names.stream().map(String::trim).distinct().toList()));
+        }
+        result.put("submission", submission);
         result.put("files", jdbc.queryForList("""
             SELECT f.id,f.file_kind AS fileKind,f.original_name AS originalName
               FROM dcc_registration_certificate_access_request_file rf

@@ -6,6 +6,7 @@ export interface CertificateFacts {
   ownProduct: boolean
   projectProduct?: DccRegistrationCertificateProjectProduct
   certificateStatus?: string
+  modelSpecifications?: string[]
   ceCertificates?: Array<{ revision: string; certificateNo?: string; issueDate?: string }>
   [field: string]: any
 }
@@ -32,7 +33,7 @@ export const factLabels: Record<string, string> = {
 export const fieldsFor = (type: CertificateType) => [
   'classification', 'certificateHolder', 'registrationLink',
   ...(type === 'DOMESTIC' ? ['certificateNo', 'firstObtainedDate', 'approvalDate', 'effectiveDate', 'expiryDate'] : []),
-  ...(type === 'CE' ? ['approvalDate', 'expiryDate', 'productNameEn', 'productCode', 'tradeName', 'notifiedBodyCode'] : []),
+  ...(type === 'CE' ? ['firstObtainedDate', 'approvalDate', 'expiryDate', 'productNameEn', 'productCode', 'tradeName', 'notifiedBodyCode'] : []),
   ...(type === 'FDA' ? ['productNameEn', 'submissionType', 'kpNumber', 'regulationCode', 'productCode', 'approvalDate', 'listingNumber', 'listingDate', 'customerHeld', 'approvalLetterStatus', 'factoryRegistrationStatus'] : ['certificateStatus']),
   'remark', 'changeDescription'
 ]
@@ -48,6 +49,11 @@ export const factOptions = (field: string, type: CertificateType): Array<{label:
 export const validateFacts = (facts: CertificateFacts) => {
   const required = ['classification', ...(facts.certificateType === 'DOMESTIC' ? ['certificateNo','firstObtainedDate','effectiveDate','expiryDate'] : []), ...(facts.certificateType === 'CE' ? ['expiryDate'] : []), ...(facts.certificateType === 'FDA' ? ['submissionType','customerHeld','approvalLetterStatus','factoryRegistrationStatus'] : ['certificateStatus'])]
   for (const field of required) if (facts[field] === undefined || facts[field] === null || facts[field] === '') throw new Error(`请填写${factLabels[field]}`)
+  if (facts.certificateType === 'CE' && facts.modelSpecifications) {
+    const models = facts.modelSpecifications.map(model => model.trim())
+    if (models.some(model => !model) || new Set(models).size !== models.length) throw new Error('型号规格须填写且不能重复')
+    facts.modelSpecifications = models
+  }
   const revisions = new Set<string>()
   for (const row of facts.ceCertificates ?? []) { if (!row.revision?.trim() || revisions.has(row.revision.trim())) throw new Error('CE证书Rev.须填写且不能重复'); revisions.add(row.revision.trim()) }
   if (facts.effectiveDate && facts.expiryDate && facts.effectiveDate >= facts.expiryDate) throw new Error('生效日期必须早于有效期至')

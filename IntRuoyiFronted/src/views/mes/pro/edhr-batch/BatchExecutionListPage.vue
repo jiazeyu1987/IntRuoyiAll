@@ -503,7 +503,7 @@
             <div>
               <dt>工单号</dt>
               <dd>
-                {{ selectedVoidWorkOrderCode }}
+                <WorkOrderCodeLink :code="selectedVoidWorkOrderCode" :work-order-id="selectedVoidBatch.workOrderId" />
               </dd>
             </div>
             <div>

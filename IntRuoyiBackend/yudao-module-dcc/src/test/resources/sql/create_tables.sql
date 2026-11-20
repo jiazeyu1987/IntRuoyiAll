@@ -2764,6 +2764,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_bpm_binding` (
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updater` VARCHAR(64) DEFAULT '',
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_dcc_reg_cert_bpm_binding_business` (`tenant_id`, `business_key`),
   UNIQUE KEY `uk_dcc_reg_cert_bpm_binding_process` (`tenant_id`, `bpm_process_instance_id`),

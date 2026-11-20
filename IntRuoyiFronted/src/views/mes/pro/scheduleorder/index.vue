@@ -604,7 +604,7 @@
                             'schedule-order-pool__admission-cell-text'
                           ]"
                         >
-                          {{ row.workOrderCode || '--' }}
+                          <WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" empty-text="--" style="color: inherit" />
                         </span>
                       </template>
                     </el-table-column>
@@ -904,7 +904,7 @@
           <span>{{ priorityTarget?.code || '-' }}</span>
         </el-form-item>
         <el-form-item label="来源生产工单号">
-          <span>{{ priorityTarget?.erpWorkOrderCode || '-' }}</span>
+          <WorkOrderCodeLink :code="priorityTarget?.erpWorkOrderCode" empty-text="-" />
         </el-form-item>
         <el-form-item label="当前优先级">
           <span>{{ priorityTarget?.priorityNo || 1 }}</span>
@@ -960,7 +960,7 @@
           <span>{{ promiseDateTarget?.code || '-' }}</span>
         </el-form-item>
         <el-form-item label="来源生产工单号">
-          <span>{{ promiseDateTarget?.erpWorkOrderCode || '-' }}</span>
+          <WorkOrderCodeLink :code="promiseDateTarget?.erpWorkOrderCode" empty-text="-" />
         </el-form-item>
         <el-form-item label="当前交期">
           <span>{{ promiseDateTarget?.promiseDate || '-' }}</span>
@@ -1096,7 +1096,7 @@
           <span>{{ manualFinishTarget?.code || '-' }}</span>
         </el-form-item>
         <el-form-item label="来源生产工单号">
-          <span>{{ manualFinishTarget?.erpWorkOrderCode || '-' }}</span>
+          <WorkOrderCodeLink :code="manualFinishTarget?.erpWorkOrderCode" empty-text="-" />
         </el-form-item>
         <el-form-item
           :label="manualFinishDialogMode === 'MANUAL_FINISH' ? '完成原因' : '撤销完成原因'"

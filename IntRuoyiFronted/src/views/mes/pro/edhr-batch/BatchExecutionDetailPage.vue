@@ -245,9 +245,7 @@
               }"
             >
               <div class="edhr-batch-detail__preview-context" aria-label="当前正式批记录上下文">
-                <span :title="detail?.workOrderCode || ''">{{
-                  detail?.workOrderCode || '--'
-                }}</span>
+                <span :title="detail?.workOrderCode || ''"><WorkOrderCodeLink :code="detail?.workOrderCode" :work-order-id="detail?.workOrderId" empty-text="--" /></span>
                 <span :title="resolveCurrentBatchRecordNo()">{{
                   resolveCurrentBatchRecordNo()
                 }}</span>
@@ -1556,6 +1554,7 @@
 </template>
 
 <script setup lang="ts">
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import '@/views/mes/pro/edhr/shared/detail-surface.scss'
 import { useTestMode } from '@/store/modules/testMode'

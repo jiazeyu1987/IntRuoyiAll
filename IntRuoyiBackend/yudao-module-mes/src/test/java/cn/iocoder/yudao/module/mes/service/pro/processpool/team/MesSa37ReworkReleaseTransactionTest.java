@@ -9,14 +9,12 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.*;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.*;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.*;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.*;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.*;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.*;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.*;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.*;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditRecorder;
 import cn.iocoder.yudao.module.mes.service.pro.MesSa36Sa38MapperFixture;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
@@ -125,15 +123,8 @@ class MesSa37ReworkReleaseTransactionTest {
                                     .setFormalLossQuantity(BigDecimal.ZERO).setHasActualLoss(false).setZeroLossConfirmed(true)
                                     .setLossDecision("NO_LOSS").setReplenishmentSources(List.of()).setLossDetails(List.of())).toList());
         });
-        var issues=mock(MesWmProductIssueMapper.class);var issueItems=mock(MesWmProductIssueDetailMapper.class);
-        when(issues.selectListByWorkOrderIdForUpdate(30L)).thenReturn(List.of(MesWmProductIssueDO.builder()
-                .id(901L).workOrderId(30L).code("ISSUE-30")
-                .status(cn.iocoder.yudao.module.mes.enums.wm.MesWmProductIssueStatusEnum.FINISHED.getStatus()).build()));
-        when(issueItems.selectListByIssueIdForUpdate(901L)).thenReturn(List.of(MesWmProductIssueDetailDO.builder()
-                .id(902L).issueId(901L).lineId(903L).materialStockId(904L).itemId(1001L).quantity(BigDecimal.ONE)
-                .batchId(905L).batchCode("RAW-30").build()));
         backfill=new MesTeamLeaderActiveOrderCompletionBackfillPortImpl(snapshots,allocations,completions,tasks,details,
-                workOrders,loss,backfills,issues,issueItems,bindings,bindingItems,events,reviews);
+                workOrders,loss,backfills,bindings,bindingItems,events,reviews);
         var completion=new MesTeamLeaderActiveOrderCompletionServiceImpl(orders,receipts,progress,backfill,
                 mock(MesTeamLeaderActiveOrderPickListCompletionSourceService.class),mock(MesActiveOrderTransferTraceService.class),
                 mock(MesPqcProcessInspectionAggregationService.class));

@@ -52,16 +52,6 @@
           <el-button type="warning" plain :loading="submitting" @click="handleVoidRenewal">作废延续候选</el-button>
         </div>
       </el-tab-pane>
-      <el-tab-pane v-if="!props.readOnly && props.certificateStatus !== 'DRAFT'" label="支持文件" name="supporting">
-        <div data-testid="registration-certificate-supporting-document-action" class="registration-certificate-workflow__panel">
-          <el-form inline data-testid="registration-certificate-supporting-document-form">
-            <el-form-item label="材料类型"><el-select v-model="supportingForm.documentType"><el-option label="延续受理单" value="RENEWAL_ACCEPTANCE_RECEIPT" /><el-option label="立卷发补单" value="RENEWAL_SUPPLEMENT_NOTICE" /></el-select></el-form-item>
-            <el-form-item label="支持文件业务文件 ID"><el-input v-model="supportingForm.businessFileId" aria-label="文件中心返回的业务文件 ID" /></el-form-item>
-          </el-form>
-          <el-button type="primary" :loading="submitting" @click="handleUploadSupportingDocument">上传支持文件</el-button>
-          <el-tag type="success">上传后直接生效</el-tag>
-        </div>
-      </el-tab-pane>
       <el-tab-pane label="访问申请" name="access">
         <div data-testid="registration-certificate-access-request-action" class="registration-certificate-workflow__panel">
           <el-radio-group v-model="accessRequestType" aria-label="访问申请类型">
@@ -109,7 +99,6 @@ import {
   deleteRegistrationCertificateDraft,
   formalizeRegistrationCertificate,
   voidRegistrationCertificateRenewalCandidate,
-  uploadRegistrationCertificateSupportingDocument,
   submitRegistrationCertificateAccessRequest,
   type DccRegistrationCertificateDraftReqVO
 } from '@/api/dcc/registrationCertificate'
@@ -131,8 +120,7 @@ const props = defineProps<{
   downloadableFiles?: DownloadableFileOption[]
   initialAccessRequestType?: 'VIEW_OLD_CERTIFICATE' | 'DOWNLOAD_FILE'
   initialDownloadBusinessFileId?: number | string
-  supportingDocumentId?: number | string
-  initialAction?: 'draft' | 'formalize' | 'renewal' | 'supporting' | 'access'
+  initialAction?: 'draft' | 'formalize' | 'renewal' | 'access'
   readOnly?: boolean
   certificateStatus?: string
 }>()
@@ -145,7 +133,6 @@ const accessRequestType = ref<'VIEW_OLD_CERTIFICATE' | 'DOWNLOAD_FILE'>(
   props.initialAccessRequestType || 'VIEW_OLD_CERTIFICATE'
 )
 const pendingVersionId = ref<number | string>()
-const activeSupportingDocumentId = ref<number | string>(props.supportingDocumentId ?? '')
 const selectedDownloadBusinessFileId = ref<number | string>(
   props.initialDownloadBusinessFileId ?? ''
 )
@@ -157,7 +144,6 @@ const operationKeys = {
   formalize: ref(''),
   renewalUpload: ref(''),
   renewalVoid: ref(''),
-  supportingUpload: ref(''),
   accessSubmit: ref('')
 }
 
@@ -173,11 +159,6 @@ const draftForm = reactive<DccRegistrationCertificateDraftReqVO>({
   expiryDate: '',
   classification: '',
   remark: ''
-})
-
-const supportingForm = reactive({
-  documentType: 'RENEWAL_ACCEPTANCE_RECEIPT',
-  businessFileId: props.businessFileId || ''
 })
 
 const downloadFileOptions = computed<DownloadableFileOption[]>(() => {
@@ -336,16 +317,6 @@ const handleVoidRenewal = () => runAction('作废延续候选', () =>
     expectedRowVersion: requireRowVersion(),
     voidReason: '页面提交的延续候选作废原因'
   }, getOrCreateIdempotencyKey('renewalVoid')), 'renewalVoid')
-
-const handleUploadSupportingDocument = () => runAction('上传支持文件', async () => {
-  const result = await uploadRegistrationCertificateSupportingDocument(requireCertificateId(), {
-    versionId: requireVersionId(),
-    businessFileId: supportingForm.businessFileId || requireBusinessFileId(),
-    documentType: supportingForm.documentType
-  }, getOrCreateIdempotencyKey('supportingUpload'))
-  activeSupportingDocumentId.value = result.supportingDocumentId
-  return result
-}, 'supportingUpload')
 
 const handleSubmitAccessRequest = () => runAction('提交访问申请', async () => {
   const requestType = accessRequestType.value

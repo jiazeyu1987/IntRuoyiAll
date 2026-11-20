@@ -303,16 +303,16 @@
 </ContentWrap>
 
   <!-- 表单弹窗：添加/修改 -->
-  <el-dialog v-model="exportDialogVisible" title="选择导出文件夹" width="480px">
-    <el-alert v-if="exportError" title="权限角色配置包导出失败" type="error" :closable="false" show-icon class="mb-4">
+  <el-dialog v-model="exportDialogVisible" title="导出权限角色与审批策略配置包" width="560px">
+    <el-alert v-if="exportError" title="配置包导出失败" type="error" :closable="false" show-icon class="mb-4">
       <div role="alert" style="white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow-y: auto; user-select: text">{{ exportError }}</div>
     </el-alert>
-    <el-select v-model="exportCategoryIds" multiple placeholder="请选择角色分类文件夹" class="w-full">
-      <el-option v-for="category in categoryList" :key="category.id" :label="category.name" :value="category.id" />
-    </el-select>
+    <el-alert type="info" :closable="false" show-icon>
+      导出当前租户全部角色分类、角色菜单与数据权限、审批策略及依赖流程，不受当前文件夹筛选影响。不包含账号与人员角色分配；目标租户导入后须分配审批人员。
+    </el-alert>
     <template #footer>
       <el-button @click="exportDialogVisible = false">取消</el-button>
-      <el-button type="primary" :loading="exportLoading" :disabled="exportCategoryIds.length === 0" @click="handleExport">导出</el-button>
+      <el-button type="primary" :loading="exportLoading" @click="handleExport">导出完整配置包</el-button>
     </template>
   </el-dialog>
   <RoleForm ref="formRef" @success="getList" />
@@ -333,6 +333,7 @@ import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { DICT_TYPE } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'
+import { authContextRevision } from '@/utils/auth'
 import * as RoleApi from '@/api/system/role'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import {
@@ -548,21 +549,21 @@ const handleRoleExcelExport = async () => {
 
 const exportDialogVisible = ref(false)
 const exportError = ref('')
-const exportCategoryIds = ref<number[]>([])
 const openExport = () => {
   exportError.value = ''
-  exportCategoryIds.value = queryParams.categoryId ? [queryParams.categoryId] : []
   exportDialogVisible.value = true
 }
 
 /** 导出按钮操作 */
 const handleExport = async () => {
-  if (exportCategoryIds.value.length === 0) return
+  if (exportLoading.value) return
+  const revision = authContextRevision.value
   exportLoading.value = true
   exportError.value = ''
   try {
-    const data = await RoleApi.exportRoleConfigPackage(exportCategoryIds.value)
-    download.json(data, '权限角色配置包.json')
+    const data = await RoleApi.exportRoleConfigPackage(() => revision === authContextRevision.value)
+    if (revision !== authContextRevision.value) throw new Error('租户或登录状态已变更，请重新导出')
+    download.json(data, '权限角色与审批策略配置包.json')
     exportDialogVisible.value = false
   } catch (error) {
     exportError.value = error instanceof Error ? error.message : String(error)
@@ -579,16 +580,21 @@ const handleImportFileChange = async (event: Event) => {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
-  if (!file) {
+  if (!file || importLoading.value) {
     return
   }
   importLoading.value = true
+  const revision = authContextRevision.value
   try {
     const formData = new FormData()
     formData.append('file', file)
-    await RoleApi.importRoleConfigPackage(formData)
-    message.success('权限角色配置包导入成功')
+    await RoleApi.importRoleConfigPackage(formData, () => revision === authContextRevision.value)
+    if (revision !== authContextRevision.value) throw new Error('导入请求的租户状态已变更，请切回原租户核对结果')
+    message.success('权限角色与审批策略配置包导入成功')
+    message.warning('请在目标租户核对角色授权并分配审批人员，配置包不迁移账号和人员角色分配')
     await refreshCategories()
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : String(error))
   } finally {
     importLoading.value = false
   }

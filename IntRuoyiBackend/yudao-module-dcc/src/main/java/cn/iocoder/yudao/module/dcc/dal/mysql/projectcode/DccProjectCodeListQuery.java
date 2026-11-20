@@ -60,6 +60,10 @@ public final class DccProjectCodeListQuery {
             String digits = "COALESCE(NULLIF(TRIM(LEADING '0' FROM " + doc + "), ''), '0')";
             sql += " ORDER BY <choose><when test=\"req.fileCountSort != null and req.fileCountSort.toLowerCase() == 'asc'\">q.associated_file_count ASC,</when>"
                     + "<when test=\"req.fileCountSort != null and req.fileCountSort.toLowerCase() == 'desc'\">q.associated_file_count DESC,</when></choose>"
+                    + "<choose><when test=\"req.routeStatusSort != null and req.routeStatusSort.toLowerCase() == 'asc'\">CASE WHEN q.route_configured THEN 0 ELSE 1 END ASC,</when>"
+                    + "<when test=\"req.routeStatusSort != null and req.routeStatusSort.toLowerCase() == 'desc'\">CASE WHEN q.route_configured THEN 1 ELSE 0 END ASC,</when></choose>"
+                    + "<choose><when test=\"req.qaRegulationStatusSort != null and req.qaRegulationStatusSort.toLowerCase() == 'asc'\">CASE WHEN q.qa_configured THEN 0 ELSE 1 END ASC,</when>"
+                    + "<when test=\"req.qaRegulationStatusSort != null and req.qaRegulationStatusSort.toLowerCase() == 'desc'\">CASE WHEN q.qa_configured THEN 1 ELSE 0 END ASC,</when></choose>"
                     + "CASE WHEN " + doc + " REGEXP '^[0-9]+$' THEN 0 ELSE 1 END ASC,"
                     + "CASE WHEN " + doc + " REGEXP '^[0-9]+$' THEN LENGTH(" + digits + ") ELSE NULL END ASC,"
                     + "CASE WHEN " + doc + " REGEXP '^[0-9]+$' THEN CAST(" + digits + " AS BINARY) ELSE NULL END ASC,"
@@ -70,9 +74,19 @@ public final class DccProjectCodeListQuery {
     }
 
     private static String projection() {
-        String routes = " FROM mes_pro_route r WHERE r.tenant_id=p.tenant_id AND r.deleted=0 AND EXISTS(SELECT 1 FROM mes_pro_route_product rp JOIN mes_md_item i ON i.id=rp.item_id AND i.tenant_id=p.tenant_id AND i.deleted=0 JOIN dcc_project_code pc ON TRIM(pc.project_code)=i.code AND pc.tenant_id=p.tenant_id AND pc.deleted=0 AND pc.status='ENABLE' WHERE rp.route_id=r.id AND rp.tenant_id=p.tenant_id AND rp.deleted=0 AND pc.project_name=TRIM(p.project_name))";
+        // Use the formal project binding, independently of the route's ERP product codes.
+        String projectBinding = " FROM mes_pro_route_dcc_project_binding pb JOIN dcc_project_code pc"
+                + " ON pc.id=pb.dcc_project_code_id AND pc.tenant_id=p.tenant_id AND pc.deleted=0 AND pc.status='ENABLE'"
+                + " WHERE pb.route_id=r.id AND pb.tenant_id=p.tenant_id AND pb.deleted=0"
+                + " AND pc.project_name=TRIM(p.project_name)";
+        String routes = " FROM mes_pro_route r WHERE r.tenant_id=p.tenant_id AND r.deleted=0"
+                + " AND EXISTS(SELECT 1" + projectBinding + ")";
         String routeCount = "(SELECT COUNT(*)" + routes + ")";
-        String routeVersions = "(SELECT GROUP_CONCAT(DISTINCT TRIM(rv.version_no) ORDER BY (SELECT MIN(rp.id) FROM mes_pro_route_product rp JOIN mes_md_item i ON i.id=rp.item_id AND i.tenant_id=p.tenant_id AND i.deleted=0 JOIN dcc_project_code pc ON TRIM(pc.project_code)=i.code AND pc.tenant_id=p.tenant_id AND pc.deleted=0 AND pc.status='ENABLE' WHERE rp.route_id=r.id AND rp.tenant_id=p.tenant_id AND rp.deleted=0 AND pc.project_name=TRIM(p.project_name)) SEPARATOR '、') FROM mes_pro_route r JOIN mes_pro_route_version rv ON rv.route_id=r.id AND rv.tenant_id=p.tenant_id AND rv.deleted=0 AND rv.active=1 AND rv.lifecycle_status='ACTIVE' WHERE r.tenant_id=p.tenant_id AND r.deleted=0 AND NULLIF(TRIM(rv.version_no),'') IS NOT NULL AND EXISTS(SELECT 1 FROM mes_pro_route_product rp JOIN mes_md_item i ON i.id=rp.item_id AND i.tenant_id=p.tenant_id AND i.deleted=0 JOIN dcc_project_code pc ON TRIM(pc.project_code)=i.code AND pc.tenant_id=p.tenant_id AND pc.deleted=0 AND pc.status='ENABLE' WHERE rp.route_id=r.id AND rp.tenant_id=p.tenant_id AND rp.deleted=0 AND pc.project_name=TRIM(p.project_name)))";
+        String routeVersions = "(SELECT GROUP_CONCAT(DISTINCT TRIM(rv.version_no) ORDER BY r.id SEPARATOR '、')"
+                + " FROM mes_pro_route r JOIN mes_pro_route_version rv ON rv.route_id=r.id"
+                + " AND rv.tenant_id=p.tenant_id AND rv.deleted=0 AND rv.active=1 AND rv.lifecycle_status='ACTIVE'"
+                + " WHERE r.tenant_id=p.tenant_id AND r.deleted=0 AND NULLIF(TRIM(rv.version_no),'') IS NOT NULL"
+                + " AND EXISTS(SELECT 1" + projectBinding + "))";
         String definitions = " FROM mes_pro_batch_record_definition d WHERE d.tenant_id=p.tenant_id AND d.deleted=0 AND d.batch_record_name=TRIM(p.project_name)";
         String definitionCount = "(SELECT COUNT(*)" + definitions + ")";
         String mainExists = "EXISTS(SELECT 1" + definitions + " AND EXISTS(SELECT 1 FROM mes_pro_batch_record_report br WHERE br.batch_record_definition_id=d.id AND br.tenant_id=p.tenant_id AND br.deleted=0 AND (br.form_slot_type='MAIN' OR br.form_slot_type IS NULL)))";

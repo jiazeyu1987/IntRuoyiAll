@@ -70,8 +70,8 @@
       </el-form-item>
       <el-form-item label="到期提醒节点">
         <div v-if="loaded">
-          <el-space wrap><el-tag v-for="day in thresholdDays" :key="day" type="info">到期前 {{ day }} 天</el-tag></el-space>
-          <details class="mt-10px"><summary>配置技术详情</summary><p>业务时区：{{ form.timezone }}</p><p>原始天数配置：{{ form.thresholdDaysJson }}</p></details>
+          <el-space wrap><el-tag v-for="day in thresholdDays" :key="day" type="info">到期前 {{ day }} 个自然月</el-tag></el-space>
+          <details class="mt-10px"><summary>配置技术详情</summary><p>业务时区：{{ form.timezone }}</p><p>原始月数配置：{{ form.thresholdDaysJson }}</p></details>
         </div>
       </el-form-item>
       <el-form-item>

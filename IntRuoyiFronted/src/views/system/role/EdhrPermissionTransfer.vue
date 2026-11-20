@@ -17,7 +17,7 @@
           :disabled="exportLoading"
           @click="emit('exportRole')"
         >
-          权限角色配置包（JSON）
+          权限角色与审批策略配置包（JSON）
         </el-dropdown-item>
         <el-dropdown-item v-if="canExport" :disabled="exporting" @click="exportFile">
           eDHR 权限（Excel）
@@ -43,7 +43,7 @@
           :disabled="importLoading"
           @click="emit('importRole')"
         >
-          权限角色配置包（JSON）
+          权限角色与审批策略配置包（JSON）
         </el-dropdown-item>
         <el-dropdown-item v-if="canImport" :disabled="busy" @click="open">
           eDHR 权限（Excel）
@@ -185,8 +185,26 @@ import * as Transfer from '@/api/system/role/edhrPermissionTransfer'
 defineProps<{ exportLoading: boolean; importLoading: boolean }>()
 const emit = defineEmits<{ success: []; exportRole: []; importRole: [] }>()
 const message = useMessage()
-const canExportRole = computed(() => checkPermi(['system:role:export']))
-const canImportRole = computed(() => checkPermi(['system:role:create', 'system:role:update']))
+const canExportRole = computed(() =>
+  ['system:role:export', 'bpm:business-approval-policy:query', 'bpm:model:query'].every(
+    (permission) => checkPermi([permission])
+  )
+)
+const canImportRole = computed(() =>
+  [
+    'system:role:create',
+    'system:role:update',
+    'system:role-category:create',
+    'system:permission:assign-role-menu',
+    'system:permission:assign-role-data-scope',
+    'bpm:business-approval-policy:create',
+    'bpm:business-approval-policy:publish',
+    'bpm:business-approval-policy:disable',
+    'bpm:model:create',
+    'bpm:model:deploy',
+    'bpm:category:create'
+  ].every((permission) => checkPermi([permission]))
+)
 const canExport = computed(() =>
   ['system:role:export', 'system:user:query'].every((p) => checkPermi([p]))
 )

@@ -949,6 +949,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (routeMapper.selectByIdForUpdate(routeId) == null) {
             throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_NOT_EXISTS);
         }
+        routeStartAuthorizationService.assertCanJoinRoute(reqBO.getLeaderUserId(), routeId);
         Long routeVersionId = routeSource.routeVersionId();
         MesProcessPoolActiveOrderDO existing = selectExistingActiveOrder(reqBO.getWorkOrderId(), routeId,
                 routeVersionId);
@@ -2764,6 +2765,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                     history.stream().map(MesProcessPoolActiveOrderDO::getId).toList());
         }
         MesProcessPoolActiveOrderDO historicalOrder = history.get(0);
+        routeStartAuthorizationService.assertCanJoinRoute(reqBO.getLeaderUserId(), historicalOrder.getRouteId());
         if (STATUS_ACTIVE.equals(historicalOrder.getActiveStatus())) {
             return addResult(historicalOrder.getId(), ACTION_REUSE, reqBO.getWorkOrderId(), pickList);
         }
@@ -3528,6 +3530,14 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         Map<Long, MesProProcessPoolEventDO> productionEventsById = (sourceEventIds.isEmpty()
                 ? List.<MesProProcessPoolEventDO>of() : processPoolEventMapper.selectBatchIds(sourceEventIds)).stream()
                 .collect(Collectors.toMap(MesProProcessPoolEventDO::getId, Function.identity()));
+        List<Long> workOrderIds = activeOrders.stream().map(MesProcessPoolActiveOrderDO::getWorkOrderId)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, List<MesProcessPoolOrderProcessCompletionDO>> completionsByWorkOrderId =
+                (workOrderIds.isEmpty() ? List.<MesProcessPoolOrderProcessCompletionDO>of()
+                        : orderProcessCompletionMapper.selectListByWorkOrderIds(workOrderIds)).stream()
+                        .filter(completion -> completion.getWorkOrderId() != null)
+                        .collect(Collectors.groupingBy(MesProcessPoolOrderProcessCompletionDO::getWorkOrderId,
+                                LinkedHashMap::new, Collectors.toList()));
         Map<Long, ActiveOrderProgress> progressByActiveOrderId = new LinkedHashMap<>();
         activeOrders.forEach(activeOrder -> {
             try {
@@ -3565,9 +3575,12 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                         .count();
                 List<MesPqcInspectionTaskDO> pqcTasks = pqcTasksByActiveOrderId.getOrDefault(activeOrder.getId(),
                         List.of());
+                List<MesProcessPoolOrderProcessCompletionDO> completions = completionsByWorkOrderId
+                        .getOrDefault(activeOrder.getWorkOrderId(), List.of());
                 progressByActiveOrderId.put(activeOrder.getId(), new ActiveOrderProgress(
                         toProgressPercent(completedProcessCount, totalProcessCount),
                         calculateInspectionProgressPercent(pqcTasks, pqcCoverageService.missingExpectedPqcTaskIdentities(activeOrder, pqcTasks).size()),
+                        hasFormalProductionReview(activeOrder, snapshots, completions),
                         processRemainingQuantities,
                         quantityConflictProcessCount > 0,
                         quantityConflictProcessCount,
@@ -3859,6 +3872,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .setProcessRemainingQuantities(progress.processRemainingQuantities())
                 .setProductionProgressPercent(progress.productionProgressPercent())
                 .setInspectionProgressPercent(progress.inspectionProgressPercent())
+                .setFormalProductionReviewComplete(progress.formalProductionReviewComplete())
+                .setReleaseApplyBlockReason(StrUtil.isBlank(workOrder.getBatchCode())
+                        ? "缺少正式生产批号，请由上游岗位维护后再申请完工"
+                        : !progress.formalProductionReviewComplete()
+                        ? "生产复核未完成，请先在报工管理中完成工序复核和数量确认" : null)
                 .setActiveStatus(activeOrder.getActiveStatus())
                 .setBusinessStatus(activeOrder.getBusinessStatus())
                 .setJoinedAt(activeOrder.getJoinedAt())
@@ -4782,7 +4800,35 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return workOrder.getQuantity() == null ? BigDecimal.ZERO : workOrder.getQuantity();
     }
 
+    static boolean hasFormalProductionReview(MesProcessPoolActiveOrderDO activeOrder,
+                                             List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots,
+                                             List<MesProcessPoolOrderProcessCompletionDO> completions) {
+        if (activeOrder.getWorkOrderId() == null || snapshots == null || snapshots.isEmpty()
+                || completions == null || completions.isEmpty()) return false;
+        for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
+            if (snapshot == null || snapshot.getRouteProcessId() == null || snapshot.getProcessId() == null) return false;
+            List<MesProcessPoolOrderProcessCompletionDO> matches = completions.stream()
+                    .filter(completion -> completion != null
+                            && Objects.equals(completion.getWorkOrderId(), activeOrder.getWorkOrderId())
+                            && Objects.equals(completion.getRouteProcessId(), snapshot.getRouteProcessId())
+                            && Objects.equals(completion.getProcessId(), snapshot.getProcessId()))
+                    .toList();
+            if (matches.size() != 1) return false;
+            MesProcessPoolOrderProcessCompletionDO completion = matches.get(0);
+            if (completion.getId() == null
+                    || !MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED.equals(completion.getCompletionStatus())
+                    || completion.getTargetQuantity() == null || completion.getConfirmedQuantity() == null
+                    || completion.getConfirmedQuantity().compareTo(completion.getTargetQuantity()) < 0
+                    || completion.getLastEventId() == null || completion.getLastReviewId() == null
+                    || StrUtil.isBlank(completion.getSourceEventIdsJson())
+                    || StrUtil.isBlank(completion.getSourceAllocationIdsJson())
+                    || StrUtil.isBlank(completion.getAggregateHash())) return false;
+        }
+        return true;
+    }
+
     private record ActiveOrderProgress(BigDecimal productionProgressPercent, BigDecimal inspectionProgressPercent,
+                                       boolean formalProductionReviewComplete,
                                        List<MesTeamLeaderActiveOrderRow.ProcessRemainingQuantity>
                                                processRemainingQuantities,
                                        boolean hasQuantityConflict,

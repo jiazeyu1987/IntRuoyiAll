@@ -165,12 +165,15 @@ public class DccRegistrationCertificateRenewalService {
         DccRegistrationCertificateDO certificate = requireActiveCertificate(
                 candidateCommand, certificateMapper.selectByIdForUpdate(command.certificateId()));
         DccRegistrationCertificateVersionDO currentVersion = requireCurrentVersion(certificate, command.currentVersionId());
-        validateRenewalDates(certificate.getFirstObtainedDate(), command.approvalDate(),
+        var currentFacts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(
+                requireSnapshot(certificate.getCurrentSnapshotId(), currentVersion.getId()).getFactsJson());
+        boolean ceRenewal = isCeRenewal(certificate, currentVersion);
+        validateRenewalDates(ceRenewal, currentFacts.getFirstObtainedDate(), command.approvalDate(),
                 command.effectiveDate(), command.expiryDate());
         String renewalCertificateNo = resolveRenewalCertificateNo(
-                command.categoryChanged(), command.certificateNo(), currentVersion);
+                ceRenewal, command.categoryChanged(), command.certificateNo(), currentFacts);
         String renewalClassification = resolveRenewalClassification(
-                command.categoryChanged(), command.classification(), currentVersion);
+                ceRenewal, command.categoryChanged(), command.classification(), currentFacts);
         DccRegistrationCertificateSnapshotDO currentSnapshot = requireSnapshot(
                 certificate.getCurrentSnapshotId(), currentVersion.getId());
         String productName = requireSummaryText(currentSnapshot.getProductName());
@@ -199,6 +202,7 @@ public class DccRegistrationCertificateRenewalService {
         var projected=copySnapshot(currentSnapshot,command.currentVersionId());
         projected.setFactsJson(renewalFacts(currentSnapshot.getFactsJson(),renewalCertificateNo,renewalClassification,
                 command.approvalDate(),command.effectiveDate(),command.expiryDate()));
+        frozen.put("certificateType", ceRenewal ? "CE" : "DOMESTIC");
         frozen.put("factsJson",projected.getFactsJson());frozen.put("draft",projected);
         DccRegistrationCertificateAccessRequestDO request = DccRegistrationCertificateAccessRequestDO.builder()
                 .ownerCompanyId(certificate.getOwnerCompanyId())
@@ -278,19 +282,22 @@ public class DccRegistrationCertificateRenewalService {
 
         DccRegistrationCertificateDO certificate = requireActiveCertificate(command);
         DccRegistrationCertificateVersionDO currentVersion = requireCurrentVersion(certificate, command.currentVersionId());
+        var currentFacts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(
+                requireSnapshot(certificate.getCurrentSnapshotId(), currentVersion.getId()).getFactsJson());
         DccRegistrationCertificateSnapshotDO currentSnapshot = requireSnapshot(certificate.getCurrentSnapshotId(),
                 currentVersion.getId());
         List<DccRegistrationCertificateSnapshotEntrustedDO> entrustedRows =
                 entrustedMapper.selectListBySnapshotId(currentSnapshot.getId());
         DccRegistrationCertificateFileDO file = requireStagedRenewalFile(
                 command.tenantId(), currentVersion.getId(), command.businessFileId());
-        validateRenewalDates(certificate.getFirstObtainedDate(), command.approvalDate(),
+        boolean ceRenewal = isCeRenewal(certificate, currentVersion);
+        validateRenewalDates(ceRenewal, currentFacts.getFirstObtainedDate(), command.approvalDate(),
                 command.effectiveDate(), command.expiryDate());
-        boolean categoryChanged = requireCategoryChanged(command.categoryChanged());
+        boolean categoryChanged = !ceRenewal && requireCategoryChanged(command.categoryChanged());
         String renewalCertificateNo = resolveRenewalCertificateNo(
-                command.categoryChanged(), command.certificateNo(), currentVersion);
+                ceRenewal, command.categoryChanged(), command.certificateNo(), currentFacts);
         String renewalClassification = resolveRenewalClassification(
-                command.categoryChanged(), command.classification(), currentVersion);
+                ceRenewal, command.categoryChanged(), command.classification(), currentFacts);
 
         DccRegistrationCertificateVersionDO renewalVersion = DccRegistrationCertificateVersionDO.builder()
                 .certificateId(certificate.getId())
@@ -298,7 +305,7 @@ public class DccRegistrationCertificateRenewalService {
                 .versionType(VERSION_TYPE_RENEWAL)
                 .certificateNo(renewalCertificateNo)
                 .approvalDate(command.approvalDate())
-                .effectiveDate(command.effectiveDate())
+                .effectiveDate(ceRenewal ? currentFacts.getEffectiveDate() : command.effectiveDate())
                 .expiryDate(command.expiryDate())
                 .classification(renewalClassification)
                 .categoryChanged(categoryChanged)
@@ -369,7 +376,7 @@ public class DccRegistrationCertificateRenewalService {
                 command.tenantId(), certificate.getOwnerCompanyId(), certificate.getId(), renewalVersion.getId(),
                 command.actorId(), command.idempotencyKey(), renewalSnapshot.getProductName(),
                 renewalVersion.getCertificateNo(), renewalVersion.getEffectiveDate(), renewalVersion.getExpiryDate());
-        if (!command.effectiveDate().isAfter(businessClock.businessDate())) {
+        if (ceRenewal || !command.effectiveDate().isAfter(businessClock.businessDate())) {
             activationService.activateDueCandidate(new DccRegistrationCertificateActivationCommand(
                     command.tenantId(), command.actorId(), command.idempotencyKey() + ":activation",
                     command.requestTraceId() + ":activation", command.certificateId(),
@@ -574,23 +581,37 @@ public class DccRegistrationCertificateRenewalService {
         return file;
     }
 
-    private void validateRenewalDates(LocalDate firstObtainedDate, LocalDate approvalDate,
+    private boolean isCeRenewal(DccRegistrationCertificateDO certificate, DccRegistrationCertificateVersionDO version) {
+        return "CE".equals(cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(
+                requireSnapshot(certificate.getCurrentSnapshotId(), version.getId()).getFactsJson()).getCertificateType());
+    }
+
+    private void validateRenewalDates(boolean ceRenewal, LocalDate firstObtainedDate, LocalDate approvalDate,
                                       LocalDate effectiveDate, LocalDate expiryDate) {
-        if (approvalDate == null || effectiveDate == null || expiryDate == null
-                || firstObtainedDate != null && firstObtainedDate.isAfter(approvalDate)
-                || approvalDate.isAfter(effectiveDate)
-                || !effectiveDate.isBefore(expiryDate)) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_DATE_ORDER_INVALID);
+        if (approvalDate == null) throw new ServiceException(400, "请填写批准日期");
+        if (expiryDate == null) throw new ServiceException(400, "请填写有效期至");
+        if (ceRenewal) {
+            if (effectiveDate != null) throw new ServiceException(400, "CE续证不允许修改生效日期");
+            if (!approvalDate.isBefore(expiryDate)) throw new ServiceException(400, "批准日期必须早于有效期至");
+        } else {
+            if (effectiveDate == null) throw new ServiceException(400, "请填写生效日期");
+            if (firstObtainedDate != null && firstObtainedDate.isAfter(approvalDate))
+                throw new ServiceException(400, "批准日期不能早于首次获证日期");
+            if (approvalDate.isAfter(effectiveDate)) throw new ServiceException(400, "批准日期不能晚于生效日期");
+            if (!effectiveDate.isBefore(expiryDate)) throw new ServiceException(400, "生效日期必须早于有效期至");
         }
-        if (approvalDate.isAfter(businessClock.businessDate())) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_APPROVAL_DATE_INVALID);
-        }
+        if (approvalDate.isAfter(businessClock.businessDate()))
+            throw new ServiceException(400, "批准日期不能晚于当前日期");
     }
 
     private static String renewalFacts(String source,String number,String classification,LocalDate approval,LocalDate effective,LocalDate expiry) {
         var facts=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(source);
         facts.setCertificateNo(number);facts.setClassification(classification);facts.setApprovalDate(approval);
-        facts.setEffectiveDate(effective);facts.setExpiryDate(expiry);facts.setCertificateStatus("VALID");
+        if (!"CE".equals(facts.getCertificateType())) facts.setEffectiveDate(effective);
+        if ("CE".equals(facts.getCertificateType()) && facts.getCeCertificates() != null && !facts.getCeCertificates().isEmpty())
+            facts.getCeCertificates().get(facts.getCeCertificates().size()-1).setCertificateNo(number);
+        facts.setExpiryDate(expiry);
+        if (!"CE".equals(facts.getCertificateType())) facts.setCertificateStatus("VALID");
         return facts.toJson();
     }
 
@@ -824,7 +845,7 @@ public class DccRegistrationCertificateRenewalService {
         detail.put("expectedRowVersion", command.expectedRowVersion());
         detail.put("businessFileId", businessFileId);
         detail.put("approvalDate", command.approvalDate().toString());
-        detail.put("effectiveDate", command.effectiveDate().toString());
+        detail.put("effectiveDate", command.effectiveDate() == null ? null : command.effectiveDate().toString());
         detail.put("expiryDate", command.expiryDate().toString());
         detail.put("categoryChanged", Boolean.TRUE.equals(command.categoryChanged()));
         detail.put("certificateNo", certificateNo);
@@ -880,10 +901,11 @@ public class DccRegistrationCertificateRenewalService {
                 requireDetailInteger(parsed, "expectedRowVersion"),
                 requireDetailLong(parsed, "businessFileId"),
                 LocalDate.parse(requireDetailText(parsed, "approvalDate")),
-                LocalDate.parse(requireDetailText(parsed, "effectiveDate")),
+                optionalDetailText(parsed, "effectiveDate") == null ? null : LocalDate.parse(requireDetailText(parsed, "effectiveDate")),
                 LocalDate.parse(requireDetailText(parsed, "expiryDate")),
                 categoryChanged,
-                Boolean.TRUE.equals(categoryChanged) ? optionalDetailText(parsed, "certificateNo") : null,
+                Boolean.TRUE.equals(categoryChanged) || "CE".equals(parsed.get("certificateType"))
+                        ? optionalDetailText(parsed, "certificateNo") : null,
                 Boolean.TRUE.equals(categoryChanged) ? optionalDetailText(parsed, "classification") : null);
     }
 
@@ -925,15 +947,21 @@ public class DccRegistrationCertificateRenewalService {
         return Boolean.TRUE.equals(categoryChanged);
     }
 
-    private static String resolveRenewalCertificateNo(Boolean categoryChangedValue, String certificateNo,
-                                                      DccRegistrationCertificateVersionDO currentVersion) {
+    private static String resolveRenewalCertificateNo(boolean ceRenewal, Boolean categoryChangedValue, String certificateNo,
+                                                      cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts currentFacts) {
+        if (ceRenewal) {
+            String number = normalize(certificateNo);
+            if (Boolean.TRUE.equals(categoryChangedValue) || isBlank(number) || number.length() > MAX_CERTIFICATE_NO_LENGTH)
+                throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_FIELD_FORBIDDEN);
+            return number;
+        }
         boolean categoryChanged = requireCategoryChanged(categoryChangedValue);
         String requestedCertificateNo = normalize(certificateNo);
         if (!categoryChanged) {
             if (!isBlank(requestedCertificateNo)) {
                 throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_FIELD_FORBIDDEN);
             }
-            return currentVersion.getCertificateNo();
+            return currentFacts.getCertificateNo();
         }
         if (isBlank(requestedCertificateNo) || requestedCertificateNo.length() > MAX_CERTIFICATE_NO_LENGTH) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED);
@@ -941,15 +969,20 @@ public class DccRegistrationCertificateRenewalService {
         return requestedCertificateNo;
     }
 
-    private static String resolveRenewalClassification(Boolean categoryChangedValue, String classification,
-                                                       DccRegistrationCertificateVersionDO currentVersion) {
+    private static String resolveRenewalClassification(boolean ceRenewal, Boolean categoryChangedValue, String classification,
+                                                       cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts currentFacts) {
+        if (ceRenewal) {
+            if (Boolean.TRUE.equals(categoryChangedValue) || !isBlank(classification))
+                throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_FIELD_FORBIDDEN);
+            return currentFacts.getClassification();
+        }
         boolean categoryChanged = requireCategoryChanged(categoryChangedValue);
         String requestedClassification = normalize(classification);
         if (!categoryChanged) {
             if (!isBlank(requestedClassification)) {
                 throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_FIELD_FORBIDDEN);
             }
-            return currentVersion.getClassification();
+            return currentFacts.getClassification();
         }
         if (isBlank(requestedClassification) || requestedClassification.length() > MAX_CLASSIFICATION_LENGTH) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED);

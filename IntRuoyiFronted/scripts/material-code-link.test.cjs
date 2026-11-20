@@ -86,11 +86,11 @@ async function testLink() {
 
 async function testRouteState() {
   const source = read('src/views/mes/md/item/index.vue')
-  const body = source.slice(source.indexOf('const loadListFromRoute = async () => {'), source.indexOf('/** 切换物料状态 */'))
+  const body = source.slice(source.indexOf('let routeLoadGeneration = 0'), source.indexOf('/** 切换物料状态 */'))
   const route = vue.reactive({ path: '/mes/md/item', query: { code: 'A' } })
   const queryParams = { pageNo: 8, name: 'old', itemTypeId: 7, status: 0 }
   const requests = []
-  const context = { route, queryParams, CommonStatusEnum: { ENABLE: 0 }, getList: async () => requests.push({ ...queryParams }), openedDetailId: { value: '' }, listRequest: { invalidate() {} }, openForm() {} }
+  const context = { parsePositiveRouteQueryId: load('src/utils/routeQueryId.ts').parsePositiveRouteQueryId, route, queryParams, CommonStatusEnum: { ENABLE: 0 }, getList: async () => requests.push({ ...queryParams }), openedDetailId: { value: '' }, listRequest: { invalidate() {} }, openForm() {} }
   vm.runInNewContext(body + ';this.run = loadListFromRoute', context)
   await context.run()
   assert.equal(requests[0].code, 'A')
@@ -107,5 +107,29 @@ async function testRouteState() {
   await context.run()
   assert.equal(requests.length, 3)
   assert.equal(requests[2].pageNo, 1)
+  const opened = []
+  const pending = []
+  context.openForm = (type, id) => opened.push(id)
+  context.getList = () => new Promise(resolve => pending.push(resolve))
+  route.query.openDetailId = '9007199254740993123'
+  const first = context.run()
+  route.query.openDetailId = '9007199254740993124'
+  const second = context.run()
+  pending[1]()
+  await second
+  pending[0]()
+  await first
+  assert.deepEqual(opened, ['9007199254740993124'])
+  route.query.openDetailId = '9007199254740993125'
+  const leaving = context.run()
+  route.path = '/other'
+  await context.run()
+  pending[2]()
+  await leaving
+  assert.equal(opened.length, 1)
+  route.path = '/mes/md/item'
+  route.query.openDetailId = 'invalid'
+  await assert.rejects(context.run(), /正整数/)
+
 }
 Promise.resolve().then(testLink).then(testRouteState).then(() => console.log('PASS material navigation and route state')).catch(error => { console.error(error); process.exitCode = 1 })

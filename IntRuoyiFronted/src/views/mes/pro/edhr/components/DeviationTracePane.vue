@@ -7,7 +7,7 @@
     <el-empty v-else-if="!rows.length" description="没有偏差" />
     <el-table v-else :data="rows" row-key="id" size="small">
       <el-table-column prop="deviationCode" label="偏差编号" min-width="170" />
-      <el-table-column label="来源" min-width="180"><template #default="{ row }">{{ row.batchExecutionCode || (row.activeOrderId ? `${row.workOrderCode || '订单'}（生产中发起）` : '—') }}</template></el-table-column>
+      <el-table-column label="来源" min-width="180"><template #default="{ row }"><span v-if="row.batchExecutionCode">{{ row.batchExecutionCode }}</span><template v-else-if="row.activeOrderId"><WorkOrderCodeLink :code="row.workOrderCode" empty-text="订单" />（生产中发起）</template><span v-else>—</span></template></el-table-column>
       <el-table-column label="等级" width="110"><template #default="{ row }">{{ row.level === 'CRITICAL' ? '重大（关键）' : '普通' }}</template></el-table-column>
       <el-table-column label="状态" width="90"><template #default="{ row }">{{ row.status === 'OPEN' ? '未处理' : '已处理' }}</template></el-table-column>
       <el-table-column label="不合格评审" min-width="220"><template #default="{ row }">{{ row.nonconformanceReviewCode || (row.nonconformanceReviewId ? `#${row.nonconformanceReviewId}` : '—') }}<span v-if="row.nonconformanceDisposition"> / {{ nonconformanceDispositionLabel(row.nonconformanceDisposition) }}</span></template></el-table-column>
@@ -25,6 +25,7 @@
   </section>
 </template>
 <script setup lang="ts">
+import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { getDeviationPage, type DeviationRespVO } from '@/api/mes/pro/edhr/deviation'
 import DeviationDetail from '@/views/mes/pro/edhr-deviation/DeviationDetail.vue'
 import { nonconformanceDispositionLabel } from '@/views/mes/pro/processpool/components/activeOrderDisplayLabels'

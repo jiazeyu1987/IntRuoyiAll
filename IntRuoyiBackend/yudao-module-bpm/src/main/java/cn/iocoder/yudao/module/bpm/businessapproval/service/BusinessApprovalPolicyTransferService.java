@@ -62,7 +62,8 @@ public class BusinessApprovalPolicyTransferService {
             throw invalid("旧版审批策略文件不包含依赖流程，请从源租户重新导出版本2完整配置");
         }
         if (transfer.getPolicies().isEmpty()) {
-            throw invalid("审批策略文件没有可导入的策略");
+            if (!transfer.getProcesses().isEmpty()) throw invalid("没有审批策略的配置包不能包含依赖流程");
+            return 0;
         }
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         List<BusinessApprovalPolicyDO> existing = currentTenantPolicies(true);

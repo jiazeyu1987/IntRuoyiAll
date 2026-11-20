@@ -85,7 +85,7 @@ public interface DccRegistrationCertificateAuditMapper {
                    a.request_trace_id AS requestTraceId,
                    a.detail_json AS detailJson,
                    a.occurred_at AS occurredAt,
-                   v.certificate_no AS certificateNo,
+                   NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateNo')), 'null') AS certificateNo,
                    v.version_no AS versionNo,
                    s.product_name AS productName
               FROM dcc_registration_certificate_audit a

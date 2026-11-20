@@ -30,6 +30,15 @@ class DccRegistrationCertificateChangeSqlContractTest {
         assertTrue(insertCount >= 2, "change service must keep explicit INSERT SQL contracts for applied and pending changes");
     }
 
+    @Test
+    void changeAddsSnapshotsWithoutMutatingFormalVersionOrMasterFacts() throws Exception {
+        String source=Files.readString(resolveChangeServiceSource());
+        assertFalse(Pattern.compile("UPDATE\\s+dcc_registration_certificate_version\\s+SET\\s+(certificate_no|classification|approval_date|effective_date|expiry_date)",Pattern.CASE_INSENSITIVE).matcher(source).find());
+        assertFalse(source.contains("SET first_obtained_date="));
+        assertTrue(source.contains("normalizedChangeFacts"));
+        assertTrue(source.contains("JSON_EXTRACT(s.facts_json, '$.certificateNo')"));
+    }
+
     private static Path resolveChangeServiceSource() {
         List<Path> candidates = List.of(
                 Path.of("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/service/change/DccRegistrationCertificateChangeService.java"),

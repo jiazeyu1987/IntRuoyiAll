@@ -21,6 +21,7 @@ public class DccRegistrationCertificateFacts {
     private String tradeName;
     private String notifiedBodyCode;
     private List<CeCertificate> ceCertificates;
+    private List<String> modelSpecifications;
     private String submissionType;
     private String kpNumber;
     private String regulationCode;
@@ -78,6 +79,14 @@ public class DccRegistrationCertificateFacts {
             if (expiryDate == null) throw invalidParamException("请填写有效期至");
             if ("DOMESTIC".equals(certificateType) && (blank(certificateNo) || firstObtainedDate == null || effectiveDate == null))
                 throw invalidParamException("请填写国内注册证号、首次获证日期和生效日期");
+        }
+        if ("CE".equals(certificateType) && modelSpecifications != null) {
+            Set<String> models = new java.util.HashSet<>();
+            for (String model : modelSpecifications) {
+                if (blank(model) || !models.add(model.trim()))
+                    throw invalidParamException("型号规格须填写且不能重复");
+            }
+            modelSpecifications = modelSpecifications.stream().map(String::trim).toList();
         }
         if ("CE".equals(certificateType) && ceCertificates != null) {
             Set<String> revisions = new java.util.HashSet<>();

@@ -37,6 +37,7 @@ import java.util.Objects;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_REQUEST_KEY_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_REQUEST_TYPE_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_NOT_STAGED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT;
@@ -123,7 +124,7 @@ public class DccRegistrationCertificateAccessRequestService {
                 .projectCodeId(normalized.projectCodeId())
                 .status(STATUS_SUBMITTED)
                 .requestedAt(now)
-                .detailJson(detailJson(payloadHash, normalized, certificateNo))
+                .detailJson(detailJson(payloadHash, normalized, certificateNo, resolveOwnerCompanyName(tenantId, certificate.getOwnerCompanyId()), resolveCertificateName(tenantId, certificate, files)))
                 .build();
         request.setTenantId(tenantId);
         try {
@@ -250,6 +251,40 @@ public class DccRegistrationCertificateAccessRequestService {
         return certificate;
     }
 
+    private String resolveCertificateName(Long tenantId, DccRegistrationCertificateDO certificate,
+                                          List<DccRegistrationCertificateFileDO> files) {
+        if (files.isEmpty()) return null; // Old-view applications do not select files.
+        java.util.Set<String> names = new java.util.LinkedHashSet<>();
+        for (var file : files) {
+            List<String> values = jdbcTemplate.queryForList("""
+                SELECT s.product_name FROM dcc_registration_certificate_file f
+                JOIN dcc_registration_certificate_version v ON v.tenant_id=f.tenant_id AND v.deleted=0
+                 AND v.id=CASE f.owner_type
+                   WHEN 'VERSION' THEN f.owner_id
+                   WHEN 'CHANGE' THEN (SELECT c.source_version_id FROM dcc_registration_certificate_change c WHERE c.id=f.owner_id AND c.tenant_id=f.tenant_id AND c.certificate_id=? AND c.deleted=0)
+                   WHEN 'SUPPORTING_DOCUMENT' THEN (SELECT sd.version_id FROM dcc_registration_certificate_supporting_document sd WHERE sd.id=f.owner_id AND sd.tenant_id=f.tenant_id AND sd.business_file_id=f.id AND sd.certificate_id=? AND sd.deleted=0)
+                 END
+                JOIN dcc_registration_certificate_snapshot s ON s.version_id=v.id AND s.tenant_id=v.tenant_id AND s.deleted=0
+                 AND s.id=(SELECT s2.id FROM dcc_registration_certificate_snapshot s2 WHERE s2.version_id=v.id AND s2.tenant_id=v.tenant_id AND s2.deleted=0 ORDER BY s2.revision_no DESC,s2.id DESC LIMIT 1)
+                WHERE f.tenant_id=? AND f.id=? AND f.deleted=0 AND v.certificate_id=?
+                """, String.class, certificate.getId(), certificate.getId(), tenantId, file.getId(), certificate.getId());
+            if (values.size()!=1 || isBlank(values.get(0))) throw new ServiceException(400,"申请文件关联的注册证名称缺失");
+            names.add(values.get(0).trim());
+        }
+        return String.join("；", names);
+    }
+
+    private String resolveOwnerCompanyName(Long tenantId, Long ownerCompanyId) {
+        List<String> names = jdbcTemplate.queryForList("""
+                SELECT name FROM mdm_enterprise
+                 WHERE tenant_id = ? AND id = ? AND type = 'OWNED_COMPANY' AND deleted = 0
+                """, String.class, tenantId, ownerCompanyId);
+        if (names.size() != 1 || names.get(0) == null || names.get(0).isBlank()) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
+        }
+        return names.get(0);
+    }
+
     private void requireOwnerCompany(Long ownerCompanyId) {
         if (ownerCompanyId == null) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED);
@@ -325,6 +360,14 @@ public class DccRegistrationCertificateAccessRequestService {
                 validateVersionFile(tenantId, certificate, file);
             } else if (isChangeApprovalFile(file)) {
                 validateChangeApprovalFile(tenantId, certificate, file);
+            } else if ("SUPPORTING_DOCUMENT".equals(file.getOwnerType())
+                    && java.util.Set.of("RENEWAL_ACCEPTANCE_RECEIPT", "RENEWAL_SUPPLEMENT_NOTICE").contains(file.getFileKind())) {
+                Integer matches = jdbcTemplate.queryForObject("""
+                        SELECT COUNT(*) FROM dcc_registration_certificate_supporting_document sd
+                        JOIN dcc_registration_certificate_version v ON v.id=sd.version_id AND v.tenant_id=sd.tenant_id AND v.certificate_id=sd.certificate_id AND v.deleted=0
+                        WHERE sd.tenant_id=? AND sd.id=? AND sd.business_file_id=? AND sd.certificate_id=? AND sd.document_type=? AND sd.status='EFFECTIVE' AND sd.deleted=0
+                        """, Integer.class, tenantId, file.getOwnerId(), file.getId(), certificate.getId(), file.getFileKind());
+                if (!Integer.valueOf(1).equals(matches)) throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT);
             } else {
                 throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT);
             }
@@ -375,8 +418,10 @@ public class DccRegistrationCertificateAccessRequestService {
         return sha256Hex(JsonUtils.toJsonString(payload));
     }
 
-    private static String detailJson(String payloadHash, NormalizedCommand command, String certificateNo) {
+    private static String detailJson(String payloadHash, NormalizedCommand command, String certificateNo, String ownerCompanyName, String certificateName) {
         Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("ownerCompanyName", ownerCompanyName);
+        detail.put("certificateName", certificateName);
         detail.put("payloadHash", payloadHash);
         detail.put("requestType", command.requestType());
         detail.put("businessFileIds", command.businessFileIds());

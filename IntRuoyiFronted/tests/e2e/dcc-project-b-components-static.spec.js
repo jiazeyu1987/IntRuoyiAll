@@ -29,7 +29,16 @@ const product = read(components[4])
 for (const marker of ['projectLeaderUserId', 'defaultAttributes', 'folderTemplateId', 'ProjectAttributesFields', 'FolderTemplateLibraryEditor', 'validateAttributes']) assert.ok(product.includes(marker), marker)
 assert.ok(!product.includes('v-model="projectProductForm.projectLeader"'), '新负责人不能从文本填写')
 const project = read(components[5])
-for (const marker of ['ProjectAttributeConfigurationDialog', 'defaultAttributesJson', '历史未记录', '项目 OWNER/编制权限']) assert.ok(project.includes(marker), marker)
+for (const marker of ['ProjectAttributeConfigurationDialog', 'defaultAttributesJson', '历史未记录']) assert.ok(project.includes(marker), marker)
+// 权限契约检查实际操作入口，避免说明文案调整造成误报。
+const configurationButton = project.match(/<el-button\b[^>]*@click="projectAttributeDialogRef\?\.open\(selectedProjectCode\.id\)"[^>]*>/)?.[0]
+assert.ok(configurationButton, '项目属性配置入口必须打开当前项目')
+assert.match(configurationButton, /v-if="selectedProjectCode\?\.id"/, '项目属性配置必须要求有效项目')
+assert.match(configurationButton, /v-hasPermi="\['dcc:project-code:update'\]"/, '项目属性配置入口必须要求更新权限')
+const configurationDialog = read(components[2])
+const configurationSaveButton = configurationDialog.match(/<el-button\b[^>]*@click="save"[^>]*>/)?.[0]
+assert.ok(configurationSaveButton, '项目属性配置必须提供保存入口')
+assert.match(configurationSaveButton, /v-hasPermi="\['dcc:project-code:update'\]"/, '项目属性配置保存必须要求更新权限')
 const api = read('src/api/dcc/controlledFile/projectAttributes.ts')
 for (const endpoint of ['/attributes/defaults', '/attributes/configuration', '/dcc/folder-templates', '/folders']) assert.ok(api.includes(endpoint), endpoint)
 const requestPanel = read(components[1])

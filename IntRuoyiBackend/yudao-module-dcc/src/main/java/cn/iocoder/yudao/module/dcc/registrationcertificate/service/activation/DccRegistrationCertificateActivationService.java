@@ -92,7 +92,10 @@ public class DccRegistrationCertificateActivationService {
                 command.tenantId(), command.certificateId(), command.currentVersionId(), VERSION_STATUS_CURRENT);
         DccRegistrationCertificateVersionDO pending = requireVersion(
                 command.tenantId(), command.certificateId(), command.pendingVersionId(), VERSION_STATUS_PENDING);
-        if (pending.getEffectiveDate() == null || pending.getEffectiveDate().isAfter(businessClock.businessDate())) {
+        boolean ceRenewal = "RENEWAL_CERTIFICATE".equals(pending.getVersionType())
+                && "CE".equals(cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(
+                    requireSnapshot(command.pendingVersionId(), REGISTRATION_CERTIFICATE_ACTIVATION_BASE_CONFLICT).getFactsJson()).getCertificateType());
+        if (!ceRenewal && (pending.getEffectiveDate() == null || pending.getEffectiveDate().isAfter(businessClock.businessDate()))) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACTIVATION_BASE_CONFLICT);
         }
         DccRegistrationCertificateSnapshotDO activationSnapshot = buildActivationSnapshot(command, certificate);
@@ -164,6 +167,9 @@ public class DccRegistrationCertificateActivationService {
         replayFacts.setFirstObtainedDate(pendingFacts.getFirstObtainedDate());replayFacts.setApprovalDate(pendingFacts.getApprovalDate());
         replayFacts.setEffectiveDate(pendingFacts.getEffectiveDate());replayFacts.setExpiryDate(pendingFacts.getExpiryDate());
         replayFacts.setCertificateStatus(pendingFacts.getCertificateStatus());
+        if ("CE".equals(replayFacts.getCertificateType()) && replayFacts.getCeCertificates() != null
+                && !replayFacts.getCeCertificates().isEmpty())
+            replayFacts.getCeCertificates().get(replayFacts.getCeCertificates().size()-1).setCertificateNo(pendingFacts.getCertificateNo());
         copy.setFactsJson(replayFacts.toJson());
         copy.setSourceChangeId(latestChange.id());
         copy.setEffectiveAt(businessClock.now());

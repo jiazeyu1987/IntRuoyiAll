@@ -362,7 +362,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
         if (value.getCertificateType() != null && !Set.of("DOMESTIC", "CE", "FDA").contains(value.getCertificateType())) throw new IllegalArgumentException("注册证类型无效");
         if (value.getFieldFilters() != null && !Set.of("projectCode", "certificateHolder", "certificateStatus", "productNameEn", "productCode", "tradeName", "notifiedBodyCode", "submissionType", "kpNumber", "regulationCode", "listingNumber", "approvalLetterStatus", "factoryRegistrationStatus", "registrationLink", "remark", "customerHeld", "ownProduct", "changeDescription", "structureComposition", "intendedUse", "technicalRequirements", "residenceAddress", "entrustedProduction", "selfProduction", "entrustedEnterpriseName").containsAll(value.getFieldFilters().keySet())) throw new IllegalArgumentException("注册证筛选字段无效");
         for(LocalDate[] range:new LocalDate[][]{{value.getCeIssueStart(),value.getCeIssueEnd()},{value.getListingStart(),value.getListingEnd()},{value.getFirstObtainedStart(),value.getFirstObtainedEnd()},{value.getApprovalStart(),value.getApprovalEnd()},{value.getEffectiveStart(),value.getEffectiveEnd()},{value.getExpiryStart(),value.getExpiryEnd()}})
-            if(range[0]!=null&&range[1]!=null&&range[0].isAfter(range[1]))throw new IllegalArgumentException("日期起始不能晚于截止");
+            if(range[0]!=null&&range[1]!=null&&range[0].isAfter(range[1]))throw new ServiceException(400, "日期起始不能晚于截止");
         return value;
     }
 

@@ -8,6 +8,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.apache.ibatis.annotations.Select;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,10 +18,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
@@ -41,6 +45,8 @@ class MesRouteStartProductionLeaderAuthorizationServiceTest {
     private MesProRouteVersionMapper routeVersionMapper;
     @Mock
     private PermissionApi permissionApi;
+    @Mock
+    private AdminUserApi adminUserApi;
 
     private MesRouteStartProductionLeaderAuthorizationService service;
 
@@ -48,7 +54,91 @@ class MesRouteStartProductionLeaderAuthorizationServiceTest {
     void setUp() {
         service = new MesRouteStartProductionLeaderAuthorizationServiceImpl(routeMapper, routeProcessMapper,
                 routeVersionMapper, permissionApi);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "adminUserApi", adminUserApi);
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
+    }
+
+    @Test
+    void assertCanJoinRoute_allowsConfiguredUser() {
+        when(routeVersionMapper.selectActiveByRouteId(101L)).thenReturn(
+                activeRouteVersion(9001L, 101L, routeStartLeaderSnapshot(101L, "USERS", 3001L)));
+
+        assertDoesNotThrow(() -> service.assertCanJoinRoute(3001L, 101L));
+
+        verify(permissionApi, never()).hasAnyPermissions(any(), any());
+        verify(adminUserApi, never()).getUserMap(any());
+    }
+
+    @Test
+    void assertCanJoinRoute_allowsMemberOfConfiguredRole() {
+        when(routeVersionMapper.selectActiveByRouteId(101L)).thenReturn(
+                activeRouteVersion(9001L, 101L, routeStartLeaderSnapshot(101L, "ROLE", 77L)));
+        when(permissionApi.getUserRoleIdListByUserId(3001L)).thenReturn(Set.of(77L));
+
+        assertDoesNotThrow(() -> service.assertCanJoinRoute(3001L, 101L));
+    }
+
+    @Test
+    void assertCanJoinRoute_rejectsUnassignedUserWithConfiguredLeaderNames() {
+        when(routeVersionMapper.selectActiveByRouteId(101L)).thenReturn(
+                activeRouteVersion(9001L, 101L, routeStartLeaderSnapshot(101L, "USER", 3002L, 3003L)));
+        when(adminUserApi.getUserMap(Set.of(3002L, 3003L))).thenReturn(Map.of(
+                3002L, user(3002L, "张三"), 3003L, user(3003L, "李四")));
+        lenient().when(permissionApi.hasAnyPermissions(3001L, TEAM_LEADER_MAINTAIN_PERMISSION)).thenReturn(true);
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.assertCanJoinRoute(3001L, 101L));
+
+        assertEquals("当前工艺路线的生产组长是[张三、李四]，你没有权限。", error.getMessage());
+        verify(permissionApi, never()).hasAnyPermissions(3001L, TEAM_LEADER_MAINTAIN_PERMISSION);
+    }
+
+    @Test
+    void assertCanJoinRoute_rejectsWrongRoleAndShowsActualRoleMembers() {
+        when(routeVersionMapper.selectActiveByRouteId(101L)).thenReturn(
+                activeRouteVersion(9001L, 101L, routeStartLeaderSnapshot(101L, "ROLE", 77L)));
+        when(permissionApi.getUserRoleIdListByUserId(3001L)).thenReturn(Set.of(88L));
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(77L))).thenReturn(Set.of(3002L));
+        when(adminUserApi.getUserMap(Set.of(3002L))).thenReturn(Map.of(3002L, user(3002L, "王五")));
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.assertCanJoinRoute(3001L, 101L));
+
+        assertEquals("当前工艺路线的生产组长是[王五]，你没有权限。", error.getMessage());
+    }
+
+    @Test
+    void assertCanJoinRoute_rejectsRouteWithNoConfiguredLeader() {
+        when(routeVersionMapper.selectActiveByRouteId(101L)).thenReturn(
+                activeRouteVersion(9001L, 101L, emptyRouteStartLeaderSnapshot(101L)));
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.assertCanJoinRoute(3001L, 101L));
+
+        assertEquals("当前工艺路线未配置生产组长，无法加入活跃订单。", error.getMessage());
+        verify(adminUserApi, never()).getUserMap(any());
+    }
+
+    @Test
+    void assertCanJoinRoute_rejectsRouteWithoutActiveVersion() {
+        ServiceException error = assertThrows(ServiceException.class, () -> service.assertCanJoinRoute(3001L, 101L));
+
+        assertEquals("当前工艺路线未配置生产组长，无法加入活跃订单。", error.getMessage());
+    }
+
+    @Test
+    void assertCanJoinRoute_doesNotAuthorizeFromInactiveVersion() {
+        when(routeVersionMapper.selectActiveByRouteId(101L)).thenReturn(
+                activeRouteVersion(9001L, 101L, routeStartLeaderSnapshot(101L, "USERS", 3001L))
+                        .setActive(false));
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.assertCanJoinRoute(3001L, 101L));
+
+        assertEquals("当前工艺路线未配置生产组长，无法加入活跃订单。", error.getMessage());
+    }
+
+    private static AdminUserRespDTO user(Long id, String name) {
+        AdminUserRespDTO user = new AdminUserRespDTO();
+        user.setId(id);
+        user.setNickname(name);
+        return user;
     }
 
     @Test

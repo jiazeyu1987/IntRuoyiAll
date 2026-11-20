@@ -827,7 +827,7 @@
                 data-team-leader-submission-work-order-code
                 :data-pqc-leader-work-order="activeLeaderTab === 'PQC' ? '' : undefined"
               >
-                {{ row.workOrderCode || row.workOrderName || '--' }}
+                <WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" v-if="row.workOrderCode" /><span v-else>{{ row.workOrderName || '--' }}</span>
               </span>
             </template>
           </el-table-column>
@@ -884,7 +884,7 @@
                   :type="item.released ? 'success' : 'warning'"
                   effect="plain"
                 >
-                  {{ item.workOrderCode || item.workOrderId }}：{{ item.allocatedQuantity }}（{{
+                  <WorkOrderCodeLink :code="item.workOrderCode" :work-order-id="item.workOrderId" v-if="item.workOrderCode" /><span v-else>{{ item.workOrderId }}</span>：{{ item.allocatedQuantity }}（{{
                     item.released ? '已放行' : '未放行'
                   }}）
                 </el-tag>
@@ -1778,7 +1778,7 @@
                   :title="row.abnormal ? `${row.workOrderCode}\n${row.abnormalReason}` : row.workOrderCode"
                   :class="{ 'team-leader-workbench__abnormal-work-order-id': row.abnormal }"
                 >
-                  {{ row.workOrderCode }}
+                  <WorkOrderCodeLink :code="row.workOrderCode" :work-order-id="row.workOrderId" :style="row.abnormal ? { color: 'inherit' } : undefined" />
                 </span>
                 <el-tag
                   v-if="row.hasQuantityConflict || row.quantityConflict"
@@ -3748,9 +3748,7 @@
       <div class="team-leader-workbench__correction-context">
         <div>
           <span>生产工单</span>
-          <strong>{{
-            correctionEvent?.workOrderCode || correctionEvent?.workOrderName || '--'
-          }}</strong>
+          <strong><WorkOrderCodeLink :code="correctionEvent.workOrderCode" :work-order-id="correctionEvent.workOrderId" v-if="correctionEvent?.workOrderCode" /><span v-else>{{ correctionEvent?.workOrderName || '--' }}</span></strong>
         </div>
         <div>
           <span>工序</span>
@@ -5891,6 +5889,7 @@ const resolveActiveOrderRowClassName = ({ row }: { row: TeamLeaderActiveOrderRes
 const canApplyActiveOrderRelease = (row: TeamLeaderActiveOrderRespVO) => {
   if (handoffReadOnly.value || row.readBlocked || row.abnormal) return false
   if (row.releaseApplicationStatus) return false
+  if (!row.formalProductionReviewComplete || row.releaseApplyBlockReason) return false
   return (
     isActiveOrderProgressComplete(row.productionProgressPercent) &&
     isActiveOrderProgressComplete(row.inspectionProgressPercent)
@@ -5908,6 +5907,8 @@ const resolveActiveOrderReleaseApplyDisabledReason = (row: TeamLeaderActiveOrder
   if (row.releaseApplicationStatus) {
     return `已进入${formatActiveOrderReleaseStatus(row.releaseApplicationStatus)}`
   }
+  if (row.releaseApplyBlockReason) return row.releaseApplyBlockReason
+  if (!row.formalProductionReviewComplete) return '生产复核未完成，请先在报工管理中完成工序复核和数量确认'
   if (!isActiveOrderProgressComplete(row.productionProgressPercent)) return '生产进度未达到100%'
   if (!isActiveOrderProgressComplete(row.inspectionProgressPercent)) return '检验进度未达到100%'
   return '提交生产放行申请'

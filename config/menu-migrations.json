@@ -1,5 +1,28 @@
 {
   "changes": [
+    {"source":"IntRuoyiFronted/src/views/mes/pro/route/RouteTreeQuickConfig.vue","kind":"permission","value":"mes:pro-route:batch-record-config:query","reason":"工艺流程树快捷配置内部弹窗复用既有批记录配置查询/修改和版本查询/创建/修改权限，沿用 20260709_mes_route_flow_config_unification.sql 与 20260716_mes_route_version_permission_menu.sql；从现有工艺流程页面进入，不新增菜单、权限标识、角色或租户套餐授权。"},
+    {"source":"IntRuoyiFronted/src/views/mes/pro/route/RouteTreeQuickConfig.vue","kind":"permission","value":"mes:pro-route:batch-record-config:update","reason":"工艺流程树快捷配置内部弹窗复用既有批记录配置查询/修改和版本查询/创建/修改权限，沿用 20260709_mes_route_flow_config_unification.sql 与 20260716_mes_route_version_permission_menu.sql；从现有工艺流程页面进入，不新增菜单、权限标识、角色或租户套餐授权。"},
+    {"source":"IntRuoyiFronted/src/views/mes/pro/route/RouteTreeQuickConfig.vue","kind":"permission","value":"mes:pro-route:version-create","reason":"工艺流程树快捷配置内部弹窗复用既有批记录配置查询/修改和版本查询/创建/修改权限，沿用 20260709_mes_route_flow_config_unification.sql 与 20260716_mes_route_version_permission_menu.sql；从现有工艺流程页面进入，不新增菜单、权限标识、角色或租户套餐授权。"},
+    {"source":"IntRuoyiFronted/src/views/mes/pro/route/RouteTreeQuickConfig.vue","kind":"permission","value":"mes:pro-route:version-query","reason":"工艺流程树快捷配置内部弹窗复用既有批记录配置查询/修改和版本查询/创建/修改权限，沿用 20260709_mes_route_flow_config_unification.sql 与 20260716_mes_route_version_permission_menu.sql；从现有工艺流程页面进入，不新增菜单、权限标识、角色或租户套餐授权。"},
+    {"source":"IntRuoyiFronted/src/views/mes/pro/route/RouteTreeQuickConfig.vue","kind":"permission","value":"mes:pro-route:version-update","reason":"工艺流程树快捷配置内部弹窗复用既有批记录配置查询/修改和版本查询/创建/修改权限，沿用 20260709_mes_route_flow_config_unification.sql 与 20260716_mes_route_version_permission_menu.sql；从现有工艺流程页面进入，不新增菜单、权限标识、角色或租户套餐授权。"},
+    {
+      "source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/permission/RoleController.java",
+      "kind": "permission",
+      "value": "system:permission:assign-role-menu",
+      "reason": "权限角色 JSON 导入会替换角色菜单授权，因此复用专用菜单授权接口已有的 system:permission:assign-role-menu 权限补齐校验；不新增权限标识、菜单、角色或租户套餐授权，无需迁移。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/permission/RoleController.java",
+      "kind": "permission",
+      "value": "system:permission:assign-role-data-scope",
+      "reason": "权限角色 JSON 导入会修改角色数据范围，因此复用专用数据授权接口已有的 system:permission:assign-role-data-scope 权限补齐校验；不新增权限标识、菜单、角色或租户套餐授权，无需迁移。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "c8466d3b19e3186860a0ae38293e4ac2d649cf3f6eb67960b163d3326bb4ca8a",
+      "reason": "仅修正既有产品目录路由的侧边菜单高亮，使 /mdm/product-catalog 高亮自身；复用现有产品目录菜单及 dcc:project-code:query 权限，不新增路径、页面、菜单、权限、角色或租户套餐授权，无需数据库迁移。"
+    },
     {
       "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
       "kind": "router",

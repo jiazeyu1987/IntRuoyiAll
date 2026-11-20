@@ -3,6 +3,7 @@
     <UnifiedListTemplate
       class="dcc-file-type-taxonomy-list-template"
       table-key="dcc.fileTypeTaxonomy.main"
+      single-line-toolbar
       :query-model="query"
       label-width="76px"
       :filter-definitions="taxonomyQuickFilterDefinitions"

@@ -239,6 +239,27 @@ class BpmNativeApprovalTaskProviderTest {
     }
 
     @Test
+    void pageTodoDownloadUsesFrozenNamesInsteadOfCertificateNumberAndIds() {
+        Task task = nativeTask();
+        when(task.getId()).thenReturn("task-download");
+        when(task.getProcessInstanceId()).thenReturn("pi-download");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.of(
+                "registrationCertificateAccessRequestId",583L,"requestType","DOWNLOAD_FILE",
+                "certificateId",990819131L,"ownerCompanyId",990819002L,
+                "certificateNo","国械注准20223031078","certificateName","支撑导管A",
+                "ownerCompanyName","上海七木医疗器械有限公司","requestKey","DCC-REG-CERT-ACCESS-SUBMIT-test"));
+        when(centerQuery.todo(any(),eq("BPM"))).thenReturn(new PageResult<>(List.of(task),1L));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver")).thenReturn(registrationManagerRole());
+        ApprovalTaskSummary summary=provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO,ApprovalModuleCode.BPM,null,1,10)).getList().get(0);
+        assertEquals("注册证下载审批 上海七木医疗器械有限公司 支撑导管A",summary.getBusinessTitle());
+        assertEquals(List.of("申请类型：注册证下载","申请编号：583","注册证名称：支撑导管A","所属公司：上海七木医疗器械有限公司"),summary.getBusinessContextTags());
+    }
+
+    @Test
     void pageTodoUsesRegistrationCertificateAccessVariablesForReadableBusinessSummary() {
         Task task = nativeTask();
         when(task.getId()).thenReturn("task-regcert-access-summary");
@@ -929,7 +950,7 @@ class BpmNativeApprovalTaskProviderTest {
                 "requestType", "DOWNLOAD_FILE",
                 "requestKey", "REG-DOWNLOAD-20260831-001",
                 "certificateId", 7702L,
-                "ownerCompanyId", 6602L));
+                "ownerCompanyId", 6602L, "ownerCompanyName", "上海七木", "certificateName", "支撑导管A"));
         when(centerQuery.done(any(),eq("BPM")))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
         when(processInstanceService.getHistoricProcessInstances(Set.of("pi-done-regcert")))
@@ -940,9 +961,9 @@ class BpmNativeApprovalTaskProviderTest {
         ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.DONE, ApprovalModuleCode.BPM, null, 1, 10)).getList().get(0);
 
-        assertEquals("注册证下载审批 REG-DOWNLOAD-20260831-001", summary.getBusinessTitle());
+        assertEquals("注册证下载审批 上海七木 支撑导管A", summary.getBusinessTitle());
         assertEquals("REG-DOWNLOAD-20260831-001", summary.getBusinessCode());
-        assertEquals(List.of("申请类型：注册证下载", "申请编号：8802", "注册证：7702", "所属公司：6602"),
+        assertEquals(List.of("申请类型：注册证下载", "申请编号：8802", "注册证名称：支撑导管A", "所属公司：上海七木"),
                 summary.getBusinessContextTags());
         assertEquals("注册证访问审批", summary.getCurrentNodeName());
     }

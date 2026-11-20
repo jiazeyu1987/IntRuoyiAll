@@ -232,7 +232,12 @@ const receiveDocumentCodeLink = () => {
   ++documentSequence
   if (documentRoute.path !== '/mes/wm/sales-notice') return false
   const code = typeof documentRoute.query.code === 'string' ? documentRoute.query.code.trim() : ''
-  if (!code) return false
+  if (!code) {
+    queryFormRef.value?.resetFields()
+    Object.assign(queryParams, structuredClone(documentDefaults))
+    void getList()
+    return true
+  }
   queryFormRef.value?.resetFields()
   Object.assign(queryParams, structuredClone(documentDefaults), { code: code })
   void getList()

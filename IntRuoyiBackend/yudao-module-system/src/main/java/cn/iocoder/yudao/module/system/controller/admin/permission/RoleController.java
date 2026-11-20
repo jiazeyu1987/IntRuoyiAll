@@ -5,7 +5,6 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
-import cn.iocoder.yudao.framework.common.util.http.HttpUtils;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.excel.core.util.ExcelUtils;
 import cn.iocoder.yudao.module.system.controller.admin.permission.vo.role.RolePageReqVO;
@@ -14,7 +13,6 @@ import cn.iocoder.yudao.module.system.controller.admin.permission.vo.role.RoleSa
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleCategoryDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
 import cn.iocoder.yudao.module.system.service.permission.RoleService;
-import cn.iocoder.yudao.module.system.service.permission.RoleConfigPackageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -44,8 +42,6 @@ public class RoleController {
 
     @Resource
     private RoleService roleService;
-    @Resource
-    private RoleConfigPackageService roleConfigPackageService;
 
     @PostMapping("/create")
     @Operation(summary = "创建角色")
@@ -120,27 +116,6 @@ public class RoleController {
         // 输出
         ExcelUtils.write(response, "角色数据.xls", "数据", RoleRespVO.class,
                 buildRoleRespVOList(list));
-    }
-
-    @GetMapping("/config-package/export")
-    @Operation(summary = "导出角色配置包")
-    @PreAuthorize("@ss.hasPermission('system:role:export')")
-    @ApiAccessLog(operateType = EXPORT)
-    public void exportConfigPackage(@RequestParam("categoryIds") java.util.List<Long> categoryIds, HttpServletResponse response) throws IOException {
-        byte[] data = roleConfigPackageService.exportPackage(categoryIds);
-        response.addHeader("Content-Disposition",
-                "attachment;filename=" + HttpUtils.encodeUtf8("权限角色配置包.json"));
-        response.setContentType("application/json;charset=UTF-8");
-        response.getOutputStream().write(data);
-    }
-
-    @PostMapping("/config-package/import")
-    @Operation(summary = "导入角色配置包")
-    @PreAuthorize("@ss.hasPermission('system:role:create') and @ss.hasPermission('system:role:update')")
-    public CommonResult<Boolean> importConfigPackage(@RequestParam("file") org.springframework.web.multipart.MultipartFile file)
-            throws IOException {
-        roleConfigPackageService.importPackage(file.getBytes());
-        return success(true);
     }
 
     private RoleRespVO buildRoleRespVO(RoleDO role) {

@@ -129,7 +129,9 @@ let resizeTableKey: string | undefined
 
 const panels = computed(() =>
   isTargetRoute()
-    ? Array.from(tableMap.values()).filter((table) => table.tableEl.isConnected && table.columns.length > 0)
+    ? Array.from(tableMap.values()).filter((table) =>
+        table.tableEl.isConnected && table.columns.length > 0 && referenceColumnControls(table)
+      )
     : []
 )
 
@@ -420,7 +422,7 @@ const registerTable = (tableEl: HTMLElement, index: number) => {
   const wrapperEl = tableEl.closest<HTMLElement>('.el-table') || tableEl
   const existing = Array.from(tableMap.values()).find((table) => table.tableEl === wrapperEl)
   if (existing) {
-    if (isTabLocalPanel(existing) && !wrapperEl.classList.contains('user-table-column-global-managed')) {
+    if (referenceColumnControls(existing) && !wrapperEl.classList.contains('user-table-column-global-managed')) {
       wrapperEl.classList.add('user-table-column-global-managed')
     }
     return
@@ -449,7 +451,9 @@ const registerTable = (tableEl: HTMLElement, index: number) => {
     table.sizeObserver.observe(wrapperEl)
   }
   wrapperEl.dataset.userTableColumnGlobalKey = tableKey
-  wrapperEl.classList.add('user-table-column-global-managed')
+  if (referenceColumnControls(table)) {
+    wrapperEl.classList.add('user-table-column-global-managed')
+  }
   wrapperEl.addEventListener('mousedown', handleManagedHeaderPointerDown, true)
   wrapperEl.addEventListener('pointerdown', handleManagedHeaderPointerDown, true)
   attachTableObserver(table)

@@ -11,6 +11,8 @@ public interface MesRouteStartProductionLeaderAuthorizationService {
 
     List<MesProRouteProcessDO> listAuthorizedRouteProcesses(Long leaderUserId);
 
+    void assertCanJoinRoute(Long leaderUserId, Long routeId);
+
     void assertCanMaintainRouteProcess(Long leaderUserId, Long routeProcessId);
 
 }

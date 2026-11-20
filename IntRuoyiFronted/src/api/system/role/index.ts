@@ -69,18 +69,21 @@ export const exportRole = (params: any) => {
   })
 }
 
-export const exportRoleConfigPackage = (categoryIds: number[]) => {
+export const exportRoleConfigPackage = (isRequestContextCurrent: () => boolean) => {
   return request.download({
     url: '/system/role/config-package/export',
     ignoreErrorMessage: true,
-    params: { categoryIds: categoryIds.join(',') }
+    isRequestContextCurrent
   })
 }
 
-export const importRoleConfigPackage = async (data: FormData) => {
+export const importRoleConfigPackage = async (data: FormData, isRequestContextCurrent: () => boolean) => {
   return await request.upload({
     url: '/system/role/config-package/import',
-    data
+    data,
+    isRequestContextCurrent,
+    ignoreErrorMessage: true,
+    skipAuthRefreshReplay: true
   })
 }
 

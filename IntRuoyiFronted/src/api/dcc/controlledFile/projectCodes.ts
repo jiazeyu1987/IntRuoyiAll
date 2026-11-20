@@ -20,6 +20,8 @@ export interface DccProjectCodePageReqVO extends PageParam {
   qaRegulationConfigured?: boolean
   requireDccProductCode?: boolean
   fileCountSort?: 'asc' | 'desc'
+  routeStatusSort?: 'asc' | 'desc'
+  qaRegulationStatusSort?: 'asc' | 'desc'
 }
 
 export interface DccProjectCodeRespVO {

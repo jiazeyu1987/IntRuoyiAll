@@ -511,7 +511,12 @@ const receiveDocumentCodeLink = () => {
   ++documentSequence
   if (documentRoute.path !== '/srm/purchase-order') return false
   const code = typeof documentRoute.query.code === 'string' ? documentRoute.query.code.trim() : ''
-  if (!code) return false
+  if (!code) {
+    queryFormRef.value?.resetFields()
+    Object.assign(queryParams, structuredClone(documentDefaults))
+    void getList()
+    return true
+  }
   queryFormRef.value?.resetFields()
   Object.assign(queryParams, structuredClone(documentDefaults), { orderNo: code })
   void getList()

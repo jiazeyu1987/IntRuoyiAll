@@ -147,6 +147,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
           </div>
         </div>
         <el-table
+          ref="projectCodeTableRef"
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="dcc.projectCode.main"
@@ -217,35 +218,6 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
             <template #default="{ row }">{{ row.associatedFileCount ?? 0 }}</template>
           </el-table-column>
           <el-table-column
-            v-if="isProjectCodeColumnVisible('batchRecordTotalRecognitionJson')"
-            label="批记录识别资料"
-            prop="batchRecordTotalRecognitionJson"
-            :width="getProjectCodeColumnWidthString('batchRecordTotalRecognitionJson', 140)"
-          >
-            <template #default="{ row }">
-              <el-button
-                v-if="row.batchRecordTotalRecognitionJson"
-                link
-                class="scheme-d-row-action scheme-d-row-action--primary"
-                type="primary"
-                data-testid="dcc-project-code-copy-recognition-json"
-                @click="copyBatchRecordTotalRecognitionJson(row)"
-              >
-                复制资料
-              </el-button>
-              <el-button
-                link
-                class="scheme-d-row-action scheme-d-row-action--primary"
-                type="primary"
-                data-testid="dcc-project-code-import-recognition-json"
-                @click="openRecognitionJsonImport(row)"
-                v-hasPermi="['mes:pro-batch-record-template:update']"
-              >
-                导入识别文件
-              </el-button>
-            </template>
-          </el-table-column>
-          <el-table-column
             v-if="isProjectCodeColumnVisible('routeStatus')"
             label="工艺路线"
             prop="routeStatus"
@@ -268,33 +240,6 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
                   data-testid="dcc-project-code-governance-version-route"
                 >
                   版本 {{ formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.routeVersionNos) }}
-                </span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column
-            v-if="isProjectCodeColumnVisible('mainBatchRecordStatus')"
-            label="主批记录"
-            prop="mainBatchRecordStatus"
-            :width="getProjectCodeColumnWidthString('mainBatchRecordStatus', 120)"
-            v-bind="sortColumnAttrs('mainBatchRecordStatus')"
-          >
-            <template #default="{ row }">
-              <div class="dcc-project-code-governance-cell">
-                <el-tag
-                  class="scheme-d-tag"
-                  effect="plain"
-                  :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.mainBatchRecordStatus)"
-                  :title="getDccProjectGovernance(row.projectName)?.mainBatchRecordVersionNos?.join('、') || ''"
-                >
-                  {{ formatDccProjectGovernanceStatus(getDccProjectGovernance(row.projectName)?.mainBatchRecordStatus) }}
-                </el-tag>
-                <span
-                  v-if="formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.mainBatchRecordVersionNos)"
-                  class="dcc-project-code-governance-version"
-                  data-testid="dcc-project-code-governance-version-main-batch-record"
-                >
-                  版本 {{ formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.mainBatchRecordVersionNos) }}
                 </span>
               </div>
             </template>
@@ -1684,10 +1629,8 @@ const projectCodeDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'projectCode', label: '项目代码', minWidth: 120 },
   { key: 'category', label: '类别', minWidth: 120 },
   { key: 'associatedFileCount', label: '关联文件数', width: 120, sortable: 'custom' },
-  { key: 'batchRecordTotalRecognitionJson', label: '批记录识别资料', width: 140 },
-  { key: 'routeStatus', label: '工艺路线', width: 140 },
-  { key: 'mainBatchRecordStatus', label: '主批记录', width: 150 },
-  { key: 'qaRegulationStatus', label: 'QA规程', width: 130 },
+  { key: 'routeStatus', label: '工艺路线', width: 140, sortable: 'custom', sortOrders: ['ascending', 'descending'] },
+  { key: 'qaRegulationStatus', label: 'QA规程', width: 130, sortable: 'custom', sortOrders: ['ascending', 'descending'] },
   { key: 'updateTime', label: '更新时间', width: 180 },
   { key: 'actions', label: '关联文档', width: 360, hideable: false, business: false }
 ]
@@ -2512,7 +2455,9 @@ const queryParams = reactive<DccProjectCodePageQuery>({
   status: undefined,
   routeConfigured: undefined,
   mainBatchRecordConfigured: undefined,
-  qaRegulationConfigured: undefined
+  qaRegulationConfigured: undefined,
+  routeStatusSort: undefined,
+  qaRegulationStatusSort: undefined
 })
 
 const POSITIVE_INTEGER_TEXT = /^[1-9]\d*$/
@@ -2786,15 +2731,21 @@ const ensureLoaded = async () => {
   hasLoaded.value = true
 }
 
+const projectCodeTableRef = ref()
 const handleSortChange = ({ prop, order }: { prop?: string; order?: string | null }) => {
-  queryParams.pageNo = 1
-  if (prop !== 'associatedFileCount' || !order) {
-    queryParams.fileCountSort = undefined
-    getList()
+  // Element Plus emits null when the active arrow is clicked again, even with two sortOrders.
+  // Restore that direction in the table as well as the request so both remain consistent.
+  const activeStatusSort = prop === 'routeStatus' ? queryParams.routeStatusSort
+    : prop === 'qaRegulationStatus' ? queryParams.qaRegulationStatusSort : undefined
+  if (!order && activeStatusSort) {
+    projectCodeTableRef.value.sort(prop, activeStatusSort === 'asc' ? 'ascending' : 'descending')
     return
   }
-  const sortOrder = order
-  queryParams.fileCountSort = sortOrder === 'ascending' ? 'asc' : 'desc'
+  queryParams.pageNo = 1
+  const sortOrder = order ? (order === 'ascending' ? 'asc' : 'desc') : undefined
+  queryParams.fileCountSort = prop === 'associatedFileCount' ? sortOrder : undefined
+  queryParams.routeStatusSort = prop === 'routeStatus' ? sortOrder : undefined
+  queryParams.qaRegulationStatusSort = prop === 'qaRegulationStatus' ? sortOrder : undefined
   getList()
 }
 

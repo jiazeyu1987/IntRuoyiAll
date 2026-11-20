@@ -73,7 +73,7 @@ async function main() {
   }
   app.unmount()
  }
- const source = read('src/views/mes/qc/batchtrace/index.vue')
+ const source = read('src/views/mes/qc/batchtrace/index.vue').replace(/\r\n/g, '\n')
  const body = source.slice(source.indexOf('const route = useRoute()'), source.indexOf('</script>'))
  const route = vue.reactive({ path: '/mes/qc/batch-trace', query: { code: 'A' } })
  const queryParams = vue.reactive({ pageNo: 8, pageSize: 10, code: undefined, itemId: 8, vendorId: 3, clientId: 4, salesOrderCode: 'old', purchaseOrderCode: 'old' })
@@ -93,6 +93,13 @@ async function main() {
  for (const key of ['itemId', 'vendorId', 'clientId', 'salesOrderCode', 'purchaseOrderCode']) assert.equal(requests.at(-1)[key], undefined)
  const beforeRepeat=requests.length;route.query.codeLinkVisit='repeat';await vue.nextTick();assert.equal(requests.length,beforeRepeat+1)
  scope.stop()
+ const getListBody=source.match(/let listRequestSerial = 0[^]*?\n}\n/)[0]
+ const pending=[]
+ const ctx={loading:{value:false},list:{value:[]},total:{value:0},queryParams:{},BatchApi:{getBatchPage:()=>new Promise(resolve=>pending.push(resolve))}}
+ vm.runInNewContext(transpile(getListBody+'\nglobalThis.run=getList;globalThis.leave=()=>listRequestSerial++'),ctx)
+ const a=ctx.run(),b=ctx.run();pending[1]({list:['B'],total:1});await b;pending[0]({list:['A'],total:1});await a;assert.equal(ctx.list.value[0],'B')
+ const c=ctx.run();ctx.leave();pending[2]({list:['C'],total:1});await c;assert.equal(ctx.list.value[0],'B')
+
  console.log('PASS batch links: lazy detail, repeated opening, code routing, empty values, permissions, route exit/reentry, stale filters and pagination')
 }
 main().catch(e => { console.error(e); process.exitCode = 1 })

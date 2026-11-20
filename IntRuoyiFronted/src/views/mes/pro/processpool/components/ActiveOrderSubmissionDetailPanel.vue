@@ -954,7 +954,7 @@
                 </div>
                 <div>
                   <span>生产订单编号：</span>
-                  <strong>{{ document.productionOrderNos.join('、') || '-' }}</strong>
+                  <strong><template v-for="(code, index) in document.productionOrderNos" :key="code"><span v-if="index">、</span><WorkOrderCodeLink :code="code" /></template><span v-if="!document.productionOrderNos.length">-</span></strong>
                 </div>
               </div>
             <el-table

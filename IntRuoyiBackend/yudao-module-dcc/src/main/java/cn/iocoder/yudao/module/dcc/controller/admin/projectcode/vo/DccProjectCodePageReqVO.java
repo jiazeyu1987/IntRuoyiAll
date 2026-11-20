@@ -47,4 +47,10 @@ public class DccProjectCodePageReqVO extends PageParam {
 
     @Schema(description = "关联文件数排序，asc 或 desc")
     private String fileCountSort;
+
+    @Schema(description = "工艺路线配置状态排序，asc 或 desc")
+    private String routeStatusSort;
+
+    @Schema(description = "QA 规程配置状态排序，asc 或 desc")
+    private String qaRegulationStatusSort;
 }

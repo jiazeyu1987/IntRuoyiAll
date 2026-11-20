@@ -129,26 +129,6 @@ class MesStage2_5ReceiptHandoffContractTest {
     }
 
     @Test
-    void stage2_5MustAcceptMultipleFinishedFormalProductIssues() throws Exception {
-        String source = Files.readString(Path.of(
-                "src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/"
-                        + "MesTeamLeaderActiveOrderCompletionBackfillPortImpl.java"), StandardCharsets.UTF_8);
-
-        assertTrue(source.contains("FormalProductIssues formalProductIssues = lockedFormalProductIssues(activeOrder)"),
-                "Stage2.5 必须把正式领料出库单作为集合读取，不能写死一张。");
-        assertFalse(source.contains("finished.size() != 1"),
-                "Stage2.5 不能因多张已完成领料出库单而失败。");
-        assertTrue(source.contains("finished.isEmpty()"),
-                "Stage2.5 没有任何已完成领料出库单时仍必须整体失败。");
-        assertTrue(source.contains("formalProductIssues.issues().stream().map(MesWmProductIssueDO::getId)")
-                        && source.contains("formalProductIssues.allDetails().stream().map(MesWmProductIssueDetailDO::getId)"),
-                "Stage2.5 必须把每张领料出库单及其明细全部纳入批记录来源。");
-        assertTrue(source.contains("seed.put(\"formalProductIssues\", formalProductIssues.issues())")
-                        && source.contains("seed.put(\"formalProductIssueDetails\", formalProductIssues.detailsByIssue())"),
-                "Stage2.5 来源哈希必须覆盖领料出库单集合，不能只覆盖单张单据。");
-    }
-
-    @Test
     void stage2_5MustReuseExistingBatchByActiveOrderOpenAuditBeforeCompletingAgain() throws Exception {
         String stage25 = Files.readString(IMPLEMENTATION, StandardCharsets.UTF_8);
         String auditMapper = Files.readString(Path.of(

@@ -403,6 +403,23 @@ class MesProRouteVersionLifecycleServiceTest {
         assertEquals(ErrorCodeConstants.PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE.getCode(), ex.getCode());
     }
 
+    @Test
+    void publishCandidate_shouldRejectMissingProductionLeaderBeforeAnyProjectionOrStatusChange() {
+        var snapshot = com.alibaba.fastjson.JSON.parseObject(validSnapshotJson(9004L, "RT-9004", "Route"));
+        snapshot.getJSONObject("configSnapshots").put("routeStartProductionLeaders", new com.alibaba.fastjson.JSONArray());
+        var candidate = MesProRouteVersionDO.builder().id(1006L).routeId(9004L).active(false)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_READY_TO_PUBLISH)
+                .routeSnapshotJson(snapshot.toJSONString()).build();
+        when(routeVersionMapper.selectById(1006L)).thenReturn(candidate);
+
+        var error = assertThrows(ServiceException.class,
+                () -> lifecycleService.publishCandidate(1006L, 606L));
+
+        assertTrue(error.getMessage().contains("生产组长"));
+        org.mockito.Mockito.verifyNoInteractions(publishProjectionService, deviceIdentitySnapshots);
+        verify(routeVersionMapper, never()).updateById(any(MesProRouteVersionDO.class));
+    }
+
     private String validSnapshotJson(Long routeId, String routeCode, String routeName) {
         return validSnapshotJsonWithRouteProcessId(routeId, routeCode, routeName, 10L);
     }
@@ -431,11 +448,13 @@ class MesProRouteVersionLifecycleServiceTest {
                     "scheduleConfigs": [],
                     "batchUseConfigs": [],
                     "scheduleUseConfigs": [],
+                    "routeStartProductionLeaders": [{"productionLineId": %d,
+                      "candidateSourceType": "USER", "candidateSourceIds": [607]}],
                     "productionProcessConfigSchemaVersion": 1,
                     "productionProcessConfigs": [{"routeProcessId": %d, "processId": 20,
                       "overagePercent": 0, "lossReasons": [], "deviceSelectionGroups": [], "parameterRules": []}]
                   }
                 }
-                """.formatted(routeId, routeCode, routeName, routeProcessId, routeProcessId);
+                """.formatted(routeId, routeCode, routeName, routeProcessId, routeId, routeProcessId);
     }
 }

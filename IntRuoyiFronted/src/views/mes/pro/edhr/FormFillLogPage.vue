@@ -248,7 +248,7 @@
             >
               <el-table-column label="生产工单号" prop="workOrderCode" min-width="160">
                 <template #default="{ row }">
-                  {{ row.workOrderCode || row.workOrderName || '--' }}
+                  <WorkOrderCodeLink :code="row.workOrderCode" v-if="row.workOrderCode" /><span v-else>{{ row.workOrderName || '--' }}</span>
                 </template>
               </el-table-column>
               <el-table-column label="工序" prop="processName" min-width="140">
@@ -370,7 +370,7 @@
       class="mb-12px"
     >
       <el-descriptions-item label="生产工单号">
-        {{ productionReportRevisionDetail.workOrderCode || productionReportRevisionDetail.workOrderName || '--' }}
+        <WorkOrderCodeLink :code="productionReportRevisionDetail.workOrderCode" v-if="productionReportRevisionDetail.workOrderCode" /><span v-else>{{ productionReportRevisionDetail.workOrderName || '--' }}</span>
       </el-descriptions-item>
       <el-descriptions-item label="工序">
         {{ productionReportRevisionDetail.processName || productionReportRevisionDetail.processCode || '--' }}

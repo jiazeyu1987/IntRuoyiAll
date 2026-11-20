@@ -70,6 +70,11 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
     @MockitoBean
     private DccProductCatalogRegistrationSyncService productCatalogRegistrationSyncService;
 
+    @org.junit.jupiter.api.AfterEach
+    void cleanTaskOwnedEntrustedEnterprise() {
+        jdbcTemplate.update("DELETE FROM mdm_enterprise WHERE id=30 AND tenant_id=1 AND enterprise_code='ENTRUST-30'");
+    }
+
     @BeforeEach
     void setUpFileService() {
         when(fileService.createFileAndReturnId(any(byte[].class), anyString(), anyString(), anyString()))
@@ -223,7 +228,7 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
                         "TECHNICAL_REQUIREMENTS", "Requirements B",
                         "RESIDENCE_ADDRESS", "Residence B",
                         "PRODUCTION_ADDRESS", "Production B"),
-                null, true, "[{\"enterpriseName\":\"Entrusted B\"}]", null)));
+                null, true, "[{\"enterpriseId\":30,\"enterpriseName\":\"Entrusted B\"}]", null)));
 
         Long changeId = longValue("SELECT id FROM dcc_registration_certificate_change WHERE approval_request_id = ?", requestId);
         assertEquals(3001L, longValue("SELECT current_snapshot_id FROM dcc_registration_certificate WHERE id = 1001"));
@@ -245,7 +250,7 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
                 "SELECT entrusted_production FROM dcc_registration_certificate_snapshot WHERE id = ?", Boolean.class, snapshotId));
         assertEquals(Boolean.FALSE, jdbcTemplate.queryForObject(
                 "SELECT self_production FROM dcc_registration_certificate_snapshot WHERE id = ?", Boolean.class, snapshotId));
-        assertEquals("[{\"enterpriseName\":\"Entrusted B\"}]",
+        assertEquals("[{\"enterpriseId\":30,\"enterpriseName\":\"Entrusted B\"}]",
                 text("SELECT entrusted_enterprises_json FROM dcc_registration_certificate_snapshot WHERE id = ?", snapshotId));
         assertEquals(8, count("SELECT COUNT(*) FROM dcc_registration_certificate_change_item WHERE change_id = ?", changeId));
     }
@@ -410,6 +415,83 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
         assertEquals(1,count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request WHERE certificate_id=1001"));
     }
 
+    @Test
+    void ordinaryChangeRejectsCertificateIdentityDatesAndAssociationTampering() {
+        seedCurrentCertificate();
+        String original = text("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE id=3001");
+        for (String field : java.util.List.of("projectCodeId", "productMasterId", "ownerCompanyId")) {
+            Map<String,Object> facts = new LinkedHashMap<>(JsonUtils.parseObject(original, Map.class));
+            facts.put(field, field.endsWith("Date") ? "2025-01-01" : "tampered");
+            assertThrows(ServiceException.class, () -> service.applyChange(command("protect-"+field,3,
+                    Map.of("CERTIFICATE_INFORMATION",JsonUtils.toJsonString(facts)),null,null,null,null)));
+        }
+        assertEquals(original,text("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE id=3001"));
+    }
+
+    @Test
+    void domesticProductionChangeRejectsUnidentifiedAndForeignEnterprise() {
+        seedCurrentCertificate();
+        assertCode(REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED.getCode(), () -> service.applyChange(command(
+                "unidentified-enterprise",3,Map.of("PRODUCTION_ADDRESS","New address"),null,true,
+                "[{\"enterpriseName\":\"Invented\"}]",null)));
+        assertCode(REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED.getCode(), () -> service.applyChange(command(
+                "foreign-enterprise",3,Map.of("PRODUCTION_ADDRESS","New address"),null,true,
+                "[{\"enterpriseId\":99999,\"enterpriseName\":\"Other tenant\"}]",null)));
+        assertEquals("Production",text("SELECT production_address FROM dcc_registration_certificate_snapshot WHERE id=3001"));
+    }
+
+    @Test
+    void ceModelAdditionAndDeletionAreReadBackFromApprovedSnapshotAndHistory() {
+        seedCurrentCertificate();
+        Map<String,Object> facts = new LinkedHashMap<>(JsonUtils.parseObject(text("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE id=3001"),Map.class));
+        facts.put("certificateType","CE"); facts.put("modelSpecifications",java.util.List.of("SIM-CE-A"));
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=3001",JsonUtils.toJsonString(facts));
+        facts.put("modelSpecifications",java.util.List.of("SIM-CE-A","SIM-CE-B"));
+        Long request = service.submitChangeForApproval(command("ce-add-model",3,Map.of("CERTIFICATE_INFORMATION",JsonUtils.toJsonString(facts)),null,null,null,null));
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_access_request SET status='APPROVED' WHERE id=?",request);
+        service.approveChangeRequest(1L,55L,request,"ce-add-approved");
+        Long snapshot = longValue("SELECT current_snapshot_id FROM dcc_registration_certificate WHERE id=1001");
+        assertEquals(java.util.List.of("SIM-CE-A","SIM-CE-B"),JsonUtils.parseObject(text("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE id=?",snapshot),Map.class).get("modelSpecifications"));
+        assertEquals("SIM-CE-A\nSIM-CE-B",text("SELECT model_specification FROM dcc_registration_certificate_snapshot WHERE id=?",snapshot));
+        facts.put("modelSpecifications",java.util.List.of("SIM-CE-B"));
+        Integer revision = jdbcTemplate.queryForObject("SELECT row_version FROM dcc_registration_certificate WHERE id=1001",Integer.class);
+        Long deletion = service.submitChangeForApproval(command("ce-delete-model",revision,Map.of("CERTIFICATE_INFORMATION",JsonUtils.toJsonString(facts)),null,null,null,null));
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_access_request SET status='APPROVED' WHERE id=?",deletion);
+        service.approveChangeRequest(1L,55L,deletion,"ce-delete-approved");
+        Long finalSnapshot = longValue("SELECT current_snapshot_id FROM dcc_registration_certificate WHERE id=1001");
+        assertEquals(java.util.List.of("SIM-CE-B"),JsonUtils.parseObject(text("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE id=?",finalSnapshot),Map.class).get("modelSpecifications"));
+        assertEquals(java.util.List.of("SIM-CE-A","SIM-CE-B"),JsonUtils.parseObject(text("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE id=?",snapshot),Map.class).get("modelSpecifications"));
+        assertEquals("SIM-CE-B",text("SELECT model_specification FROM dcc_registration_certificate_snapshot WHERE id=?",finalSnapshot));
+        assertEquals(2,count("SELECT COUNT(*) FROM dcc_registration_certificate_change_item WHERE item_type='CERTIFICATE_INFORMATION'"));
+    }
+
+    @Test
+    void directlyEditedCertificateNumberKeepsClassificationAndUnchangedFacts() {
+        seedCurrentCertificate();
+        Map<String,Object> facts = new LinkedHashMap<>(JsonUtils.parseObject(text("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE id=3001"),Map.class));
+        Object expiry=facts.get("expiryDate"); Object classification=facts.get("classification");
+        facts.put("certificateNo","NEW-NUMBER");
+        var result=service.applyChange(command("direct-number",3,Map.of("CERTIFICATE_INFORMATION",JsonUtils.toJsonString(facts)),null,null,null,null));
+        assertEquals("CERT-001",text("SELECT certificate_no FROM dcc_registration_certificate_version WHERE id=2001"));
+        var saved=JsonUtils.parseObject(text("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE id=?",result.resultingSnapshotId()),Map.class);
+        assertEquals(classification,saved.get("classification")); assertEquals(expiry,saved.get("expiryDate"));
+    }
+
+    @Test
+    void ceRevisionNumberEditProjectsNumberWithoutChangingClassificationOrMissingDates() {
+        seedCurrentCertificate();
+        Map<String,Object> facts=new LinkedHashMap<>(JsonUtils.parseObject(text("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE id=3001"),Map.class));
+        facts.put("certificateType","CE");facts.put("ceCertificates",java.util.List.of(Map.of("revision","1","certificateNo","CE-OLD")));
+        facts.remove("firstObtainedDate");
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=3001",JsonUtils.toJsonString(facts));
+        facts.put("ceCertificates",java.util.List.of(Map.of("revision","1","certificateNo","CE-NEW")));
+        var result=service.applyChange(command("ce-rev-number",3,Map.of("CERTIFICATE_INFORMATION",JsonUtils.toJsonString(facts)),null,null,null,null));
+        assertEquals("CERT-001",text("SELECT certificate_no FROM dcc_registration_certificate_version WHERE id=2001"));
+        assertEquals("II",text("SELECT classification FROM dcc_registration_certificate_version WHERE id=2001"));
+        assertEquals(LocalDate.of(2021,1,1),jdbcTemplate.queryForObject("SELECT first_obtained_date FROM dcc_registration_certificate WHERE id=1001",LocalDate.class));
+        assertEquals("CE-NEW",JsonUtils.parseObject(text("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE id=?",result.resultingSnapshotId()),Map.class).get("certificateNo"));
+    }
+
     private DccRegistrationCertificateChangeCommand command(String key, Integer rowVersion,
                                                             Map<String, String> values, String other,
                                                             Boolean entrusted, String entrustedJson,
@@ -425,6 +507,7 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
     }
 
     private void seedCurrentCertificate() {
+        jdbcTemplate.update("INSERT INTO mdm_enterprise (id, enterprise_code, name, type, status, tenant_id, deleted) VALUES (30,'ENTRUST-30','Entrusted B','ENTRUSTED_PARTY','ENABLE',1,0)");
         if (count("SELECT COUNT(*) FROM mdm_enterprise WHERE tenant_id = 1 AND id = 10") == 0) {
             jdbcTemplate.update("""
                     INSERT INTO mdm_enterprise

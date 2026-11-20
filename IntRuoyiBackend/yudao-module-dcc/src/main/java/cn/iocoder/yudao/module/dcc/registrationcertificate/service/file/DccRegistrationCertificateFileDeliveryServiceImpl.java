@@ -174,13 +174,25 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
         if (file == null || !Objects.equals(file.getTenantId(), tenantId)
                 || !"BOUND".equals(file.getStatus())
                 || !("VERSION".equals(file.getOwnerType()) && java.util.Set.of("REGISTRATION_CERTIFICATE", "CERTIFICATE_ATTACHMENT", "FDA_PRODUCT_DESCRIPTION").contains(file.getFileKind())
-                || "CHANGE".equals(file.getOwnerType()) && java.util.Set.of("CHANGE_APPROVAL","CERTIFICATE_ATTACHMENT","FDA_PRODUCT_DESCRIPTION").contains(file.getFileKind()))) {
+                || "CHANGE".equals(file.getOwnerType()) && java.util.Set.of("CHANGE_APPROVAL","CERTIFICATE_ATTACHMENT","FDA_PRODUCT_DESCRIPTION").contains(file.getFileKind())
+                || "SUPPORTING_DOCUMENT".equals(file.getOwnerType()) && java.util.Set.of("RENEWAL_ACCEPTANCE_RECEIPT", "RENEWAL_SUPPLEMENT_NOTICE").contains(file.getFileKind()))) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
         }
         return file;
     }
 
     private DccRegistrationCertificateVersionDO requireVersion(Long tenantId, DccRegistrationCertificateFileDO file) {
+        if ("SUPPORTING_DOCUMENT".equals(file.getOwnerType())) {
+            Long versionId = jdbcTemplate.query("""
+                    SELECT sd.version_id FROM dcc_registration_certificate_supporting_document sd
+                    JOIN dcc_registration_certificate_version v ON v.id=sd.version_id AND v.tenant_id=sd.tenant_id AND v.certificate_id=sd.certificate_id AND v.deleted=0
+                    WHERE sd.tenant_id=? AND sd.id=? AND sd.business_file_id=? AND sd.document_type=? AND sd.status='EFFECTIVE' AND sd.deleted=0
+                    """, rs -> rs.next() ? rs.getLong(1) : null, tenantId, file.getOwnerId(), file.getId(), file.getFileKind());
+            DccRegistrationCertificateVersionDO version = versionId == null ? null : versionMapper.selectById(versionId);
+            if (version == null || !Objects.equals(version.getTenantId(), tenantId))
+                throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
+            return version;
+        }
         Long versionId = "VERSION".equals(file.getOwnerType()) ? file.getOwnerId() : jdbcTemplate.query("""
                 SELECT source_version_id FROM dcc_registration_certificate_change
                  WHERE tenant_id = ? AND id = ? AND status = 'APPLIED' AND deleted = 0
@@ -342,6 +354,11 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
                                  DccRegistrationCertificateSnapshotDO snapshot,
                                  DccRegistrationCertificateFileDO businessFile) {
         String extension = extensionOf(businessFile.getOriginalName());
+        if ("SUPPORTING_DOCUMENT".equals(businessFile.getOwnerType())) {
+            String type = "RENEWAL_ACCEPTANCE_RECEIPT".equals(businessFile.getFileKind()) ? "延续受理单" : "立卷发补单";
+            String original = businessFile.getOriginalName();
+            return type + "_" + safeSegment(original.substring(0, original.lastIndexOf('.'))) + extension;
+        }
         var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshot.getFactsJson());
         boolean changed = "CHANGE".equals(businessFile.getOwnerType());
         boolean expired = facts.isExpired(businessClock.businessDate());
