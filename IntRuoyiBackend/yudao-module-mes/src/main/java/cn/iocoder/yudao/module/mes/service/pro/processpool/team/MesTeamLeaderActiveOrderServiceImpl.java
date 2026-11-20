@@ -2060,6 +2060,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (updated <= 0) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, reqBO.getActiveOrderId());
         }
+        handoffService.retireCycle(activeOrder.getId(),reqBO.getLeaderUserId(),activeOrder.getWorkOrderId());
         MesProcessPoolActiveOrderDO update = MesProcessPoolActiveOrderDO.builder()
                 .id(activeOrder.getId())
                 .activeStatus(STATUS_REMOVED)

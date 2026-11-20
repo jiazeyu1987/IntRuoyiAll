@@ -65,7 +65,12 @@ def main():
         before = fingerprint(root)
         manifest = jar.with_suffix('.provenance.json')
         manifest.unlink(missing_ok=True)
+        # On Windows an interrupted Maven Java child can leave cmd.exe reporting
+        # success. Never certify a package left over from the previous build.
+        jar.unlink(missing_ok=True)
         subprocess.run(['mvn.cmd' if os.name == 'nt' else 'mvn', '-pl', 'yudao-server', '-am', '-DskipTests', 'clean', 'package'], cwd=root, check=True)
+        if not jar.is_file():
+            raise RuntimeError('Build did not produce a new backend package')
         if fingerprint(root) != before:
             raise RuntimeError('Source changed during build; package cannot be certified')
         data = {'version': 1, 'sourceSha256': before, 'jarSha256': digest(jar)}

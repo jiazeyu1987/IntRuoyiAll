@@ -29,8 +29,9 @@ public class MesFixedTestOrderDataService {
     private final MesFixedTestOrderModeGuard modeGuard;
     private final MesFixedTestOrderInitializer orderInitializer;
 
-    public record DocumentResult(String name, int createdCount, int deletedCount, int skippedCount, int repairedCount) { }
-    public record Result(String workOrderCode, List<DocumentResult> documents) { }
+    public record DocumentResult(String name, int createdCount, int deletedCount, int skippedCount,
+                                 int repairedCount, int preservedReferenceCount) { }
+    public record Result(String workOrderCode, String productionMaterialListNo, List<DocumentResult> documents) { }
 
     @Transactional(rollbackFor = Exception.class)
     public Result prepare(Long actor) {
@@ -58,20 +59,19 @@ public class MesFixedTestOrderDataService {
         orderInitializer.createWorkOrderIfMissing(actor, dataSet);
         var order = existing("mes_pro_work_order", tenant, Map.of("code", dataSet.workOrderCode()));
         if (order == null) throw blocked("测试生产订单创建后不存在");
-        String materialBillNo = secondMaterialBillNo(dataSet);
-        // Material documents must exist before the second fixture's issue references are written.
-        // The reference tenant resets runtime facts using its existing source documents.
-        // Validate and reuse those documents; only copied tenants rebuild document rows.
+        String materialBillNo = materialBillNo(dataSet);
+        // Each fixture's material document must exist before its issue references are written.
+        // The reference tenant reuses source documents; only copied tenants rebuild them.
         boolean rebuildDocuments = rebuild && tenant != SOURCE_TENANT;
         var materials = prepareMaterials(order, tenant, actor, rebuildDocuments, dataSet);
         List<DocumentResult> results = new ArrayList<>();
-        results.add(new DocumentResult("生产订单", existingOrder == null ? 1 : 0, 0, existingOrder == null ? 0 : 1, 0));
+        results.add(new DocumentResult("生产订单", existingOrder == null ? 1 : 0, 0, existingOrder == null ? 0 : 1, 0, 0));
         results.add(prepareIssues("pick", "领料单明细", tenant, actor, rebuildDocuments, dataSet, materialBillNo, order));
         results.add(prepareIssues("replenishment", "补料单明细", tenant, actor, rebuildDocuments, dataSet, materialBillNo, order));
         results.add(materials);
         actionLog.recordPreparation(actor, ((Number) required(order, "id")).longValue(), rebuild, results);
         log.info("固定测试工单来源单据准备完成：租户={}，操作人={}，工单={}，结果={}", tenant, actor, dataSet.workOrderCode(), results);
-        return new Result(dataSet.workOrderCode(), List.copyOf(results));
+        return new Result(dataSet.workOrderCode(), materialBillNo, List.copyOf(results));
     }
 
     private DocumentResult prepareIssues(String kind, String name, long tenant, long actor, boolean rebuild,
@@ -87,7 +87,7 @@ public class MesFixedTestOrderDataService {
                         || !MesFixedTestOrderReplenishmentPolicy.isHistoricalCopy(item))
                 .map(dataSet::document).toList();
         if (items.isEmpty()) {
-            if ("replenishment".equals(kind)) return new DocumentResult(name, 0, removedSimulations, 0, 0);
+            if ("replenishment".equals(kind)) return new DocumentResult(name, 0, removedSimulations, 0, 0, 0);
             throw blocked("参考租户缺少固定测试订单的" + name);
         }
         // Validate the complete source before writing; existing documents stay untouched in fill mode.
@@ -97,6 +97,7 @@ public class MesFixedTestOrderDataService {
         Set<Object> existingHeaderIds = new HashSet<>();
         Set<Object> existingItemIds = new HashSet<>();
         int repaired = 0;
+        int preserved = 0;
         for (var item : items) {
             var header = dataSet.document(single(source(headerTable, "id", required(item, fk)), name + "表头"));
             if (!"C".equals(header.get("document_status"))
@@ -110,16 +111,17 @@ public class MesFixedTestOrderDataService {
             if (localHeader != null) existingHeaderIds.add(localHeader.get("id"));
             var localItem = existing(itemTable, tenant, Map.of("source_line_key", required(item, "source_line_key")));
             if (localItem != null && (!dataSet.workOrderCode().equals(localItem.get("production_order_no"))
-                    || dataSet == MesFixedTestOrderDataSet.SECOND
-                    && !equalValue(localItem.get(fk), headerIds.get(header.get("id")))))
+                    || !equalValue(localItem.get(fk), headerIds.get(header.get("id")))))
                 throw blocked(name + "身份已用于其他订单");
             itemIds.put(item.get("id"), localItem == null ? IdUtil.getSnowflakeNextId() : localItem.get("id"));
             if (localItem != null) existingItemIds.add(localItem.get("id"));
-            if (dataSet == MesFixedTestOrderDataSet.SECOND) {
-                if (localItem != null && repairSecondMaterialReference(itemTable, localItem, item,
-                        materialBillNo, order, tenant, actor)) repaired++;
-                item.put("production_material_list_no", materialBillNo);
+            if (tenant != SOURCE_TENANT && !rebuild && localItem != null) {
+                var reference = repairMaterialReference(itemTable, localItem, item,
+                        materialBillNo, order, tenant, actor, dataSet);
+                if (reference == ReferenceResult.REPAIRED) repaired++;
+                if (reference == ReferenceResult.PRESERVED) preserved++;
             }
+            item.put("production_material_list_no", materialBillNo);
         }
         var oldHeaderIds = rebuild ? jdbc.queryForList("SELECT DISTINCT " + fk + " FROM " + itemTable
                 + " WHERE tenant_id=? AND production_order_no=?", Long.class, tenant, dataSet.workOrderCode()) : List.of();
@@ -147,7 +149,7 @@ public class MesFixedTestOrderDataService {
                     itemIds.get(item.get("id")), tenant, actor, dataSet);
             created++;
         }
-        return new DocumentResult(name, created, deleted + removedSimulations, skipped - repaired, repaired);
+        return new DocumentResult(name, created, deleted + removedSimulations, skipped - repaired - preserved, repaired, preserved);
     }
 
     private int removeHistoricalReplenishments(long tenant, long actor, Map<String, Object> order,
@@ -206,8 +208,7 @@ public class MesFixedTestOrderDataService {
             var present = existing(table, tenant, Map.of("source_form_id", required(row, "source_form_id"),
                     "source_bill_no", required(row, "source_bill_no"), "source_entry_id", required(row, "source_entry_id")));
             if (present != null && (!dataSet.workOrderCode().equals(present.get("production_order_no"))
-                    || dataSet == MesFixedTestOrderDataSet.SECOND
-                    && (!equalValue(order.get("id"), present.get("work_order_id"))
+                    || (!equalValue(order.get("id"), present.get("work_order_id"))
                     || !dataSet.workOrderCode().equals(present.get("work_order_code")))))
                 throw blocked("生产用料清单身份已用于其他订单");
             rowIds.put(row.get("id"), present == null ? IdUtil.getSnowflakeNextId() : present.get("id"));
@@ -243,38 +244,50 @@ public class MesFixedTestOrderDataService {
             insert(table, MATERIAL_COLUMNS, row, overrides, rowIds.get(row.get("id")), tenant, actor, dataSet);
             created++;
         }
-        return new DocumentResult("生产用料清单明细", created, deleted, skipped, 0);
+        return new DocumentResult("生产用料清单明细", created, deleted, skipped, 0, 0);
     }
 
-    private String secondMaterialBillNo(MesFixedTestOrderDataSet dataSet) {
-        if (dataSet != MesFixedTestOrderDataSet.SECOND) return null;
+    private String materialBillNo(MesFixedTestOrderDataSet dataSet) {
         var bills = source("mes_kingdee_production_material_list", "production_order_no", WORK_ORDER_CODE).stream()
                 .map(row -> required(row, "source_bill_no").toString()).distinct().toList();
-        if (bills.size() != 1) throw blocked("第二套测试订单必须有且仅有一份明确的来源用料清单，不能推断领补料关联");
+        if (bills.isEmpty()) throw blocked("参考租户缺少固定测试订单的生产用料清单");
+        if (bills.size() != 1) throw blocked("测试订单必须有且仅有一份明确的来源用料清单，不能推断领补料关联");
         return dataSet.document(Map.of("source_bill_no", bills.get(0))).get("source_bill_no").toString();
     }
 
-    /** Correct only the known old generator output, before it becomes production evidence. */
-    private boolean repairSecondMaterialReference(String table, Map<String, Object> local, Map<String, Object> expected,
-                                                   String materialBillNo, Map<String, Object> order, long tenant, long actor) {
+    private enum ReferenceResult { UNCHANGED, REPAIRED, PRESERVED }
+
+    /** Correct known fixture output before production; preserve and explicitly report production evidence. */
+    private ReferenceResult repairMaterialReference(String table, Map<String, Object> local, Map<String, Object> expected,
+                                                   String materialBillNo, Map<String, Object> order, long tenant, long actor,
+                                                   MesFixedTestOrderDataSet dataSet) {
         Object previous = local.get("production_material_list_no");
-        if (Objects.equals(previous, materialBillNo)) return false;
+        if (Objects.equals(previous, materialBillNo)) return ReferenceResult.UNCHANGED;
         if (!Objects.equals(previous, expected.get("production_material_list_no")))
-            throw blocked("第二套领补料用料单关联已被修改，不能自动覆盖");
-        var raw = JsonUtils.parseTree(Objects.toString(local.get("raw_payload"), ""));
-        if (!(raw instanceof ObjectNode snapshot) || raw.path("testDataSet").asInt() != 2
-                || !MesFixedTestOrderDataSet.SECOND.workOrderCode().equals(raw.path("workOrderCode").asText())
+            throw blocked("领补料用料单关联已被修改，不能自动覆盖");
+        ObjectNode snapshot;
+        ObjectNode document;
+        if (dataSet == MesFixedTestOrderDataSet.FIRST && Objects.equals(local.get("raw_payload"), expected.get("raw_payload"))) {
+            snapshot = (ObjectNode) JsonUtils.parseTree(dataSet.snapshot(local, expected));
+            document = (ObjectNode) snapshot.path("document");
+        } else {
+            var raw = JsonUtils.parseTree(Objects.toString(local.get("raw_payload"), ""));
+            if (!(raw instanceof ObjectNode node) || raw.path("testDataSet").asInt() != (dataSet == MesFixedTestOrderDataSet.SECOND ? 2 : 1)
+                || !dataSet.workOrderCode().equals(raw.path("workOrderCode").asText())
                 || raw.path("reference").path("tenantId").asLong() != SOURCE_TENANT
                 || !Objects.toString(expected.get("id")).equals(raw.path("reference").path("recordId").asText())
-                || !(raw.path("document") instanceof ObjectNode document)
-                || !Objects.toString(local.get("source_line_key")).equals(document.path("source_line_key").asText())
-                || !MesFixedTestOrderDataSet.SECOND.workOrderCode().equals(document.path("production_order_no").asText())
-                || !Objects.equals(Objects.toString(previous, null), document.path("production_material_list_no").asText(null)))
-            throw blocked("第二套领补料缺少本工具生成的来源凭据，不能自动修复");
+                || !(raw.path("document") instanceof ObjectNode doc)
+                || !Objects.toString(local.get("source_line_key")).equals(doc.path("source_line_key").asText())
+                || !dataSet.workOrderCode().equals(doc.path("production_order_no").asText())
+                || !Objects.equals(Objects.toString(previous, null), doc.path("production_material_list_no").asText(null)))
+                throw blocked("领补料缺少本工具生成的来源凭据，不能自动修复");
+            snapshot = node;
+            document = doc;
+        }
         if (new BigDecimal(required(order, "quantity_produced").toString()).signum() != 0
                 || !jdbc.queryForList("SELECT id FROM mes_pro_process_pool_active_order WHERE tenant_id=? AND work_order_id=? AND deleted=0",
                 Long.class, tenant, required(order, "id")).isEmpty())
-            throw blocked("第二套订单已进入生产，不能自动更改领补料用料单关联");
+            return ReferenceResult.PRESERVED;
         document.put("production_material_list_no", materialBillNo);
         ObjectNode repair = snapshot.putObject("materialListReferenceRepair");
         if (previous == null) repair.putNull("previous"); else repair.put("previous", previous.toString());
@@ -283,9 +296,9 @@ public class MesFixedTestOrderDataService {
         if (jdbc.update("UPDATE " + table + " SET production_material_list_no=?,raw_payload=?,updater=?"
                         + " WHERE id=? AND tenant_id=? AND production_order_no=? AND source_line_key=? AND deleted=0",
                 materialBillNo, snapshot.toString(), String.valueOf(actor), required(local, "id"), tenant,
-                MesFixedTestOrderDataSet.SECOND.workOrderCode(), required(local, "source_line_key")) != 1)
-            throw blocked("第二套领补料用料单关联修复失败");
-        return true;
+                dataSet.workOrderCode(), required(local, "source_line_key")) != 1)
+            throw blocked("领补料用料单关联修复失败");
+        return ReferenceResult.REPAIRED;
     }
 
     private void insert(String table, String columns, Map<String, Object> source, Map<String, Object> overrides,
@@ -298,7 +311,8 @@ public class MesFixedTestOrderDataService {
         }
         values.put("tenant_id", tenant); values.put("deleted", false);
         values.put("creator", String.valueOf(actor)); values.put("updater", String.valueOf(actor));
-        if (dataSet == MesFixedTestOrderDataSet.SECOND) values.put("raw_payload", dataSet.snapshot(values, source));
+        if (dataSet == MesFixedTestOrderDataSet.SECOND || columns.contains("production_material_list_no"))
+            values.put("raw_payload", dataSet.snapshot(values, source));
         if (jdbc.update("INSERT INTO " + table + " (" + String.join(",", values.keySet()) + ") VALUES ("
                 + String.join(",", Collections.nCopies(values.size(), "?")) + ")", values.values().toArray()) != 1)
             throw blocked("测试单据写入失败：" + table);

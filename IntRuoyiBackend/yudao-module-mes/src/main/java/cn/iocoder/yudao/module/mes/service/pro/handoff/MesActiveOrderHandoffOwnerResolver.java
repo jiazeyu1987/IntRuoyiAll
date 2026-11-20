@@ -318,6 +318,19 @@ public class MesActiveOrderHandoffOwnerResolver {
         require(!ids.isEmpty(),"生产接手缺少正式人员责任配置"); return snapshot(ids);
     }
 
+    public String pqcEmployees() {
+        var ids=new TreeSet<Long>();
+        var rows=pqcEmployeeScopes();
+        for(var row:rows) {
+            require(row.getEmployeeUserId()!=null&&row.getEmployeeUserId()>0,"PQC人员责任缺少正式系统账号");
+            qualifiedPqcSubmitter(row.getEmployeeUserId());
+            pqcLeaderFor(row.getEmployeeUserId(),rows);
+            ids.add(row.getEmployeeUserId());
+        }
+        require(!ids.isEmpty(),"PQC接手缺少正式人员责任配置");
+        return snapshot(ids);
+    }
+
     private List<MesProcessPoolTeamLeaderScopeDO> pqcEmployeeScopes() {
         var rows=scopes.selectActiveScopesByLeaderType("PQC");require(rows!=null,"PQC正式人员责任查询失败");
         require(rows.stream().noneMatch(Objects::isNull),"PQC正式人员责任包含无效记录");

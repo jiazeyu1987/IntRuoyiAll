@@ -251,6 +251,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
         }
         creationVerifier.requireCompletionTransactionId(persisted.getTenantId(), persisted.getId());
         handoffService.productionLeaderContinued(activeOrder.getId(), leaderUserId, receipt.getId());
+        handoffService.executionCompleted(activeOrder.getId(),leaderUserId,receipt.getId());
         return toResult(receipt);
     }
 

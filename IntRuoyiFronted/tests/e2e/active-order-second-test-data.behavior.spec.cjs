@@ -11,13 +11,16 @@ const source = fs.readFileSync(filename, 'utf8')
 const start = source.indexOf('const handlePrepareFixedTestOrderData =')
 const end = source.indexOf('const handleResetFixedSimulationActiveOrder =', start)
 assert.ok(start >= 0 && end > start)
-const handler = ts.transpileModule(source.slice(start, end), {
+const guardStart = source.indexOf('const requireWritableHandoff =')
+const guardEnd = source.indexOf('\nconst ', guardStart + 1)
+assert.ok(guardStart >= 0 && guardEnd > guardStart)
+const handler = ts.transpileModule(source.slice(guardStart, guardEnd) + '\n' + source.slice(start, end), {
   compilerOptions: { target: ts.ScriptTarget.ES2022 }
 }).outputText
 
-const receipt = code => ({ workOrderCode: code, documents: [
+const receipt = code => ({ workOrderCode: code, productionMaterialListNo: `${code}-MATERIAL`, documents: [
   '生产订单', '领料单明细', '补料单明细', '生产用料清单明细'
-].map(name => ({ name, createdCount: 1, deletedCount: 0, skippedCount: 0, repairedCount: 0 })) })
+].map(name => ({ name, createdCount: 1, deletedCount: 0, skippedCount: 0, repairedCount: 0, preservedReferenceCount: 0 })) })
 
 function setup(second = async () => receipt('ORDER-2')) {
   const calls = [], messages = []
@@ -28,10 +31,10 @@ function setup(second = async () => receipt('ORDER-2')) {
   }
   state.activeOrderTestResetBlocked = computed(() => !state.enabled.value ||
     state.activeOrderTestResetSubmitting.value || state.activeOrderTestDataSubmitting.value)
-  const deps = { ...state,
+  const deps = { ...state, handoffReadOnly: ref(false),
     prepareFixedTestOrderData: async () => { calls.push(1); return receipt('ORDER-1') },
     prepareSecondFixedTestOrderData: async () => { calls.push(2); return second() },
-    ElMessage: { success: msg => messages.push(['success', msg]), error: msg => messages.push(['error', msg]) },
+    ElMessage: { success: msg => messages.push(['success', msg]), warning: msg => messages.push(['warning', msg]), error: msg => messages.push(['error', msg]) },
     resolveErrorMessage: (error, fallback) => error.message || fallback
   }
   const prepare = Function(...Object.keys(deps), `${handler}; return handlePrepareFixedTestOrderData`)(...Object.values(deps))
@@ -97,7 +100,7 @@ test('a failure or incomplete receipt remains a visible failure without retrying
 
 test('repairs are displayed separately from created and skipped records; an invalid repair receipt fails', async () => {
   const repaired = receipt('ORDER-2')
-  repaired.documents[1] = { name: '领料单明细', createdCount: 0, deletedCount: 0, skippedCount: 0, repairedCount: 30 }
+  repaired.documents[1] = { name: '领料单明细', createdCount: 0, deletedCount: 0, skippedCount: 0, repairedCount: 30, preservedReferenceCount: 0 }
   const f = setup(async () => repaired)
   await f.prepare(2)
   assert.match(f.state.activeOrderTestDataReceipt.value.message, /领料单明细新增0条、跳过已有0条、修复关联30条/)
@@ -107,6 +110,28 @@ test('repairs are displayed separately from created and skipped records; an inva
   const missing = setup(async () => invalid)
   await missing.prepare(2)
   assert.equal(missing.state.activeOrderTestDataReceipt.value.success, false)
+})
+
+test('retained production references are a warning and never reported as repaired or successful', async () => {
+  const retained = receipt('ORDER-2')
+  retained.documents[1] = { name: '领料单明细', createdCount: 0, deletedCount: 0, skippedCount: 0, repairedCount: 0, preservedReferenceCount: 30 }
+  const f = setup(async () => retained)
+  await f.prepare(2)
+  assert.equal(f.state.activeOrderTestDataReceipt.value.success, false)
+  assert.equal(f.state.activeOrderTestDataReceipt.value.warning, true)
+  assert.match(f.state.activeOrderTestDataReceipt.value.message, /旧关联未修复/)
+  assert.match(f.state.activeOrderTestDataReceipt.value.message, /本套生产用料清单：ORDER-2-MATERIAL/)
+  assert.match(f.state.activeOrderTestDataReceipt.value.message, /已投产保留旧关联30条/)
+  assert.equal(f.messages[0][0], 'warning')
+  for (const key of ['productionMaterialListNo', 'preservedReferenceCount']) {
+    const invalid = receipt('ORDER-2')
+    if (key === 'productionMaterialListNo') delete invalid[key]
+    else delete invalid.documents[1][key]
+    const missing = setup(async () => invalid)
+    await missing.prepare(2)
+    assert.equal(missing.state.activeOrderTestDataReceipt.value.success, false)
+    assert.equal(missing.messages[0][0], 'error')
+  }
 })
 
 test('the API exports use independent fixed endpoints with the existing timeout and visible failure handling', async () => {

@@ -9,8 +9,11 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFixedTestOrderInitializer.*;
 import static cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFixedTestOrderReferenceGraph.*;
@@ -30,7 +33,8 @@ public class MesFixedTestOrderCompletionSourceInitializer {
         Map<String, Object> order = one(jdbc.queryForList(
                 "SELECT id,code FROM mes_pro_work_order WHERE tenant_id=? AND id=? AND deleted=0 FOR UPDATE",
                 tenant, workOrderId), "当前租户完工工单");
-        if (!WORK_ORDER_CODE.equals(order.get("code"))) return;
+        boolean second = MesFixedTestOrderDataSet.SECOND.workOrderCode().equals(order.get("code"));
+        if (!WORK_ORDER_CODE.equals(order.get("code")) && !second) return;
         one(jdbc.queryForList("SELECT id FROM system_tenant WHERE id=? AND deleted=0 FOR UPDATE", tenant),
                 "固定测试完工所属租户");
         // Existing local issues remain authoritative and undergo the normal completion validation.
@@ -47,7 +51,9 @@ public class MesFixedTestOrderCompletionSourceInitializer {
             if (issue.get("task_id") != null || issue.get("workstation_id") != null)
                 throw blocked("参考测试本地领料单限定了其他任务或工作站");
             // Keep the current tenant's work order, product and route; do not import reference definitions.
-            graph.plan("mes_wm_product_issue", issue.get("id"), issue, Map.of("work_order_id", workOrderId));
+            Map<String, Object> issueOverrides = new LinkedHashMap<>(Map.of("work_order_id", workOrderId));
+            if (second) issueOverrides.put("code", secondIdentity(issue.get("code")));
+            graph.plan("mes_wm_product_issue", issue.get("id"), issue, issueOverrides);
             List<Map<String, Object>> lines = graph.sourceRows("mes_wm_product_issue_line", "issue_id=?", issue.get("id"));
             List<Map<String, Object>> details = graph.sourceRows("mes_wm_product_issue_detail", "issue_id=?", issue.get("id"));
             if (lines.isEmpty() || details.isEmpty()) throw blocked("参考测试本地领料单缺少行或库存批次明细");
@@ -73,8 +79,17 @@ public class MesFixedTestOrderCompletionSourceInitializer {
                     Object value = batch.get(field);
                     if (value != null && !equalValue(value, 0L)) throw blocked("参考测试领料批次限定了其他业务：" + field);
                 }
-                graph.plan("mes_wm_batch", batch.get("id"), batch, Map.of("work_order_id", workOrderId));
-                graph.include("mes_wm_product_issue_detail", detail.get("id"));
+                Map<String, Object> batchOverrides = new LinkedHashMap<>(Map.of("work_order_id", workOrderId));
+                if (second) {
+                    String batchCode = secondIdentity(batch.get("code"));
+                    batchOverrides.put("code", batchCode);
+                    graph.plan("mes_wm_batch", batch.get("id"), batch, batchOverrides);
+                    graph.plan("mes_wm_material_stock", stock.get("id"), stock, Map.of("batch_code", batchCode));
+                    graph.plan("mes_wm_product_issue_detail", detail.get("id"), detail, Map.of("batch_code", batchCode));
+                } else {
+                    graph.plan("mes_wm_batch", batch.get("id"), batch, batchOverrides);
+                    graph.include("mes_wm_product_issue_detail", detail.get("id"));
+                }
             }
             for (Map<String, Object> line : lines) {
                 positive(line, "quantity");
@@ -86,6 +101,11 @@ public class MesFixedTestOrderCompletionSourceInitializer {
         graph.insertAll();
         log.info("Fixed test completion sources staged: tenantId={}, workOrderId={}, issueCount={}, actor={}",
                 tenant, workOrderId, issues.size(), actor);
+    }
+
+    private static String secondIdentity(Object source) {
+        return "FT2-" + UUID.nameUUIDFromBytes(("LOCAL_PRODUCT_ISSUE:" + source)
+                .getBytes(StandardCharsets.UTF_8)).toString().replace("-", "");
     }
 
     private static void positive(Map<String, Object> row, String field) {

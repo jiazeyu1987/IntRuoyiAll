@@ -17,6 +17,7 @@ const receipt = { workOrderCode: 'FIXED-TEST-01', activeOrderId: '90071992547410
 const createDataHarness = (api) => {
   const successes = [], errors = []
   const context = {
+    handoffReadOnly: ref(false),
     activeOrderTestResetBlocked: ref(false), activeOrderTestResetSubmitting: ref(false),
     activeOrderTestDataSubmitting: ref(false), activeOrderTestDataReceipt: ref(undefined),
     activeOrderTestDataSet: ref(1),
@@ -26,7 +27,7 @@ const createDataHarness = (api) => {
   }
   context.activeOrderTestResetBlocked = { get value() { return context.activeOrderTestResetSubmitting.value } }
   vm.createContext(context)
-  vm.runInContext(ts.transpileModule(extract('handlePrepareFixedTestOrderData') + '\nglobalThis.run = handlePrepareFixedTestOrderData', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context)
+  vm.runInContext(ts.transpileModule(extract('requireWritableHandoff') + '\n' + extract('handlePrepareFixedTestOrderData') + '\nglobalThis.run = handlePrepareFixedTestOrderData', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context)
   return { context, successes, errors, run: context.run }
 }
 
@@ -37,10 +38,10 @@ test('data preparation displays actual created/skipped counts and sends one requ
   await h.run()
   assert.equal(h.context.activeOrderTestDataSubmitting.value, true)
   assert.equal(calls, 1)
-  resolve({ workOrderCode: 'FIXED', documents: ['生产订单', '领料单明细', '补料单明细', '生产用料清单明细'].map(name => ({ name, createdCount: 0, deletedCount: 0, skippedCount: 2, repairedCount: 0 })) })
+  resolve({ workOrderCode: 'FIXED', productionMaterialListNo: 'PML-FIXED', documents: ['生产订单', '领料单明细', '补料单明细', '生产用料清单明细'].map(name => ({ name, createdCount: 0, deletedCount: 0, skippedCount: 2, repairedCount: 0, preservedReferenceCount: 0 })) })
   await first
   assert.equal(h.context.activeOrderTestDataReceipt.value.success, true)
-  assert.match(h.context.activeOrderTestDataReceipt.value.message, /补料单明细新增0条、移除旧模拟数据0条、跳过已有2条、修复关联0条/)
+  assert.match(h.context.activeOrderTestDataReceipt.value.message, /补料单明细新增0条、跳过已有2条、修复关联0条、移除旧模拟数据0条/)
   assert.equal(h.context.activeOrderTestResetSubmitting.value, false)
 })
 
@@ -60,6 +61,7 @@ test('data preparation failures and invalid receipts never report success and re
 const createHarness = (overrides = {}) => {
   const calls = [], successes = [], errors = [], warnings = []
   const context = {
+    handoffReadOnly: ref(false),
     testModeEnabled: ref(true),
     activeOrderTestResetReceipt: ref(undefined),
     activeOrderTestResetSubmitting: ref(false), maintenanceSubmitting: ref(false),
@@ -73,13 +75,14 @@ const createHarness = (overrides = {}) => {
     ElMessageBox: { confirm: async () => {} },
     resetFixedSimulationActiveOrder: async (...args) => { calls.push(args); return receipt },
     loadActiveOrders: async () => { context.activeOrderOptions.value = [{ id: receipt.activeOrderId, workOrderCode: receipt.workOrderCode }] },
+    ElMessageBox: { confirm: async () => {} },
     ElMessage: { success: message => successes.push(message), error: message => errors.push(message), warning: message => warnings.push(message) },
     resolveErrorMessage: (error, fallback) => error?.message || fallback,
     ...overrides
   }
   vm.createContext(context)
   const busy = page.includes('const activeOrderTestResetBlocked =') ? extract('activeOrderTestResetBlocked') : 'const activeOrderTestResetBlocked = { value: false }'
-  vm.runInContext(ts.transpileModule(busy + '\n' + extract('handleResetFixedSimulationActiveOrder') + '\nglobalThis.run = handleResetFixedSimulationActiveOrder', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context)
+  vm.runInContext(ts.transpileModule(extract('requireWritableHandoff') + '\n' + busy + '\n' + extract('handleResetFixedSimulationActiveOrder') + '\nglobalThis.run = handleResetFixedSimulationActiveOrder', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context)
   return { context, calls, successes, errors, warnings, run: context.run }
 }
 
@@ -115,6 +118,7 @@ test('a repeated click while reset is pending sends only one request', async () 
   const pending = h.run()
   await started
   const repeated = h.run()
+  await new Promise(resolve => setImmediate(resolve))
   for (const resolve of resolvers) resolve(receipt)
   await Promise.all([pending, repeated])
   assert.equal(count, 1)
@@ -181,7 +185,7 @@ test('request failure remains visible, preserves current filter and unlocks rese
 })
 
 test('missing tenant orders, project QA and route prerequisites and cleanup rejections report a definite rollback', async () => {
-  for (const code of [1040760394, 1040502000, '1040502000', 1040506111, 1040760324, '1040760324']) {
+  for (const code of [1040760394, 1040502000, '1040502000', 1040506111, 1040760324, '1040760324', 1040760414, '1040760414']) {
     const h = createHarness({ resetFixedSimulationActiveOrder: async () => {
       throw Object.assign(new Error('production order missing or cleanup refused'), { code })
     } })
@@ -233,9 +237,9 @@ test('visible reset identifies test orders and mutation controls prevent concurr
 test('active-order mutation handlers cannot start while reset owns the page', async () => {
   const handlers = ['submitAddActiveOrder', 'submitActiveOrderReleaseApplication', 'handleRebuildActiveOrder', 'handleActiveOrderVersionUpgrade', 'submitActiveOrderVersionUpgrade', 'handleCopyLatestSimulationActiveOrder', 'handleCleanupLatestSimulationActiveOrder', 'handleSimulateStage1', 'handleGenerateStage1Forms', 'handleSimulateStage2_5', 'handlePushGeneratedPqcRelease', 'handleRecommendedActiveOrderConflictResolution', 'handleRemoveActiveOrder', 'handleTeamLeaderDataCleanup', 'openActiveOrderDialog', 'openAbnormalDialog']
   for (const name of handlers) {
-    const context = { activeOrderTestResetSubmitting: ref(true) }
+    const context = { activeOrderTestResetSubmitting: ref(true), handoffReadOnly: ref(false) }
     vm.createContext(context)
-    vm.runInContext(ts.transpileModule(extract(name) + `\nglobalThis.run = ${name}`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context)
+    vm.runInContext(ts.transpileModule(extract('requireWritableHandoff') + '\n' + extract(name) + `\nglobalThis.run = ${name}`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context)
     // No API, dialog or mutable state is supplied: reaching any of them is a failure.
     await context.run({ id: 42 }, 'UP')
   }

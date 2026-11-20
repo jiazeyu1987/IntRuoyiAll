@@ -1359,8 +1359,10 @@ class MesFixedTestOrderInitializerTest {
                 var sourceItem = jdbc.queryForMap("SELECT * FROM " + item + " WHERE tenant_id=1 AND production_order_no=?", MesFixedTestOrderInitializer.WORK_ORDER_CODE);
                 for (String field : specs.get(head).columns().split(",")) assertEquals(sourceHead.get(field), targetHead.get(field), head + "/" + field);
                 for (String field : specs.get(item).columns().split(",")) {
-                    if (!field.equals(fk)) assertEquals(sourceItem.get(field), targetItem.get(field), item + "/" + field);
+                    if (!Set.of(fk, "production_material_list_no").contains(field))
+                        assertEquals(sourceItem.get(field), targetItem.get(field), item + "/" + field);
                 }
+                assertEquals("MATERIAL-001", targetItem.get("production_material_list_no"));
                 assertEquals(targetHead.get("id"), targetItem.get(fk));
                 assertNotEquals(sourceHead.get("id"), targetHead.get("id"));
             }
@@ -1464,6 +1466,65 @@ class MesFixedTestOrderInitializerTest {
     }
 
     @Test
+    void bothDataSetsUseDistinctMaterialBillsAndTheirOwnOrderForEveryIssue() {
+        var service = dataReference();
+        jdbc.update("UPDATE erp_kingdee_production_pick_list_item SET production_material_list_no='OLD-PICK' WHERE tenant_id=1");
+        jdbc.update("UPDATE erp_kingdee_production_replenishment_list_item SET production_material_list_no='OLD-REPLEN' WHERE tenant_id=1");
+        TenantContextHolder.setTenantId(165L);
+        try {
+            var first = tx.execute(s -> service.prepare(77L));
+            var second = tx.execute(s -> service.prepareSecond(77L));
+            assertNotEquals(first.workOrderCode(), second.workOrderCode());
+            assertNotEquals(first.productionMaterialListNo(), second.productionMaterialListNo());
+            for (var result : List.of(first, second)) {
+                for (String kind : List.of("pick", "replenishment")) {
+                    assertEquals(result.productionMaterialListNo(), jdbc.queryForObject("SELECT production_material_list_no FROM erp_kingdee_production_" + kind + "_list_item WHERE tenant_id=165 AND production_order_no=?", String.class, result.workOrderCode()));
+                }
+                assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM mes_kingdee_production_material_list WHERE tenant_id=165 AND source_bill_no=? AND production_order_no=? AND work_order_code=?", Integer.class, result.productionMaterialListNo(), result.workOrderCode(), result.workOrderCode()));
+            }
+            assertEquals(List.of(0, 0, 0, 0), tx.execute(s -> service.prepare(77L)).documents().stream().map(MesFixedTestOrderDataService.DocumentResult::repairedCount).toList());
+            assertEquals("OLD-PICK", jdbc.queryForObject("SELECT production_material_list_no FROM erp_kingdee_production_pick_list_item WHERE tenant_id=1 AND production_order_no=?", String.class, MesFixedTestOrderInitializer.WORK_ORDER_CODE));
+        } finally { TenantContextHolder.clear(); }
+    }
+
+    @Test
+    void firstDataSetRepairsKnownLegacyLinksAndPreservesProductionEvidence() {
+        var service = dataReference();
+        TenantContextHolder.setTenantId(165L);
+        try {
+            tx.executeWithoutResult(s -> service.prepare(77L));
+            for (String kind : List.of("pick", "replenishment")) {
+                String table = "erp_kingdee_production_" + kind + "_list_item";
+                jdbc.update("UPDATE " + table + " SET production_material_list_no=NULL,raw_payload=NULL WHERE tenant_id=165");
+            }
+            var repaired = tx.execute(s -> service.prepare(88L));
+            assertEquals(List.of(0, 1, 1, 0), repaired.documents().stream().map(MesFixedTestOrderDataService.DocumentResult::repairedCount).toList());
+            jdbc.update("UPDATE erp_kingdee_production_pick_list_item SET production_material_list_no=NULL,raw_payload=NULL WHERE tenant_id=165");
+            jdbc.update("INSERT INTO mes_pro_process_pool_active_order(id,tenant_id,deleted,work_order_id) SELECT 9999,165,0,id FROM mes_pro_work_order WHERE tenant_id=165");
+            var before = jdbc.queryForMap("SELECT * FROM erp_kingdee_production_pick_list_item WHERE tenant_id=165");
+            var preserved = tx.execute(s -> service.prepare(88L));
+            assertEquals(1, preserved.documents().get(1).preservedReferenceCount());
+            assertEquals(before, jdbc.queryForMap("SELECT * FROM erp_kingdee_production_pick_list_item WHERE tenant_id=165"));
+        } finally { TenantContextHolder.clear(); }
+    }
+
+    @Test
+    void firstDataSetRejectsAmbiguousMaterialBillAndManualReferenceWithoutPartialWrites() {
+        var service = dataReference();
+        TenantContextHolder.setTenantId(165L);
+        try {
+            jdbc.update("UPDATE mes_kingdee_production_material_list SET source_bill_no='OTHER-MATERIAL' WHERE id=502");
+            assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> service.prepare(77L)));
+            assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_work_order WHERE tenant_id=165", Integer.class));
+            jdbc.update("UPDATE mes_kingdee_production_material_list SET source_bill_no='MATERIAL-001' WHERE id=502");
+            tx.executeWithoutResult(s -> service.prepare(77L));
+            jdbc.update("UPDATE erp_kingdee_production_pick_list_item SET production_material_list_no='MANUAL-BILL' WHERE tenant_id=165");
+            assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> service.prepare(88L)));
+            assertEquals("MANUAL-BILL", jdbc.queryForObject("SELECT production_material_list_no FROM erp_kingdee_production_pick_list_item WHERE tenant_id=165", String.class));
+        } finally { TenantContextHolder.clear(); }
+    }
+
+    @Test
     void historicalCopiedReplenishmentIsNotImportedOrRegenerated() {
         var service = dataReference();
         String raw = "{\"simulatedCopyFrom\":\"BL-OLD\",\"targetProductionOrderNo\":\""
@@ -1556,19 +1617,24 @@ class MesFixedTestOrderInitializerTest {
     }
 
     @Test
-    void secondDataSetCannotRepairReferencesAfterAnOrderHasEnteredProduction() {
+    void secondDataSetPreservesAndReportsLegacyReferencesAfterAnOrderHasEnteredProduction() {
         var service = dataReference();
         TenantContextHolder.setTenantId(165L);
         try {
             tx.executeWithoutResult(s -> service.prepareSecond(77L));
             legacySecondIssue("pick");
+            var before = jdbc.queryForMap("SELECT * FROM erp_kingdee_production_pick_list_item WHERE tenant_id=165");
             jdbc.update("UPDATE mes_pro_work_order SET quantity_produced=1 WHERE tenant_id=165");
-            var error = assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> service.prepareSecond(88L)));
-            assertTrue(error.getMessage().contains("已进入生产"));
+            var produced = tx.execute(s -> service.prepareSecond(88L));
+            assertEquals(1, produced.documents().get(1).preservedReferenceCount());
+            assertEquals(0, produced.documents().get(1).repairedCount());
+            assertEquals(before, jdbc.queryForMap("SELECT * FROM erp_kingdee_production_pick_list_item WHERE tenant_id=165"));
             jdbc.update("UPDATE mes_pro_work_order SET quantity_produced=0 WHERE tenant_id=165");
             jdbc.update("INSERT INTO mes_pro_process_pool_active_order(id,tenant_id,deleted,work_order_id) SELECT 9999,165,0,id FROM mes_pro_work_order WHERE tenant_id=165");
-            var active = assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> service.prepareSecond(88L)));
-            assertTrue(active.getMessage().contains("已进入生产"));
+            var active = tx.execute(s -> service.prepareSecond(88L));
+            assertEquals(1, active.documents().get(1).preservedReferenceCount());
+            assertEquals(0, active.documents().get(1).skippedCount());
+            assertEquals(before, jdbc.queryForMap("SELECT * FROM erp_kingdee_production_pick_list_item WHERE tenant_id=165"));
         } finally { TenantContextHolder.clear(); }
     }
 
@@ -1799,8 +1865,14 @@ class MesFixedTestOrderInitializerTest {
                         assertEquals(sourceHead.get(field), targetHead.get(field), head + "/" + field);
                     var targetItem = jdbc.queryForMap("SELECT * FROM " + item + " WHERE tenant_id=165");
                     var sourceItem = jdbc.queryForMap("SELECT * FROM " + item + " WHERE tenant_id=1 AND production_order_no=?", MesFixedTestOrderInitializer.WORK_ORDER_CODE);
-                    for (String field : MesFixedTestOrderDataService.ITEM_COLUMNS.split(","))
+                    for (String field : MesFixedTestOrderDataService.ITEM_COLUMNS.split(",")) {
+                        if (Set.of("production_material_list_no", "raw_payload").contains(field)) continue;
                         assertEquals(sourceItem.get(field), targetItem.get(field), item + "/" + field);
+                    }
+                    assertEquals("MATERIAL-001", targetItem.get("production_material_list_no"));
+                    var raw = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(targetItem.get("raw_payload").toString());
+                    assertEquals(1, raw.path("testDataSet").asInt());
+                    assertEquals(sourceItem.get("raw_payload"), raw.path("reference").path("rawPayload").asText(null));
                 }
                 var sourceMaterials = jdbc.queryForList("SELECT * FROM mes_kingdee_production_material_list WHERE tenant_id=1 ORDER BY source_entry_id");
                 var targetMaterials = jdbc.queryForList("SELECT * FROM mes_kingdee_production_material_list WHERE tenant_id=165 ORDER BY source_entry_id");

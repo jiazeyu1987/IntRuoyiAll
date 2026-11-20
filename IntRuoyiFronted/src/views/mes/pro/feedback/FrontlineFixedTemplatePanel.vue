@@ -1955,6 +1955,7 @@ const userStore = useUserStore()
 const hasReturnNotification = computed(() => !isPqcMode.value && route.query.returnTaskId !== undefined)
 // Initial handoffs and own-return tasks have separate formal navigation contracts.
 const initialHandoffTask = ref<HandoffTask>()
+const initialHandoffPqcRound = ref<{ inspectionType: string; roundNo: number }>()
 const initialHandoffLoading = ref(false)
 const initialHandoffInvalid = ref(false)
 let initialHandoffEpoch = 0
@@ -1963,7 +1964,11 @@ const hasInitialHandoffQuery = computed(() => route.query.handoffTaskId !== unde
 const isInitialHandoffBlocked = computed(() => hasInitialHandoffQuery.value && (
   initialHandoffLoading.value || initialHandoffInvalid.value || !initialHandoffTask.value ||
   String(deviceState.selectedActiveOrder?.activeOrderId) !== String(initialHandoffTask.value.activeOrderId) ||
-  (isPqcMode.value && String(activePqcTaskOptionId.value) !== String(initialHandoffTask.value.sourceId))
+  (isPqcMode.value && (!initialHandoffPqcRound.value || !deviceState.selectedProcess ||
+    !getPqcTaskOptions(deviceState.selectedProcess as FrontlinePqcProcessVO).some(option =>
+      String(option.pqcTaskId) === String(activePqcTaskOptionId.value) &&
+      option.inspectionType === initialHandoffPqcRound.value?.inspectionType &&
+      option.roundNo === initialHandoffPqcRound.value?.roundNo)))
 ))
 
 const catalog = ref<FrontlineTemplateDefinitionVO[]>([])
@@ -7380,7 +7385,7 @@ const isolateOwnReturnNotification = () => {
 
 const initializeInitialHandoffSelection = async () => {
   const epoch = ++initialHandoffEpoch
-  initialHandoffTask.value = undefined; initialHandoffLoading.value = true; initialHandoffInvalid.value = true
+  initialHandoffTask.value = undefined; initialHandoffPqcRound.value = undefined; initialHandoffLoading.value = true; initialHandoffInvalid.value = true
   deviceState.selectedActiveOrder = undefined; deviceState.selectedProcess = undefined; deviceState.selectedEmployee = undefined
   payloadPreview.value = undefined
   try {
@@ -7417,6 +7422,7 @@ const initializeInitialHandoffSelection = async () => {
       const exact = processes.flatMap(process => process.pqcTaskOptions.filter(option => hasPqcTaskOptionSnapshot(option) && String(option.pqcTaskId) === String(task.sourceId)).map(option => ({process,option})))
       if (exact.length !== 1 || String(exact[0].process.activeOrderId) !== String(task.activeOrderId)) throw new Error('原交接PQC任务不在该周期正式可执行工序中。')
       const {process,option} = exact[0]
+      initialHandoffPqcRound.value = { inspectionType: option.inspectionType, roundNo: option.roundNo }
       selectedPqcInspectionRuleKey.value = option.inspectionRuleKey
       await selectFrontlinePqcProcess(deviceState,process)
       if (epoch !== initialHandoffEpoch) return

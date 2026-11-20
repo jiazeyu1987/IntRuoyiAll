@@ -3,7 +3,7 @@ const {test}=require('node:test'),{parse,compileTemplate}=require('vue/compiler-
 const root=path.resolve(__dirname,'../..'),filename=path.join(root,'src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue')
 const descriptor=parse(fs.readFileSync(filename,'utf8')).descriptor
 const ast=ts.createSourceFile('frontline.ts',descriptor.scriptSetup.content,ts.ScriptTarget.Latest,true)
-const wanted=new Set(['initialHandoffTask','initialHandoffLoading','initialHandoffInvalid','initialHandoffEpoch','initialHandoffPageMounted','hasInitialHandoffQuery','isInitialHandoffBlocked','hasPqcTaskOptionSnapshot','initializeInitialHandoffSelection'])
+const wanted=new Set(['initialHandoffTask','initialHandoffPqcRound','initialHandoffLoading','initialHandoffInvalid','initialHandoffEpoch','initialHandoffPageMounted','hasInitialHandoffQuery','isInitialHandoffBlocked','hasPqcTaskOptionSnapshot','initializeInitialHandoffSelection'])
 const body=ast.statements.filter(s=>ts.isVariableStatement(s)&&s.declarationList.declarations.some(d=>wanted.has(d.name.getText(ast)))).map(s=>s.getText(ast)).join('\n')
 assert.equal(ast.statements.filter(s=>ts.isVariableStatement(s)).flatMap(s=>[...s.declarationList.declarations]).filter(d=>wanted.has(d.name.getText(ast))).length,wanted.size)
 const navigationCode=ts.transpileModule(fs.readFileSync(path.join(root,'src/utils/activeOrderHandoffNavigation.ts'),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText
@@ -36,6 +36,14 @@ test('真实父 SFC 可编译且保留独立本人 RETURN watcher，初始交接
 })
 test('生产整单交接只定位冻结原周期正式路线，不采用列表第一条其他周期',async()=>{const h=harness();await h.page.initializeInitialHandoffSelection();assert.equal(h.state.selectedActiveOrder.activeOrderId,413);assert.deepEqual(h.calls.filter(c=>c[0]==='order'),[['order',413]]);assert.equal(h.state.selectedProcess.routeProcessId,91);assert.equal(h.page.isInitialHandoffBlocked.value,false)})
 test('PQC交接定位准确source任务和规程工序，不采用同工序首个不同任务',async()=>{const h=harness('pqc');await h.page.initializeInitialHandoffSelection();assert.equal(h.selectedId.value,55);assert.deepEqual(h.calls.filter(c=>c[0]==='pqcTask'),[['pqcTask',55]]);assert.equal(h.state.selectedProcess.qaProcessId,31);assert.equal(h.page.isInitialHandoffBlocked.value,false)})
+test('PQC接手允许同轮全部适用QA工序，阻断跨轮和跨检验阶段',async()=>{
+ const h=harness('pqc');await h.page.initializeInitialHandoffSelection()
+ const next=pqcOption(56,'PATROL_AM');next.qaProcessId=32
+ h.state.selectedProcess={activeOrderId:413,qaProcessId:32,pqcTaskOptions:[next]};h.selectedId.value=56
+ assert.equal(h.page.isInitialHandoffBlocked.value,false)
+ next.roundNo=2;h.state.selectedProcess.pqcTaskOptions=[{...next}];assert.equal(h.page.isInitialHandoffBlocked.value,true)
+ next.roundNo=1;next.inspectionType='FIRST';h.state.selectedProcess.pqcTaskOptions=[{...next}];assert.equal(h.page.isInitialHandoffBlocked.value,true)
+})
 test('过期周期、DONE或错误类型链接清空旧选择且不读泛用订单',async()=>{for(const context of [{task:task(),current:false,processable:false},{task:{...task(),status:'DONE'},current:true,processable:false},{task:task('pqc'),current:true,processable:true}]){const h=harness();h.state.selectedActiveOrder=order('414');h.setContext(context);await h.page.initializeInitialHandoffSelection();assert.equal(h.state.selectedActiveOrder,undefined);assert.equal(h.page.isInitialHandoffBlocked.value,true);assert.equal(h.calls.filter(c=>c[0]==='orders').length,0);assert.match(h.errors[0],/已失效|不一致/)}})
 test('改task/cycle/source额外参数或伪readOnly均不可选择任务',async()=>{for(const mutation of [{activeOrderId:'414'},{cycleId:'414'},{handoffTaskId:otherTaskId},{handoffReadOnly:'1'},{processId:'15'}]){const h=harness();Object.assign(h.route.query,mutation);await h.page.initializeInitialHandoffSelection();assert.equal(h.state.selectedActiveOrder,undefined);assert.equal(h.page.isInitialHandoffBlocked.value,true)}})
 test('原周期不存在或原PQC任务缺失必须明确失败而不默认其他任务',async()=>{const h=harness();h.setOrders([order('414')]);await h.page.initializeInitialHandoffSelection();assert.equal(h.state.selectedActiveOrder,undefined);assert.match(h.errors[0],/本人正式/);const p=harness('pqc');p.setProcesses([{activeOrderId:413,qaProcessId:31,pqcTaskOptions:[pqcOption(54,'FIRST')]}]);await p.page.initializeInitialHandoffSelection();assert.equal(p.selectedId.value,undefined);assert.equal(p.state.selectedActiveOrder,undefined);assert.match(p.errors[0],/PQC任务/);assert.equal(p.page.isInitialHandoffBlocked.value,true)})

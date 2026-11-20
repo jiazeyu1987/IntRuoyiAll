@@ -463,6 +463,9 @@ class DccFileCategoryAdminServiceImplTest extends BaseDbUnitTest {
                 .trainingRequired(Boolean.FALSE)
                 .build();
         categoryMapper.insert(category);
+        // BaseDbUnitTest uses H2 without the production tenant SQL interceptor.
+        new org.springframework.jdbc.core.JdbcTemplate(dataSource).update(
+                "UPDATE dcc_file_category SET tenant_id = ? WHERE id = ?", 1L, category.getId());
         return category;
     }
 
