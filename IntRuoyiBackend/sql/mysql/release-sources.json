@@ -1233,7 +1233,9 @@
     "20261119_unique_navigation_names.sql",
     "20261120_mes_schedule_order_menu_forward.sql",
     "20261120_dcc_registration_certificate_neutral_event_notify_template.sql",
-    "20261122_dcc_registration_certificate_event_template_params.sql"
+    "20261122_dcc_registration_certificate_event_template_params.sql",
+    "20261122_mes_qa_review_retention_guard.sql",
+    "20261122_mes_route_version_snapshot_longtext.sql"
   ],
   "migrationScopes": [
     {
