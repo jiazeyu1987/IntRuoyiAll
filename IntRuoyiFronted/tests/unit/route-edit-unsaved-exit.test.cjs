@@ -18,7 +18,7 @@ const exitHandlers = source.slice(
 )
 
 const setup = ({ created = true, changed = false, saved = false, discarded = false,
-  status = 'DRAFT', editing = true, decision = 'close', cancelError } = {}) => {
+  status = 'DRAFT', serverStatus = status, editing = true, decision = 'close', cancelError, readError } = {}) => {
   const calls = []
   const changedRef = ref(changed)
   const context = vm.createContext({
@@ -36,7 +36,10 @@ const setup = ({ created = true, changed = false, saved = false, discarded = fal
     listEditCandidateDraftDiscarded: ref(discarded),
     routeVersionActionLoading: ref(false),
     markListEditCandidateDraftSaved: () => { context.listEditCandidateDraftSaved.value = true },
-    ProRouteApi: { cancelRouteCandidateVersion: async (id) => {
+    ProRouteApi: { getRouteVersion: async () => {
+      if (readError) throw new Error(readError)
+      return { lifecycleStatus: serverStatus }
+    }, cancelRouteCandidateVersion: async (id) => {
       calls.push(['cancel-draft', id])
       if (cancelError) throw new Error(cancelError)
     } },
@@ -54,7 +57,7 @@ const setup = ({ created = true, changed = false, saved = false, discarded = fal
 test('列表新建候选版本未修改直接返回，无保存提示并丢弃空草稿', async () => {
   const h = setup()
   assert.equal(await h.context.leave(), true)
-  assert.deepEqual(h.calls, [['cancel-draft', 805]])
+  assert.deepEqual(h.calls, [['cancel-draft', 805], 'discard-local'])
   assert.equal(h.context.listEditCandidateDraftDiscarded.value, true)
   assert.equal(h.context.routeVersionActionLoading.value, false)
 })
@@ -84,7 +87,7 @@ test('修改后选择保存，保存成功才离开且不取消版本', async ()
 test('新建草稿修改后选择不保存，取消本次新建版本', async () => {
   const h = setup({ changed: true, decision: 'cancel' })
   assert.equal(await h.context.leave(), true)
-  assert.deepEqual(h.calls, ['prompt', ['cancel-draft', 805], 'success'])
+  assert.deepEqual(h.calls, ['prompt', ['cancel-draft', 805], 'discard-local', 'success'])
 })
 
 test('已有草稿修改后选择不保存，只丢弃本地修改', async () => {
@@ -115,4 +118,21 @@ test('取消空草稿失败时阻止离开并显示真实错误', async () => {
   assert.deepEqual(h.calls, [['cancel-draft', 805], ['error', '版本已被其他用户修改']])
   assert.equal(h.context.listEditCandidateDraftDiscarded.value, false)
   assert.equal(h.context.routeVersionActionLoading.value, false)
+})
+
+test('旧DRAFT地址对应已取消版本时直接丢弃本地修改并允许离开，不再次取消或保存', async () => {
+  for (const changed of [false, true]) {
+    const h = setup({ serverStatus: 'CANCELLED', changed })
+    assert.equal(await h.context.leave(), true)
+    assert.deepEqual(h.calls, ['discard-local'])
+    assert.equal(h.changedRef.value, false)
+    assert.equal(h.context.listEditCandidateDraftDiscarded.value, true)
+  }
+})
+
+test('读取版本失败时保留本地修改并准确报错，不擅自取消或离开', async () => {
+  const h = setup({ changed: true, readError: '读取失败' })
+  assert.equal(await h.context.leave(), false)
+  assert.equal(h.changedRef.value, true)
+  assert.deepEqual(h.calls, [['error', '读取失败']])
 })

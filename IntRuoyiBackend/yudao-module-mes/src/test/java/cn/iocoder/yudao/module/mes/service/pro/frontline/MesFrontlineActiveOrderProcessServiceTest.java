@@ -176,6 +176,83 @@ class MesFrontlineActiveOrderProcessServiceTest {
         assertTrue(exception.getMessage().contains("冻结编码或名称"));
     }
 
+    @Test
+    void getFrozenSopFileUrl_readsSupersededOrderVersionWithoutConsultingNewActiveVersion() {
+        stubFrozenSop("\"sopFileUrl\":\"/files/sop-v1.pdf\"");
+
+        assertEquals("/files/sop-v1.pdf", frozenSop());
+        org.mockito.Mockito.verify(routeVersionMapper, org.mockito.Mockito.never()).selectActiveByRouteId(ROUTE_ID);
+    }
+
+    @Test
+    void getFrozenSopFileUrl_returnsExplicitUnboundSnapshot() {
+        stubFrozenSop("\"sopFileUrl\":null");
+
+        org.junit.jupiter.api.Assertions.assertNull(frozenSop());
+    }
+
+    @Test
+    void getFrozenSopFileUrl_rejectsAbsentFieldInsteadOfReadingCurrentMaster() {
+        stubFrozenSop("\"legacyField\":null");
+
+        ServiceException error = assertThrows(ServiceException.class, this::frozenSop);
+        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants
+                .PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_SNAPSHOT_INVALID.getCode(), error.getCode());
+        assertTrue(error.getMessage().contains("缺少 SOP 文件绑定字段"));
+    }
+
+    @Test
+    void getFrozenSopFileUrl_rejectsMalformedFrozenBinding() {
+        stubFrozenSop("\"sopFileUrl\":123");
+
+        ServiceException error = assertThrows(ServiceException.class, this::frozenSop);
+        assertTrue(error.getMessage().contains("SOP 文件绑定字段格式无效"));
+    }
+
+    @Test
+    void getFrozenSopFileUrl_rejectsForeignProcess() {
+        stubFrozenSop("\"sopFileUrl\":\"/files/sop-v1.pdf\"");
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.getFrozenSopFileUrl(
+                LOGIN_LEADER_ID, ACTIVE_ORDER_ID, ROUTE_ID, FROZEN_ROUTE_PROCESS_ID + 1, PROCESS_ID));
+        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants
+                .PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_MISMATCH.getCode(), error.getCode());
+    }
+
+    @Test
+    void getFrozenSopFileUrl_rejectsUnauthorizedLeaderBeforeReadingSnapshot() {
+        when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
+
+        assertThrows(ServiceException.class, () -> service.getFrozenSopFileUrl(
+                LOGIN_LEADER_ID + 1, ACTIVE_ORDER_ID, ROUTE_ID, FROZEN_ROUTE_PROCESS_ID, PROCESS_ID));
+        org.mockito.Mockito.verifyNoInteractions(routeVersionMapper, processSnapshotMapper);
+    }
+
+    @Test
+    void getFrozenSopFileUrl_rejectsOrderVersionChangeDuringRead() {
+        stubFrozenSop("\"sopFileUrl\":\"/files/sop-v1.pdf\"");
+        when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder(),
+                activeOrder().setRouteVersionId(ROUTE_VERSION_ID + 1));
+
+        ServiceException error = assertThrows(ServiceException.class, this::frozenSop);
+        assertTrue(error.getMessage().contains("锁定工艺路线或版本发生变化"));
+        org.mockito.Mockito.verify(routeVersionMapper, org.mockito.Mockito.never())
+                .selectById(ROUTE_VERSION_ID + 1);
+    }
+
+    private String frozenSop() {
+        return service.getFrozenSopFileUrl(LOGIN_LEADER_ID, ACTIVE_ORDER_ID, ROUTE_ID,
+                FROZEN_ROUTE_PROCESS_ID, PROCESS_ID);
+    }
+
+    private void stubFrozenSop(String field) {
+        when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
+        var version = routeVersion();
+        version.setRouteSnapshotJson(version.getRouteSnapshotJson().replace("\"sort\": 10", field + ",\"sort\": 10"));
+        when(routeVersionMapper.selectById(ROUTE_VERSION_ID)).thenReturn(version);
+        when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(processSnapshot()));
+    }
+
     private static MesProcessPoolActiveOrderDO activeOrder() {
         return MesProcessPoolActiveOrderDO.builder()
                 .id(ACTIVE_ORDER_ID)

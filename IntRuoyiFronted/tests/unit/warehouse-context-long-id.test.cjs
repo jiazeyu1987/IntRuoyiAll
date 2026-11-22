@@ -17,7 +17,7 @@ for (const [folder, action, key, state, api, method] of [
   const ast = ts.createSourceFile('context.ts', source, ts.ScriptTarget.Latest, true)
   const statement = ast.statements.find(s => ts.isVariableStatement(s) && s.declarationList.declarations.some(d => d.name.getText(ast) === action))
   const build = (value, fetch) => {
-    const context = { route: { query: { [key]: value } }, [state]: { value: {} }, queryParams: {},
+    const context = { routeGeneration: 0, route: { query: { [key]: value } }, [state]: { value: {} }, queryParams: {},
       parsePositiveRouteQueryId, [api]: { [method]: fetch } }
     vm.runInNewContext(transpile(statement.getText(ast)) + `\nglobalThis.run = ${action}`, context)
     return context

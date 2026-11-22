@@ -80,6 +80,7 @@
         data-production-leader-module-tab-active-order
       />
       <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
+      <el-tab-pane label="设备维护" name="devices" data-production-leader-module-tab-devices />
     </el-tabs>
     <div
       v-if="showProductionModuleTabs && !handoffReadOnly"
@@ -601,6 +602,7 @@
         data-production-leader-module-tab-active-order
       />
       <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
+      <el-tab-pane label="设备维护" name="devices" data-production-leader-module-tab-devices />
     </el-tabs>
     <div
       v-if="showProductionResponsibleRoutes"
@@ -1567,6 +1569,7 @@
         data-production-leader-module-tab-active-order
       />
       <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
+      <el-tab-pane label="设备维护" name="devices" data-production-leader-module-tab-devices />
     </el-tabs>
     <ProductionQuantityDrafts leader />
   </ContentWrap>
@@ -1596,6 +1599,7 @@
         data-production-leader-module-tab-active-order
       />
       <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
+      <el-tab-pane label="设备维护" name="devices" data-production-leader-module-tab-devices />
     </el-tabs>
     <LossReasonCatalog />
   </ContentWrap>
@@ -1630,6 +1634,7 @@
         data-production-leader-module-tab-active-order
       />
       <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
+      <el-tab-pane label="设备维护" name="devices" data-production-leader-module-tab-devices />
     </el-tabs>
     <div
       v-if="showProductionResponsibleRoutes"
@@ -2422,6 +2427,7 @@
         data-production-leader-module-tab-active-order
       />
       <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
+      <el-tab-pane label="设备维护" name="devices" data-production-leader-module-tab-devices />
     </el-tabs>
     <div
       v-if="showProductionModuleTabs && !handoffReadOnly"
@@ -2533,6 +2539,7 @@
         data-production-leader-module-tab-active-order
       />
       <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
+      <el-tab-pane label="设备维护" name="devices" data-production-leader-module-tab-devices />
     </el-tabs>
     <div
       v-if="showProductionModuleTabs && !handoffReadOnly"
@@ -2793,11 +2800,44 @@
       </template>
     </el-dialog>
   </ContentWrap>
-  <ContentWrap v-if="showProductionConfigModule && !handoffReadOnly" data-team-leader-config-center>
+  <ContentWrap
+    v-if="(showProductionConfigModule || showProductionDeviceModule) && !handoffReadOnly"
+    data-team-leader-config-center
+  >
+    <el-tabs
+      v-if="showProductionModuleTabs && !handoffReadOnly"
+      v-model="activeProductionModuleTab"
+      class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+      data-production-leader-module-tabs
+    >
+      <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
+      <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+      <el-tab-pane
+        label="报工历史"
+        name="reportHistory"
+        data-production-leader-module-tab-report-history
+      />
+      <el-tab-pane
+        label="历史超限草稿"
+        name="quantityDrafts"
+        data-production-leader-module-tab-quantity-drafts
+      />
+      <el-tab-pane
+        label="活跃订单池"
+        name="activeOrder"
+        data-production-leader-module-tab-active-order
+      />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
+      <el-tab-pane label="设备维护" name="devices" data-production-leader-module-tab-devices />
+    </el-tabs>
     <div class="team-leader-workbench__section-head">
       <div>
-        <div class="team-leader-workbench__section-title">班组配置中心</div>
-        <div class="team-leader-workbench__hint"> 维护设备、参数和工序异常关系。 </div>
+        <div class="team-leader-workbench__section-title">
+          {{ showProductionModuleTabs ? '设备维护' : '班组配置中心' }}
+        </div>
+        <div class="team-leader-workbench__hint">
+          维护班组执行设备；与设备台账关联时请使用相同设备编号，启用后可在工艺流程中选择。
+        </div>
       </div>
     </div>
     <div class="team-leader-workbench__maintenance-grid">
@@ -2847,7 +2887,7 @@
         </el-form>
       </el-card>
 
-      <el-card shadow="never" data-team-leader-process-relation-config>
+      <el-card v-if="!showProductionModuleTabs" shadow="never" data-team-leader-process-relation-config>
         <template #header>工序异常关系</template>
         <el-alert
           title="设备映射与设备参数标准已合并到“工序配置”统一表维护。"
@@ -4525,7 +4565,7 @@ const activePqcModuleTab = ref<'personnel' | 'management' | 'equipment' | 'detai
   'management'
 )
 const activeProductionModuleTab = ref<
-  'personnel' | 'report' | 'reportHistory' | 'quantityDrafts' | 'activeOrder' | 'lossReasons'
+  'personnel' | 'report' | 'reportHistory' | 'quantityDrafts' | 'activeOrder' | 'lossReasons' | 'devices'
 >('report')
 
 const getDefaultSubmissionDate = () => formatDate(new Date(), 'YYYY-MM-DD')
@@ -4892,6 +4932,12 @@ const showProductionActiveOrderModule = computed(
   () =>
     isProductionLeader.value &&
     (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'activeOrder')
+)
+const showProductionDeviceModule = computed(
+  () =>
+    isProductionLeader.value &&
+    showProductionModuleTabs.value &&
+    activeProductionModuleTab.value === 'devices'
 )
 const showProductionProcessConfigModule = computed(
   () => false
@@ -8808,6 +8854,11 @@ watch(activePqcModuleTab, async (tab) => {
 })
 
 watch(activeProductionModuleTab, async (tab) => {
+  if (tab === 'devices' && isProductionLeader.value) {
+    await loadTeamDeviceOptions().catch((error) => {
+      ElMessage.error(resolveErrorMessage(error, '班组设备列表加载失败'))
+    })
+  }
   if ((tab === 'report' || tab === 'reportHistory') && activeLeaderTab.value === 'PRODUCTION') {
     queryParams.leaderType = 'PRODUCTION'
     queryParams.pageNo = 1

@@ -52,3 +52,6 @@ export const getUnreadNotifyMessageList = async () => {
 export const getUnreadNotifyMessageCount = async (options: NotifyMessageRequestOptions = {}) => {
   return await request.get({ url: '/system/notify-message/get-unread-count', ...options })
 }
+
+// 按编号严格读取当前用户的站内信。
+export const getMyNotifyMessage = (id: string): Promise<NotifyMessageVO> => request.get({ url: '/system/notify-message/my-get', params: { id } })

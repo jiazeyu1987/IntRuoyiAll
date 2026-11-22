@@ -371,7 +371,7 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
                 ? getCandidateScheduleConfigList(routeVersion)
                 : normalizeConfigRouteProcessIds(routeVersion,
                         routeScheduleConfigMapper.selectListByRouteVersionId(routeVersionId));
-        Map<Long, BigDecimal> shiftHoursMap = loadShiftHoursMap(routeVersion.getRouteId());
+        Map<Long, BigDecimal> shiftHoursMap = loadShiftHoursMap(routeVersion, configs);
         return BeanUtils.toBean(configs, MesProRouteScheduleConfigRespVO.class, vo -> {
             BigDecimal shiftHours = normalizeShiftHours(shiftHoursMap.get(vo.getRouteProcessId()));
             vo.setShiftHours(shiftHours);
@@ -997,8 +997,13 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
         return value == null ? BigDecimal.ZERO : value;
     }
 
-    private Map<Long, BigDecimal> loadShiftHoursMap(Long routeId) {
-        List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(routeId);
+    private Map<Long, BigDecimal> loadShiftHoursMap(MesProRouteVersionDO routeVersion,
+                                                   List<MesProRouteScheduleConfigDO> configs) {
+        // 候选版本必须使用自身关系图的正式绑定，不能读取生效版本的工作站。
+        List<MesProRouteProcessDO> routeProcesses = isReadableCandidateSnapshotVersion(routeVersion)
+                ? configs.stream().map(config -> resolveDraftScheduleRouteProcess(
+                        routeVersion, config.getRouteProcessId())).toList()
+                : routeProcessMapper.selectListByRouteId(routeVersion.getRouteId());
         if (routeProcesses == null || routeProcesses.isEmpty()) {
             return Collections.emptyMap();
         }

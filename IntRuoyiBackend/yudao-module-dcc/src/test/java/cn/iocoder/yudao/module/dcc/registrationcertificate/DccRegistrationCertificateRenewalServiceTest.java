@@ -128,7 +128,7 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void ceRenewalWithoutEffectiveDateChangesNumberAndActivatesWithIndependentInitialDate() {
+    void ceRenewalWithoutEffectiveDateChangesNumberAndActivatesWithIndependentInitialDate() throws Exception {
         CurrentFixture current = seedCurrentCertificate();
         jdbcTemplate.update("UPDATE dcc_registration_certificate_version SET effective_date = NULL WHERE id = ?", current.currentVersionId());
         var snapshot = snapshotMapper.selectById(current.currentSnapshotId());
@@ -142,10 +142,27 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
         facts.setCeCertificates(List.of(revision));
         snapshot.setFactsJson(facts.toJson());
         jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json = ? WHERE id = ?", snapshot.getFactsJson(), snapshot.getId());
-        var result = uploadOrFail(new DccRegistrationCertificateRenewalCommand(
+        byte[] annexBytes = "SIMULATION ANNEX".getBytes(StandardCharsets.UTF_8);
+        var annex = DccRegistrationCertificateFileDO.builder().ownerType("VERSION").ownerId(current.currentVersionId())
+                .fileKind("CERTIFICATE_ATTACHMENT").infraFileId(93001L).originalName("SIMULATION-ANNEX.pdf")
+                .mimeType("application/pdf").fileSize((long)annexBytes.length).sha256(cn.hutool.crypto.digest.DigestUtil.sha256Hex(annexBytes))
+                .status("BOUND").boundAt(java.time.LocalDateTime.of(2026,1,1,0,0)).boundBy(99L).build();
+        annex.setTenantId(1L);fileMapper.insert(annex);
+        var stored = new cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO();stored.setConfigId(1L);stored.setPath("annex.pdf");
+        when(fileService.getFile(93001L)).thenReturn(stored);
+        when(fileService.getFileContent(1L,"annex.pdf")).thenReturn(annexBytes);
+        when(fileService.createFileAndReturnId(any(byte[].class),eq("SIMULATION-ANNEX.pdf"),anyString(),eq("application/pdf"))).thenReturn(93002L);
+        var command = new DccRegistrationCertificateRenewalCommand(
                 1L, 99L, "ce-renewal", "trace-ce-renewal", current.certificateId(), 1,
                 current.currentVersionId(), current.stagedFileId(), LocalDate.of(2026, 8, 1), null,
-                LocalDate.of(2031, 9, 1), null, "CE-002", null));
+                LocalDate.of(2031, 9, 1), null, "CE-002", null);
+        var result = uploadOrFail(command);
+        var inherited = fileMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<DccRegistrationCertificateFileDO>()
+                .eq(DccRegistrationCertificateFileDO::getOwnerId,result.renewalVersionId())
+                .eq(DccRegistrationCertificateFileDO::getFileKind,"CERTIFICATE_ATTACHMENT"));
+        assertEquals(1,inherited.size());assertEquals(93002L,inherited.get(0).getInfraFileId());
+        assertEquals(annex.getSha256(),inherited.get(0).getSha256());
+        assertEquals(current.currentVersionId(),fileMapper.selectById(annex.getId()).getOwnerId());
         assertEquals("CURRENT", result.renewalVersionStatus());
         var renewal = versionMapper.selectById(result.renewalVersionId());
         assertNull(renewal.getEffectiveDate());
@@ -158,6 +175,49 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
         assertEquals(LocalDate.of(2022, 1, 1), saved.getCeCertificates().get(0).getIssueDate());
         assertEquals(facts.getFirstObtainedDate(), saved.getFirstObtainedDate());
         assertNull(saved.getEffectiveDate());
+        assertEquals(result.renewalVersionId(), uploadOrFail(command).renewalVersionId());
+        verify(fileService, org.mockito.Mockito.times(1)).createFileAndReturnId(
+                org.mockito.AdditionalMatchers.aryEq(annexBytes), eq("SIMULATION-ANNEX.pdf"), anyString(), eq("application/pdf"));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"MISSING", "READ_FAILURE", "SIZE_MISMATCH", "HASH_MISMATCH"})
+    void ceRenewalAnnexFailureRollsBackVersionAndKeepsOriginalBinding(String failure) throws Exception {
+        var current = seedCurrentCertificate();
+        var snapshot = snapshotMapper.selectById(current.currentSnapshotId());
+        var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshot.getFactsJson());
+        facts.setCertificateType("CE");facts.setEffectiveDate(null);
+        var revision = new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.CeCertificate();
+        revision.setRevision("R04");revision.setCertificateNo("SIMULATION-CE-R04");facts.setCeCertificates(List.of(revision));
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=?", facts.toJson(),snapshot.getId());
+        byte[] content = "SIMULATION ANNEX".getBytes(StandardCharsets.UTF_8);
+        var annex = DccRegistrationCertificateFileDO.builder().ownerType("VERSION").ownerId(current.currentVersionId())
+                .fileKind("CERTIFICATE_ATTACHMENT").infraFileId(93001L).originalName("SIMULATION-ANNEX.pdf")
+                .mimeType("application/pdf").fileSize((long)content.length).sha256(cn.hutool.crypto.digest.DigestUtil.sha256Hex(content))
+                .status("BOUND").build();
+        annex.setTenantId(1L);fileMapper.insert(annex);
+        if (!"MISSING".equals(failure)) {
+            var stored = new cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO();stored.setConfigId(1L);stored.setPath("annex.pdf");
+            when(fileService.getFile(93001L)).thenReturn(stored);
+            if ("READ_FAILURE".equals(failure)) when(fileService.getFileContent(1L,"annex.pdf")).thenThrow(new java.io.IOException("SIMULATION read failure"));
+            else when(fileService.getFileContent(1L,"annex.pdf")).thenReturn(
+                    "SIZE_MISMATCH".equals(failure) ? new byte[content.length - 1] : new byte[content.length]);
+        }
+        var error = assertThrows(IllegalStateException.class, () -> service.uploadRenewalCandidate(
+                new DccRegistrationCertificateRenewalCommand(1L,99L,"ce-annex-failure","trace-ce-annex-failure",
+                        current.certificateId(),1,current.currentVersionId(),current.stagedFileId(),
+                        LocalDate.of(2026,8,1),null,LocalDate.of(2031,9,1),null,"SIMULATION-CE-R04-RENEWED",null)));
+        assertEquals("MISSING".equals(failure) ? "CE延续附页原文件不存在"
+                : "READ_FAILURE".equals(failure) ? "CE延续附页原文件读取失败" : "CE延续附页原文件完整性校验失败", error.getMessage());
+        if ("READ_FAILURE".equals(failure)) assertTrue(error.getCause() instanceof java.io.IOException);
+        var certificate = certificateMapper.selectById(current.certificateId());
+        assertEquals(current.currentVersionId(),certificate.getCurrentVersionId());assertNull(certificate.getPendingVersionId());
+        assertEquals(1,certificate.getRowVersion());
+        assertEquals(1,count("SELECT COUNT(*) FROM dcc_registration_certificate_version WHERE certificate_id=?",current.certificateId()));
+        assertEquals("CURRENT",versionMapper.selectById(current.currentVersionId()).getStatus());
+        assertEquals("STAGED",fileMapper.selectById(current.stagedFileId()).getStatus());
+        assertEquals(current.currentVersionId(),fileMapper.selectById(annex.getId()).getOwnerId());
+        verify(fileService,org.mockito.Mockito.never()).createFileAndReturnId(any(byte[].class),anyString(),anyString(),anyString());
     }
 
     @Test

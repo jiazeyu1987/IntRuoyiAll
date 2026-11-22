@@ -62,8 +62,8 @@ export interface ProRouteProcessVO {
   predecessor?: ProRouteProcessRelationVO // 直接前置工序
   predecessors?: ProRouteProcessRelationVO[] // 直接前置工序列表
   successors: ProRouteProcessRelationVO[] // 直接后续工序
-  routeProcessWorkstationId?: number // 路线工序显式绑定工作站 ID
-  workstationId?: number // 工作站 ID
+  routeProcessWorkstationId?: MesRouteId // 路线工序显式绑定工作站 ID
+  workstationId?: MesRouteId // 工作站 ID
   workstationCode?: string // 工作站编码
   workstationName?: string // 工作站名称
   machineryQuantityTotal?: number // 设备数量合计
@@ -98,8 +98,8 @@ export const ProRouteProcessApi = {
     return await request.get({ url: `/mes/pro/route-process/list-base-by-route?routeId=` + routeId })
   },
 
-  getRouteProcessListByRoute: async (routeId: MesRouteId) => {
-    return await request.get({ url: `/mes/pro/route-process/list-by-route?routeId=` + routeId })
+  getRouteProcessListByRoute: async (routeId: MesRouteId, routeVersionId?: MesRouteId) => {
+    return await request.get({ url: '/mes/pro/route-process/list-by-route', params: { routeId, routeVersionId } })
   },
 
   getRouteProcessListByProduct: async (productId: number) => {

@@ -16,7 +16,7 @@ final class MesProRouteWorkbookConstants {
     static final String FLOW_PROCESS_CONFIG_SHEET = "工序用途配置";
     static final String BATCH_RECORD_SHEET = "工序表单绑定";
 
-    static final List<String> ROUTE_HEADERS = List.of("路线编码", "路线名称", "状态", "负责人", "说明", "备注", "项目代码");
+    static final List<String> ROUTE_HEADERS = List.of("路线编码", "路线名称", "状态", "说明", "备注", "项目代码");
     static final List<String> PROCESS_HEADERS = List.of("路线编码", "序号", "工序编码", "工序名称",
             "准备时间", "等待时间", "颜色", "关键工序", "质检工序", "备注");
     static final List<String> FLOW_HEADERS = List.of("路线编码", "源工序编码", "目标工序编码", "关系类型");
@@ -34,10 +34,9 @@ final class MesProRouteWorkbookConstants {
     static final List<String> BATCH_RECORD_HEADERS = List.of("路线编码", "用途类型", "工序编码", "批记录表单ID",
             "批记录定义ID", "批记录版本ID", "表单槽位", "表单绑定Key", "表单模板ID",
             "表单模板名称快照", "最后发布模板版本ID", "最后发布模板版本号", "实例范围",
-            "共享表单Key", "填写范围JSON", "记录分类", "校验档案", "记录本启用",
-            "权限范围ID", "记录分类快照Hash", "必填策略", "必填条件JSON",
-            "负责人角色Key", "归档可见性", "槽位配置快照Hash", "候选来源类型",
-            "候选来源ID", "候选来源名称", "报表序号", "备注");
+            "共享表单Key", "记录分类", "校验档案", "记录本启用",
+            "记录分类快照Hash", "必填策略", "必填条件JSON",
+            "负责人角色Key", "归档可见性", "报表序号", "备注");
 
     private MesProRouteWorkbookConstants() {
     }

@@ -73,3 +73,11 @@ test('empty detail response is an explicit query error rather than a silent empt
     await drain(); assert.equal(c.state.detail, undefined); assert.match(c.state.loadError, /未返回数据/)
   } finally { c.app.unmount() }
 })
+
+test('all evidence files share the detail grant state including pending approvals', async () => {
+  const requests = []
+  const c = mount({getRegistrationCertificateDetail: async id => ({certificateId:id,versionId:'20'}), getRegistrationCertificateFileDownloadGrantStatuses: async ids => {requests.push(ids);return [{businessFileId:11,canDownload:false,pendingRequestId:603},{businessFileId:12,canDownload:true}]}}, '19')
+  try {await drain();await c.state.handleEvidenceFilesLoaded([11,12]);await drain();
+    assert.deepEqual(requests.at(-1),[11,12]);assert.equal(c.state.requestPendingFileIds.has('11'),true);assert.equal(c.state.downloadAuthorizedFileIds.has('12'),true)
+  } finally {c.app.unmount()}
+})

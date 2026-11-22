@@ -34,11 +34,15 @@ function mount(path,props,api={}){
  return {props:reactive,state:host.$.subTree.component.setupState,app,messages}
 }
 
-test('evidence reads only the selected version and exposes real grant download results',async()=>{
- const calls=[];const c=mount('history/EvidencePanel.vue',{certificateId:100,versionId:9},{getRegistrationCertificateEvidence:async(...args)=>{calls.push(args);return {files:[{id:1},{id:2}],snapshots:[],applications:[]}},getRegistrationCertificateFileDownloadGrantStatuses:async()=>[{businessFileId:1,canDownload:true},{businessFileId:2,canDownload:false}]})
- try{await drain();assert.deepEqual(calls,[[100,9]]);assert.equal(c.state.downloadable.has('1'),true);assert.equal(c.state.downloadable.has('2'),false)
+test('evidence shares parent download and pending states and publishes all file ids',async()=>{
+ const calls=[],loaded=[];const authorized=new Set(['1']),pending=new Set(['2']);
+ const c=mount('history/EvidencePanel.vue',{certificateId:100,versionId:9,authorizedFileIds:authorized,pendingFileIds:pending,onFilesLoaded:ids=>loaded.push(ids)},{getRegistrationCertificateEvidence:async(...args)=>{calls.push(args);return {files:[{id:1},{id:2}],snapshots:[],applications:[]}}})
+ try{await drain();assert.deepEqual(calls,[[100,9]]);assert.deepEqual(loaded,[[1,2]]);
+ assert.equal(c.props.authorizedFileIds.has('1'),true);assert.equal(c.props.pendingFileIds.has('2'),true);
+ c.props.pendingFileIds=new Set();await drain();assert.equal(c.props.pendingFileIds.has('2'),false)
  }finally{c.app.unmount()}
 })
+
 test('denied old version clears preceding content and reports actual denial',async()=>{
  const c=mount('history/EvidencePanel.vue',{certificateId:100,versionId:9},{getRegistrationCertificateEvidence:async(id,version)=>{if(version===8)throw Error('旧版查看授权不存在');return {files:[{id:1}],snapshots:[],applications:[]}},getRegistrationCertificateFileDownloadGrantStatuses:async()=>[]})
  try{await drain();assert.equal(c.state.evidence.files.length,1);c.state.inspect({detailJson:JSON.stringify({factsJson:JSON.stringify({certificateType:'FDA',ownProduct:false,classification:'II'})})});c.state.showMaterials=true;c.props.versionId=8;await drain();assert.equal(c.state.evidence.files.length,0);assert.equal(c.state.error,'旧版查看授权不存在');assert.equal(c.state.showSubmission,false);assert.equal(c.state.showMaterials,false);assert.equal(c.state.selected,undefined);assert.equal(c.state.submissionFacts,undefined);assert.equal(c.state.submissionDraft,undefined);assert.deepEqual(c.state.submission,{});assert.deepEqual(c.state.approval,{})

@@ -21,12 +21,7 @@
               format="HH:mm:ss"
               :clearable="false"
             />
-            <span
-              v-if="jobsLoaded && !uniformDailyStartTime"
-              class="ml-3 text-[12px] text-orange-500"
-            >
-              当前任务计划不一致，保存后统一使用所选时间
-            </span>
+            <span class="ml-3 text-[12px] text-gray-500">仅当前租户，按北京时间依次同步所选表格</span>
           </el-form-item>
         </div>
 
@@ -133,7 +128,7 @@
                 :min-width="getColumnWidthString('cronExpression', 180)"
               >
                 <template #default="{ row }">
-                  {{ jobsByHandlerName[row.handlerName]?.cronExpression || '未加载' }}
+                  {{ jobsLoaded ? (selectedSyncTypes.includes(row.syncType) && form.enabled ? dailyCronExpression : '未启用') : '未加载' }}
                 </template>
               </el-table-column>
               <el-table-column
@@ -464,8 +459,7 @@ import type {
 } from '@/api/erp/config'
 import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import type { ErpKingdeeSyncRunVO } from '@/api/erp/sync'
-import * as JobApi from '@/api/erp/config/job'
-import { InfraJobStatusEnum } from '@/utils/constants'
+import { ErpKingdeeTableAutoSyncApi } from '@/api/erp/kingdeeTableAutoSync'
 import { formatDateTimeValue, toDateTimeValue } from '@/utils/formatTime'
 
 interface ProfileErpSyncType {
@@ -630,7 +624,6 @@ const handleDeleteRun = async (row: ErpKingdeeSyncRunVO) => {
     deletingRunIds.value.delete(row.id)
   }
 }
-const jobsByHandlerName = ref<Record<string, JobApi.JobVO>>({})
 const selectedSyncTypes = ref<string[]>([])
 const syncTableRef = ref()
 const syncingTableSelection = ref(false)
@@ -655,21 +648,11 @@ const resolveErrorMessage = (error: unknown, defaultMessage: string) => {
     : defaultMessage
 }
 
-const padTimePart = (value: string | number) => String(value).padStart(2, '0')
-
 const toDailyCronExpression = (time: string) => {
   if (!/^\d{2}:\d{2}:\d{2}$/.test(time)) return ''
   const [hour, minute, second] = time.split(':').map((part) => Number(part))
   if (hour > 23 || minute > 59 || second > 59) return ''
   return `${second} ${minute} ${hour} * * ?`
-}
-
-const parseDailyCronExpression = (cronExpression?: string) => {
-  const match = cronExpression?.trim().match(/^(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+\*\s+\*\s+\?$/)
-  if (!match) return ''
-  const [, second, minute, hour] = match
-  const time = `${padTimePart(hour)}:${padTimePart(minute)}:${padTimePart(second)}`
-  return toDailyCronExpression(time) ? time : ''
 }
 
 const dailyCronExpression = computed(() => toDailyCronExpression(form.dailyStartTime))
@@ -769,46 +752,14 @@ const handleSyncTableSelectionChange = (rows: ProfileErpSyncTableRow[]) => {
   selectedSyncTypes.value = rows.map((row) => row.syncType)
 }
 
-const fetchJobByHandlerName = async (handlerName: string) => {
-  const page = await JobApi.getJobPage({
-    pageNo: 1,
-    pageSize: 1,
-    handlerName
-  } as PageParam & { handlerName: string })
-  const job = (page.list || []).find((item: JobApi.JobVO) => item.handlerName === handlerName)
-  if (!job) {
-    throw new Error(`未找到同步任务处理器：${handlerName}`)
-  }
-  return job
-}
-
-const uniformDailyStartTime = computed(() => {
-  const times = Object.values(jobsByHandlerName.value).map((job) =>
-    parseDailyCronExpression(job.cronExpression)
-  )
-  return times.length && times.every((time) => time && time === times[0]) ? times[0] : ''
-})
-
 const loadJobs = async () => {
   jobsLoaded.value = false
-  jobsByHandlerName.value = {}
-  form.dailyStartTime = '02:00:00'
   jobLoading.value = true
   try {
-    const entries = await Promise.all(
-      syncTypes.map(
-        async (item) => [item.handlerName, await fetchJobByHandlerName(item.handlerName)] as const
-      )
-    )
-    const nextJobsByHandlerName = Object.fromEntries(entries)
-    jobsByHandlerName.value = nextJobsByHandlerName
-    selectedSyncTypes.value = syncTypes
-      .filter(
-        (item) => nextJobsByHandlerName[item.handlerName].status === InfraJobStatusEnum.NORMAL
-      )
-      .map((item) => item.syncType)
-    form.enabled = selectedSyncTypes.value.length > 0
-    form.dailyStartTime = uniformDailyStartTime.value || '02:00:00'
+    const plan = await ErpKingdeeTableAutoSyncApi.getPlan()
+    form.enabled = plan.enabled
+    form.dailyStartTime = plan.dailyStartTime || '02:00:00'
+    selectedSyncTypes.value = plan.items.filter((item) => item.enabled).map((item) => item.syncType)
     jobsLoaded.value = true
   } finally {
     jobLoading.value = false
@@ -943,54 +894,6 @@ const handleSaveConnection = async () => {
   }
 }
 
-const refreshJobsBeforeMutation = async () => {
-  const entries = await Promise.all(
-    syncTypes.map(async (item) => [item, await fetchJobByHandlerName(item.handlerName)] as const)
-  )
-  for (const [item, job] of entries) {
-    jobsByHandlerName.value[item.handlerName] = job
-  }
-  return entries
-}
-
-const updateJobForAutoSync = async (
-  item: ProfileErpSyncType,
-  job: JobApi.JobVO,
-  selectedSyncTypeSet: Set<string>
-) => {
-  const targetStatus =
-    form.enabled && selectedSyncTypeSet.has(item.syncType)
-      ? InfraJobStatusEnum.NORMAL
-      : InfraJobStatusEnum.STOP
-
-  // Job 更新接口只允许运行状态；暂停任务保存时间后恢复暂停状态。
-  const cronExpression = dailyCronExpression.value
-  if (job.cronExpression !== cronExpression) {
-    const wasStopped = job.status === InfraJobStatusEnum.STOP
-    if (job.status !== InfraJobStatusEnum.NORMAL) {
-      await JobApi.updateJobStatus(job.id, InfraJobStatusEnum.NORMAL)
-      job.status = InfraJobStatusEnum.NORMAL
-    }
-    let updated = false
-    try {
-      await JobApi.updateJob({
-        ...job,
-        status: InfraJobStatusEnum.NORMAL,
-        cronExpression
-      })
-      updated = true
-    } finally {
-      if (wasStopped && (!updated || targetStatus === InfraJobStatusEnum.STOP)) {
-        await JobApi.updateJobStatus(job.id, InfraJobStatusEnum.STOP)
-        job.status = InfraJobStatusEnum.STOP
-      }
-    }
-  }
-  if (job.status !== targetStatus) {
-    await JobApi.updateJobStatus(job.id, targetStatus)
-  }
-}
-
 const handleSave = async () => {
   if (!requireCapability(canSaveSchedule.value)) return
   if (!jobsLoaded.value || jobLoading.value || saving.value) {
@@ -1008,10 +911,15 @@ const handleSave = async () => {
   saving.value = true
   try {
     const selectedSyncTypeSet = new Set(selectedSyncTypes.value)
-    const jobEntries = await refreshJobsBeforeMutation()
-    await Promise.all(
-      jobEntries.map(([item, job]) => updateJobForAutoSync(item, job, selectedSyncTypeSet))
-    )
+    await ErpKingdeeTableAutoSyncApi.savePlan({
+      enabled: form.enabled,
+      dailyStartTime: form.dailyStartTime,
+      items: syncTypes.map((item, index) => ({
+        syncType: item.syncType,
+        enabled: selectedSyncTypeSet.has(item.syncType),
+        sortOrder: index * 10
+      }))
+    })
     ElMessage.success(
       `ERP表格自动同步配置已保存：${form.enabled ? selectedSyncTypeSet.size : 0}/${syncTypes.length}`
     )

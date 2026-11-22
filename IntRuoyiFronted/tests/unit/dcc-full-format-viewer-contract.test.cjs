@@ -60,7 +60,7 @@ function loadViewer({ kind = 'TEXT', text = 'selected controlled body', unavaila
       if (id === '@/api/dcc/controlledFile/readingSession') return {
         createPreviewReadingApi: () => ({ summary: async () => ({ firstOpenedAt: null, lastOpenedAt: null, accumulatedSeconds: 0, openedSessionCount: 0 }) })
       }
-      throw new Error('Unexpected import: ' + id)
+      if (id === '@/utils/uuid') return require('../helpers/load-secure-uuid.cjs')(); throw new Error('Unexpected import: ' + id)
     } }
   const sourceAst = ts.createSourceFile('viewer.ts', descriptor.scriptSetup.content, ts.ScriptTarget.ES2022, true)
   const names = sourceAst.statements.filter(ts.isVariableStatement).flatMap(statement => Array.from(statement.declarationList.declarations)

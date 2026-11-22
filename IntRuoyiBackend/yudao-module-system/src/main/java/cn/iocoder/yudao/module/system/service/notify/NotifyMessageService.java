@@ -72,6 +72,9 @@ public interface NotifyMessageService {
      */
     NotifyMessageDO getNotifyMessage(Long id);
 
+    /** Read a message belonging to the current tenant and admin recipient. */
+    NotifyMessageDO getMyNotifyMessage(Long id, Long userId);
+
     /**
      * 获得【我的】未读站内信列表
      *

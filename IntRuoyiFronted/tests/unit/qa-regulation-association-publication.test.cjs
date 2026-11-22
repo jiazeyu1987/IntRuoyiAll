@@ -9,7 +9,8 @@ const filename = path.resolve(__dirname, '../../src/views/mes/pro/processpool/Qa
 const { descriptor } = parse(fs.readFileSync(filename, 'utf8'))
 const script = ts.createSourceFile(filename + '.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
 const names = ['addCommonRegulationBindingRow', 'removeCommonRegulationBindingRow',
-  'changeCommonRegulationBindingRow', 'runQaPublishPrecheck']
+  'changeCommonRegulationBindingRow', 'runQaPublishPrecheck', 'buildQaRegulationSavePayload',
+  'previewQaRegulationDraft']
 const functions = script.statements.filter(statement => ts.isVariableStatement(statement) &&
   statement.declarationList.declarations.some(declaration => names.includes(declaration.name.getText(script))))
 const code = ts.transpileModule(functions.map(statement => statement.getText(script)).join('\n'), {
@@ -25,12 +26,22 @@ function harness({ failPublish = false, failRefresh = false } = {}) {
     commonRegulationBindingLoading: ref(false), commonRegulationBindingLoadError: ref(''),
     commonRegulationVersionOptionsLoading: ref(false), commonRegulationVersionOptionsLoadError: ref(''),
     qaPublishBlockers: ref([]), qaRegulationPublishing: ref(false),
+    qaRegulationSaving: ref(false), qaConfigurationExists: ref(false), selectedQaRegulationVersionId: ref(),
     qaCurrentPublishedVersion: ref(null), qaRegulationProjectStatusByDccId: ref(new Map()),
-    buildQaRegulationSavePayload: () => ({ dccProjectCodeId: 10, versionNo: 'B/3' }),
+    qaCurrentConfigurationLoading: ref(false), qaCurrentConfigurationLoadError: ref(''),
+    qaRegulationDraft: { dccProjectCodeId: 10, regulationCode: 'QA-10', regulationName: 'QA',
+      loadedVersionNo: 'B/3', lifecycleStatus: 'DRAFT', draftRevision: 2 },
+    qaRegulationItems: ref([{ finalInspectionEnabled: true }]), qaInspectionTypeRules: [],
+    resolveRequiredText: value => value, resolveQaRegulationDraftVersionNoForSave: () => 'B/3',
+    resolveDccProjectId: String,
+    buildQaRegulationProcesses: () => [],
     resolvePositiveId: value => { if (!(Number(value) > 0)) throw Error('请选择规程'); return Number(value) },
     resolveDccProjectCodeErrorMessage: error => error.message,
     ElMessage: { success: text => messages.push(text), error: text => messages.push(text), warning: text => messages.push(text) },
-    QcTemplateApi: { publishQaRegulation: async payload => {
+    QcTemplateApi: { saveQaRegulationDraft: async payload => {
+      calls.push(structuredClone(payload))
+      return { regulationId: 1, draftVersionId: 30, versionNo: 'B/3', draftRevision: 3, lifecycleStatus: 'DRAFT' }
+    }, publishQaRegulation: async payload => {
       calls.push(structuredClone(payload))
       if (failPublish) throw Error('server rejected')
       return { regulationId: 1, publishedVersionId: 30, versionNo: 'B/3' }
@@ -77,4 +88,45 @@ test('refresh failure after commit is reported as published with a refresh error
   await h.runQaPublishPrecheck()
   assert.match(h.messages[0], /已发布，但页面刷新失败/)
   assert.equal(h.context.qaCurrentPublishedVersion.value.versionNo, 'B/3')
+})
+
+test('the shared draft/publication payload retains exact versions, order, replacements and explicit clearing', () => {
+  const h = harness()
+  h.context.commonRegulationBindingRows.value = [
+    { rowKey: 1, commonRegulationVersionId: 22 }, { rowKey: 2, commonRegulationVersionId: 11 }
+  ]
+  const ids = () => Array.from(h.buildQaRegulationSavePayload().commonRegulationVersionIds)
+  assert.deepEqual(ids(), [22, 11])
+  h.changeCommonRegulationBindingRow(h.context.commonRegulationBindingRows.value[1], 22)
+  h.removeCommonRegulationBindingRow(1)
+  assert.deepEqual(ids(), [22])
+  h.removeCommonRegulationBindingRow(2)
+  assert.deepEqual(ids(), [])
+})
+
+test('loading or failed association/configuration reads block saving to avoid accidental clearing', () => {
+  for (const key of ['commonRegulationBindingLoading', 'commonRegulationVersionOptionsLoading',
+    'qaCurrentConfigurationLoading', 'commonRegulationBindingLoadError',
+    'commonRegulationVersionOptionsLoadError', 'qaCurrentConfigurationLoadError']) {
+    const h = harness()
+    h.context[key].value = key.endsWith('Error') ? 'read failed' : true
+    assert.throws(() => h.buildQaRegulationSavePayload())
+  }
+})
+
+test('save draft submits selected associations and subsequent explicit clearing without publication', async () => {
+  const h = harness()
+  h.addCommonRegulationBindingRow()
+  h.changeCommonRegulationBindingRow(h.context.commonRegulationBindingRows.value[1], 22)
+  await h.previewQaRegulationDraft()
+  assert.deepEqual(h.calls[0].commonRegulationVersionIds, [11, 22])
+  assert.equal(h.calls[0].expectedDraftRevision, 2)
+  h.removeCommonRegulationBindingRow(1)
+  await h.previewQaRegulationDraft()
+  assert.deepEqual(h.calls[1].commonRegulationVersionIds, [22])
+  assert.equal(h.calls[1].expectedDraftRevision, 3)
+  h.removeCommonRegulationBindingRow(2)
+  await h.previewQaRegulationDraft()
+  assert.deepEqual(h.calls[2].commonRegulationVersionIds, [])
+  assert.equal(h.context.qaCurrentPublishedVersion.value, null)
 })

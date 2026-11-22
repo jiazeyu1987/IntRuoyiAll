@@ -61,7 +61,17 @@ public interface ErpProductMapper extends BaseMapperX<ErpProductDO> {
     }
 
     default List<ErpProductDO> selectListByBarCodes(Collection<String> barCodes) {
-        return selectList(ErpProductDO::getBarCode, barCodes);
+        if (barCodes == null || barCodes.isEmpty()) {
+            return new java.util.ArrayList<>();
+        }
+        // Full ERP imports contain hundreds of thousands of codes; bound each SQL parse.
+        List<String> codes = new java.util.ArrayList<>(new java.util.LinkedHashSet<>(barCodes));
+        List<ErpProductDO> products = new java.util.ArrayList<>();
+        for (int start = 0; start < codes.size(); start += 1000) {
+            products.addAll(selectList(ErpProductDO::getBarCode,
+                    codes.subList(start, Math.min(start + 1000, codes.size()))));
+        }
+        return products;
     }
 
 

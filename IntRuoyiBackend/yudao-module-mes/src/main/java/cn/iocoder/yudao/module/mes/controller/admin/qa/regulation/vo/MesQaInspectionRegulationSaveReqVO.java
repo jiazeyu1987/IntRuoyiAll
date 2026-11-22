@@ -27,7 +27,7 @@ public class MesQaInspectionRegulationSaveReqVO {
     @Schema(description = "规程归属模块：MES_QA=产品 QA；MES_QA_COMMON=通用检验规程")
     private String ownerModule;
 
-    @Schema(description = "发布时的通用规程版本列表；空列表解除全部关联，未传则保持正式绑定；保存草稿不保存关联修改")
+    @Schema(description = "按顺序保存到草稿快照的通用规程版本列表；空列表清空，未传保留已有版本选择；无快照时沿用正式绑定；发布后才生效")
     private List<Long> commonRegulationVersionIds;
 
     @Schema(description = "规程编码", requiredMode = Schema.RequiredMode.REQUIRED)

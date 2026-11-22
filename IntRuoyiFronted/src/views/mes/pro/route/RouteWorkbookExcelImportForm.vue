@@ -5,6 +5,8 @@
     >
       <div>仅支持由“导出”生成的多 Sheet .xlsx 文件。</div>
       <div>导入流程及关联工序、工艺、工作台、设备、项目和产品资源。</div>
+      <div>不迁移用户及人员配置；导入后请重新分配生产组长、表单填写人等人员。</div>
+      <div>新建设备及参数的维护人设为当前导入人。</div>
       <div>同编码资源内容不一致时整包导入失败，不覆盖目标租户已有数据。</div>
     </div>
 
@@ -74,7 +76,7 @@ const submitForm = async () => {
     const result = await ProRouteApi.importRouteWorkbookExcel(uploadFormData)
     showImportResult({
       title: '工艺路线导入完成',
-      summary: `已导入 ${result.routeCount} 条工艺路线。`,
+      summary: `已导入 ${result.routeCount} 条工艺路线。请在目标租户重新配置生产组长、表单填写人等人员后再使用。`,
       stats: [
         { label: '工艺路线', value: result.routeCount },
         { label: '路线工序', value: result.routeProcessCount },

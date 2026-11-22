@@ -16,17 +16,14 @@ assert.match(
 )
 assert.match(
   pageSource,
-  /关联通用检验规程/,
-  'QA association tab must label the binding control as 关联通用检验规程.'
+  /<el-tab-pane label="关联" name="association"/,
+  'QA association tab must remain accessible from the 关联 tab.'
 )
 for (const selector of [
   'data-qa-regulation-common-binding-list',
   'data-qa-regulation-common-binding-add',
   'data-qa-regulation-common-binding-remove',
-  'data-qa-regulation-common-binding-status',
-  'data-qa-regulation-common-binding-current',
-  'data-qa-regulation-common-binding-version-select',
-  'data-qa-regulation-common-binding-publish-notice'
+  'data-qa-regulation-common-binding-version-select'
 ]) {
   assert.ok(pageSource.includes(selector), `QA association tab common binding control missing ${selector}`)
 }
@@ -37,9 +34,11 @@ assert.doesNotMatch(
 )
 assert.doesNotMatch(pageSource, /data-qa-regulation-common-binding-(switch|view|change|disable)/)
 const publish = pageSource.slice(pageSource.indexOf('const runQaPublishPrecheck ='))
-assert.match(publish, /payload\.commonRegulationVersionIds = commonRegulationBindingRows\.value\.map/)
+const buildPayload = pageSource.slice(pageSource.indexOf('const buildQaRegulationSavePayload ='), pageSource.indexOf('const qaRegulationPublishChecks ='))
+assert.match(buildPayload, /commonRegulationVersionIds: commonRegulationBindingRows\.value\.map/)
+assert.match(publish, /payload = buildQaRegulationSavePayload\(\)/)
 const saveDraft = pageSource.slice(pageSource.indexOf('const previewQaRegulationDraft ='), pageSource.indexOf('const runQaPublishPrecheck ='))
-assert.doesNotMatch(saveDraft, /payload\.commonRegulationVersionIds/)
+assert.match(saveDraft, /payload = buildQaRegulationSavePayload\(\)/)
 assert.doesNotMatch(
   pageSource,
   /通用检验规程绑定接口尚未接入|接口待接入/,

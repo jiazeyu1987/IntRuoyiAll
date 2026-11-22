@@ -35,6 +35,19 @@ const domestic=()=>({certificateType:'DOMESTIC',ownProduct:false,certificateStat
 const uploadApi=extra=>({getUploadOwnerCompanies:async()=>[{id:10,name:'公司'}],getUploadProjectCodes:async()=>[],getUploadEntrustedEnterprises:async()=>[],...extra})
 async function fillUpload(s,facts){s.facts=facts;await drain();s.companyId=10;s.productName='测试产品';s.entrustedProduction=false;s.selfProduction=true}
 const raw=name=>({name,raw:new Blob([name],{type:'application/pdf'})})
+
+test('upload notifies its parent only after closing, and cancellation never navigates',async()=>{
+ let saved=0
+ const c=mount('upload/UploadDialog.vue',{modelValue:false,onSaved:()=>saved++},uploadApi({submitRegistrationCertificateUpload:async()=>{}}))
+ try{
+  c.props.modelValue=true;await drain();await fillUpload(c.state,domestic());c.state.files=[raw('certificate.pdf')]
+  await c.state.submit();assert.equal(saved,0)
+  c.state.handleClosed();assert.equal(saved,1)
+  c.state.handleClosed();assert.equal(saved,1)
+ }finally{c.app.unmount()}
+ const cancelled=mount('upload/UploadDialog.vue',{modelValue:false,onSaved:()=>saved++},uploadApi({}))
+ try{cancelled.state.handleClosed();assert.equal(saved,1)}finally{cancelled.app.unmount()}
+})
 test('real upload rejects FDA missing either required file and accepts its two distinct file kinds',async()=>{
  const calls=[],c=mount('upload/UploadDialog.vue',{modelValue:false},uploadApi({submitRegistrationCertificateUpload:async data=>calls.push(data)}))
  try{c.props.modelValue=true;await drain();c.state.facts.certificateType='FDA';await drain();await fillUpload(c.state,{certificateType:'FDA',ownProduct:false,classification:'II',submissionType:'EXEMPT',customerHeld:false,approvalLetterStatus:'VALID',factoryRegistrationStatus:'ACTIVE',ceCertificates:[]});await drain();c.state.companyId=10;c.state.productName='测试产品';c.state.entrustedProduction=false;c.state.selfProduction=true

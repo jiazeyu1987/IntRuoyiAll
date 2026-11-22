@@ -610,6 +610,7 @@ export interface TeamLeaderActiveOrderInputMaterialDetailRespVO {
   sourcePickListItemIds: number[]
   sourcePickListDocuments: TeamLeaderActiveOrderPickListDocumentRespVO[]
   sourceSnapshotHash?: string
+  sourceMatchWarning?: string
 }
 
 export interface TeamLeaderActiveOrderPickListDocumentRespVO {

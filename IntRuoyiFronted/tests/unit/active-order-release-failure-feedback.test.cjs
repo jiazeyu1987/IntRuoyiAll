@@ -19,6 +19,7 @@ function harness(failure) {
   let writes = 0
   const errors = [], successes = []
   const context = {
+    requireWritableHandoff: () => true,
     activeOrderTestResetSubmitting: ref(false), releaseApplicationSubmittingId: ref(undefined),
     releaseApplicationBlockers: ref([]), releaseApplicationErrorMessage: ref('上次错误'),
     releaseApplicationErrorOrder: ref(undefined), releaseApplicationUncertainMessage: ref(''),

@@ -73,6 +73,24 @@ class MesProRouteCandidateConfigServiceTest {
     }
 
     @Test
+    void saveConfigSnapshots_preservesExplicitNullSopThroughIntermediateAndRootSerialization() {
+        nameDraft("DRAFT");
+        JSONObject node = JSON.parseObject("{\"routeProcessId\":21,\"processId\":201,\"sopFileUrl\":null,\"unrelatedNull\":null}");
+        service.saveConfigSnapshots(2002L, "original-hash", Map.of("flowGraph", Map.of("nodes", List.of(node))));
+
+        ArgumentCaptor<MesProRouteVersionDO> saved = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper).update(saved.capture(), any());
+        JSONObject frozenNode = JSON.parseObject(saved.getValue().getRouteSnapshotJson())
+                .getJSONObject("configSnapshots").getJSONObject("flowGraph").getJSONArray("nodes").getJSONObject(0);
+        assertTrue(frozenNode.containsKey("sopFileUrl"));
+        org.junit.jupiter.api.Assertions.assertNull(frozenNode.get("sopFileUrl"));
+        assertFalse(frozenNode.containsKey("unrelatedNull"));
+        String canonical = new MesProRouteSnapshotCanonicalizer().canonicalize(saved.getValue().getRouteSnapshotJson());
+        assertTrue(JSON.parseObject(canonical).getJSONObject("configSnapshots").getJSONObject("flowGraph")
+                .getJSONArray("nodes").getJSONObject(0).containsKey("sopFileUrl"));
+    }
+
+    @Test
     void lossCoefficient_isSavedIndependentlyInDraftSnapshot() {
         nameDraft("DRAFT");
         service.saveConfigSnapshots(2002L, "original-hash", Map.of("lossCoefficient", new java.math.BigDecimal("1.25")));
@@ -280,6 +298,38 @@ class MesProRouteCandidateConfigServiceTest {
                 .getJSONObject("configSnapshots");
         assertEquals(1, configSnapshots.getIntValue("productionProcessConfigSchemaVersion"));
         assertEquals(1, configSnapshots.getJSONArray("productionProcessConfigs").size());
+    }
+
+    @Test
+    void explicitMigrationValidatesFormalReasonsAndPreservesOtherDraftFields() {
+        MesProRouteVersionDO candidate = nameDraft("DRAFT");
+        JSONObject snapshot = JSON.parseObject(candidate.getRouteSnapshotJson());
+        snapshot.getJSONObject("configSnapshots").put("flowGraph", JSON.parseObject(
+                "{nodes:[{routeProcessId:10,processId:20}]}"));
+        candidate.setRouteSnapshotJson(snapshot.toJSONString());
+        service.migrateProductionConfigSnapshots(candidate.getId(), "original-hash", Map.of(
+                "productionProcessConfigSchemaVersion", 1, "productionProcessConfigs", List.of(Map.of(
+                        "routeProcessId",10L,"processId",20L,"overagePercent",10,
+                        "lossReasons",List.of(),"deviceSelectionGroups",List.of(),"parameterRules",List.of()))));
+        verify(lossReasonService).validateLegacyBindings(org.mockito.ArgumentMatchers.eq(candidate.getRouteId()),any());
+        verify(lossReasonService,never()).validateBindings(any(),any());
+        ArgumentCaptor<MesProRouteVersionDO> saved = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper).update(saved.capture(),any());
+        assertEquals(snapshot.getJSONObject("configSnapshots").get("products"),
+                JSON.parseObject(saved.getValue().getRouteSnapshotJson()).getJSONObject("configSnapshots").get("products"));
+    }
+
+    @Test
+    void explicitMigrationRejectsExistingSnapshotAndUnrelatedKeys() {
+        MesProRouteVersionDO candidate = nameDraft("DRAFT");
+        JSONObject snapshot = JSON.parseObject(candidate.getRouteSnapshotJson());
+        snapshot.getJSONObject("configSnapshots").put("productionProcessConfigs", List.of());
+        candidate.setRouteSnapshotJson(snapshot.toJSONString());
+        assertThrows(ServiceException.class, () -> service.migrateProductionConfigSnapshots(candidate.getId(),
+                "original-hash",Map.of("productionProcessConfigSchemaVersion",1,"productionProcessConfigs",List.of())));
+        assertThrows(ServiceException.class, () -> service.migrateProductionConfigSnapshots(candidate.getId(),
+                "original-hash",Map.of("products",List.of())));
+        verify(routeVersionMapper,never()).update(any(MesProRouteVersionDO.class),any());
     }
 
     @Test

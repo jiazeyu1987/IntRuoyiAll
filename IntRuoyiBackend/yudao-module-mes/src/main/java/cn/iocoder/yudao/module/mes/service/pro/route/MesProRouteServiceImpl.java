@@ -271,7 +271,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         MesProRouteVersionDO initialVersion = routeVersionMapper.selectById(version.getId());
         if (template != null) {
             JSONObject inherited = MesProRouteTreePatch.inherit(template, JSON.parseObject(initialVersion.getRouteSnapshotJson()));
-            MesProRouteVersionSnapshotIdentityWriter.apply(initialVersion, inherited.toJSONString());
+            MesProRouteVersionSnapshotIdentityWriter.apply(initialVersion, MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(inherited));
             var projection = routeTrees.getObject().projectInitialVersion(initialVersion);
             MesProRouteVersionSnapshotIdentityWriter.apply(initialVersion, projection.rewrittenSnapshotJson());
             if (routeVersionMapper.updateById(initialVersion) != 1) throw new IllegalStateException("继承初始配置保存失败");
@@ -1382,7 +1382,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         if (configSnapshots != null) {
             snapshot.put(SNAPSHOT_CONFIGS_KEY, configSnapshots);
         }
-        return snapshot.toJSONString();
+        return MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(snapshot);
     }
 
     @Override

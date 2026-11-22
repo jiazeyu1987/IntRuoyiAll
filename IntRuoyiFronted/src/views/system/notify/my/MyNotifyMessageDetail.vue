@@ -30,6 +30,7 @@
         </div>
       </section>
 
+      <el-alert v-if="getRegistrationNavigationError(detailData)" :title="getRegistrationNavigationError(detailData)" type="error" :closable="false" />
       <section class="notify-message-detail__content">
         <div class="notify-message-detail__section-title">消息内容</div>
         <button
@@ -43,11 +44,11 @@
         <BusinessMessageContent v-else :description="messageDescription" />
       </section>
 
-      <HandlingTaskPanel v-if="detailData.templateCode === 'DCC_REGISTRATION_HANDLING_TASK' && normalizeTemplateParams(detailData.templateParams)?.handlingTaskId"
+      <HandlingTaskPanel v-if="!getRegistrationNavigationError(detailData) && detailData.templateCode === 'DCC_REGISTRATION_HANDLING_TASK' && normalizeTemplateParams(detailData.templateParams)?.handlingTaskId"
         :key="String(normalizeTemplateParams(detailData.templateParams)?.handlingTaskId)" :task-id="String(normalizeTemplateParams(detailData.templateParams)?.handlingTaskId)" />
       <ChangeConfirmationsPanel
-        v-if="detailData.templateCode === 'DCC_REGISTRATION_CERTIFICATE_BUSINESS_EVENT' && normalizeTemplateParams(detailData.templateParams)?.eventType === 'CHANGE_APPROVAL_RECORDED'"
-        :message-id="detailData.id" />
+        v-if="!getRegistrationNavigationError(detailData) && detailData.templateCode === 'DCC_REGISTRATION_CERTIFICATE_BUSINESS_EVENT' && normalizeTemplateParams(detailData.templateParams)?.eventType === 'CHANGE_APPROVAL_RECORDED'"
+        :key="String(detailData.id)" :message-id="detailData.id" />
 
       <section v-if="templateParamEntries.length" class="notify-message-detail__params">
         <div class="notify-message-detail__section-title">业务信息</div>
@@ -102,6 +103,7 @@ import ChangeConfirmationsPanel from '@/views/dcc/registration-certificate/compo
 import { getControlledFileApplicationRestartContext, prepareControlledFileApplicationRestart,
   type ControlledFileApplicationRestartContext } from '@/api/dcc/controlledFile/workflow'
 import {
+  getRegistrationNavigationError,
   getNotifyMessageTarget,
   getNotifyMessageTargets,
   navigateToNotifyMessageTarget,
@@ -145,7 +147,7 @@ const normalizeTemplateParams = (value: unknown) => {
 
 const notifyMessageTargets = computed(() => getNotifyMessageTargets(detailData.value))
 const primaryDetailTarget = computed(() => getNotifyMessageTarget(detailData.value))
-const hasDetailTarget = computed(() => Boolean(primaryDetailTarget.value))
+const hasDetailTarget = computed(() => Boolean(primaryDetailTarget.value && !['registrationMessage', 'invalidRegistration'].includes(primaryDetailTarget.value.type)))
 const dccDistributionNavigation = computed(() => notifyMessageTargets.value.find(target => target.type === 'dccDistribution'))
 const showroomProductNavigation = computed(
   () =>
@@ -385,7 +387,7 @@ onDeactivated(() => {
   resetDialogState()
 })
 
-defineExpose({ open })
+defineExpose({ open, close: resetDialogState })
 </script>
 
 <style scoped>

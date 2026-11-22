@@ -1087,6 +1087,8 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <configuration><skip>false</skip><testIncludes>
                         <testInclude>**/MesProRouteResourceTransferServiceTest.java</testInclude>
+                        <testInclude>**/MesProRouteWorkbookExportServiceTest.java</testInclude>
+                        <testInclude>**/MesProRouteTransferSnapshotTest.java</testInclude>
                         <testInclude>**/MesProRouteResourceImportServiceTest.java</testInclude>
                         <testInclude>**/MesRouteImportedSnapshotCorrectionTest.java</testInclude>
                     </testIncludes></configuration>
@@ -1096,6 +1098,8 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <configuration><skip>false</skip><skipTests>false</skipTests><includes>
                         <include>**/MesProRouteResourceTransferServiceTest.java</include>
+                        <include>**/MesProRouteWorkbookExportServiceTest.java</include>
+                        <include>**/MesProRouteTransferSnapshotTest.java</include>
                         <include>**/MesProRouteResourceImportServiceTest.java</include>
                         <include>**/MesRouteImportedSnapshotCorrectionTest.java</include>
                     </includes></configuration>

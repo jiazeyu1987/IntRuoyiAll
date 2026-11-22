@@ -63,7 +63,11 @@ public class DccRegistrationCertificateApprovalPreviewService {
             var version=versions.selectById(business.getOwnerId());
             if(version==null||Boolean.TRUE.equals(version.getDeleted())||!Objects.equals(version.getTenantId(),tenant)||!Objects.equals(version.getCertificateId(),request.getCertificateId()))throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         }else if("CHANGE".equals(business.getOwnerType())){
-            var count=jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dcc_registration_certificate_change WHERE tenant_id=? AND id=? AND certificate_id=? AND approval_request_id=? AND deleted=0",Integer.class,tenant,business.getOwnerId(),request.getCertificateId(),requestId);
+            // Frozen request/file links above authorize only this file, after real task qualification.
+            // A download request is distinct from the request that originally approved the change.
+            var count="DOWNLOAD_FILE".equals(request.getRequestType())
+                    ? jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dcc_registration_certificate_change WHERE tenant_id=? AND id=? AND certificate_id=? AND status='APPLIED' AND deleted=0",Integer.class,tenant,business.getOwnerId(),request.getCertificateId())
+                    : jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dcc_registration_certificate_change WHERE tenant_id=? AND id=? AND certificate_id=? AND approval_request_id=? AND deleted=0",Integer.class,tenant,business.getOwnerId(),request.getCertificateId(),requestId);
             if(!Integer.valueOf(1).equals(count))throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         }else throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         var source=files.selectById(business.getInfraFileId());

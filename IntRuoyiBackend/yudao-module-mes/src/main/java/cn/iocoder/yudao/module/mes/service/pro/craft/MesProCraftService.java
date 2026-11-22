@@ -395,7 +395,7 @@ public class MesProCraftService {
         MesProRouteVersionDO saved = versionMapper.selectById(candidate.getId());
         JSONObject grouped = JSON.parseObject(saved.getRouteSnapshotJson());
         grouped.getJSONObject("configSnapshots").put("craftChangeId", change.getId());
-        MesProRouteVersionSnapshotIdentityWriter.apply(saved, grouped.toJSONString());
+        MesProRouteVersionSnapshotIdentityWriter.apply(saved, MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(grouped));
         if (versionMapper.updateById(saved) != 1) throw invalid("关联流程候选版本保存失败");
         if ("SHARED".equals(change.getChangeType()))
             deviceIdentitySnapshots.captureDraft(saved.getId(), JSON.parseObject(change.getAfterJson()));

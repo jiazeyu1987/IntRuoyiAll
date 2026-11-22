@@ -98,6 +98,24 @@ public class NotifyMessageServiceImpl implements NotifyMessageService {
     }
 
     @Override
+    public NotifyMessageDO getMyNotifyMessage(Long id, Long userId) {
+        if (id == null || id <= 0 || userId == null || userId <= 0) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                    cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.NOTIFY_MESSAGE_NOT_EXISTS);
+        }
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        NotifyMessageDO message = notifyMessageMapper.selectById(id);
+        if (message == null || userId == null
+                || !tenantId.equals(message.getTenantId())
+                || !userId.equals(message.getUserId())
+                || !cn.iocoder.yudao.framework.common.enums.UserTypeEnum.ADMIN.getValue().equals(message.getUserType())) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                    cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.NOTIFY_MESSAGE_NOT_EXISTS);
+        }
+        return readProjection(message);
+    }
+
+    @Override
     public List<NotifyMessageDO> getUnreadNotifyMessageList(Long userId, Integer userType, Integer size) {
         return readProjections(notifyMessageMapper.selectUnreadListByUserIdAndUserType(userId, userType, size));
     }

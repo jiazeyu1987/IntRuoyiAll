@@ -248,6 +248,10 @@ public class DccRegistrationCertificateUploadService {
         String productName = requireProductName(command.productName());
         var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(command.factsJson());
         facts.validate();
+        if ("CE".equals(facts.getCertificateType())) {
+            var records = facts.getCeCertificates();
+            facts.setCertificateNo(records == null || records.isEmpty() ? null : records.get(records.size() - 1).getCertificateNo());
+        }
         Long productMasterId = Boolean.TRUE.equals(facts.getOwnProduct()) && projectCode != null ? projectCode.getProductMasterId() : null;
         if (Boolean.TRUE.equals(facts.getOwnProduct())) {
             var product = prerequisiteValidator.resolveProjectProduct(projectCode);

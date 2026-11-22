@@ -25,6 +25,10 @@ public interface MesProRouteCandidateConfigService {
      */
     void saveConfigSnapshots(Long candidateRouteVersionId, java.util.Map<String, Object> configSnapshots);
 
+    /** 显式迁移正式生产配置，仅允许补齐缺少生产快照的草稿。 */
+    void migrateProductionConfigSnapshots(Long candidateRouteVersionId, String expectedRouteSnapshotSha256,
+                                          java.util.Map<String, Object> configSnapshots);
+
     /**
      * 原子保存候选版本配置，并拒绝覆盖已变化的候选快照。
      */

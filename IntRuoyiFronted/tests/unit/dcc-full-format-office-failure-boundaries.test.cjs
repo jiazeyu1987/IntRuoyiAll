@@ -17,13 +17,13 @@ function office({ pendingScript = false, failDestroy = false, duringDestroy, scr
     constructor(id, config) { this.id = configs.length + 1; configs.push(config) }
     destroyEditor() { destroyed.push(this.id); duringDestroy?.(props); if (failDestroy) throw new Error('SDK_CLOSE_FAILED') }
   } }
-  const browserWindow = { ...(pendingScript ? {} : { DocsAPI, __dccOnlyOfficeScriptBaseUrl: props.baseUrl }), addEventListener() {}, removeEventListener() {} }
-  const host = { exports: {}, ...vue, Error, window: browserWindow,
+  const browserWindow = { ...(pendingScript ? {} : { DocsAPI, __dccOnlyOfficeScriptBaseUrl: props.baseUrl }), location: { origin: 'https://app.example.test' }, addEventListener() {}, removeEventListener() {} }
+  const host = { exports: {}, ...vue, Error, URL, clearTimeout, setTimeout: (callback, delay) => setTimeout(callback, delay).unref(), window: browserWindow,
     document: { createElement: () => ({}), head: { appendChild: element => scripts.push(element) } },
     defineProps: () => props, defineEmits: () => (...args) => emitted.push(args),
     watch() {}, onMounted() {}, onBeforeUnmount: callback => { lifecycle.unmount = callback }
   }
-  vm.runInNewContext(ts.transpileModule(script + '\nexports.api={mountEditor,errorMessage,get editorInstance(){return editorInstance}}', {
+  vm.runInNewContext(ts.transpileModule(script.replace(/import\.meta\.env\.BASE_URL/g, JSON.stringify('/')) + '\nexports.api={mountEditor,errorMessage,get editorInstance(){return editorInstance}}', {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
   }).outputText, host)
   return { api: host.exports.api, props, configs, scripts, emitted, destroyed, lifecycle, browserWindow,

@@ -5,6 +5,7 @@ import { describeNotifyMessage } from '@/utils/businessMessagePresentation'
 import { useUserStoreWithOut } from '@/store/modules/user'
 import { propTypes } from '@/utils/propTypes'
 import {
+  getRegistrationNavigationError,
   getNotifyMessageTarget,
   hasNotifyMessageTarget,
   navigateToNotifyMessageTarget
@@ -85,7 +86,7 @@ const getMessageDisplay = (item: NotifyMessageApi.NotifyMessageVO) => {
 
 const handleMessageCardClick = async (item: NotifyMessageApi.NotifyMessageVO) => {
   const target = getNotifyMessageTarget(item)
-  if (!target) {
+  if (!target || target.type === 'invalidRegistration') {
     return
   }
   if (!item.readStatus) {
@@ -160,6 +161,7 @@ onMounted(() => {
                   <Icon :size="18" icon="ep:message" />
                 </div>
                 <div class="message-card__content">
+                  <div v-if="getRegistrationNavigationError(item)" role="alert">{{ getRegistrationNavigationError(item) }}</div>
                   <div class="message-card__meta">
                     <span class="message-card__source">{{ getMessageDisplay(item).source }}</span>
                     <span class="message-card__date">{{ formatDate(item.createTime) }}</span>

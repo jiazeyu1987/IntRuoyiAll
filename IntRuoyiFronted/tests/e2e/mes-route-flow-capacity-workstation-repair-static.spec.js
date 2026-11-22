@@ -111,11 +111,11 @@ assert(
   '前端必须保留路线工序显式绑定工作站字段，不能把展示用 workstationId 当成绑定依据。'
 )
 assertMatches(
-  /const getBoundRouteProcessWorkstationId = \(routeProcess\?: ProRouteProcessVO\) =>[\s\S]*props\.routeVersionEditContext[\s\S]*numericValue\(routeProcess\?\.routeProcessWorkstationId\)[\s\S]*numericValue\(routeProcess\?\.routeProcessWorkstationId \?\? routeProcess\?\.workstationId\)/,
+  /const getBoundRouteProcessWorkstationId = \(routeProcess\?: ProRouteProcessVO\) =>[\s\S]*props\.routeVersionEditContext[\s\S]*normalizeRouteProcessWorkstationId\(routeProcess\?\.routeProcessWorkstationId\)[\s\S]*normalizeRouteProcessWorkstationId\(routeProcess\?\.routeProcessWorkstationId \?\? routeProcess\?\.workstationId\)/,
   '候选版本必须只按 routeProcessWorkstationId 判断显式绑定，不能 fallback 到展示用 workstationId。'
 )
 assertMatches(
-  /boundRouteProcessOptions[\s\S]*routeProcessId !== targetRouteProcessId/,
+  /boundRouteProcessOptions[\s\S]*!sameRouteProcessId\(routeProcessId, targetRouteProcessId\)/,
   '已绑定工序选项必须排除当前工序。'
 )
 assertMatches(
@@ -183,13 +183,13 @@ assert(
 )
 assert(
   bindWorkstationSource.includes("requireCandidateRouteVersionId('工作站绑定')") &&
-    bindWorkstationSource.includes('routeNodes.value = routeNodes.value.map') &&
-    bindWorkstationSource.includes('workstationId') &&
+    bindWorkstationSource.includes('applyCapacityWorkstationBindingLocally(targetRouteProcess, binding)') &&
+    source.includes('routeProcessWorkstationId: binding.workstationId') &&
     bindWorkstationSource.includes('await persistRouteProcessDraftChanges()'),
   '绑定已有工序工作站后必须更新候选节点，并通过候选关系图保存接口写入 DRAFT 快照。'
 )
 assertMatches(
-  /const sourceWorkstationId = sourceOption\?\.workstationId[\s\S]*bindCapacityWorkstationToRouteProcess\([\s\S]*targetRouteProcess[\s\S]*sourceWorkstationId/,
+  /if \(!sourceOption\?\.workstationId\)[\s\S]*bindCapacityWorkstationToRouteProcess\([\s\S]*targetRouteProcess,[\s\S]*sourceOption/,
   '绑定已有工序时必须复用所选来源对应的 workstationId。'
 )
 assertIncludes('MdWorkshopApi.getWorkshopSimpleList', '新建工作站模式必须加载车间下拉。')
@@ -227,7 +227,7 @@ assertMatches(
   '自动创建工作站名称必须包含自动生成编码，避免同一工序已有“工序名-工作站”时被名称唯一性校验阻断。'
 )
 assertMatches(
-  /const code = await AutoCodeRecordApi\.generateAutoCode\(MesAutoCodeRuleCode\.MD_WORKSTATION_CODE\)[\s\S]*MdWorkstationApi\.createWorkstation\([\s\S]*name:\s*buildCapacityWorkstationName\(targetRouteProcess,\s*code\)/,
+  /const code = await AutoCodeRecordApi\.generateAutoCode\(MesAutoCodeRuleCode\.MD_WORKSTATION_CODE\)[\s\S]*const name = buildCapacityWorkstationName\(targetRouteProcess,\s*code\)[\s\S]*MdWorkstationApi\.createWorkstation\([\s\S]*name,/,
   '自动创建工作站必须用刚生成的编码参与名称生成，保证新建后可继续绑定候选路线工序。'
 )
 assertMatches(
@@ -243,7 +243,7 @@ assertMatches(
   '产能覆盖保存必须先检查当前路线工序自身的 workstationId，不能只因同工序主数据存在工作站就跳过绑定。'
 )
 assertMatches(
-  /routeProcessWorkstationId === undefined[\s\S]*routeProcessWorkstationId <= 0[\s\S]*shiftHours === undefined[\s\S]*shiftHours <= 0[\s\S]*await openCapacityWorkstationRepairDialog/,
+  /!routeProcessWorkstationId[\s\S]*shiftHours === undefined[\s\S]*shiftHours <= 0[\s\S]*await openCapacityWorkstationRepairDialog/,
   '路线工序未绑定工作站或缺少班次小时分支必须打开修复弹框，而不是直接保存产能。'
 )
 assertIncludes(

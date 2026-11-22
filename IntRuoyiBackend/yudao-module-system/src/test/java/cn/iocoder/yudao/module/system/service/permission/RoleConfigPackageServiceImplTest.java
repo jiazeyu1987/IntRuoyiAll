@@ -253,7 +253,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         assertEquals("配置包内容非法，原因：权限角色配置包缺少 role code", exception.getMessage());
     }
 
-    private void insertButtonMenu(String name, String permission) {
+    private MenuDO insertButtonMenu(String name, String permission) {
         MenuDO menu = new MenuDO();
         menu.setName(name);
         menu.setPermission(permission);
@@ -268,6 +268,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         menu.setKeepAlive(Boolean.FALSE);
         menu.setAlwaysShow(Boolean.FALSE);
         menuMapper.insert(menu);
+        return menu;
     }
 
     @Test
@@ -648,6 +649,48 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         roleConfigPackageService.importPackage(exported);
 
         verify(permissionService).assignRoleMenu(eq(role.getId()), eq(packageMenus), anyString(), anyString());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"工艺路线版本查询", "版本查询别名"})
+    void exportPackage_shouldRoundTripEquivalentButtonsWhenTargetHasOneCopy(String duplicateName) {
+        MenuDO button = insertButtonMenu("工艺路线版本查询", "mes:pro-route:version-query");
+        MenuDO duplicate = insertButtonMenu(duplicateName, "mes:pro-route:version-query");
+        RoleDO role = insertExportRole("route_version_admin");
+        org.mockito.Mockito.when(permissionService.getRoleMenuListByRoleId(role.getId()))
+                .thenReturn(Set.of(button.getId(), duplicate.getId()));
+
+        byte[] exported = roleConfigPackageService.exportPackage(List.of(role.getCategoryId()));
+        var payload = JsonUtils.parseObject(exported, RoleConfigPackageServiceImpl.RoleConfigPackage.class);
+        assertEquals(List.of("permission:mes:pro-route:version-query"), payload.getRoles().get(0).getMenuKeys());
+
+        menuMapper.deleteById(duplicate.getId());
+        reset(permissionService);
+        roleConfigPackageService.importPackage(exported);
+
+        verify(permissionService).assignRoleMenu(eq(role.getId()), eq(Set.of(button.getId())), anyString(), anyString());
+    }
+
+    @Test
+    void exportPackage_shouldKeepSamePermissionInDifferentParentsQualified() {
+        MenuDO firstParent = insertButtonMenu("第一业务节点", "route:first");
+        MenuDO secondParent = insertButtonMenu("第二业务节点", "route:second");
+        MenuDO first = insertButtonMenu("版本查询", "mes:pro-route:version-query");
+        first.setParentId(firstParent.getId());
+        menuMapper.updateById(first);
+        MenuDO second = insertButtonMenu("版本查询", "mes:pro-route:version-query");
+        second.setParentId(secondParent.getId());
+        menuMapper.updateById(second);
+        RoleDO role = insertExportRole("route_version_admin");
+        org.mockito.Mockito.when(permissionService.getRoleMenuListByRoleId(role.getId()))
+                .thenReturn(Set.of(first.getId(), second.getId()));
+
+        var payload = JsonUtils.parseObject(roleConfigPackageService.exportPackage(List.of(role.getCategoryId())),
+                RoleConfigPackageServiceImpl.RoleConfigPackage.class);
+
+        assertEquals(List.of("route:permission:route:first|3:mes:pro-route:version-query||||版本查询",
+                "route:permission:route:second|3:mes:pro-route:version-query||||版本查询"),
+                payload.getRoles().get(0).getMenuKeys());
     }
 
     @Test

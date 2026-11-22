@@ -87,6 +87,7 @@ public class MesTeamLeaderActiveOrderDetail {
         private List<Long> sourcePickListItemIds = List.of();
         private List<SourcePickListDocument> sourcePickListDocuments = List.of();
         private String sourceSnapshotHash;
+        private String sourceMatchWarning;
     }
 
     @Data

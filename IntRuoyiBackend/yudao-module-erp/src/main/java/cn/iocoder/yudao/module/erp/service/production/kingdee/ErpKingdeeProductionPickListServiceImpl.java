@@ -21,8 +21,12 @@ import cn.iocoder.yudao.module.erp.service.production.sync.ErpKingdeeProductionP
 import cn.iocoder.yudao.module.erp.service.production.sync.ErpKingdeeProductionPickListSyncResult;
 import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeProperties;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
@@ -38,6 +42,7 @@ import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertSet;
 
 @Service
+@Slf4j
 @Validated
 public class ErpKingdeeProductionPickListServiceImpl
         implements ErpKingdeeProductionPickListService {
@@ -50,6 +55,8 @@ public class ErpKingdeeProductionPickListServiceImpl
     private ErpKingdeeProductionPickListMapper productionPickListMapper;
     @Resource
     private ErpKingdeeProductionPickListItemMapper productionPickListItemMapper;
+    @Resource
+    private PlatformTransactionManager transactionManager;
 
     @Override
     public PageResult<ErpProductionPickListRespVO> getPage(
@@ -142,13 +149,27 @@ public class ErpKingdeeProductionPickListServiceImpl
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public ErpKingdeeProductionPickListSyncResult syncAll(
             LocalDateTime windowStart, LocalDateTime windowEnd) {
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         properties.validateBaseConfig();
-        return syncPickLists(productionPickListClient.fetchProductionPickLists(
-                properties, windowStart, windowEnd), false);
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        ErpKingdeeProductionPickListSyncResult total = new ErpKingdeeProductionPickListSyncResult();
+        try {
+            productionPickListClient.forEachProductionPickListBatch(properties, windowStart, windowEnd, batch -> {
+                ErpKingdeeProductionPickListSyncResult committed = Objects.requireNonNull(
+                        transaction.execute(status -> syncPickLists(batch, false)));
+                total.add(committed);
+                log.info("生产领料单批次已提交: created={}, updated={}",
+                        total.getCreatedCount(), total.getUpdatedCount());
+            });
+        } catch (RuntimeException failure) {
+            throw new IllegalStateException("生产领料单全量同步失败，已提交新增 " + total.getCreatedCount()
+                    + " 条、更新 " + total.getUpdatedCount() + " 条；已提交批次保留，失败批次已回滚。原因："
+                    + failure.getMessage(), failure);
+        }
+        return total;
     }
 
     @Override

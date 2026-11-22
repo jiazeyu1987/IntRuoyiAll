@@ -12,6 +12,40 @@ import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
 
 class MesProRouteTreeServiceTest {
+    @Test void movePreviewUsesFrozenProductionNamesInGraphOrder() {
+        node(1,"FLOW",null); node(2,"GROUP",null);
+        when(versions.selectActiveByRouteId(1L)).thenReturn(namedVersion(1L, "组装", "检验"));
+        when(versions.selectActiveByRouteId(2L)).thenReturn(namedVersion(2L, "目标组装", "目标检验"));
+        var preview = service.movePreview(1L, 2L);
+        assertEquals(List.of("组装", "检验"), preview.get("currentProcesses"));
+        assertEquals(List.of("目标组装", "目标检验"), preview.get("expectedProcesses"));
+    }
+    @Test void movePreviewRejectsMissingNamesAndMismatchedProductionIdentity() {
+        node(1,"FLOW",null);
+        for (String mutation : List.of("missing", "identity", "duplicate")) {
+            var version = namedVersion(1L, "组装", "检验");
+            var root = com.alibaba.fastjson.JSON.parseObject(version.getRouteSnapshotJson());
+            var configs = root.getJSONObject("configSnapshots").getJSONArray("productionProcessConfigs");
+            if (mutation.equals("missing")) configs.getJSONObject(0).remove("processName");
+            if (mutation.equals("identity")) configs.getJSONObject(0).put("processId", 999);
+            if (mutation.equals("duplicate")) configs.add(configs.getJSONObject(0));
+            version.setRouteSnapshotJson(root.toJSONString());
+            when(versions.selectActiveByRouteId(1L)).thenReturn(version);
+            assertThrows(RuntimeException.class, () -> service.movePreview(1L, null));
+        }
+    }
+    private MesProRouteVersionDO namedVersion(long id, String first, String second) {
+        // 拓扑不保存名称，生产配置数组顺序也不能替代拓扑 sort。
+        String json = """
+                {"configSnapshots":{"flowGraph":{"nodes":[
+                  {"routeProcessId":12,"processId":102,"sort":2,"processName":"过期名称"},
+                  {"routeProcessId":11,"processId":101,"sort":1}]},
+                  "productionProcessConfigs":[
+                  {"routeProcessId":12,"processId":102,"processName":"%s"},
+                  {"routeProcessId":11,"processId":101,"processName":"%s"}]}}
+                """.formatted(second, first);
+        return MesProRouteVersionDO.builder().id(id * 10).routeId(id).routeSnapshotJson(json).build();
+    }
     @Test void incompleteTemplateCannotCreateAnUneditableDirectory() {
         when(versions.selectActiveByRouteId(1L)).thenReturn(MesProRouteVersionDO.builder()
                 .id(10L).routeId(1L).routeSnapshotJson("{\"routeId\":1,\"routeCode\":\"R1\",\"routeName\":\"模板\",\"configSnapshots\":{\"flowGraph\":{\"nodes\":[]}}}").build());

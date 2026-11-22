@@ -32,19 +32,19 @@ function mount({ roles = ['doc_control'], permissions = ['dcc:project-code:updat
   const i18n = () => ({ t: value => value })
   // Run unchanged production permission code, substituting only its actual store/cache providers.
   const permissionDirective = load('src/directives/permission/hasPermi.ts', name => {
-    if (name === '@/store/modules/user') return { useUserStore: () => user }; throw new Error(name)
+    if (name === '@/store/modules/user') return { useUserStore: () => user }; if (name === '@/utils/erpDataPermission') return require('../helpers/load-source-module.cjs')('src/utils/erpDataPermission.ts'); throw new Error(name)
   }, { useI18n: i18n })
   const permission = load('src/utils/permission.ts', name => {
     if (name === '@/hooks/web/useCache') return { CACHE_KEY: { USER: 'user' }, useCache: () => ({ wsCache: { get: () => ({ roles: user.roles }) } }) }
     if (name === '@/directives/permission/hasPermi') return permissionDirective
-    throw new Error(name)
+    if (name === '@/utils/erpDataPermission') return require('../helpers/load-source-module.cjs')('src/utils/erpDataPermission.ts'); throw new Error(name)
   }, { useI18n: i18n })
-  const model = load('src/views/dcc/controlled-file/basic-data/components/project-reviewer.ts', name => { throw new Error(name) })
+  const model = load('src/views/dcc/controlled-file/basic-data/components/project-reviewer.ts', name => { if (name === '@/utils/erpDataPermission') return require('../helpers/load-source-module.cjs')('src/utils/erpDataPermission.ts'); throw new Error(name) })
   const api = load('src/api/dcc/controlledFile/projectProductRequests.ts', name => {
     if (name.endsWith('/project-reviewer')) return model
-    if (name.endsWith('/project-product-role')) return load('src/views/dcc/controlled-file/basic-data/components/project-product-role.ts', id => { if (id === './project-reviewer') return model; throw new Error(id) })
+    if (name.endsWith('/project-product-role')) return load('src/views/dcc/controlled-file/basic-data/components/project-product-role.ts', id => { if (id === './project-reviewer') return model; if (id === '@/utils/erpDataPermission') return require('../helpers/load-source-module.cjs')('src/utils/erpDataPermission.ts'); throw new Error(id) })
     if (name === '@/config/axios') return { default: { get: async req => { calls.reads.push(req); return read() }, put: async req => { calls.puts.push(req); return save() } } }
-    throw new Error(name)
+    if (name === '@/utils/erpDataPermission') return require('../helpers/load-source-module.cjs')('src/utils/erpDataPermission.ts'); throw new Error(name)
   })
   const { descriptor } = parse(fs.readFileSync(file, 'utf8'), { filename: file })
   const compile = inline => {
@@ -59,7 +59,7 @@ function mount({ roles = ['doc_control'], permissions = ['dcc:project-code:updat
       if (name === '@/api/system/user') return { getSimpleUserList: async () => { calls.users++; return directory() } }
       if (name === '@/api/dcc/controlledFile/projectProductRequests') return api
       if (name === './project-reviewer') return model
-      throw new Error(name)
+      if (name === '@/utils/erpDataPermission') return require('../helpers/load-source-module.cjs')('src/utils/erpDataPermission.ts'); throw new Error(name)
     }, () => ({ success: value => calls.successes.push(value), warning: value => calls.successes.push(value) }))
     return exports.default
   }

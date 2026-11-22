@@ -1032,7 +1032,14 @@ class MesProRouteServiceImplTest {
                 .build();
         MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
         graph.setRouteId(routeId);
-        graph.setNodes(emptyList());
+        MesProRouteProcessFlowNodeRespVO withSop = new MesProRouteProcessFlowNodeRespVO();
+        withSop.setRouteProcessId(21L);
+        withSop.setProcessId(201L);
+        withSop.setSopFileUrl("/files/frozen-sop.pdf");
+        MesProRouteProcessFlowNodeRespVO unboundSop = new MesProRouteProcessFlowNodeRespVO();
+        unboundSop.setRouteProcessId(22L);
+        unboundSop.setProcessId(202L);
+        graph.setNodes(List.of(withSop, unboundSop));
         when(routeMapper.selectById(routeId)).thenReturn(route);
         when(routeVersionMapper.selectById(routeVersionId)).thenReturn(routeVersion);
         JSONObject savedSnapshot = JSON.parseObject(routeVersion.getRouteSnapshotJson());
@@ -1050,6 +1057,10 @@ class MesProRouteServiceImplTest {
 
         JSONObject snapshot = JSON.parseObject(routeService.buildCurrentRouteSnapshotJson(routeId, routeVersionId));
 
+        JSONArray frozenNodes = snapshot.getJSONObject("configSnapshots").getJSONObject("flowGraph").getJSONArray("nodes");
+        assertEquals("/files/frozen-sop.pdf", frozenNodes.getJSONObject(0).getString("sopFileUrl"));
+        assertTrue(frozenNodes.getJSONObject(1).containsKey("sopFileUrl"));
+        org.junit.jupiter.api.Assertions.assertNull(frozenNodes.getJSONObject(1).get("sopFileUrl"));
         assertEquals(sharedSources, snapshot.getJSONObject("configSnapshots").getJSONObject("sharedSourceSnapshots"));
         assertEquals(new BigDecimal("1.25"), snapshot.getJSONObject("configSnapshots").getBigDecimal("lossCoefficient"));
         JSONArray owners = snapshot.getJSONObject("configSnapshots").getJSONArray("batchRecordAttachmentOwners");

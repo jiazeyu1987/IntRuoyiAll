@@ -1,3 +1,4 @@
+import { requireExactJavaLong } from '@/utils/exactJavaLong'
 import type { Router } from 'vue-router'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 import { resolveActiveOrderHandoffTarget, navigateToActiveOrderHandoff } from '@/utils/activeOrderHandoffNavigation'
@@ -35,7 +36,7 @@ export const NOTIFY_MESSAGE_NAVIGATION_PARAM_KEYS = new Set([
   'notifyProcessInstanceId'
 ])
 
-type NotifyMessageLike = Pick<NotifyMessageVO, 'templateParams'> & Partial<Pick<NotifyMessageVO, 'templateCode'>>
+type NotifyMessageLike = Pick<NotifyMessageVO, 'templateParams'> & Partial<Pick<NotifyMessageVO, 'templateCode' | 'id'>>
 
 export type ShowroomProductNotifyTarget = {
   type: 'showroomProduct'
@@ -84,7 +85,11 @@ export type DccRelationRemediationNotifyTarget = {
   dueAt: string
 }
 
+export type RegistrationNotifyTarget = { type: 'registrationCertificate'; label: '查看注册证'; certificateId: string; versionId?: string } | { type: 'registrationMessage'; label: '办理注册证任务' | '查看变更并确认'; messageId: string }
+
 export type NotifyMessageTarget =
+  | { type: 'invalidRegistration'; label: '通知无法跳转'; error: string }
+  | RegistrationNotifyTarget
   | (DccDistributionReadIdentity & { type: 'dccDistribution'; label: '查看下发文件并签收' })
   | ShowroomProductNotifyTarget
   | BpmApprovalNotifyTarget
@@ -275,7 +280,18 @@ const resolveDccRelationRemediationTarget = (params: Record<string, unknown>): D
 export const getNotifyMessageTargets = (message?: NotifyMessageLike | null): NotifyMessageTarget[] => {
   const templateParams = normalizeTemplateParams(message?.templateParams)
   if (!templateParams) {
+    if (message?.templateCode?.startsWith('DCC_REGISTRATION_')) return [{ type: 'invalidRegistration', label: '通知无法跳转', error: '注册证通知缺少业务参数。' }]
     return []
+  }
+  if (['DCC_REGISTRATION_HANDLING_TASK', 'DCC_REGISTRATION_CERTIFICATE_BUSINESS_EVENT', 'DCC_REGISTRATION_CERTIFICATE_THRESHOLD_REMINDER'].includes(message?.templateCode || '')) {
+    try {
+    if (message?.templateCode === 'DCC_REGISTRATION_CERTIFICATE_BUSINESS_EVENT' && !['NEW_CERTIFICATE_FORMALIZED', 'RENEWAL_CANDIDATE_UPLOADED', 'RENEWAL_CANDIDATE_ACTIVATED', 'CHANGE_APPROVAL_RECORDED'].includes(String(templateParams.eventType))) throw new Error('注册证通知事件类型无法识别。')
+    if (message?.templateCode === 'DCC_REGISTRATION_HANDLING_TASK') requireExactJavaLong(templateParams.handlingTaskId, '办理任务编号')
+    const ownMessage = message?.templateCode === 'DCC_REGISTRATION_HANDLING_TASK' || templateParams.eventType === 'CHANGE_APPROVAL_RECORDED'
+    if (ownMessage) return [{ type: 'registrationMessage', label: templateParams.eventType === 'CHANGE_APPROVAL_RECORDED' ? '查看变更并确认' : '办理注册证任务', messageId: requireExactJavaLong(message?.id, '站内信编号') }]
+    return [{ type: 'registrationCertificate', label: '查看注册证', certificateId: requireExactJavaLong(templateParams.certificateId, '注册证编号'),
+      versionId: message?.templateCode === 'DCC_REGISTRATION_CERTIFICATE_BUSINESS_EVENT' ? requireExactJavaLong(templateParams.versionId, '注册证版本编号') : undefined }]
+    } catch (error) { return [{ type: 'invalidRegistration', label: '通知无法跳转', error: error instanceof Error ? error.message : String(error) }] }
   }
   if (templateParams.handoffTaskId !== undefined) {
     const target = resolveActiveOrderHandoffTarget(templateParams)
@@ -325,8 +341,17 @@ export const getNotifyMessageTargets = (message?: NotifyMessageLike | null): Not
 export const getNotifyMessageTarget = (message?: NotifyMessageLike | null) =>
   getNotifyMessageTargets(message)[0] ?? null
 
-export const hasNotifyMessageTarget = (message?: NotifyMessageLike | null) =>
-  Boolean(getNotifyMessageTarget(message))
+export const hasNotifyMessageTarget = (message?: NotifyMessageLike | null) => {
+  const target = getNotifyMessageTarget(message)
+  return Boolean(target && target.type !== 'invalidRegistration')
+}
+
+let registrationMessageOpenSequence = 0
+
+export const getRegistrationNavigationError = (message?: NotifyMessageLike | null) => {
+  const target = getNotifyMessageTarget(message)
+  return target?.type === 'invalidRegistration' ? target.error : ''
+}
 
 export const navigateToNotifyMessageTarget = async (
   router: Router,
@@ -345,7 +370,19 @@ export const navigateToNotifyMessageTarget = async (
     deviationIsCurrent = () => session.isCurrent(sessionKey) && router.currentRoute.value === sourceRoute
     if (!deviationIsCurrent()) throw new Error('偏差通知导航上下文已变化。')
   }
+  if (target.type === 'invalidRegistration') throw new Error(target.error)
   await options.beforeNavigate?.()
+  if (target.type === 'registrationMessage') {
+    if (String(registrationMessageOpenSequence + 1) === router.currentRoute?.value.query.messageOpen) registrationMessageOpenSequence++
+    await router.push({ path: '/user/profile', query: { tab: 'notifyMessage', messageId: target.messageId, messageOpen: String(++registrationMessageOpenSequence) } })
+    return
+  }
+  if (target.type === 'registrationCertificate') {
+    const path = `/mdm/registration-certificate/detail/${target.certificateId}`
+    if (!router.resolve(path).matched.some(record => record.path.includes('registration-certificate/detail'))) throw new Error('没有注册证详情访问权限。')
+    await router.push({ path, query: { versionId: target.versionId } })
+    return
+  }
   if (target.type === 'dccDistribution') {
     await router.push(dccDistributionReadLocation(target))
     return

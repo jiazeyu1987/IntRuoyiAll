@@ -67,6 +67,17 @@ class MesTeamLeaderProcessConfigServiceTest {
     }
 
     @Test
+    void exactRouteQueryMustNotPresentDisplayDefaultAsConfiguredOverage() {
+        when(lossReasonService.listLossReasonRowsForRoute(3001L, 9001L)).thenReturn(List.of(
+                new MesTeamLeaderLossReasonRow().setRouteId(9001L).setRouteProcessId(7101L)
+                        .setProcessId(6001L).setSort(1).setReasons(List.of())));
+        when(overageLimitService.findPercent(3001L, 7101L, 6001L)).thenReturn(new BigDecimal("10"));
+        when(overageLimitService.list(3001L)).thenReturn(List.of());
+        assertNull(service.listProcessConfigs(3001L,
+                new MesTeamLeaderProcessConfigListReqVO().setRouteId(9001L)).get(0).getOveragePercent());
+    }
+
+    @Test
     void runtimeConstructor_hasAutowiredAnnotationSoSpringDoesNotRequireDefaultConstructor() throws NoSuchMethodException {
         Constructor<MesTeamLeaderProcessConfigServiceImpl> runtimeConstructor =
                 MesTeamLeaderProcessConfigServiceImpl.class.getConstructor(

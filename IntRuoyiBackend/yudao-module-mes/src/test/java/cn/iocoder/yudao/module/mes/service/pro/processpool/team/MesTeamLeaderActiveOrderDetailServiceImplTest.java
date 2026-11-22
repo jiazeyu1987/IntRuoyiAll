@@ -65,6 +65,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -395,13 +396,14 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         assertEquals(List.of(31L, 32L), material.getSourcePickListItemIds());
         assertEquals(new BigDecimal("9"), material.getActualQuantity());
         assertEquals("completion-hash", material.getSourceSnapshotHash());
+        assertNull(material.getSourceMatchWarning());
         assertEquals(1, detail.getInputMaterialUsages().size());
         assertEquals(List.of("LOT-A", "LOT-B"),
                 detail.getInputMaterialUsages().get(0).getBatchCodes());
     }
 
     @Test
-    void completedDetailReportsOrderAndMissingMaterialWithoutBypassingSourceValidation() {
+    void completedDetailWarnsOnUnmatchedMaterialAndPreservesActualIssueEvidence() {
         when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
                 .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("ACTIVE").build());
         when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
@@ -424,10 +426,35 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                         "formalSourceSnapshot", seed))).build();
         lenient().when(backfillMapper.selectByActiveOrderAndType(8101L, "BATCH_RECORD")).thenReturn(backfill);
 
+        var activeOrder = activeOrderMapper.selectById(8101L);
+        var frozenMaterials = processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L);
+        when(activeOrderMapper.selectByIdIgnoreDeleted(8101L)).thenReturn(activeOrder);
+        when(processMaterialService.listArchivedFrozenMaterials(8101L, 9201L, 5001L, 6001L))
+                .thenReturn(frozenMaterials);
+        for (var detail : List.of(service.getDetail(3001L, 8101L), service.getFormalDetail(8101L),
+                service.getArchivedFormalDetail(8101L))) {
+            var material = detail.getProcesses().get(0).getInputMaterials().get(0);
+            assertEquals("A006.011.2003", material.getMaterialCode());
+            assertEquals("冻结工艺输入物料 A006.011.2003 未匹配正式领料记录，请核对用料。",
+                    material.getSourceMatchWarning());
+            assertTrue(material.getBatchCodes().isEmpty());
+            assertTrue(material.getSourcePickListIds().isEmpty());
+            assertTrue(material.getSourcePickListItemIds().isEmpty());
+            assertNull(material.getActualQuantity());
+            assertNull(material.getSourceSnapshotHash());
+            var actualIssue = detail.getInputMaterialUsages().get(0);
+            assertEquals("MAT-A", actualIssue.getMaterialCode());
+            assertEquals(List.of("LOT-A", "LOT-B"), actualIssue.getBatchCodes());
+            assertEquals(List.of(31L, 32L), actualIssue.getSourcePickListItemIds());
+            assertNull(actualIssue.getSourceMatchWarning());
+        }
+
+        backfill.setPayloadJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(java.util.Map.of(
+                "type", "BATCH_RECORD", "status", "SUCCESS", "sourceSnapshotHash", "completion-hash",
+                "formalSourceSnapshot", seed.replace("\"actualQuantity\":5", "\"actualQuantity\":null"))));
         var error = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
                 () -> service.getDetail(3001L, 8101L));
-        assertEquals("活跃订单完成缺少正式三类回填来源：activeOrderId=8101，blocker=完工领料回填未匹配输入物料：A006.011.2003",
-                error.getMessage());
+        assertTrue(error.getMessage().contains("订单级输入物料来源缺少批号、来源身份或实发数量"));
     }
 
     @Test

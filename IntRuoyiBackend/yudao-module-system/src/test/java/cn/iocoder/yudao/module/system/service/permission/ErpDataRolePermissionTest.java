@@ -25,6 +25,69 @@ class ErpDataRolePermissionTest extends BaseMockitoUnitTest {
     @Mock private TemporaryRoleGrantService temporaryRoleGrantService;
 
     @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void tenantAdminCraftAccessFollowsTenantPackageWithoutExplicitRoleGrants(boolean packageGranted) {
+        var roleIds = Set.of(991317L);
+        when(roles.getRoleListFromCache(roleIds)).thenReturn(List.of(
+                new RoleDO().setId(991317L).setCode("tenant_admin").setStatus(0)));
+        var craft = new MenuDO().setId(605071322L).setParentId(991514L).setStatus(0)
+                .setPermission("mes:pro-craft:query");
+        var create = new MenuDO().setId(605071323L).setParentId(craft.getId()).setStatus(0)
+                .setPermission("mes:pro-craft:create");
+        var update = new MenuDO().setId(605071324L).setParentId(craft.getId()).setStatus(0)
+                .setPermission("mes:pro-craft:update");
+        var initialize = new MenuDO().setId(605071325L).setParentId(craft.getId()).setStatus(0)
+                .setPermission("mes:pro-craft:initialize");
+        var craftMenus = List.of(craft, create, update, initialize);
+        when(menus.getMenuListByTenant(any())).thenReturn(packageGranted ? craftMenus : List.of());
+        when(grants.selectListByRoleId(roleIds)).thenReturn(List.of());
+        var expectedIds = packageGranted ? Set.of(craft.getId(), create.getId(), update.getId(), initialize.getId())
+                : Set.<Long>of();
+        assertEquals(expectedIds, service.getRoleMenuListByRoleId(roleIds));
+        for (var menu : craftMenus) {
+            when(menus.getMenuIdListByPermissionFromCache(menu.getPermission())).thenReturn(List.of(menu.getId()));
+            assertEquals(packageGranted, service.hasAnyPermissionsInRoles(roleIds, menu.getPermission()));
+        }
+    }
+
+    @Test void generatedReplenishmentMenuStillRequiresAnIndependentErpRole() {
+        var roleIds = Set.of(991317L);
+        when(roles.getRoleListFromCache(roleIds)).thenReturn(List.of(
+                new RoleDO().setId(991317L).setCode("tenant_admin").setStatus(0)));
+        var replenishment = new MenuDO().setId(605080000L).setParentId(991511L).setStatus(0)
+                .setPath("/erp/production/replenishment-list").setPermission("");
+        var query = new MenuDO().setId(605080001L).setParentId(replenishment.getId()).setStatus(0)
+                .setPermission("erp:production-replenishment-list:query");
+        when(menus.getMenuListByTenant(any())).thenReturn(List.of(query, replenishment));
+        when(grants.selectListByRoleId(roleIds)).thenReturn(List.of(
+                new RoleMenuDO().setRoleId(991317L).setMenuId(replenishment.getId()),
+                new RoleMenuDO().setRoleId(991317L).setMenuId(query.getId())));
+        when(menus.getMenuIdListByPermissionFromCache(query.getPermission())).thenReturn(List.of(query.getId()));
+        assertTrue(service.getRoleMenuListByRoleId(roleIds).isEmpty());
+        assertFalse(service.hasAnyPermissionsInRoles(roleIds, query.getPermission()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"tenant_admin","super_admin","mes_workshop_director","mes_team_leader","mes_scheduler"})
+    void temporaryLegacyRolesKeepExplicitCraftMenuGrants(String code) {
+        TenantContextHolder.setTenantId(169L);
+        try {
+            when(temporaryRoleGrantService.getActiveRoleIdsByUserId(eq(910251L), any())).thenReturn(Set.of(1L));
+            var role = new RoleDO().setId(1L).setCode(code).setStatus(0); role.setTenantId(169L);
+            when(roles.getRoleListFromCache(Set.of(1L))).thenReturn(List.of(role));
+            when(menus.getMenuList()).thenReturn(List.of(
+                    new MenuDO().setId(605071322L).setParentId(991514L).setPermission("mes:pro-craft:query"),
+                    new MenuDO().setId(605071323L).setParentId(605071322L).setPermission("mes:pro-craft:create")));
+            when(grants.selectListByRoleId(Set.of(1L))).thenReturn(List.of(
+                    new RoleMenuDO().setRoleId(1L).setMenuId(605071322L),
+                    new RoleMenuDO().setRoleId(1L).setMenuId(605071323L)));
+            assertEquals(Set.of(605071322L, 605071323L), service.getTemporaryMenuListByUserId(910251L));
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(strings={"tenant_admin","super_admin","mes_workshop_director","mes_team_leader","mes_scheduler"})
     void oldRolesCannotRegainDataMenusOrApisFromStaleGrants(String code) {
         var ids=Set.of(1L);

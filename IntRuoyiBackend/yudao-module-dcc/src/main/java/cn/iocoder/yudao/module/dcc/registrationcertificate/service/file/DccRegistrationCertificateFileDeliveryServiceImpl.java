@@ -222,9 +222,16 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
             snapshotId = jdbcTemplate.query("SELECT resulting_snapshot_id FROM dcc_registration_certificate_change WHERE tenant_id=? AND id=? AND status='APPLIED' AND deleted=0",
                     rs -> rs.next() ? rs.getLong(1) : null, tenantId, file.getOwnerId());
         } else {
-            // Original certificate evidence keeps its original approved facts after later changes.
+            // The delivered bytes stay original; the name identifies the selected version's latest formal facts.
             var snapshots = snapshotMapper.selectListByVersionId(versionId);
-            snapshotId = snapshots == null || snapshots.isEmpty() ? null : snapshots.get(0).getId();
+            if (snapshots == null || snapshots.isEmpty()) {
+                snapshotId = null;
+            } else {
+                var latest = snapshots.get(snapshots.size() - 1);
+                boolean ce = "CE".equals(cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts
+                        .parse(latest.getFactsJson()).getCertificateType());
+                snapshotId = ce ? latest.getId() : snapshots.get(0).getId();
+            }
         }
         if (snapshotId == null) throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
         var snapshot = snapshotMapper.selectById(snapshotId);

@@ -16,7 +16,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRoute
 @Service
 public class MesProRouteResourceTransferService {
     static final String SHEET = "流程关联资源";
-    static final String FORMAT = "MES_ROUTE_RESOURCES_V1";
+    static final String FORMAT = "MES_ROUTE_RESOURCES_V2_USER_FREE";
     @Resource private JdbcTemplate jdbc;
     private static final Map<String, String> REFERENCES = Map.ofEntries(
         Map.entry("route_id", "mes_pro_route"), Map.entry("process_id", "mes_pro_process"),
@@ -33,7 +33,6 @@ public class MesProRouteResourceTransferService {
         Map.entry("area_id", "mes_wm_warehouse_area"), Map.entry("calendar_rule_id", "mes_pro_schedule_calendar_rule"),
         Map.entry("route_flow_config_id", "mes_pro_route_flow_config"),
         Map.entry("route_flow_process_config_id", "mes_pro_route_flow_process_config"),
-        Map.entry("project_leader_user_id", "system_users"), Map.entry("charge_user_id", "system_users"), Map.entry("leader_user_id", "system_users"),
         Map.entry("device_id", "mes_pro_process_pool_team_device")
     );
     static final Map<String, String> JSON_REFERENCES = Map.ofEntries(
@@ -70,15 +69,15 @@ public class MesProRouteResourceTransferService {
 
     private void collect(String table, Long id, LinkedHashMap<String, JSONObject> data) {
         if (id == null || id <= 0 || data.containsKey(table + ":" + id)) return;
-        String columns = table.equals("system_users") ? "id,username" : String.join(",", requireTable(table).columns());
+        String columns = String.join(",", requireTable(table).columns());
         List<Map<String, Object>> found = jdbc.queryForList("SELECT " + columns + " FROM " + table
             + " WHERE id=? AND tenant_id=? AND deleted=0", id, TenantContextHolder.getRequiredTenantId());
         if (found.size() != 1) throw invalidParamException("导出缺少关联资源：" + table + ":" + id);
         Map<String, Object> source = found.get(0);
         source.replaceAll((key, value) -> sqlValue(value));
         JSONObject row = new JSONObject(source);
+        MesProRouteTransferPersonnel.remove(row);
         data.put(table + ":" + id, row);
-        if (table.equals("system_users")) return;
         for (String column : row.keySet()) {
             String target = referenceTable(table, column);
             if (target != null) collect(target, row.getLong(column), data);
@@ -118,7 +117,6 @@ public class MesProRouteResourceTransferService {
             for (String key : object.keySet()) {
                 if (snapshot && Set.of("routeVersionId", "routeFlowConfigId").contains(key)) continue;
                 String table = JSON_REFERENCES.get(key);
-                if (key.equals("candidateSourceIds")) table = candidateTable(object.getString("candidateSourceType"));
                 if (table != null) {
                     Object ref = object.get(key);
                     if (ref instanceof JSONArray array) for (Object id : array) collect(table, Long.valueOf(id.toString()), data);
@@ -126,10 +124,6 @@ public class MesProRouteResourceTransferService {
                 } else collectJson(object.get(key), data, snapshot);
             }
         } else if (value instanceof JSONArray array) for (Object child : array) collectJson(child, data, snapshot);
-    }
-    static String candidateTable(String type) {
-        if ("USERS".equals(type)) return "system_users";
-        throw invalidParamException("跨租户导出暂不支持的人员来源：" + type);
     }
     static String referenceTable(String table, String column) {
         if (column.equals("parent_id")) return table;
@@ -156,14 +150,14 @@ public class MesProRouteResourceTransferService {
         Sheet sheet = workbook.getSheet(SHEET);
         DataFormatter formatter = new DataFormatter();
         if (sheet == null || sheet.getRow(0) == null || !FORMAT.equals(formatter.formatCellValue(sheet.getRow(0).getCell(0))))
-            throw invalidParamException("请使用最新的包含流程关联资源的全量导出文件");
+            throw invalidParamException("请重新导出不含人员配置的工艺流程文件（V2）");
         LinkedHashMap<String, StringBuilder> chunks = new LinkedHashMap<>();
         Map<String, Integer> next = new HashMap<>();
         for (int i = 1; i <= sheet.getLastRowNum(); i++) {
             Row row = sheet.getRow(i);
             if (row == null) throw invalidParamException("流程关联资源存在空行：" + (i + 1));
             String table = formatter.formatCellValue(row.getCell(0));
-            if (!table.equals("system_users")) requireTable(table);
+            requireTable(table);
             String id = formatter.formatCellValue(row.getCell(1));
             if (!id.matches("[1-9][0-9]*")) throw invalidParamException("流程资源编号无效：" + id);
             String key = table + ":" + id;
@@ -176,9 +170,12 @@ public class MesProRouteResourceTransferService {
         chunks.forEach((key, text) -> {
             JSONObject value = JSON.parseObject(text.toString());
             String table = key.substring(0, key.indexOf(':'));
-            Set<String> allowed = new HashSet<>(table.equals("system_users") ? List.of("id", "username") : requireTable(table).columns());
+            Set<String> allowed = new HashSet<>(requireTable(table).columns());
             if (!allowed.equals(value.keySet()) || !key.endsWith(":" + value.getString("id")))
                 throw invalidParamException("流程资源字段或编号不匹配：" + key);
+            JSONObject sanitized = JSON.parseObject(JSON.toJSONString(value, com.alibaba.fastjson.serializer.SerializerFeature.WriteMapNullValue));
+            MesProRouteTransferPersonnel.remove(sanitized);
+            if (!sanitized.equals(value)) throw invalidParamException("流程资源包含人员配置，请重新导出：" + key);
             result.put(key, value);
         });
         if (result.isEmpty()) throw invalidParamException("流程关联资源为空");

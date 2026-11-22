@@ -383,6 +383,19 @@
               <Icon icon="ep:plus" />
             </el-button>
           </div>
+          <div v-if="selectedNode" data-flow-panel="version-process-sop">
+            <span>版本SOP：</span>
+            <el-link
+              v-if="selectedNode.sopFileUrl"
+              :href="selectedNode.sopFileUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              type="primary"
+            >
+              查看SOP文件
+            </el-link>
+            <span v-else>该版本无可查看的SOP文件</span>
+          </div>
           <el-empty
             v-if="selectedProcessDetailFields.length === 0"
             :image-size="38"
@@ -2532,18 +2545,18 @@ type CapacityWorkstationRepairSourceOption = {
   value: string
   sourceType: 'route-process' | 'workstation'
   sourceRouteProcessId?: MesRouteId
-  processId?: number
+  processId?: MesRouteId
   processCode?: string
   processName?: string
   sort?: number
-  workstationId: number
+  workstationId: MesRouteId
   workstationCode?: string
   workstationName?: string
   shiftHours?: number
   shiftCapacity?: number
 }
 type CapacityWorkstationRepairBinding = {
-  workstationId: number
+  workstationId: MesRouteId
   workstationCode?: string
   workstationName?: string
   shiftHours?: number
@@ -2753,7 +2766,7 @@ const productionProcessConfigJsonBaselines = reactive<Record<string, string>>({}
 const selectedProcessRouteConfigCache = ref<SelectedProcessRouteConfigCache>()
 const routeProcessKeyFlagBaselines = reactive<Record<string, boolean>>({})
 const routeProcessCheckFlagBaselines = reactive<Record<string, boolean>>({})
-const routeProcessWorkstationIdBaselines = reactive<Record<string, number | null>>({})
+const routeProcessWorkstationIdBaselines = reactive<Record<string, string | null>>({})
 const capacityOverrideDialogVisible = ref(false)
 const capacityOverrideSaving = ref(false)
 const capacityOverrideFormRef = ref()
@@ -2980,20 +2993,18 @@ const capacityWorkstationRepairTargetRouteProcess = computed(() => {
 })
 const getBoundRouteProcessWorkstationId = (routeProcess?: ProRouteProcessVO) =>
   props.routeVersionEditContext
-    ? numericValue(routeProcess?.routeProcessWorkstationId)
-    : numericValue(routeProcess?.routeProcessWorkstationId ?? routeProcess?.workstationId)
+    ? normalizeRouteProcessWorkstationId(routeProcess?.routeProcessWorkstationId) ?? undefined
+    : normalizeRouteProcessWorkstationId(routeProcess?.routeProcessWorkstationId ?? routeProcess?.workstationId) ?? undefined
 
 const buildRouteProcessRepairSourceOptions = (): CapacityWorkstationRepairSourceOption[] =>
   candidateAwareRouteProcessRows.value
     .filter((row) => {
-      const routeProcessId = Number(row.id)
-      const targetRouteProcessId = Number(
-        capacityOverrideRouteProcessId.value || selectedProcessAttributes.routeProcessId
-      )
+      const routeProcessId = row.id
+      const targetRouteProcessId = capacityOverrideRouteProcessId.value || selectedProcessAttributes.routeProcessId
       return (
-        Number.isFinite(routeProcessId) &&
-        Number.isFinite(targetRouteProcessId) &&
-        routeProcessId !== targetRouteProcessId &&
+        routeProcessId !== undefined &&
+        targetRouteProcessId !== undefined &&
+        !sameRouteProcessId(routeProcessId, targetRouteProcessId) &&
         Boolean(getBoundRouteProcessWorkstationId(row))
       )
     })
@@ -3015,8 +3026,8 @@ const buildRouteProcessRepairSourceOptions = (): CapacityWorkstationRepairSource
 const buildGlobalWorkstationRepairSourceOptions = (): CapacityWorkstationRepairSourceOption[] =>
   capacityWorkstationRepairWorkstationOptions.value
     .map((workstation): CapacityWorkstationRepairSourceOption | undefined => {
-      const workstationId = numericValue(workstation.id)
-      const processId = numericValue(workstation.processId)
+      const workstationId = normalizeRouteProcessWorkstationId(workstation.id)
+      const processId = normalizePositiveProcessId(workstation.processId)
       if (!workstationId || !processId) return undefined
       if (workstation.status !== undefined && Number(workstation.status) !== CommonStatusEnum.ENABLE) {
         return undefined
@@ -6930,8 +6941,8 @@ const createCapacityWorkstationForRouteProcess = async (
     shiftHours,
     status: CommonStatusEnum.ENABLE
   } as MdWorkstationVO)
-  const parsedWorkstationId = Number(workstationId)
-  if (!Number.isFinite(parsedWorkstationId) || parsedWorkstationId <= 0) {
+  const parsedWorkstationId = normalizeRouteProcessWorkstationId(workstationId)
+  if (!parsedWorkstationId) {
     throw new Error('新建工作站失败：工作站创建接口未返回有效编号。')
   }
   return {
@@ -7012,8 +7023,7 @@ const submitCapacityOverride = async () => {
     const routeProcessWorkstationId = getBoundRouteProcessWorkstationId(targetRouteProcess)
     const shiftHours = numericValue(selectedProcessAttributes.shiftHours)
     if (
-      routeProcessWorkstationId === undefined ||
-      routeProcessWorkstationId <= 0 ||
+      !routeProcessWorkstationId ||
       shiftHours === undefined ||
       shiftHours <= 0
     ) {
@@ -7093,12 +7103,18 @@ const getChangedSelectedProcessScheduleDrafts = () =>
 const getChangedSelectedProcessRecordBindingDrafts = () =>
   Object.values(selectedProcessAttributeDrafts).filter(hasSelectedProcessRecordBindingDraftChanged)
 
+const getSelectedProcessRecordBindingSaveDrafts = () => {
+  if (getChangedSelectedProcessRecordBindingDrafts().length === 0) return []
+  // 全局表单必须整组提交，同时保留各工序已有的本地表单和物料配置。
+  return getAllRouteProcessAttributeDrafts().map(({ draft }) => draft)
+}
+
 const hasSelectedProcessAttributeDraftChanges = () =>
   getChangedSelectedProcessAttributeDrafts().length > 0
 
 const saveSelectedProcessAttributeDrafts = async () => {
   const scheduleChangedDrafts = getChangedSelectedProcessScheduleDrafts()
-  const recordBindingChangedDrafts = getChangedSelectedProcessRecordBindingDrafts()
+  const recordBindingChangedDrafts = getSelectedProcessRecordBindingSaveDrafts()
   if (scheduleChangedDrafts.length === 0 && recordBindingChangedDrafts.length === 0) return
   selectedProcessAttributesSaving.value = true
   try {
@@ -7376,9 +7392,10 @@ const loadGraph = async () => {
   clearSelectedProcessRouteConfigCache()
   let shouldAdjustViewport = false
   try {
+    const readRouteVersionId = resolveRouteFlowGraphReadRouteVersionId()
     const [graph, routeProcessList] = await Promise.all([
-        ProRouteApi.getRouteProcessFlowGraph(props.routeId, resolveRouteFlowGraphReadRouteVersionId()),
-      ProRouteProcessApi.getRouteProcessListByRoute(props.routeId)
+      ProRouteApi.getRouteProcessFlowGraph(props.routeId, readRouteVersionId),
+      ProRouteProcessApi.getRouteProcessListByRoute(props.routeId, readRouteVersionId)
     ])
     routeNodes.value = normalizeNodes(graph.nodes || [])
     routeProcessRows.value = routeProcessList || []
@@ -7462,9 +7479,14 @@ const resetRouteProcessCheckFlagBaselines = () => {
     })
 }
 
-const normalizeRouteProcessWorkstationId = (workstationId?: number | null) => {
-  const normalized = Number(workstationId)
-  return Number.isFinite(normalized) && normalized > 0 ? normalized : null
+const normalizeRouteProcessWorkstationId = (workstationId?: MesRouteId | null) => {
+  if (typeof workstationId === 'string') {
+    const normalized = workstationId.trim()
+    return /^[1-9]\d*$/.test(normalized) ? normalized : null
+  }
+  return typeof workstationId === 'number' && Number.isSafeInteger(workstationId) && workstationId > 0
+    ? String(workstationId)
+    : null
 }
 
 const resetRouteProcessWorkstationIdBaselines = () => {
@@ -7986,7 +8008,7 @@ const validateBeforeSubmit = async () => {
         resolveSelectedHourlyCapacity(draft)
       }
     })
-    getChangedSelectedProcessRecordBindingDrafts().forEach((draft) => {
+    getSelectedProcessRecordBindingSaveDrafts().forEach((draft) => {
       buildSelectedProcessRecordBindingConfigSaveRow(draft)
     })
     const result = await ProRouteApi.validateRouteProcessFlowGraph(buildPayload(), {
@@ -9973,10 +9995,12 @@ const handleBatchRecordAttachmentOwnerInit = async () => {
     const routeVersionId = requireCandidateRouteVersionId('批记录附件负责人初始化')
     batchRecordAttachmentOwnersInitializing.value = true
     batchRecordAttachmentOwnersLoadError.value = ''
+    await ensureSelectedProcessRouteConfigCache()
     const owners = await ProRouteFlowConfigApi.initBatchRecordAttachmentOwners({
       routeId: props.routeId,
       routeVersionId
     })
+    await refreshProductionProcessConfigLock(routeVersionId)
     batchRecordAttachmentOwners.value = normalizeBatchRecordAttachmentOwners(owners)
     batchRecordAttachmentOwnersLoaded.value = true
     message.success('批记录附件默认角色已初始化')
@@ -10003,6 +10027,7 @@ const handleBatchRecordAttachmentOwnerSave = async () => {
     }
     batchRecordAttachmentOwnersSaving.value = true
     batchRecordAttachmentOwnersLoadError.value = ''
+    await ensureSelectedProcessRouteConfigCache()
     await ProRouteFlowConfigApi.saveBatchRecordAttachmentOwners({
       routeId: props.routeId,
       routeVersionId,
@@ -10014,6 +10039,7 @@ const handleBatchRecordAttachmentOwnerSave = async () => {
         remark: owner.remark || null
       }))
     })
+    await refreshProductionProcessConfigLock(routeVersionId)
     message.success('批记录附件负责人已保存')
     await loadBatchRecordAttachmentOwners(true)
   } catch (error) {
@@ -10264,11 +10290,13 @@ const saveRouteStartProductionLeaders = async (options: { showSuccess?: boolean 
   routeStartProductionLeadersSaving.value = true
   routeStartProductionLeadersLoadError.value = ''
   try {
+    await ensureSelectedProcessRouteConfigCache()
     await ProRouteFlowConfigApi.saveRouteStartProductionLeaders({
       routeId: props.routeId,
       routeVersionId,
       items: buildRouteStartProductionLeaderSaveItems()
     })
+    await refreshProductionProcessConfigLock(routeVersionId)
     if (options.showSuccess) {
       message.success('生产组长配置已保存')
     }

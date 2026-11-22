@@ -3,7 +3,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm'), ts = require('typescript')
 const root = path.resolve(__dirname, '../..')
 const read = file => fs.readFileSync(path.join(root, file), 'utf8')
-function moduleFrom(file, resolve = name => { throw new Error(name) }) {
+function moduleFrom(file, resolve = name => { if (name === '@/store/modules/approvalCenterInvalidation') return { useApprovalCenterInvalidationStore: () => { throw new Error('Approval session is outside this notification test') } }; if (name === '@/utils/activeOrderHandoffNavigation') return { resolveActiveOrderHandoffTarget: () => { throw new Error('Handoff is outside this notification test') } }; if (name === '@/utils/exactJavaLong') return require('../helpers/load-source-module.cjs')('src/utils/exactJavaLong.ts'); throw new Error(name) }) {
   const sandbox = { exports: {}, Error, BigInt, URL, Set, window: { location: { origin: 'https://dcc.local' } }, require: resolve }
   vm.runInNewContext(ts.transpileModule(read(file), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, sandbox)
   return sandbox.exports
@@ -17,11 +17,12 @@ function workflowApi(metadata, postResult = true) {
       get: async request => { calls.push(request); return metadata },
       post: async request => { calls.push(request); return postResult }
     } }
+    if (name === './bodyReadContext') return require('../helpers/load-source-module.cjs')('src/api/dcc/controlledFile/bodyReadContext.ts');
     if (name === '@/config/axios/config') return { config: { base_url: '/admin-api' } }
     if (name === '@/utils/auth') return { getTenantId: () => 1, getVisitTenantId: () => null, getAccessToken: () => 'isolated-test-token' }
     if (name === '@/views/dcc/controlled-file/project-attributes/state') return moduleFrom('src/views/dcc/controlled-file/project-attributes/state.ts')
     if (name === 'axios' || name === 'element-plus' || name === '@/utils/filt') return {}
-    throw new Error(name)
+    if (name === '@/store/modules/approvalCenterInvalidation') return { useApprovalCenterInvalidationStore: () => { throw new Error('Approval session is outside this notification test') } }; if (name === '@/utils/activeOrderHandoffNavigation') return { resolveActiveOrderHandoffTarget: () => { throw new Error('Handoff is outside this notification test') } }; if (name === '@/utils/exactJavaLong') return require('../helpers/load-source-module.cjs')('src/utils/exactJavaLong.ts'); throw new Error(name)
   } }
   vm.runInNewContext(ts.transpileModule(content, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, sandbox)
   return { api: sandbox.exports, calls }
@@ -29,7 +30,7 @@ function workflowApi(metadata, postResult = true) {
 const metadata = () => ({ controlledFileId: params.controlledFileId, distributionId: params.distributionId,
   recipientId: params.recipientId, versionNo: params.version, approvalProcessInstanceId: params.approvalProcessInstanceId,
   previewKind: 'PDF', fileName: '正文.pdf', contentType: 'application/pdf', viewerToken: 'signed-viewer-token',
-  viewerTokenId: 'token-id', viewerTokenNonce: 'nonce', accessEventCode: 'event', watermarkTraceCode: 'watermark',
+  previewRegisteredAt: '2026-10-01T08:00:00+08:00', viewerTokenId: 'token-id', viewerTokenNonce: 'nonce', accessEventCode: 'event', watermarkTraceCode: 'watermark',
   watermark: { label: '受控', text: 'watermark', actorName: '接收人', actorAccount: 'account', timestamp: 'real-time', purpose: 'preview', overlay: {} } })
 const identity = moduleFrom('src/utils/dccDistributionNavigation.ts')
 const params = { controlledFileId: '9223372036854775000', distributionId: '9223372036854775001', recipientId: '9223372036854775002', version: 'B/1', approvalProcessInstanceId: 'real-round' }
@@ -37,7 +38,7 @@ const navigation = () => moduleFrom('src/utils/notifyMessageNavigation.ts', name
   if (name.endsWith('dccDistributionNavigation')) return identity
   if (name.includes('dccOfflineTrainingRecord')) return {}
   if (name.includes('edhrWorkTaskNavigation')) return { EDHR_WORK_TASK_NOTIFY_PATHS: new Set() }
-  throw new Error(name)
+  if (name === '@/store/modules/approvalCenterInvalidation') return { useApprovalCenterInvalidationStore: () => { throw new Error('Approval session is outside this notification test') } }; if (name === '@/utils/activeOrderHandoffNavigation') return { resolveActiveOrderHandoffTarget: () => { throw new Error('Handoff is outside this notification test') } }; if (name === '@/utils/exactJavaLong') return require('../helpers/load-source-module.cjs')('src/utils/exactJavaLong.ts'); throw new Error(name)
 })
 test('distribution notification navigates with exact version and all task identities', async () => {
   const api = navigation(), calls = []

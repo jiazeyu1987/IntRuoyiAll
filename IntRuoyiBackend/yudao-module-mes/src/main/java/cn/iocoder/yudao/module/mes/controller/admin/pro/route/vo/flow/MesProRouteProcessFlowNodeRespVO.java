@@ -13,6 +13,9 @@ public class MesProRouteProcessFlowNodeRespVO {
 
     private String processName;
 
+    /** 当前查看版本的 SOP；历史版本不得关联工序当前资料。 */
+    private String sopFileUrl;
+
     /**
      * 当前路线工序显式绑定的工作站编号。
      *

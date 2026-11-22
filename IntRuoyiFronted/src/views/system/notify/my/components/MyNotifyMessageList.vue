@@ -111,6 +111,7 @@
                       :show-context="false"
                     />
                   </span>
+                  <div v-if="getRegistrationNavigationError(scope.row)" role="alert">{{ getRegistrationNavigationError(scope.row) }}</div>
                   <BusinessMessageContext :fields="describeNotifyMessage(scope.row).fields" />
                 </template>
               </template>
@@ -167,6 +168,7 @@
 <script lang="ts" setup>
 import { buildListColumnFilters, filterListColumns, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
+import { requireExactJavaLong } from '@/utils/exactJavaLong'
 import type { TableInstance } from 'element-plus'
 import { dateFormatter } from '@/utils/formatTime'
 import * as NotifyMessageApi from '@/api/system/notify/message'
@@ -189,6 +191,7 @@ import {
   type TableQuickFilterDefinition
 } from '@/hooks/web/useTableQuickFilter'
 import {
+  getRegistrationNavigationError,
   getNotifyMessageTarget,
   hasNotifyMessageTarget,
   navigateToNotifyMessageTarget
@@ -385,14 +388,40 @@ const buildReadDetailData = (
     readTime: refreshed?.readTime || source.readTime || readAt
   }
 }
-const openDetail = async (data: NotifyMessageApi.NotifyMessageVO) => {
+let detailOpenSequence = 0
+const openDetail = async (data: NotifyMessageApi.NotifyMessageVO, isCurrent = () => true, fromRoute = false) => {
+  if (!fromRoute) messageOpenSequence++
+  const sequence = ++detailOpenSequence
+  const stillCurrent = () => sequence === detailOpenSequence && isCurrent()
   if (!data.readStatus) {
     const { updatedData, readAt } = await handleReadOne(data.id)
+    if (!stillCurrent()) return
     detailRef.value.open(buildReadDetailData(data, updatedData, readAt))
     return
   }
-  detailRef.value.open(data)
+  if (stillCurrent()) detailRef.value.open(data)
 }
+
+const route = useRoute()
+let messageOpenSequence = 0
+watch(() => [route.fullPath, props.active, userStore.getUser.id], async () => {
+  const sequence = ++messageOpenSequence
+  detailOpenSequence++
+  detailRef.value?.close()
+  if (!props.active || route.query.messageId === undefined) return
+  try {
+    const id = requireExactJavaLong(route.query.messageId, '站内信编号')
+    const data = await NotifyMessageApi.getMyNotifyMessage(id)
+    if (sequence !== messageOpenSequence) return
+    if (requireExactJavaLong(data.id, '站内信编号') !== id) throw new Error('站内信编号不一致。')
+    await nextTick()
+    if (sequence !== messageOpenSequence) return
+    await openDetail(data, () => sequence === messageOpenSequence, true)
+  } catch (error) {
+    if (sequence === messageOpenSequence) message.error(error instanceof Error ? error.message : String(error))
+  }
+}, { immediate: true, flush: 'sync' })
+onBeforeUnmount(() => { messageOpenSequence++; detailOpenSequence++ })
 
 /** 阅读一条站内信 */
 const handleReadOne = async (

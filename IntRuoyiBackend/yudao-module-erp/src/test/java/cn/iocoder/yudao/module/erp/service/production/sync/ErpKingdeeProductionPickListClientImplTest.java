@@ -27,6 +27,112 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class ErpKingdeeProductionPickListClientImplTest {
 
+    private String queryError(String message) {
+        return "[[{\"Result\":{\"ResponseStatus\":{\"IsSuccess\":false,\"ErrorCode\":500,\"Errors\":[{\"Message\":\""
+                + message + "\"}]}}}]]";
+    }
+
+    @Test
+    void deadlockRetriesTheSamePageAndEmitsNoDuplicateBatch() {
+        var rest = new RestTemplate(); var server = MockRestServiceServer.bindTo(rest).build();
+        expectLogin(server);
+        var requests = new java.util.ArrayList<String>();
+        var waits = new java.util.ArrayList<Integer>();
+        server.expect(org.springframework.test.web.client.ExpectedCount.times(3), requestTo(queryUrl()))
+                .andExpect(request -> requests.add(request.getBody().toString()))
+                .andRespond(request -> withSuccess(requests.size() < 3 ? queryError("已被选作死锁牺牲品") : "[]",
+                        MediaType.APPLICATION_JSON).createResponse(request));
+        var client = new ErpKingdeeProductionPickListClientImpl(rest) {
+            @Override void waitBeforeRetry(int attempt) { waits.add(attempt); }
+        };
+        client.forEachProductionPickListBatch(buildProperties(), LocalDateTime.of(2026, 8, 13, 0, 0),
+                LocalDateTime.of(2026, 8, 13, 23, 59), batch -> org.junit.jupiter.api.Assertions.fail("No successful data batch"));
+        assertEquals(1, new java.util.HashSet<>(requests).size());
+        assertEquals(List.of(1, 2), waits); server.verify();
+    }
+
+    @Test
+    void exhaustedDeadlockFailsAfterThreeAttemptsWithOriginalSourceError() {
+        var rest = new RestTemplate(); var server = MockRestServiceServer.bindTo(rest).build();
+        expectLogin(server);
+        server.expect(org.springframework.test.web.client.ExpectedCount.times(3), requestTo(queryUrl()))
+                .andRespond(withSuccess(queryError("已被选作死锁牺牲品"), MediaType.APPLICATION_JSON));
+        var client = new ErpKingdeeProductionPickListClientImpl(rest) {
+            @Override void waitBeforeRetry(int attempt) { }
+        };
+        var failure = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> client.fetchProductionPickLists(buildProperties(), LocalDateTime.of(2026,8,13,0,0),
+                        LocalDateTime.of(2026,8,13,23,59)));
+        assertTrue(failure.getMessage().contains("死锁牺牲品")); server.verify();
+    }
+
+    @Test
+    void sourcePermissionFailureIsNeverRetried() {
+        var rest = new RestTemplate(); var server = MockRestServiceServer.bindTo(rest).build();
+        expectLogin(server);
+        server.expect(requestTo(queryUrl())).andRespond(withSuccess(queryError("无权查询单据"), MediaType.APPLICATION_JSON));
+        var failure = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> new ErpKingdeeProductionPickListClientImpl(rest).fetchProductionPickLists(buildProperties(),
+                        LocalDateTime.of(2026,8,13,0,0), LocalDateTime.of(2026,8,13,23,59)));
+        assertTrue(failure.getMessage().contains("无权查询单据")); server.verify();
+    }
+
+    @Test
+    void streamingCommitsCompleteBillsBeforeReadingNextPageAndKeepsSplitBillIntact() {
+        RestTemplate rest = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(rest).build();
+        expectLogin(server);
+        List<List<ErpKingdeeProductionPickList>> batches = new java.util.ArrayList<>();
+        var firstPage = new java.util.ArrayList<List<Object>>();
+        for (int i = 0; i < 200; i++) firstPage.add(fullRow(i < 198 ? 1001 : 1002, 2001 + i));
+        server.expect(requestTo(queryUrl()))
+                .andExpect(content().string(containsString("%22StartRow%22%3A0")))
+                .andRespond(withSuccess(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(firstPage),
+                        MediaType.APPLICATION_JSON));
+        server.expect(requestTo(queryUrl()))
+                .andExpect(content().string(containsString("%22StartRow%22%3A200")))
+                .andRespond(request -> {
+                    assertEquals(1, batches.size());
+                    assertEquals("1001", batches.get(0).get(0).getFid());
+                    return withSuccess(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
+                            List.of(fullRow(1002, 2201))), MediaType.APPLICATION_JSON).createResponse(request);
+                });
+
+        new ErpKingdeeProductionPickListClientImpl(rest).forEachProductionPickListBatch(buildProperties(),
+                LocalDateTime.of(2026, 8, 13, 0, 0), LocalDateTime.of(2026, 8, 13, 23, 59), batches::add);
+
+        assertEquals(2, batches.size());
+        assertEquals(198, batches.get(0).get(0).getLines().size());
+        assertEquals("1002", batches.get(1).get(0).getFid());
+        assertEquals(3, batches.get(1).get(0).getLines().size());
+        server.verify();
+    }
+
+    @Test
+    void streamingConsumerFailureStopsBeforeReadingNextPage() {
+        RestTemplate rest = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(rest).build();
+        expectLogin(server);
+        var page = new java.util.ArrayList<List<Object>>();
+        for (int i = 0; i < 200; i++) page.add(fullRow(1001 + i, 2001 + i));
+        server.expect(requestTo(queryUrl())).andRespond(withSuccess(
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(page), MediaType.APPLICATION_JSON));
+        IllegalStateException expected = new IllegalStateException("batch write failed");
+        var actual = assertThrows(IllegalStateException.class,
+                () -> new ErpKingdeeProductionPickListClientImpl(rest).forEachProductionPickListBatch(buildProperties(),
+                        LocalDateTime.of(2026, 8, 13, 0, 0), LocalDateTime.of(2026, 8, 13, 23, 59),
+                        batch -> { throw expected; }));
+        org.junit.jupiter.api.Assertions.assertSame(expected, actual);
+        server.verify();
+    }
+
+    private List<Object> fullRow(int fid, int entryId) {
+        return java.util.Arrays.asList(fid, "PICK" + fid, "2026-08-13 07:30:00", "C",
+                "881", "org", "881", "org", "OWNER", "owner", "remark", entryId,
+                "MAT001", "material", "spec", "unit", 6, 6, 8, "WH1", "warehouse",
+                "LOC1", "location", "LOT1", "MO001", 1, "PPBOM001", "WS1", "workshop", "AVL", "available", null);
+    }
+
     @Test
     void readTimeoutRetriesSamePageWithoutChangingDataSource() {
         RestTemplate rest = new RestTemplate();

@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="dialogVisible" class="registration-certificate-upload-dialog" top="5vh" append-to-body destroy-on-close :title="requestId ? '驳回申请修改重提' : '新建注册证'" width="960px" @closed="resetForm">
+  <el-dialog v-model="dialogVisible" class="registration-certificate-upload-dialog" top="5vh" append-to-body destroy-on-close :close-on-click-modal="!saving" :close-on-press-escape="!saving" :show-close="!saving" :title="requestId ? '驳回申请修改重提' : '新建注册证'" width="960px" @closed="handleClosed">
     <div class="registration-certificate-upload-body">
     <el-form label-width="140px">
       <el-row :gutter="24">
@@ -36,6 +36,13 @@ import FactsFields from '../shared/FactsFields.vue'
 import { emptyFacts, validateFacts } from '../shared/facts'
 const props = defineProps<{modelValue:boolean;requestId?:number|string;handlingTaskId?:number|string;taskProject?:{id:string;projectCode:string;projectName:string}}>()
 const emit = defineEmits<{'update:modelValue':[boolean]; saved:[]}>()
+let submitted = false
+const handleClosed = () => {
+ const notifySaved = submitted
+ submitted = false
+ resetForm()
+ if (notifySaved) emit('saved')
+}
 const dialogVisible=computed({get:()=>props.modelValue,set:(value:boolean)=>emit('update:modelValue',value)})
 const retainedFiles=ref<Array<{id:number|string;fileKind:string;originalName:string;retained:boolean}>>([])
 const facts=ref(emptyFacts()), productName=ref(''), companyId=ref<number|string>(), projectCodeId=ref<number|string>()
@@ -69,6 +76,7 @@ const onProductionChange=async()=>{if(!entrustedProduction.value) entrustedEnter
 const resetForm=()=>{++productLoadVersion;productLoading.value=false;productError.value='';retainedFiles.value=[];facts.value=emptyFacts();productName.value='';companyId.value=undefined;projectCodeId.value=undefined;entrustedProduction.value=undefined;selfProduction.value=undefined;entrustedEnterpriseIds.value=[];files.value=[];attachments.value=[];descriptions.value=[];error.value=''}
 const appendFiles=(payload:FormData,key:string,list:UploadUserFile[])=>{for(const file of list){if(!file.raw)throw new Error('上传文件内容丢失，请重新选择');payload.append(key,file.raw)}}
 const submit=async()=>{
+ if(saving.value)return
  error.value=''
  try{
   validateFacts(facts.value)
@@ -85,7 +93,7 @@ const submit=async()=>{
   payload.append('entrustedProduction',String(facts.value.certificateType==='FDA'?false:entrustedProduction.value));payload.append('selfProduction',String(facts.value.certificateType==='FDA'?false:selfProduction.value))
   if(facts.value.certificateType!=='FDA')entrustedEnterpriseIds.value.forEach(id=>payload.append('entrustedEnterpriseIds',String(id)))
   appendFiles(payload,'file',files.value);appendFiles(payload,'attachments',attachments.value);if(facts.value.certificateType==='FDA')appendFiles(payload,'productDescriptionFiles',descriptions.value)
-  saving.value=true;await submitRegistrationCertificateUpload(payload,`DCC-REG-CERT-UPLOAD-${generateUUID()}`);message.success('已提交审批');dialogVisible.value=false;emit('saved')
+  saving.value=true;await submitRegistrationCertificateUpload(payload,`DCC-REG-CERT-UPLOAD-${generateUUID()}`);message.success('已提交审批');submitted=true;dialogVisible.value=false
  }catch(e){error.value=e instanceof Error?e.message:String(e);message.error(error.value)}finally{saving.value=false}
 }
 watch(()=>facts.value.certificateType,(type,previous)=>{

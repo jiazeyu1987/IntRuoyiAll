@@ -173,6 +173,20 @@ class DccRegistrationCertificateAccessPolicyTest extends BaseDbUnitTest {
     }
 
     @Test
+    void consumedNewestGrantDoesNotHideIndependentUnusedGrant() {
+        FormalFixture fixture = seedFormal("ACTIVE", "CURRENT", "BOUND");
+        LocalDateTime at = LocalDateTime.of(2026, 8, 19, 9, 0);
+        DccRegistrationCertificateGrantDO older = seedGrant(fixture, fixture.fileId(), "DOWNLOAD", "ACTIVE", at, at.plusHours(24));
+        DccRegistrationCertificateGrantDO newer = seedGrant(fixture, fixture.fileId(), "DOWNLOAD", "ACTIVE", at.plusMinutes(1), at.plusHours(25));
+        jdbcTemplate.update("INSERT INTO dcc_registration_certificate_download_consumption (tenant_id, grant_id, business_file_id, attempt_key, result, detail_json, started_at) VALUES (1, ?, ?, 'consumed-newer', 'SUCCESS', '{}', ?)", newer.getId(), fixture.fileId(), at);
+        assertEquals(older.getId(), accessPolicyService.requireDownloadGrant(1L, 99L, fixture.fileId(), at.plusHours(2)).getId());
+        org.junit.jupiter.api.Assertions.assertTrue(accessPolicyService.canDownloadFile(1L, 99L, fixture.fileId(), at.plusHours(2)));
+        jdbcTemplate.update("INSERT INTO dcc_registration_certificate_download_consumption (tenant_id, grant_id, business_file_id, attempt_key, result, detail_json, started_at) VALUES (1, ?, ?, 'consumed-older', 'SUCCESS', '{}', ?)", older.getId(), fixture.fileId(), at);
+        org.junit.jupiter.api.Assertions.assertFalse(accessPolicyService.canDownloadFile(1L, 99L, fixture.fileId(), at.plusHours(2)));
+        assertEquals(newer.getId(), accessPolicyService.requireDownloadGrant(1L, 99L, fixture.fileId(), at.plusHours(2)).getId());
+    }
+
+    @Test
     void revokedOrVoidedFactsInvalidateGrantImmediately() {
         FormalFixture revokedFixture = seedFormal("ACTIVE", "CURRENT", "BOUND");
         LocalDateTime grantedAt = LocalDateTime.of(2026, 8, 19, 9, 0);

@@ -30,10 +30,14 @@ function harness() {
   const context = {
     qaRegulationDraft: { dccProjectCodeId: 10 }, qaInspectionTypeRules: [],
     commonRegulationBindingRows: ref([]), commonRegulationBindingRowSerial: 0,
+    qaCurrentConfigurationLoading: ref(false), qaCurrentConfigurationLoadError: ref(''),
+    commonRegulationBindingLoading: ref(false), commonRegulationBindingLoadError: ref(''),
+    commonRegulationVersionOptionsLoading: ref(false), commonRegulationVersionOptionsLoadError: ref(''),
     qaRegulationItems: ref([]), qaConfigurationExists: ref(false),
     qaPublishedVersionNo: ref(''), selectedQaRegulationVersionId: ref(), qaItemsQuery: {},
     createQaItemInspectionState: inspectionModule.exports.createQaItemInspectionState,
     resolvePositiveId: Number,
+    resolveDccProjectId: String,
     resolveQaRegulationDraftVersionNoForSave: () => 'B/3', buildQaRegulationProcesses: () => [],
     selectedCommonRegulationSet: ref({ id: 20 }),
     selectedCommonRegulationSetVersionPreview: ref({ id: 21, versionNo: 'A/1' }),
@@ -55,6 +59,19 @@ function configuration(overrides = {}) {
     processes: [{ items: [{ applicableInspectionTypes: overrides.finalInspectionApplicable
       ? ['FIRST', 'FINAL'] : ['FIRST'] }] }], ...overrides }
 }
+
+test('reloading version selections replaces association order and clears rows between products', () => {
+  const h = harness()
+  h.applyQaRegulationConfiguration(configuration({ commonRegulationVersions: [
+    { commonRegulationVersionId: 22 }, { commonRegulationVersionId: 11 }
+  ] }))
+  assert.deepEqual(Array.from(h.buildQaRegulationSavePayload().commonRegulationVersionIds), [22, 11])
+  h.context.qaRegulationDraft.dccProjectCodeId = 20
+  h.applyQaRegulationConfiguration(configuration({ dccProjectCodeId: 20, commonRegulationVersions: [] }))
+  assert.deepEqual(Array.from(h.buildQaRegulationSavePayload().commonRegulationVersionIds), [])
+  assert.equal(h.buildQaRegulationSavePayload().dccProjectCodeId, '20')
+  assert.throws(() => h.applyQaRegulationConfiguration(configuration({ dccProjectCodeId: 10 })), /不一致/)
+})
 
 test('published top-level evidence survives reload and the next association publication payload', () => {
   const h = harness(), original = configuration()

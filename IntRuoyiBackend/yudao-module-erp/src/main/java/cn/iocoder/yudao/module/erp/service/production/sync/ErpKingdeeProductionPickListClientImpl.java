@@ -28,6 +28,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -94,11 +95,20 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
     @Override
     public List<ErpKingdeeProductionPickList> fetchProductionPickLists(
             ErpKingdeeProperties properties, LocalDateTime windowStart, LocalDateTime windowEnd) {
+        List<ErpKingdeeProductionPickList> result = new ArrayList<>();
+        forEachProductionPickListBatch(properties, windowStart, windowEnd, result::addAll);
+        return result;
+    }
+
+    @Override
+    public void forEachProductionPickListBatch(ErpKingdeeProperties properties,
+            LocalDateTime windowStart, LocalDateTime windowEnd,
+            Consumer<List<ErpKingdeeProductionPickList>> consumer) {
+        java.util.Objects.requireNonNull(consumer, "consumer");
         properties.validateBaseConfig();
         validateWindow(windowStart, windowEnd);
         String cookieHeader = login(properties);
         LocalDate endDateExclusive = windowEnd.toLocalDate().plusDays(1);
-        Map<String, ErpKingdeeProductionPickList> result = new LinkedHashMap<>();
         LocalDate chunkStart = windowStart.toLocalDate();
         if (windowStart.getYear() == 1970) {
             // Locate the actual first bill before reading bounded monthly pages.
@@ -114,7 +124,7 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
             JsonNode firstRows = postQuery(properties, cookieHeader, firstQuery,
                     "PRD_PickMtrl first bill query response");
             validateRows(firstRows);
-            if (firstRows.isEmpty()) return new ArrayList<>();
+            if (firstRows.isEmpty()) return;
             chunkStart = parseDateTime(requiredText(firstRows.get(0), 2, "FDate"), "FDate").toLocalDate();
             if (chunkStart.isBefore(windowStart.toLocalDate()) || !chunkStart.isBefore(endDateExclusive)) {
                 throw exception(KINGDEE_PRODUCTION_PICK_LIST_RESPONSE_INVALID, "first bill date outside requested window");
@@ -127,9 +137,13 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
             if (chunkEndExclusive.isAfter(endDateExclusive)) {
                 chunkEndExclusive = endDateExclusive;
             }
-            fetchFullChunk(properties, cookieHeader, chunkStart, chunkEndExclusive, result);
+            fetchFullChunk(properties, cookieHeader, chunkStart, chunkEndExclusive, consumer);
             chunkStart = chunkEndExclusive;
         }
+    }
+
+    private void resolveMaterialLines(ErpKingdeeProperties properties, String cookieHeader,
+                                      Map<String, ErpKingdeeProductionPickList> result) {
         java.util.Set<String> ids = new java.util.LinkedHashSet<>();
         for (var order : result.values()) {
             for (var line : order.getLines()) {
@@ -143,12 +157,12 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
                 line.setProductionMaterialListLineNo(sequences.get(line.getProductionMaterialListEntryId()));
             }
         }
-        return new ArrayList<>(result.values());
     }
 
     private void fetchFullChunk(ErpKingdeeProperties properties, String cookieHeader,
                                 LocalDate chunkStart, LocalDate chunkEndExclusive,
-                                Map<String, ErpKingdeeProductionPickList> result) {
+                                Consumer<List<ErpKingdeeProductionPickList>> consumer) {
+        Map<String, ErpKingdeeProductionPickList> result = new LinkedHashMap<>();
         int startRow = 0;
         int pageLimit = chunkEndExclusive.isAfter(chunkStart.plusDays(FULL_QUERY_CHUNK_DAYS))
                 ? INCREMENTAL_QUERY_PAGE_LIMIT : FULL_QUERY_PAGE_LIMIT;
@@ -159,14 +173,31 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
                     startRow, pageLimit);
             validateRows(rows);
             if (rows.isEmpty()) {
+                emitFullBatch(properties, cookieHeader, result, consumer);
                 return;
             }
             addRows(rows, result, false);
             if (rows.size() < pageLimit) {
+                emitFullBatch(properties, cookieHeader, result, consumer);
                 return;
             }
+            // The last bill can continue on the next page. Emit only complete bills,
+            // keeping memory bounded to one page plus that bill's remaining lines.
+            String lastFid = requiredText(rows.get(rows.size() - 1), 0, "FID");
+            ErpKingdeeProductionPickList pending = result.remove(lastFid);
+            emitFullBatch(properties, cookieHeader, result, consumer);
+            result = new LinkedHashMap<>();
+            result.put(lastFid, pending);
             startRow += rows.size();
         }
+    }
+
+    private void emitFullBatch(ErpKingdeeProperties properties, String cookieHeader,
+                               Map<String, ErpKingdeeProductionPickList> result,
+                               Consumer<List<ErpKingdeeProductionPickList>> consumer) {
+        if (result.isEmpty()) return;
+        resolveMaterialLines(properties, cookieHeader, result);
+        consumer.accept(new ArrayList<>(result.values()));
     }
 
     @Override
@@ -271,7 +302,6 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
                 response = restTemplate.postForEntity(
                         buildServiceUrl(properties.getBaseUrl(), QUERY_SERVICE),
                         new HttpEntity<>(body, buildFormHeaders(cookieHeader)), String.class);
-                break;
             } catch (org.springframework.web.client.ResourceAccessException failure) {
                 // 同一只读分页请求最多尝试3次；权限、格式及其他错误直接失败。
                 if (!(failure.getMostSpecificCause() instanceof java.net.SocketTimeoutException)
@@ -281,15 +311,38 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
                 org.slf4j.LoggerFactory.getLogger(getClass()).warn(
                         "PRD_PickMtrl page timed out: startRow={}, attempt={}/3; retrying same query",
                         query.get("StartRow"), attempt);
+                continue;
             }
+            JsonNode responseJson = parseJson(response.getBody(), label);
+            JsonNode failure = ErpKingdeeProductionMaterialLineResolver.queryFailure(responseJson);
+            if (failure != null) {
+                if (!ErpKingdeeProductionMaterialLineResolver.isDeadlockVictim(failure) || attempt >= 3) {
+                    throw exception(KINGDEE_PRODUCTION_PICK_LIST_REQUEST_FAIL, failure.toString());
+                }
+                org.slf4j.LoggerFactory.getLogger(getClass()).warn(
+                        "PRD_PickMtrl deadlock victim: startRow={}, attempt={}/3; retrying same query",
+                        query.get("StartRow"), attempt);
+                waitBeforeRetry(attempt);
+                continue;
+            }
+            if (responseJson.isObject()) {
+                throw exception(KINGDEE_PRODUCTION_PICK_LIST_REQUEST_FAIL, responseJson.toString());
+            }
+            org.slf4j.LoggerFactory.getLogger(getClass()).info(
+                    "PRD_PickMtrl page received: startRow={}, rows={}", query.get("StartRow"), responseJson.size());
+            return responseJson;
         }
-        JsonNode responseJson = parseJson(response.getBody(), label);
-        if (responseJson.isObject()) {
-            throw exception(KINGDEE_PRODUCTION_PICK_LIST_REQUEST_FAIL, responseJson.toString());
+    }
+
+    void waitBeforeRetry(int failedAttempt) {
+        try {
+            Thread.sleep(failedAttempt == 1 ? 5_000L : 15_000L);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            var cancelled = new java.util.concurrent.CancellationException("生产领料单死锁重试被中断");
+            cancelled.initCause(interrupted);
+            throw cancelled;
         }
-        org.slf4j.LoggerFactory.getLogger(getClass()).info(
-                "PRD_PickMtrl page received: startRow={}, rows={}", query.get("StartRow"), responseJson.size());
-        return responseJson;
     }
 
     private void validateWindow(LocalDateTime windowStart, LocalDateTime windowEnd) {

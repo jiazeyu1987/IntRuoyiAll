@@ -10,7 +10,7 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class MesTeamLeaderProcessConfigListReqVO {
 
-    @Schema(description = "精确查询工艺路线编号，仍校验当前组长的路线权限")
+    @Schema(description = "精确查询工艺路线编号，校验组长路线权限，未配置的超量比例返回空值")
     private Long routeId;
 
     @Schema(description = "工艺路线编码或名称关键字")

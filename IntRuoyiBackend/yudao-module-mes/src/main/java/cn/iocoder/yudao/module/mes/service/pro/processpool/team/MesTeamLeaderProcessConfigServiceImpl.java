@@ -120,6 +120,21 @@ public class MesTeamLeaderProcessConfigServiceImpl implements MesTeamLeaderProce
         List<MesTeamLeaderProcessConfigRow> configRows = authorizedRows.stream()
                 .map(row -> toConfigRow(row, bindingsByProcess, deviceMap, rulesByRouteDevice, leaderUserId))
                 .toList();
+        // 精确路线查询用于正式配置迁移，必须保留“未配置”，不能冻结工作台展示的默认比例。
+        if (reqVO.getRouteId() != null) {
+            var configuredLimits = overageLimitService.list(leaderUserId);
+            for (var row : configRows) {
+                var limits = configuredLimits.stream()
+                        .filter(limit -> Objects.equals(limit.getRouteProcessId(), row.getRouteProcessId())
+                                && Objects.equals(limit.getProcessId(), row.getProcessId()))
+                        .toList();
+                if (limits.size() > 1) {
+                    throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED,
+                            "duplicateOverageLimit routeProcessId=" + row.getRouteProcessId());
+                }
+                row.setOveragePercent(limits.isEmpty() ? null : limits.get(0).getOveragePercent());
+            }
+        }
         String routeKeyword = normalizeKeyword(reqVO.getRouteKeyword());
         String processKeyword = normalizeKeyword(reqVO.getProcessKeyword());
         String lossReasonKeyword = normalizeKeyword(reqVO.getLossReasonKeyword());

@@ -34,6 +34,7 @@ function harness() {
       const inboxSource = fs.readFileSync(path.join(root, 'src/views/system/notify/my/notifyInbox.ts'), 'utf8')
       Function('exports', ts.transpileModule(inboxSource, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText)(inboxModule.exports)
       const context = { ...vue, NotifyMessageApi: api, ...inboxModule.exports,
+        filterListColumns: (rows, conditions) => { assert.deepEqual(conditions, []); return rows }, buildListColumnFilters: () => [], notifyDefaultColumns: [], listColumnFilterDefinitions0: { value: [] },
         props: { active: true }, canReadReleaseOutcomes: { value: false }, refreshTableLayout: async () => {} }
       const state = Function(...Object.keys(context), `${js}; return { loading, list, total, loadError, queryParams, getList };`)(...Object.values(context))
       instances.push(state)
@@ -138,7 +139,7 @@ test('failed cached refresh exposes the original error and ends loading without 
   h.setFailure(failure)
   visible.value = true
   await flush()
-  assert.deepEqual(h.errors, [])
+  assert.deepEqual(h.errors, [failure])
   assert.equal(h.instances[0].loadError.value, failure.message)
   assert.equal(h.instances[0].loading.value, false)
   assert.deepEqual(h.instances[0].list.value, [])

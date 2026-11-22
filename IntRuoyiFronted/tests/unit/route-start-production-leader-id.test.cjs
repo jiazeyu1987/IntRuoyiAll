@@ -46,6 +46,8 @@ function page(routeId) {
     normalizeRecordBindingCandidateNames: values => values || [],
     loadRecordBindingUserOptions: async () => {}, loadRecordBindingRoleOptions: async () => {},
     requireCandidateRouteVersionId: () => versionId,
+    refreshProductionProcessConfigLock: async () => {},
+    ensureSelectedProcessRouteConfigCache: async () => {},
     resolveErrorMessage: error => error.message,
     message: { success() {}, warning() {}, error(message) { throw new Error(message) } },
     ProRouteFlowConfigApi: {

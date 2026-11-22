@@ -35,8 +35,6 @@ import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRuntimeConf
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRouteProcessCandidate;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineTemplateDescriptor;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.MesProProcessSopRespVO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
-import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRow;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.template.FrontlineTemplateCodes;
@@ -58,8 +56,6 @@ import java.util.List;
 import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
-import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_NOT_EXISTS;
 import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
 
 @Tag(name = "管理后台 - MES 一线设备账号工序池")
@@ -111,8 +107,6 @@ public class MesFrontlineDeviceAccountController {
     private MesTeamLeaderActiveOrderService activeOrderService;
     @Resource
     private MesFrontlineActiveOrderProcessService activeOrderProcessService;
-    @Resource
-    private MesProProcessService processService;
 
     @GetMapping("/processes")
     @Operation(summary = "获得设备账号可切换工序")
@@ -146,7 +140,7 @@ public class MesFrontlineDeviceAccountController {
     }
 
     @GetMapping("/process-sop")
-    @Operation(summary = "获得当前一线生产工序绑定的 SOP 文件")
+    @Operation(summary = "获得活跃订单锁定工艺版本的工序 SOP 文件")
     @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
     public CommonResult<MesProProcessSopRespVO> getProductionProcessSop(
             @RequestParam("activeOrderId") @NotNull Long activeOrderId,
@@ -154,14 +148,11 @@ public class MesFrontlineDeviceAccountController {
             @RequestParam("routeProcessId") @NotNull Long routeProcessId,
             @RequestParam("processId") @NotNull Long processId) {
         Long leaderUserId = contextService.resolveResponsibleLeaderUserId(getLoginUserId());
-        activeOrderProcessService.requireProcess(leaderUserId, activeOrderId, routeId, routeProcessId, processId);
-        MesProProcessDO process = processService.getProcess(processId);
-        if (process == null) {
-            throw exception(PRO_PROCESS_NOT_EXISTS);
-        }
+        String fileUrl = activeOrderProcessService.getFrozenSopFileUrl(
+                leaderUserId, activeOrderId, routeId, routeProcessId, processId);
         MesProProcessSopRespVO result = new MesProProcessSopRespVO();
         result.setProcessId(processId);
-        result.setFileUrl(process.getSopFileUrl());
+        result.setFileUrl(fileUrl);
         return success(result);
     }
 

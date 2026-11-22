@@ -33,13 +33,12 @@ public class MesProRouteResourceImportService {
         Long tenant = TenantContextHolder.getRequiredTenantId();
         for (var entry : resources.entrySet()) {
             String table = table(entry.getKey());
-            String identity = table.equals("system_users") ? "username" : requireTable(table).identity();
+            String identity = requireTable(table).identity();
             List<Long> matches = identity.isEmpty() ? List.of() : jdbc.queryForList("SELECT id FROM " + table
                 + " WHERE " + identity + "=? AND tenant_id=? AND deleted=0 FOR UPDATE", Long.class,
                 entry.getValue().get(identity), tenant);
             if (matches.size() > 1) throw invalidParamException("资源编码不唯一：" + entry.getKey());
             if (table.equals("mes_pro_route") && !matches.isEmpty()) throw invalidParamException("路线编码已存在：" + entry.getValue().getString("code"));
-            if (table.equals("system_users") && matches.isEmpty()) throw invalidParamException("目标租户缺少执行人员：" + entry.getValue().getString("username"));
             // These identities remain unique after soft deletion in the current database schema.
             if (matches.isEmpty() && (table.equals("mes_pro_route") || table.equals("dcc_project_code"))) {
                 List<Long> deleted = jdbc.queryForList("SELECT id FROM " + table + " WHERE " + identity
@@ -55,7 +54,6 @@ public class MesProRouteResourceImportService {
         Map<String, JSONObject> rewritten = new LinkedHashMap<>();
         for (var entry : resources.entrySet()) {
             String table = table(entry.getKey());
-            if (table.equals("system_users")) continue;
             JSONObject row = JSON.parseObject(JSON.toJSONString(entry.getValue(), com.alibaba.fastjson.serializer.SerializerFeature.WriteMapNullValue));
             for (String column : new ArrayList<>(row.keySet())) {
                 if (column.equals("id")) row.put(column, ids.get(entry.getKey()));
@@ -80,6 +78,12 @@ public class MesProRouteResourceImportService {
             if (existing.contains(entry.getKey())) continue;
             String table = table(entry.getKey()); JSONObject row = entry.getValue();
             List<String> columns = new ArrayList<>(requireTable(table).columns());
+            if (MesProRouteTransferPersonnel.LOCAL_MAINTAINER_TABLES.contains(table)) {
+                Long actor = SecurityFrameworkUtils.getLoginUserId();
+                if (actor == null || actor <= 0) throw invalidParamException("导入设备配置需要已登录的维护人员");
+                columns.add("leader_user_id");
+                row.put("leader_user_id", actor);
+            }
             columns.addAll(List.of("tenant_id", "creator", "updater", "deleted"));
             row.put("tenant_id", tenant); row.put("creator", String.valueOf(SecurityFrameworkUtils.getLoginUserId()));
             row.put("updater", String.valueOf(SecurityFrameworkUtils.getLoginUserId())); row.put("deleted", false);
@@ -99,7 +103,7 @@ public class MesProRouteResourceImportService {
         Map<String, List<String>> keys = Map.of(
             "mes_md_workstation_machine", List.of("workstation_id", "machinery_id"),
             "mes_dv_machinery_process", List.of("machinery_id", "process_id"),
-            "mes_pro_process_pool_team_process_device", List.of("leader_user_id", "process_id", "device_id", "device_group_key"));
+            "mes_pro_process_pool_team_process_device", List.of("process_id", "device_id", "device_group_key"));
         for (var entry : resources.entrySet()) {
             String table = table(entry.getKey());
             List<String> fields = keys.get(table);
@@ -109,8 +113,10 @@ public class MesProRouteResourceImportService {
                 String target = referenceTable(table, field);
                 values.add(target == null ? entry.getValue().get(field) : remap(target, entry.getValue().get(field), ids));
             }
+            if (MesProRouteTransferPersonnel.LOCAL_MAINTAINER_TABLES.contains(table)) values.add(SecurityFrameworkUtils.getLoginUserId());
             values.add(tenant);
             String where = fields.stream().map(field -> field + " <=> ?").collect(java.util.stream.Collectors.joining(" AND "));
+            if (MesProRouteTransferPersonnel.LOCAL_MAINTAINER_TABLES.contains(table)) where += " AND leader_user_id <=> ?";
             List<Long> matches = jdbc.queryForList("SELECT id FROM " + table + " WHERE " + where
                 + " AND tenant_id=? AND deleted=0 FOR UPDATE", Long.class, values.toArray());
             if (matches.size() > 1) throw invalidParamException("目标租户关联资源重复：" + table + " " + entry.getKey());
@@ -194,7 +200,6 @@ public class MesProRouteResourceImportService {
         if (value instanceof JSONObject object) {
             for (String key : new ArrayList<>(object.keySet())) {
                 String target = JSON_REFERENCES.get(key);
-                if (key.equals("candidateSourceIds")) target = candidateTable(object.getString("candidateSourceType"));
                 Object current = object.get(key);
                 if (PROCESS_KEYED_CONFIGURATIONS.contains(key) && current instanceof JSONObject configs) {
                     object.put(key, rewriteProcessKeys(configs, ids));

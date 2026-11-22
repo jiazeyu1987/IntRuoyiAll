@@ -184,16 +184,35 @@ public class BpmProcessInstanceController {
     @GetMapping("/get-approval-detail")
     @Operation(summary = "获得审批详情")
     @Parameter(name = "id", description = "流程实例的编号", required = true)
-    @PreAuthorize("@ss.hasPermission('bpm:process-instance:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('bpm:process-instance:query', 'bpm:task:query')")
     @SuppressWarnings("unchecked")
     public CommonResult<BpmApprovalDetailRespVO> getApprovalDetail(@Valid BpmApprovalDetailReqVO reqVO) {
+        assertCanReadApprovalDetail(getLoginUserId(), reqVO);
         if (StrUtil.isNotEmpty(reqVO.getProcessVariablesStr())) {
             reqVO.setProcessVariables(JsonUtils.parseObject(reqVO.getProcessVariablesStr(), Map.class));
         }
-        if (StrUtil.isNotBlank(reqVO.getProcessInstanceId())) {
-            assertCanReadProcessInstance(getLoginUserId(), reqVO.getProcessInstanceId());
-        }
         return success(processInstanceService.getApprovalDetail(getLoginUserId(), reqVO));
+    }
+
+    private void assertCanReadApprovalDetail(Long loginUserId, BpmApprovalDetailReqVO reqVO) {
+        boolean processQuery = permissionApi.hasAnyPermissions(loginUserId, "bpm:process-instance:query");
+        if (StrUtil.isBlank(reqVO.getProcessInstanceId())) {
+            if (!processQuery) {
+                throw exception(PROCESS_INSTANCE_ACCESS_DENIED);
+            }
+            return;
+        }
+        HistoricProcessInstance process = processInstanceService.getHistoricProcessInstance(reqVO.getProcessInstanceId());
+        if (process == null) {
+            throw exception(PROCESS_INSTANCE_NOT_EXISTS);
+        }
+        // Approval-center applicants may read their own registration flow without acquiring generic BPM create/query rights.
+        if (!processQuery && (!permissionApi.hasAnyPermissions(loginUserId, "bpm:task:query")
+                || !StrUtil.equals(process.getProcessDefinitionKey(), "dcc-registration-certificate-access")
+                || !StrUtil.equals(process.getStartUserId(), String.valueOf(loginUserId)))) {
+            throw exception(PROCESS_INSTANCE_ACCESS_DENIED);
+        }
+        assertCanReadProcessInstance(loginUserId, process);
     }
 
     @GetMapping("/get-next-approval-nodes")

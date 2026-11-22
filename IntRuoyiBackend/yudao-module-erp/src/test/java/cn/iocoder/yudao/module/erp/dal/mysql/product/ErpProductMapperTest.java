@@ -19,6 +19,23 @@ class ErpProductMapperTest extends BaseDbUnitTest {
     private ErpProductMapper productMapper;
 
     @Test
+    void selectListByBarCodesCoversEveryBatchWithoutDuplicatingResults() {
+        var codes = new java.util.ArrayList<String>();
+        for (int i = 0; i < 2501; i++) {
+            codes.add("BATCH-" + i);
+        }
+        for (int i : new int[]{0, 999, 1000, 1999, 2000, 2500}) {
+            productMapper.insert(buildProduct("物料" + i, codes.get(i)));
+        }
+        codes.add("BATCH-0");
+        var products = productMapper.selectListByBarCodes(codes);
+        assertEquals(6, products.size());
+        assertEquals(Set.of("BATCH-0", "BATCH-999", "BATCH-1000", "BATCH-1999", "BATCH-2000", "BATCH-2500"),
+                products.stream().map(ErpProductDO::getBarCode).collect(toSet()));
+        assertEquals(0, productMapper.selectListByBarCodes(java.util.List.of()).size());
+    }
+
+    @Test
     void erpSnapshotClearsSpecificationAndPreservesLocalPricesAndRemark() {
         ErpProductDO existing = buildProduct("旧物料", "CLEAR-SPEC");
         existing.setPurchasePrice(new BigDecimal("123.45"));

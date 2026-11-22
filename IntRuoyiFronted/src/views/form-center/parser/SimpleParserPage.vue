@@ -1522,6 +1522,7 @@ function openRoute() {
       path: `/mes/pro/route/edit/${published.value.routeId}`,
       query: {
         tab: 'flow',
+        routeEditMode: published.value.routeCandidateVersionId ? 'edit' : undefined,
         routeVersionId: String(
           published.value.routeCandidateVersionId || published.value.routeVersionId
         ),

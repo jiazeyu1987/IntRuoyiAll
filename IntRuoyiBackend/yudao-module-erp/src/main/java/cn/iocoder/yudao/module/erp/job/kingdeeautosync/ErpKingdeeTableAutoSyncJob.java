@@ -13,7 +13,7 @@ public class ErpKingdeeTableAutoSyncJob implements JobHandler {
     private final ErpKingdeeTableAutoSyncService tableAutoSyncService;
 
     @Override
-    @TenantJob
+    @TenantJob(failOnError = true)
     public String execute(String param) {
         return tableAutoSyncService.executeAutoForCurrentTenant();
     }

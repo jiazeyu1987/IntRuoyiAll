@@ -21,6 +21,7 @@ function harness({ code, refreshFails = false, errorReason = reason }) {
   const errors = [], successes = []
   let writes = 0, refreshes = 0
   const context = {
+    requireWritableHandoff: () => true,
     activeOrderTestResetBlocked: ref(false), activeOrderTestResetSubmitting: ref(false),
     activeOrderTestResetReceipt: ref(undefined), activeOrderWorkOrderKeyword: ref('ORIGINAL'),
     activeOrderQuery: { pageNo: 3 }, activeOrderOptions: ref([]),

@@ -229,7 +229,7 @@ function testPreviewTransformControlsAreBoundedAndTypeScoped() {
   assertContains(viewer, 'handleZoomOut')
   assertContains(viewer, 'handleRotateRight')
   assertContains(viewer, 'handleResetViewerTransform')
-  assertContains(viewer, 'pdfPreviewTransformStyle')
+  assertContains(viewer, 'getPdfPreviewTransformStyle')
   assertContains(viewer, 'getPdfPageViewportStyle')
   assertContains(viewer, 'protected-viewer-page__canvas-viewport')
   assertContains(viewer, 'protected-viewer-transform-stage')

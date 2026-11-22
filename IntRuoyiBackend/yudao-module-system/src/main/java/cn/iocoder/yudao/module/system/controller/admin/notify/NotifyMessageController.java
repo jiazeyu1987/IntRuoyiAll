@@ -54,6 +54,13 @@ public class NotifyMessageController {
 
     // ========== 查看自己的站内信 ==========
 
+    @GetMapping("/my-get")
+    @Operation(summary = "获得我的站内信")
+    public CommonResult<NotifyMessageRespVO> getMyNotifyMessage(@RequestParam("id") @jakarta.validation.constraints.Positive Long id) {
+        return success(BeanUtils.toBean(notifyMessageService.getMyNotifyMessage(id, getLoginUserId()),
+                NotifyMessageRespVO.class));
+    }
+
     @GetMapping("/my-page")
     @Operation(summary = "获得我的站内信分页")
     public CommonResult<PageResult<NotifyMessageRespVO>> getMyMyNotifyMessagePage(@Valid NotifyMessageMyPageReqVO pageVO) {

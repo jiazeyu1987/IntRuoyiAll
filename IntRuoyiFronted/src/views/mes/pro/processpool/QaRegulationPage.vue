@@ -2194,6 +2194,7 @@ v-if="row.finalInspectionEnabled" :model-value="row.finalInspectionQuantity"
 </template>
 
 <script setup lang="ts">
+import { requireExactJavaLong } from '@/utils/exactJavaLong'
 import SamplingRuleEditor from '@/views/mes/qc/template/SamplingRuleEditor.vue'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import CommonRegulationLibrary from './CommonRegulationLibrary.vue'
@@ -2312,7 +2313,7 @@ interface QaRegulationDraft {
   draftRevision?: number
   loadedVersionNo?: string
   regulationId?: number
-  dccProjectCodeId?: number
+  dccProjectCodeId?: number | string
   regulationCode: string
   regulationName: string
   versionNo: string
@@ -2354,7 +2355,7 @@ interface CommonRegulationItem extends QaRegulationItem {
 
 type ProductQaRegulationSaveReqVO = QaInspectionRegulationSaveReqVO & {
   ownerModule: 'MES_QA'
-  dccProjectCodeId: number
+  dccProjectCodeId: number | string
 }
 
 const DCC_PROJECT_CODE_PAGE_SIZE = 200
@@ -2516,7 +2517,7 @@ let qaCurrentConfigurationLoadSerial = 0
 
 const qaWordImportDialogVisible = ref(false)
 const qaWordImportSubmitting = ref(false)
-const qaWordImportDccProjectCodeId = ref<number>()
+const qaWordImportDccProjectCodeId = ref<number | string>()
 const qaWordImportFile = ref<File>()
 const qaWordImportFileList = ref<UploadUserFile[]>([])
 const qaWordImportOwnerModule = ref<QaInspectionRegulationOwnerModule>('MES_QA')
@@ -2533,7 +2534,7 @@ const qaEquipmentBindingLoadError = ref('')
 const qaEquipmentAutoSaving = ref(false)
 const QA_MACHINERY_PAGE_SIZE = 100
 const qaRegulationProjectStatusByDccId = ref(
-  new Map<number, QaInspectionRegulationProjectStatusVO>()
+  new Map<string, QaInspectionRegulationProjectStatusVO>()
 )
 const qaCurrentPublishedVersion = ref<QaInspectionRegulationPublishedVersionVO>()
 const qaCurrentPublishedVersionLoading = ref(false)
@@ -3075,6 +3076,8 @@ const shouldLoadQaEquipmentBindingsForSelectedVersion = (
   return selectedOption?.currentPublished === true || configuration.lifecycleStatus === 'DRAFT'
 }
 
+const resolveDccProjectId = (value: unknown) => requireExactJavaLong(value, 'DCC 项目代码 ID')
+
 const resolvePositiveId = (value: unknown, label: string) => {
   const id = Number(value)
   if (!Number.isSafeInteger(id) || id <= 0) {
@@ -3149,7 +3152,7 @@ const flattenQaRegulationProcesses = (
         }))
     )
 
-const resetQaRegulationConfiguration = (dccProjectCodeId?: number) => {
+const resetQaRegulationConfiguration = (dccProjectCodeId?: number | string) => {
   Object.assign(qaRegulationDraft, createEmptyQaRegulationDraft(), { dccProjectCodeId })
   qaInspectionTypeRules.splice(
     0,
@@ -3167,7 +3170,7 @@ const resetQaRegulationConfiguration = (dccProjectCodeId?: number) => {
 const applyQaRegulationConfiguration = (
   configuration: QaInspectionRegulationPublishedVersionVO
 ) => {
-  if (configuration.dccProjectCodeId !== qaRegulationDraft.dccProjectCodeId) {
+  if (resolveDccProjectId(configuration.dccProjectCodeId) !== resolveDccProjectId(qaRegulationDraft.dccProjectCodeId)) {
     throw new Error('后端 QA 规程与当前 DCC 项目代码不一致')
   }
   Object.assign(qaRegulationDraft, {
@@ -3241,7 +3244,7 @@ const applyQaEquipmentOptionsToItemNameGroup = (
   })
 }
 
-const loadQaEquipmentBindings = async (dccProjectCodeId: number) => {
+const loadQaEquipmentBindings = async (dccProjectCodeId: number | string) => {
   const groups = new Map<string, QaRegulationItem[]>()
   qaRegulationItems.value.forEach((row) => {
     const key = row.itemName.trim()
@@ -3269,18 +3272,16 @@ const loadQaEquipmentBindings = async (dccProjectCodeId: number) => {
 }
 
 const createQaRegulationProjectStatusMap = (statuses: QaInspectionRegulationProjectStatusVO[]) => {
-  const statusByDccId = new Map<number, QaInspectionRegulationProjectStatusVO>()
+  const statusByDccId = new Map<string, QaInspectionRegulationProjectStatusVO>()
   statuses.forEach((status) => {
-    const dccProjectCodeId = Number(status.dccProjectCodeId)
-    if (Number.isSafeInteger(dccProjectCodeId) && dccProjectCodeId > 0) {
-      statusByDccId.set(dccProjectCodeId, status)
-    }
+    const dccProjectCodeId = resolveDccProjectId(status.dccProjectCodeId)
+    statusByDccId.set(dccProjectCodeId, status)
   })
   return statusByDccId
 }
 
 const isDccProjectCodeConfigured = (project: DccProjectCodeRespVO) =>
-  qaRegulationProjectStatusByDccId.value.get(Number(project.id))?.configured === true
+  qaRegulationProjectStatusByDccId.value.get(resolveDccProjectId(project.id))?.configured === true
 
 const getDccProjectCodeOptionClass = (project: DccProjectCodeRespVO) => ({
   'qa-regulation-page__project-option': true,
@@ -3291,12 +3292,14 @@ const sortDccProjectCodeOptionsByQaStatus = (projects: DccProjectCodeRespVO[]) =
   [...projects].sort((left, right) => {
     const configuredDifference =
       Number(isDccProjectCodeConfigured(right)) - Number(isDccProjectCodeConfigured(left))
-    return configuredDifference || Number(left.id) - Number(right.id)
+    const leftId = resolveDccProjectId(left.id)
+    const rightId = resolveDccProjectId(right.id)
+    return configuredDifference || leftId.length - rightId.length || leftId.localeCompare(rightId)
   })
 
 const mergeDccProjectCodeOptions = (projects: DccProjectCodeRespVO[]) => {
-  const projectById = new Map<number, DccProjectCodeRespVO>()
-  projects.forEach((project) => projectById.set(Number(project.id), project))
+  const projectById = new Map<string, DccProjectCodeRespVO>()
+  projects.forEach((project) => projectById.set(resolveDccProjectId(project.id), project))
   return Array.from(projectById.values())
 }
 
@@ -3332,7 +3335,7 @@ const loadDccProjectCodeOptions = async (keyword = '') => {
       ...(selectedDccProjectCode.value ? [selectedDccProjectCode.value] : [])
     ])
     const projectStatuses = await QcTemplateApi.getQaRegulationProjectStatuses(
-      mergedOptions.map((project) => resolvePositiveId(project.id, 'DCC 项目代码 ID'))
+      mergedOptions.map((project) => resolveDccProjectId(project.id))
     )
     qaRegulationProjectStatusByDccId.value = createQaRegulationProjectStatusMap(projectStatuses)
     dccProjectCodeOptions.value = sortDccProjectCodeOptionsByQaStatus(mergedOptions)
@@ -3530,7 +3533,7 @@ const handleCommonRegulationItemEquipmentChange = (
 }
 
 const autoSaveQaItemEquipment = async (row: QaRegulationItem) => {
-  const dccProjectCodeId = resolvePositiveId(qaRegulationDraft.dccProjectCodeId, 'DCC 项目代码 ID')
+  const dccProjectCodeId = resolveDccProjectId(qaRegulationDraft.dccProjectCodeId)
   const itemRows = getQaItemNameGroup(row)
   const itemCodes = itemRows.map((candidate) => candidate.itemCode.trim())
   if (!itemCodes.length) {
@@ -3578,7 +3581,7 @@ const loadCurrentPublishedQaRegulationVersion = async (project?: DccProjectCodeR
   if (!project) {
     return
   }
-  const dccProjectCodeId = resolvePositiveId(project.id, 'DCC 项目代码 ID')
+  const dccProjectCodeId = resolveDccProjectId(project.id)
   const status = qaRegulationProjectStatusByDccId.value.get(dccProjectCodeId)
   if (status?.lifecycleStatus !== 'PUBLISHED') {
     return
@@ -3590,7 +3593,7 @@ const loadCurrentPublishedQaRegulationVersion = async (project?: DccProjectCodeR
       return
     }
     if (
-      publishedVersion.dccProjectCodeId !== dccProjectCodeId ||
+      resolveDccProjectId(publishedVersion.dccProjectCodeId) !== dccProjectCodeId ||
       publishedVersion.lifecycleStatus !== 'PUBLISHED'
     ) {
       throw new Error('已发布 QA 规程版本与当前 DCC 项目状态不一致')
@@ -3609,7 +3612,7 @@ const loadCurrentPublishedQaRegulationVersion = async (project?: DccProjectCodeR
   }
 }
 
-const loadQaRegulationVersionOptions = async (dccProjectCodeId: number) => {
+const loadQaRegulationVersionOptions = async (dccProjectCodeId: number | string) => {
   const loadSerial = ++qaRegulationVersionOptionsLoadSerial
   qaRegulationVersionOptions.value = []
   qaRegulationVersionOptionsLoadError.value = ''
@@ -3682,7 +3685,7 @@ const changeCommonRegulationBindingRow = (row: CommonRegulationBindingRow, versi
   Object.assign(row, option)
 }
 
-const loadCurrentCommonRegulationBinding = async (dccProjectCodeId: number) => {
+const loadCurrentCommonRegulationBinding = async (dccProjectCodeId: number | string) => {
   const loadSerial = ++commonRegulationBindingLoadSerial
   commonRegulationBindingLoading.value = true
   commonRegulationBindingLoadError.value = ''
@@ -3907,7 +3910,7 @@ const handleQaRegulationVersionChange = async (versionId?: number) => {
   if (!versionId || !selectedDccProjectCode.value) {
     return
   }
-  const dccProjectCodeId = resolvePositiveId(selectedDccProjectCode.value.id, 'DCC 项目代码 ID')
+  const dccProjectCodeId = resolveDccProjectId(selectedDccProjectCode.value.id)
   const selectedVersion = qaRegulationVersionOptions.value.find(
     (version) => Number(version.versionId) === Number(versionId)
   )
@@ -3947,7 +3950,7 @@ const handleQaRegulationVersionChange = async (versionId?: number) => {
   }
 }
 
-const loadCurrentQaRegulation = async (dccProjectCodeId: number) => {
+const loadCurrentQaRegulation = async (dccProjectCodeId: number | string) => {
   const loadSerial = ++qaCurrentConfigurationLoadSerial
   qaCurrentConfigurationLoading.value = true
   qaCurrentConfigurationLoadError.value = ''
@@ -3997,7 +4000,7 @@ const readLastDccProjectCodeSelectionId = () => {
   if (!rawId) {
     return undefined
   }
-  return resolvePositiveId(rawId, '上次选择的 DCC 项目代码 ID')
+  return resolveDccProjectId(rawId)
 }
 
 const copySelectedDccProjectCode = async () => {
@@ -4024,11 +4027,11 @@ const selectDccProjectCode = async (project?: DccProjectCodeRespVO) => {
     commonRegulationBindingLoadError.value = ''
     return
   }
-  const dccProjectCodeId = resolvePositiveId(project.id, 'DCC 项目代码 ID')
+  const dccProjectCodeId = resolveDccProjectId(project.id)
   qaRegulationDraft.dccProjectCodeId = dccProjectCodeId
   await Promise.all([
     loadCurrentCommonRegulationBinding(dccProjectCodeId).then(() => {
-      if (Number(selectedDccProjectCode.value?.id) === dccProjectCodeId) {
+      if (selectedDccProjectCode.value && resolveDccProjectId(selectedDccProjectCode.value.id) === dccProjectCodeId) {
         return loadCurrentQaRegulation(dccProjectCodeId)
       }
     }),
@@ -4037,13 +4040,13 @@ const selectDccProjectCode = async (project?: DccProjectCodeRespVO) => {
   ])
 }
 
-const handleDccProjectCodeChange = async (projectId?: number) => {
+const handleDccProjectCodeChange = async (projectId?: number | string) => {
   if (!projectId) {
     await selectDccProjectCode()
     return
   }
   const project =
-    dccProjectCodeOptions.value.find((option) => Number(option.id) === Number(projectId)) ||
+    dccProjectCodeOptions.value.find((option) => resolveDccProjectId(option.id) === resolveDccProjectId(projectId)) ||
     (await getProjectCode(projectId))
   if (!project || project.status !== DCC_PROJECT_CODE_STATUS_ENABLE) {
     throw new Error('指定的 DCC 项目代码不存在或已停用')
@@ -4138,7 +4141,7 @@ const submitQaWordImport = async () => {
     if (!qaWordImportFile.value) {
       throw new Error('请选择需要解析的 .docx QA 模板文件')
     }
-    const dccProjectCodeId = resolvePositiveId(qaWordImportDccProjectCodeId.value, '绑定项目')
+    const dccProjectCodeId = resolveDccProjectId(qaWordImportDccProjectCodeId.value)
     const formData = new FormData()
     formData.append('file', qaWordImportFile.value)
     formData.append('dccProjectCodeId', String(dccProjectCodeId))
@@ -4151,7 +4154,7 @@ const submitQaWordImport = async () => {
       publishAfterImport: importCommonRegulation
     })
     const project =
-      dccProjectCodeOptions.value.find((option) => Number(option.id) === dccProjectCodeId) ||
+      dccProjectCodeOptions.value.find((option) => resolveDccProjectId(option.id) === dccProjectCodeId) ||
       (await getProjectCode(dccProjectCodeId))
     if (!project || project.status !== DCC_PROJECT_CODE_STATUS_ENABLE) {
       throw new Error('导入已保存，但绑定的 DCC 项目已停用或不存在')
@@ -4205,10 +4208,7 @@ const submitQaWordImport = async () => {
 const resetQaRegulationForTesting = async () => {
   let resetCompleted = false
   try {
-    const dccProjectCodeId = resolvePositiveId(
-      qaRegulationDraft.dccProjectCodeId,
-      'DCC 项目代码 ID'
-    )
+    const dccProjectCodeId = resolveDccProjectId(qaRegulationDraft.dccProjectCodeId)
     const projectLabel = selectedDccProjectCodeLabel.value || String(dccProjectCodeId)
     await ElMessageBox.confirm(
       `将清空“${projectLabel}”当前 QA 规程草稿和已发布版本，仅用于测试阶段重新导入同版本模板。` +
@@ -4260,7 +4260,7 @@ const resolveInitialDccProjectCodeId = () => {
     ? route.query.dccProjectCodeId[0]
     : route.query.dccProjectCodeId
   return queryValue
-    ? resolvePositiveId(queryValue, '链接中的 DCC 项目代码 ID')
+    ? resolveDccProjectId(queryValue)
     : readLastDccProjectCodeSelectionId()
 }
 
@@ -4269,7 +4269,7 @@ const initializeQaRegulationPage = async () => {
   const projectId = resolveInitialDccProjectCodeId()
   if (projectId && !route.query.dccProjectCodeId) {
     const rememberedProject = dccProjectCodeOptions.value.find(
-      (project) => Number(project.id) === projectId
+      (project) => resolveDccProjectId(project.id) === projectId
     )
     if (!rememberedProject) {
       await selectDccProjectCode()
@@ -4626,19 +4626,32 @@ const buildCommonRegulationItemsUpgradePayload = async (): Promise<QaCommonRegul
 }
 
 const buildQaRegulationSavePayload = (): ProductQaRegulationSaveReqVO => {
+  if (
+    qaCurrentConfigurationLoading.value || qaCurrentConfigurationLoadError.value ||
+    commonRegulationBindingLoading.value || commonRegulationBindingLoadError.value ||
+    commonRegulationVersionOptionsLoading.value || commonRegulationVersionOptionsLoadError.value
+  ) {
+    throw new Error(
+      qaCurrentConfigurationLoadError.value || commonRegulationBindingLoadError.value ||
+      commonRegulationVersionOptionsLoadError.value || '规程或关联正在加载，请稍后保存或发布'
+    )
+  }
   const finalInspectionApplicable = qaRegulationItems.value.some((item) => item.finalInspectionEnabled)
   const finalInspectionNotApplicableReason = finalInspectionApplicable
     ? undefined
     : resolveRequiredText(qaRegulationDraft.finalInspectionNotApplicableReason, '末检不适用依据')
   return {
     regulationId: qaRegulationDraft.regulationId,
-    dccProjectCodeId: resolvePositiveId(qaRegulationDraft.dccProjectCodeId, 'DCC 项目代码 ID'),
+    dccProjectCodeId: resolveDccProjectId(qaRegulationDraft.dccProjectCodeId),
     expectedDraftRevision:
       resolveQaRegulationDraftVersionNoForSave() === qaRegulationDraft.loadedVersionNo &&
       qaRegulationDraft.lifecycleStatus === 'DRAFT'
         ? qaRegulationDraft.draftRevision!
         : 0,
     ownerModule: 'MES_QA',
+    commonRegulationVersionIds: commonRegulationBindingRows.value.map((row) =>
+      resolvePositiveId(row.commonRegulationVersionId, '通用规程版本 ID，请选择规程或删除空白行')
+    ),
     regulationCode: resolveRequiredText(qaRegulationDraft.regulationCode, '规程编号'),
     regulationName: resolveRequiredText(qaRegulationDraft.regulationName, '规程名称'),
     versionNo: resolveRequiredText(resolveQaRegulationDraftVersionNoForSave(), '规程版本'),
@@ -4743,8 +4756,8 @@ const previewQaRegulationDraft = async () => {
     qaConfigurationExists.value = true
     selectedQaRegulationVersionId.value = result.draftVersionId
     const statusMap = new Map(qaRegulationProjectStatusByDccId.value)
-    const currentStatus = statusMap.get(payload.dccProjectCodeId)
-    statusMap.set(payload.dccProjectCodeId, {
+    const currentStatus = statusMap.get(resolveDccProjectId(payload.dccProjectCodeId))
+    statusMap.set(resolveDccProjectId(payload.dccProjectCodeId), {
       dccProjectCodeId: payload.dccProjectCodeId,
       configured: true,
       regulationCount: currentStatus?.regulationCount || 1,
@@ -4771,22 +4784,7 @@ const runQaPublishPrecheck = async () => {
   }
   let payload: ProductQaRegulationSaveReqVO
   try {
-    if (
-      commonRegulationBindingLoading.value ||
-      commonRegulationBindingLoadError.value ||
-      commonRegulationVersionOptionsLoading.value ||
-      commonRegulationVersionOptionsLoadError.value
-    ) {
-      throw new Error(
-        commonRegulationBindingLoadError.value ||
-          commonRegulationVersionOptionsLoadError.value ||
-          '关联规程正在加载，请稍后发布'
-      )
-    }
     payload = buildQaRegulationSavePayload()
-    payload.commonRegulationVersionIds = commonRegulationBindingRows.value.map((row) =>
-      resolvePositiveId(row.commonRegulationVersionId, '通用规程版本 ID，请选择规程或删除空白行')
-    )
   } catch (error) {
     ElMessage.warning(resolveDccProjectCodeErrorMessage(error))
     return
@@ -4799,10 +4797,10 @@ const runQaPublishPrecheck = async () => {
     applyQaRegulationConfiguration(publishedVersion)
     qaCurrentPublishedVersion.value = publishedVersion
     const statusMap = new Map(qaRegulationProjectStatusByDccId.value)
-    statusMap.set(payload.dccProjectCodeId, {
+    statusMap.set(resolveDccProjectId(payload.dccProjectCodeId), {
       dccProjectCodeId: payload.dccProjectCodeId,
       configured: true,
-      regulationCount: statusMap.get(payload.dccProjectCodeId)?.regulationCount || 1,
+      regulationCount: statusMap.get(resolveDccProjectId(payload.dccProjectCodeId))?.regulationCount || 1,
       regulationId: publishedVersion.regulationId,
       currentVersionId: publishedVersion.publishedVersionId,
       regulationCode: publishedVersion.regulationCode,

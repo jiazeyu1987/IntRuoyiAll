@@ -88,7 +88,7 @@ class MesProRouteVersionWorkflowServiceTest {
             service.migrateProductionConfig(request);
         }
         ArgumentCaptor<java.util.Map<String, Object>> configs = ArgumentCaptor.forClass(java.util.Map.class);
-        verify(candidateConfigService).saveConfigSnapshots(eq(candidate.getId()), eq("draft-sha"), configs.capture());
+        verify(candidateConfigService).migrateProductionConfigSnapshots(eq(candidate.getId()), eq("draft-sha"), configs.capture());
         assertEquals(java.util.Set.of("productionProcessConfigSchemaVersion", "productionProcessConfigs"),
                 configs.getValue().keySet());
         var process = ((JSONArray) configs.getValue().get("productionProcessConfigs")).getJSONObject(0);
@@ -115,7 +115,7 @@ class MesProRouteVersionWorkflowServiceTest {
                 assertThrows(ServiceException.class, () -> service.migrateProductionConfig(request));
             }
         }
-        verify(candidateConfigService, never()).saveConfigSnapshots(any(), any(), any());
+        verify(candidateConfigService, never()).migrateProductionConfigSnapshots(any(), any(), any());
     }
 
     @Test
@@ -132,7 +132,7 @@ class MesProRouteVersionWorkflowServiceTest {
                     () -> service.migrateProductionConfig(migrationRequest(candidate)));
             assertTrue(error.getMessage().contains("未配置超量比例"));
         }
-        verify(candidateConfigService, never()).saveConfigSnapshots(any(), any(), any());
+        verify(candidateConfigService, never()).migrateProductionConfigSnapshots(any(), any(), any());
     }
 
     private MesProRouteProductionConfigMigrateReqVO migrationRequest(MesProRouteVersionDO candidate) {
@@ -307,6 +307,31 @@ class MesProRouteVersionWorkflowServiceTest {
         verify(routeService).buildCurrentRouteSnapshotJson(9001L, 1001L);
         assertEquals("V2", candidate.getVersionNo());
         assertNull(candidate.getLastSavedBy(), "新建草稿不得继承来源版本保存人");
+    }
+
+    @Test
+    void createCandidate_preservesExplicitUnboundSopWhenRemovingSharedChangeMarker() {
+        MesProRouteVersionDO active = activeVersion();
+        JSONObject root = JSON.parseObject(validSnapshotJson(9001L, "RT-9001", "工艺路线 V1"));
+        JSONObject configs = root.getJSONObject("configSnapshots");
+        configs.put("craftChangeId", 71L);
+        configs.getJSONObject("flowGraph").getJSONArray("nodes").getJSONObject(0).put("sopFileUrl", null);
+        when(routeVersionMapper.selectActiveByRouteIdForUpdate(9001L)).thenReturn(active);
+        when(routeVersionMapper.selectMaxVersionNoByRouteId(9001L)).thenReturn("V1");
+        when(routeService.buildCurrentRouteSnapshotJson(9001L, 1001L))
+                .thenReturn(MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(root));
+        var request = new MesProRouteVersionCreateReqVO();
+        request.setRouteId(9001L);
+        request.setSourceRouteVersionId(1001L);
+        request.setChangeReason("SOP冻结回归");
+
+        MesProRouteVersionDO candidate = service.createCandidate(request);
+
+        JSONObject savedConfigs = JSON.parseObject(candidate.getRouteSnapshotJson()).getJSONObject("configSnapshots");
+        assertFalse(savedConfigs.containsKey("craftChangeId"));
+        JSONObject node = savedConfigs.getJSONObject("flowGraph").getJSONArray("nodes").getJSONObject(0);
+        assertTrue(node.containsKey("sopFileUrl"));
+        assertNull(node.get("sopFileUrl"));
     }
 
     @Test

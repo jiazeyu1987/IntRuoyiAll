@@ -11,16 +11,16 @@ function office(onEvent) {
   const descriptor = parse(source).descriptor
   const props = vue.reactive({ baseUrl: 'https://office.example.test', documentUrl: 'https://doc.example.test/exact-1.docx?ticket=a', documentTitle: '正式.docx' })
   const configs = [], emitted = [], lifecycle = {}, destroyed = []
-  const host = { exports: {}, ...vue, Error, props, window: {
+  const host = { exports: {}, ...vue, Error, URL, clearTimeout, setTimeout: (callback, delay) => setTimeout(callback, delay).unref(), props, window: {
     __dccOnlyOfficeScriptBaseUrl: props.baseUrl,
     DocsAPI: { DocEditor: class { constructor(id, config) { configs.push(config); this.id = configs.length } destroyEditor() { destroyed.push(this.id) } } },
-    addEventListener() {}, removeEventListener() {}
+    location: { origin: 'https://app.example.test' }, addEventListener() {}, removeEventListener() {}
   }, document: { createElement() { throw new Error('unexpected script load') } },
     defineProps: () => props, defineEmits: () => (...args) => { emitted.push(args); onEvent?.(...args) },
     watch() {}, onMounted() {}, onBeforeUnmount: callback => { lifecycle.unmount = callback }
   }
   const names=['mountEditor','increaseZoom','previewZoomValue','handleWheelZoom','isPointerInsideStage','isZoomModifierPressed','errorMessage','previewRotationDegrees','rotatePreview','resetView','scalerStyle','viewportStyle','mountRef','stageRef']
-  vm.runInNewContext(ts.transpileModule(descriptor.scriptSetup.content + '\nexports.api={'+names.map(name=>`${name}:typeof ${name} === "undefined" ? undefined : ${name}`).join(',')+'}', {
+  vm.runInNewContext(ts.transpileModule(descriptor.scriptSetup.content.replace(/import\.meta\.env\.BASE_URL/g, JSON.stringify('/')) + '\nexports.api={'+names.map(name=>`${name}:typeof ${name} === "undefined" ? undefined : ${name}`).join(',')+'}', {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
   }).outputText, host)
   return { api: host.exports.api, props, configs, emitted, lifecycle, destroyed, descriptor }
@@ -218,7 +218,7 @@ test('upload Office preview fits page width without relaxing controlled permissi
   await r.api.mountEditor()
   const config = r.configs[0]
   assert.equal(config.editorConfig.customization.zoom, -2)
-  assert.equal(config.type, 'embedded')
+  assert.equal(config.type, 'desktop', 'Word navigation requires the native desktop plugin host')
   assert.equal(config.document.title, '受控预览')
   assert.equal(config.height, '100%')
   for (const name of ['edit', 'comment', 'review', 'download', 'print', 'copy']) {

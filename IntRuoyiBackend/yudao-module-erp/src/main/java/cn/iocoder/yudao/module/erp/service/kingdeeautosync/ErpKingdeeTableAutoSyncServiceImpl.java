@@ -7,6 +7,7 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.quartz.core.handler.JobHandler;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.framework.tenant.core.job.TenantJobParam;
 import cn.iocoder.yudao.module.erp.controller.admin.kingdeeautosync.vo.ErpKingdeeTableAutoSyncPlanItemRespVO;
 import cn.iocoder.yudao.module.erp.controller.admin.kingdeeautosync.vo.ErpKingdeeTableAutoSyncPlanItemSaveReqVO;
 import cn.iocoder.yudao.module.erp.controller.admin.kingdeeautosync.vo.ErpKingdeeTableAutoSyncPlanRespVO;
@@ -308,7 +309,8 @@ public class ErpKingdeeTableAutoSyncServiceImpl implements ErpKingdeeTableAutoSy
             for (ErpKingdeeTableAutoSyncPlanItemDO item : enabledItems) {
                 ErpKingdeeTableAutoSyncTypeEnum type = validateSyncType(item.getSyncType());
                 JobHandler handler = resolveJobHandler(type);
-                String message = handler.execute("");
+                String message = handler.execute(TenantJobParam.forTenant(
+                        TenantContextHolder.getRequiredTenantId(), ""));
                 runItems.add(new ErpKingdeeTableAutoSyncRunItemRespVO()
                         .setSyncType(type.getSyncType())
                         .setLabel(type.getLabel())
@@ -376,7 +378,7 @@ public class ErpKingdeeTableAutoSyncServiceImpl implements ErpKingdeeTableAutoSy
     }
 
     private static String buildBusinessCron(LocalTime time) {
-        return "0 " + time.getMinute() + " " + time.getHour() + " * * ?";
+        return time.getSecond() + " " + time.getMinute() + " " + time.getHour() + " * * ?";
     }
 
     private static String rootMessage(Throwable throwable) {

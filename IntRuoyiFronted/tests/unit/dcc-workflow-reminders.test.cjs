@@ -18,7 +18,7 @@ function mountList(load) {
   const component = moduleFrom(compileScript(descriptor, { id: 'reminders' }).content, id => {
     if (id === 'vue') return vue
     if (id === './workflow-actions') return actions
-    throw new Error('Unexpected dependency: ' + id)
+    if (id === '@/utils/formatTime') return require('../helpers/load-source-module.cjs')('src/utils/formatTime.ts', { dayjs: require('dayjs') }); throw new Error('Unexpected dependency: ' + id)
   }).default
   component.render = () => vue.h('section')
   const props = vue.reactive({ contextKey: 'tenant-1-user-99', canHandle: true, load }); const opened = []
@@ -30,7 +30,7 @@ function mountList(load) {
   const root = app.mount({ children: [] }); return { props, app, opened, state: root.$.subTree.component.setupState }
 }
 const row = (id, date, stage) => ({ id, effectiveDate: date, distributionReminderStage: stage, fileNumber: 'SOP-' + id,
-  title: '受控文件', versionNo: 'B/1', controlledTime: '2026-10-01 08:00', status: 'CONTROLLED_PENDING_EFFECTIVE' })
+  title: '受控文件', versionNo: 'B/1', controlledTime: '2026-10-01 08:00', status: 'ACTIVE', activatedTime: '2026-10-01 09:00', effectiveMode: 'PRESET_DATE' })
 const flush = async () => { await Promise.resolve(); await vue.nextTick(); await Promise.resolve() }
 function deferred() { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no }); return { promise, resolve, reject } }
 test('server-ordered reminders preserve server classifications and exclude distributed items', async () => {
@@ -38,19 +38,19 @@ test('server-ordered reminders preserve server classifications and exclude distr
     { ...row('3', '2026-10-11', 'FUTURE'), distributedTime: '2026-10-01 09:00' }])
   try {
     await flush(); assert.equal(panel.state.rows.length, 2)
-    assert.equal(panel.state.reminderLabel(panel.state.rows[0].distributionReminderStage), '逾期未下发')
+    assert.equal(panel.state.rows[0].distributionReminderStage, 'OVERDUE')
     panel.state.openFile(panel.state.rows[1]); assert.equal(panel.opened[0].id, '2')
   } finally { panel.app.unmount() }
 })
-test('missing server reminder stage is an explicit visible error rather than using browser time', async () => {
-  const file = row('1', '2026-10-10', undefined)
+test('an unknown server effectiveness mode is an explicit visible error', async () => {
+  const file = { ...row('1', '2026-10-10', 'DUE'), effectiveMode: 'UNKNOWN' }
   const panel = mountList(async () => [file])
-  try { await flush(); assert.equal(panel.state.rows.length, 0); assert.match(panel.state.error, /证据不完整/) }
+  try { await flush(); assert.equal(panel.state.rows.length, 0); assert.match(panel.state.error, /事实不完整/) }
   finally { panel.app.unmount() }
 })
-test('out-of-order or duplicate formal file identities are rejected and not silently reordered', async () => {
-  const panel = mountList(async () => [row('2', '2026-10-11', 'FUTURE'), row('1', '2026-10-01', 'OVERDUE')])
-  try { await flush(); assert.equal(panel.state.rows.length, 0); assert.match(panel.state.error, /未按生效日期排序/) }
+test('duplicate formal active version identities are rejected', async () => {
+  const panel = mountList(async () => [row('2', '2026-10-11', 'FUTURE'), row('2', '2026-10-01', 'OVERDUE')])
+  try { await flush(); assert.equal(panel.state.rows.length, 0); assert.match(panel.state.error, /版本身份重复/) }
   finally { panel.app.unmount() }
 })
 test('old tenant response never overwrites the current tenant reminder list', async () => {

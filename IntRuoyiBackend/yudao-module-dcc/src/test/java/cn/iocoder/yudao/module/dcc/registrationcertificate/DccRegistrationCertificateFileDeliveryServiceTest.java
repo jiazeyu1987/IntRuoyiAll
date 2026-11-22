@@ -172,6 +172,8 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
         assertEquals(1L, consumptionMapper.countSuccess(1L, fixture.grantId(), fixture.businessFileId()));
         assertNotNull(accessAuditMapper.selectByEventKey(1L, "attempt-success-1:DOWNLOAD:SUCCESS"));
         assertNotNull(accessAuditMapper.selectByEventKey(1L, "attempt-success-2:DOWNLOAD:FAILURE"));
+        assertEquals(fixture.grantId(), accessAuditMapper.selectByEventKey(1L, "attempt-success-2:DOWNLOAD:FAILURE").getGrantId());
+        assertEquals(grantMapper.selectById(fixture.grantId()).getRequestId(), accessAuditMapper.selectByEventKey(1L, "attempt-success-2:DOWNLOAD:FAILURE").getRequestId());
         verify(fileService, times(1)).getFileContent(fixture.infraConfigId(), fixture.infraPath());
     }
 
@@ -495,8 +497,10 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
         when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture,"certificate.pdf"));
         when(projectCodeService.getProjectCode(40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE,20L));
         when(fileService.getFileContent(fixture.infraConfigId(),fixture.infraPath())).thenReturn("CERT-BYTES".getBytes(StandardCharsets.UTF_8));
+        var updated=snapshotMapper.selectById(fixture.snapshotId());updated.setId(null);updated.setRevisionNo(2);
+        revision.setCertificateNo("CE002-CHG01");updated.setFactsJson(facts.toJson());snapshotMapper.insert(updated);
         var result=deliveryService.download(1L,99L,fixture.businessFileId(),"ce-dates",context("REQ-CE-DATES"));
-        assertEquals("ProductA_CODE-CE_20260304_CE002.pdf",result.fileName());
+        assertEquals("ProductA_CODE-CE_20260304_CE002-CHG01.pdf",result.fileName());
     }
 
     @Test

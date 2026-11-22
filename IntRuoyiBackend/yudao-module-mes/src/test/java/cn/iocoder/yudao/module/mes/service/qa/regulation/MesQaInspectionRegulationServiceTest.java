@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommon
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetVersionSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaCommonRegulationSetDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaCommonRegulationProductBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaCommonRegulationSetVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaCommonRegulationSetVersionMemberDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
@@ -1460,16 +1461,68 @@ class MesQaInspectionRegulationServiceTest {
     @Test
     void draftSaveDoesNotCommitAssociationEdits() {
         prepareAssociationPublication();
+        prepareCommonAssociation(900L, 899L);
+        prepareCommonAssociation(902L, 901L);
         var request = validRequest();
-        request.setCommonRegulationVersionIds(List.of(900L));
+        request.setCommonRegulationVersionIds(List.of(902L, 900L));
 
         service.saveDraft(request);
 
         var version = ArgumentCaptor.forClass(MesQaInspectionRegulationVersionDO.class);
         verify(versionMapper).insert(version.capture());
-        assertNull(com.alibaba.fastjson.JSON.parseObject(version.getValue().getSnapshotJson())
-                .get("commonRegulationVersionIds"));
-        verifyNoInteractions(commonRegulationProductBindingMapper, commonRegulationSetMapper);
+        assertEquals(List.of(902L, 900L), com.alibaba.fastjson.JSON.parseObject(version.getValue().getSnapshotJson())
+                .getJSONArray("commonRegulationVersionIds").toJavaList(Long.class));
+        verify(commonRegulationProductBindingMapper, never()).insert(any(MesQaCommonRegulationProductBindingDO.class));
+        verify(commonRegulationProductBindingMapper, never()).updateEnabledStatusByProjectId(any(), any());
+        verifyNoInteractions(commonRegulationSetMapper, activeOrderMapper, pqcInspectionTaskMapper);
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(versionMapper.selectById(VERSION_ID)).thenReturn(version.getValue());
+        assertEquals(List.of(902L, 900L), service.getPublishedVersion(DCC_PROJECT_ID, VERSION_ID)
+                .getCommonRegulationVersions().stream().map(v -> v.getCommonRegulationVersionId()).toList());
+    }
+
+    private void prepareCommonAssociation(long versionId, long regulationId) {
+        var version = publishedVersion().setId(versionId).setRegulationId(regulationId);
+        lenient().when(versionMapper.selectById(versionId)).thenReturn(version);
+        lenient().when(versionMapper.selectByIdForUpdate(versionId)).thenReturn(version);
+        when(regulationMapper.selectById(regulationId)).thenReturn(publishedRegulation().setId(regulationId)
+                .setOwnerModule("MES_QA_COMMON").setCurrentVersionId(versionId));
+    }
+
+    @Test
+    void draftOmittedAssociationsRetainSnapshotWhileExplicitEmptyClearsIt() {
+        prepareAssociationPublication();
+        prepareCommonAssociation(900L, 899L);
+        var draft = publishedVersion().setVersionNo("G/1").setLifecycleStatus("DRAFT").setDraftRevision(0L)
+                .setSnapshotJson("{\"commonRegulationVersionIds\":[900]}");
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID, "MES_QA"))
+                .thenReturn(publishedRegulation());
+        when(versionMapper.selectByRegulationIdAndVersionNoForUpdate(REGULATION_ID, "G/1")).thenReturn(draft);
+        when(versionMapper.update(any(), any())).thenReturn(1);
+        service.saveDraft(validRequest());
+        assertEquals(List.of(900L), com.alibaba.fastjson.JSON.parseObject(draft.getSnapshotJson())
+                .getJSONArray("commonRegulationVersionIds").toJavaList(Long.class));
+        var clear = validRequest();
+        clear.setExpectedDraftRevision(1L);
+        clear.setCommonRegulationVersionIds(List.of());
+        service.saveDraft(clear);
+        assertEquals(List.of(), com.alibaba.fastjson.JSON.parseObject(draft.getSnapshotJson())
+                .getJSONArray("commonRegulationVersionIds").toJavaList(Long.class));
+        verify(commonRegulationProductBindingMapper, never()).updateEnabledStatusByProjectId(any(), any());
+    }
+
+    @Test
+    void draftRejectsDuplicateAssociationsAndUnpublishedVersions() {
+        prepareAssociationPublication();
+        prepareCommonAssociation(900L, 899L);
+        var request = validRequest();
+        request.setCommonRegulationVersionIds(List.of(900L, 900L));
+        assertThrows(ServiceException.class, () -> service.saveDraft(request));
+        when(versionMapper.selectByIdForUpdate(900L)).thenReturn(publishedVersion().setId(900L)
+                .setRegulationId(899L).setLifecycleStatus("DRAFT"));
+        request.setCommonRegulationVersionIds(List.of(900L));
+        assertThrows(ServiceException.class, () -> service.saveDraft(request));
+        verify(versionMapper, never()).insert(any(MesQaInspectionRegulationVersionDO.class));
     }
 
     @Test
@@ -1492,6 +1545,7 @@ class MesQaInspectionRegulationServiceTest {
     void publishAssociationsAreReturnedAndReloadedFromVersionSnapshot() {
         prepareAssociationPublication();
         when(versionMapper.selectById(902L)).thenReturn(publishedVersion().setId(902L).setRegulationId(901L));
+        when(versionMapper.selectByIdForUpdate(902L)).thenReturn(publishedVersion().setId(902L).setRegulationId(901L));
         when(regulationMapper.selectById(901L)).thenReturn(publishedRegulation().setId(901L)
                 .setOwnerModule("MES_QA_COMMON").setCurrentVersionId(902L));
         var editor = org.mockito.Mockito.spy(service);
@@ -1541,15 +1595,15 @@ class MesQaInspectionRegulationServiceTest {
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
         when(regulationMapper.selectByDccProjectCodeId(
                 DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)).thenReturn(null);
-        doAnswer(invocation -> {
+        lenient().doAnswer(invocation -> {
             invocation.<MesQaInspectionRegulationDO>getArgument(0).setId(REGULATION_ID);
             return 1;
         }).when(regulationMapper).insert(any(MesQaInspectionRegulationDO.class));
-        doAnswer(invocation -> {
+        lenient().doAnswer(invocation -> {
             invocation.<MesQaInspectionRegulationVersionDO>getArgument(0).setId(VERSION_ID);
             return 1;
         }).when(versionMapper).insert(any(MesQaInspectionRegulationVersionDO.class));
-        doAnswer(invocation -> {
+        lenient().doAnswer(invocation -> {
             invocation.<MesQaInspectionRegulationProcessDO>getArgument(0).setId(QA_PROCESS_ID);
             return 1;
         }).when(processMapper).insert(any(MesQaInspectionRegulationProcessDO.class));

@@ -634,7 +634,7 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
     private Map<String, Object> buildCandidateFlowNodeSnapshot(MesProRouteProcessDO routeProcess, JSONObject previous) {
         Map<String, Object> node = new LinkedHashMap<>();
         if (previous != null && Objects.equals(previous.getLong("processId"), routeProcess.getProcessId())) {
-            for (String field : List.of("processCode", "processName")) {
+            for (String field : List.of("processCode", "processName", "sopFileUrl", "attention")) {
                 if (previous.containsKey(field)) node.put(field, previous.get(field));
             }
             if (Objects.equals(previous.getLong("routeProcessWorkstationId"), routeProcess.getWorkstationId())) {
@@ -647,6 +647,8 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
             if (process == null) throw exception(PRO_PROCESS_NOT_EXISTS);
             node.put("processCode", process.getCode());
             node.put("processName", process.getName());
+            node.put("sopFileUrl", process.getSopFileUrl());
+            node.put("attention", process.getAttention());
         }
         node.put("routeProcessId", routeProcess.getId());
         node.put("processId", routeProcess.getProcessId());
@@ -1351,6 +1353,7 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
                     node.setProcessId(routeProcess.getProcessId());
                     node.setProcessCode(process.getCode());
                     node.setProcessName(process.getName());
+                    node.setSopFileUrl(process.getSopFileUrl());
                     node.setRouteProcessWorkstationId(routeProcess.getWorkstationId());
                     applyWorkstation(node, routeProcess,
                             workstationListMap.get(routeProcess.getProcessId()), workstationById);

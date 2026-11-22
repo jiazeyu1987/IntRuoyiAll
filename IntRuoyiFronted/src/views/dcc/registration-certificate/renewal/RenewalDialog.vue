@@ -9,7 +9,7 @@
     @closed="handleClosed"
   >
     <el-descriptions v-if="certificate" :column="2" border class="mb-16px">
-      <el-descriptions-item label="证件编号">{{ certificate.certificateNo }}</el-descriptions-item>
+      <el-descriptions-item label="证件编号">{{ currentCertificateNo }}</el-descriptions-item>
       <el-descriptions-item label="产品">{{ certificate.productName }}</el-descriptions-item>
       <el-descriptions-item label="当前生效日">{{ formatRegistrationCertificateDate(certificate.effectiveDate) }}</el-descriptions-item>
       <el-descriptions-item label="当前有效期">{{ formatRegistrationCertificateDate(certificate.expiryDate) }}</el-descriptions-item>
@@ -38,7 +38,7 @@
           </el-form-item>
         </el-col>
         <el-col v-if="!isCeRenewal" :span="12" :xs="24">
-          <el-form-item label="生效日期" prop="effectiveDate">
+          <el-form-item label="生效日期" prop="effectiveDate" class="is-required">
             <el-date-picker
               v-model="form.effectiveDate"
               clearable
@@ -77,12 +77,12 @@
         </el-col>
         <template v-if="isCeRenewal || form.categoryChanged">
           <el-col :span="12" :xs="24">
-            <el-form-item label="注册证号" prop="certificateNo">
+            <el-form-item label="注册证号" prop="certificateNo" required>
               <el-input
                 v-model="form.certificateNo"
                 clearable
                 maxlength="128"
-                placeholder="请输入变更后的注册证号"
+                placeholder="请输入延续后的注册证号"
               />
             </el-form-item>
           </el-col>
@@ -105,7 +105,7 @@
           </el-col>
         </template>
         <el-col :span="24" :xs="24">
-          <el-form-item label="延续注册证文件">
+          <el-form-item label="延续注册证文件" required>
             <el-upload
               v-model:file-list="fileList"
               action="#"
@@ -124,6 +124,7 @@
         </el-col>
       </el-row>
     </el-form>
+    <el-alert v-if="submitError" :title="submitError" type="error" show-icon :closable="false" />
 
     <template #footer>
       <el-button :disabled="saving" @click="dialogVisible = false">取消</el-button>
@@ -139,7 +140,7 @@ import {
 } from '@/api/dcc/registrationCertificate'
 import { generateUUID } from '@/utils'
 import { parseFacts } from '../shared/facts'
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import type { FormInstance, FormRules, UploadFile, UploadFiles, UploadUserFile } from 'element-plus'
 import {
   formatRegistrationCertificateDate,
@@ -161,6 +162,7 @@ const emit = defineEmits<{
 const message = useMessage()
 const formRef = ref<FormInstance>()
 const saving = ref(false)
+const submitError = ref('')
 const fileList = ref<UploadUserFile[]>([])
 const selectedFile = ref<File | null>(null)
 const REGISTRATION_CERTIFICATE_RENEWAL_CLASSIFICATION_OPTIONS = ['三类', '二类', '一类'] as const
@@ -178,6 +180,16 @@ const form = reactive({
 
 const certificate = computed(() => props.certificate)
 const isCeRenewal = computed(() => certificate.value ? parseFacts(certificate.value.factsJson).certificateType === 'CE' : false)
+const currentCertificateNo = computed(() => {
+  if (!certificate.value) return ''
+  const facts = parseFacts(certificate.value.factsJson)
+  return facts.certificateType === 'CE'
+    ? facts.ceCertificates?.at(-1)?.certificateNo ?? ''
+    : certificate.value.certificateNo
+})
+watch(() => [props.modelValue, props.certificate], () => {
+  if (props.modelValue && isCeRenewal.value) form.certificateNo = currentCertificateNo.value
+}, { immediate: true })
 
 const dialogVisible = computed({
   get: () => props.modelValue,
@@ -242,7 +254,7 @@ const rules = reactive<FormRules>({
     { validator: validateRenewalApprovalDate, trigger: 'change' }
   ],
   effectiveDate: [
-    { validator: (_rule, value, callback) => callback(!isCeRenewal.value && !value ? new Error('请选择生效日期') : undefined), trigger: 'change' },
+    { validator: (_rule, value, callback) => callback(!isCeRenewal.value && !value ? new Error('请选择生效日期') : undefined), trigger: ['blur', 'change'] },
     { validator: validateRenewalDateOrder, trigger: 'change' }
   ],
   expiryDate: [
@@ -254,7 +266,7 @@ const rules = reactive<FormRules>({
     {
       validator: (_rule, value: string, callback) => {
         if ((isCeRenewal.value || form.categoryChanged) && !value?.trim()) {
-          callback(new Error('请输入变更后的注册证号'))
+          callback(new Error('请输入延续后的注册证号'))
           return
         }
         callback()
@@ -277,6 +289,7 @@ const rules = reactive<FormRules>({
 })
 
 const resetForm = () => {
+  submitError.value = ''
   form.approvalDate = ''
   form.effectiveDate = ''
   form.expiryDate = ''
@@ -311,6 +324,7 @@ const handleCategoryChanged = () => {
 }
 
 const submit = async () => {
+  submitError.value = ''
   if (!formRef.value) return
   const valid = await formRef.value.validate(() => undefined)
   if (!valid) return
@@ -355,8 +369,8 @@ const submit = async () => {
     dialogVisible.value = false
     emit('saved')
   } catch (error) {
-    message.error(resolveRegistrationCertificateUserMessage(error, '提交延续申请失败'))
-    throw error
+    submitError.value = resolveRegistrationCertificateUserMessage(error, '提交延续申请失败')
+    message.error(submitError.value)
   } finally {
     saving.value = false
   }

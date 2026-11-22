@@ -100,7 +100,7 @@ class MesProRouteProcessControllerTest {
         when(routeProcessFlowEdgeMapper.selectListByRouteId(routeId)).thenReturn(List.of());
 
         ServiceException ex = assertThrows(ServiceException.class,
-                () -> controller.getRouteProcessListByRoute(routeId, null));
+                () -> controller.getRouteProcessListByRoute(routeId, null, null));
 
         assertEquals(ErrorCodeConstants.PRO_ROUTE_SCHEDULE_HOURLY_CAPACITY_REQUIRED.getCode(), ex.getCode());
     }

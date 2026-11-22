@@ -364,6 +364,9 @@ public class DccRegistrationCertificateRenewalService {
                 REGISTRATION_CERTIFICATE_FILE_NOT_STAGED);
         projectCodeFileAssociationService.bindVersionRegistrationFile(
                 command.tenantId(), renewalVersion.getId(), file.getId(), command.actorId());
+        if (ceRenewal) {
+            inheritCeAttachments(command, currentVersion.getId(), renewalVersion.getId());
+        }
 
         registerPlatformCandidate(command, certificate, currentVersion, renewalVersion);
         insertLifecycleEvent(command.tenantId(), certificate.getOwnerCompanyId(), certificate.getId(),
@@ -613,6 +616,44 @@ public class DccRegistrationCertificateRenewalService {
         facts.setExpiryDate(expiry);
         if (!"CE".equals(facts.getCertificateType())) facts.setCertificateStatus("VALID");
         return facts.toJson();
+    }
+
+    private void inheritCeAttachments(DccRegistrationCertificateRenewalCommand command, Long sourceVersionId,
+                                     Long targetVersionId) {
+        var attachments = fileMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<DccRegistrationCertificateFileDO>()
+                .eq(DccRegistrationCertificateFileDO::getTenantId, command.tenantId())
+                .eq(DccRegistrationCertificateFileDO::getOwnerType, FILE_OWNER_VERSION)
+                .eq(DccRegistrationCertificateFileDO::getOwnerId, sourceVersionId)
+                .eq(DccRegistrationCertificateFileDO::getFileKind, "CERTIFICATE_ATTACHMENT")
+                .eq(DccRegistrationCertificateFileDO::getStatus, FILE_STATUS_BOUND));
+        for (var attachment : attachments) {
+            var source = fileService.getFile(attachment.getInfraFileId());
+            if (source == null) throw new IllegalStateException("CE延续附页原文件不存在");
+            byte[] content;
+            try {
+                content = fileService.getFileContent(source.getConfigId(), source.getPath());
+            } catch (Exception ex) {
+                throw new IllegalStateException("CE延续附页原文件读取失败", ex);
+            }
+            if (content == null || !Objects.equals((long) content.length, attachment.getFileSize())
+                    || !Objects.equals(cn.hutool.crypto.digest.DigestUtil.sha256Hex(content), attachment.getSha256())) {
+                throw new IllegalStateException("CE延续附页原文件完整性校验失败");
+            }
+            // Bound infrastructure files are unique: preserve the old binding and create this version's own copy.
+            Long infraId = fileService.createFileAndReturnId(content, attachment.getOriginalName(),
+                    "dcc/registration-certificate/renewal/" + targetVersionId, attachment.getMimeType());
+            var inherited = DccRegistrationCertificateFileDO.builder()
+                    .ownerType(FILE_OWNER_VERSION).ownerId(targetVersionId).fileKind("CERTIFICATE_ATTACHMENT")
+                    .infraFileId(infraId).originalName(attachment.getOriginalName()).mimeType(attachment.getMimeType())
+                    .fileSize(attachment.getFileSize()).sha256(attachment.getSha256()).status(FILE_STATUS_BOUND)
+                    .boundAt(businessClock.now()).boundBy(command.actorId())
+                    .dccProjectCodeId(attachment.getDccProjectCodeId()).fileTypeTaxonomyId(attachment.getFileTypeTaxonomyId())
+                    .fileTypeLevel1(attachment.getFileTypeLevel1()).fileTypeLevel2(attachment.getFileTypeLevel2())
+                    .fileTypeLevel3(attachment.getFileTypeLevel3()).fileTypeLevel4(attachment.getFileTypeLevel4())
+                    .fileTypeLevel5(attachment.getFileTypeLevel5()).build();
+            inherited.setTenantId(command.tenantId());
+            requireSingle(fileMapper.insert(inherited), REGISTRATION_CERTIFICATE_RENEWAL_BASE_CONFLICT);
+        }
     }
 
     private DccRegistrationCertificateSnapshotDO copySnapshot(DccRegistrationCertificateSnapshotDO source,

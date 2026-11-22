@@ -72,6 +72,20 @@ class DccRegistrationCertificateApprovalPreviewServiceTest {
     @AfterEach void clear(){TenantContextHolder.clear();}
     private cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePreviewMetadataRespVO metadata(){return service.getPreviewMetadata(1L,99L,501L,"exact-bpm",901L,audit);}
     private DccControlledFileBinary read(cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePreviewMetadataRespVO metadata){return service.readPreview(1L,99L,501L,"exact-bpm",901L,metadata.getViewerToken(),metadata.getAccessEventCode(),metadata.getWatermarkTraceCode(),metadata.getViewerTokenId(),metadata.getViewerTokenNonce(),audit);}
+    @Test void downloadApprovalCanReadOnlyItsFrozenAppliedChangeFile() {
+        var request=approvals.requireApprovalDetailRequest(1L,99L,501L,"exact-bpm");
+        request.setRequestType("DOWNLOAD_FILE");
+        business.setOwnerType("CHANGE");business.setOwnerId(77L);business.setFileKind("CHANGE_APPROVAL");
+        var link=DccRegistrationCertificateAccessRequestFileDO.builder().id(801L).requestId(501L).businessFileId(901L).fileKind("CHANGE_APPROVAL").status("REQUESTED").build();link.setTenantId(1L);
+        when(links.selectByRequestId(1L,501L)).thenReturn(List.of(link));
+        var jdbc=mock(org.springframework.jdbc.core.JdbcTemplate.class);wire(service,"jdbcTemplate",jdbc);
+        when(jdbc.queryForObject(anyString(),eq(Integer.class),eq(1L),eq(77L),eq(601L))).thenReturn(1);
+        assertNotNull(metadata());
+        when(jdbc.queryForObject(anyString(),eq(Integer.class),eq(1L),eq(77L),eq(601L))).thenReturn(0);
+        assertThrows(ServiceException.class,()->metadata());
+        when(links.selectByRequestId(1L,501L)).thenReturn(List.of());
+        assertThrows(ServiceException.class,()->metadata());
+    }
     @Test void stagedPdfUsesSourceBoundTokenAndRechecksExactApplicationOnBinaryRead(){
         var metadata=metadata();assertEquals("PDF",metadata.getPreviewKind());assertNull(metadata.getOnlyofficeDocumentUrl());assertArrayEquals(bytes,read(metadata).bytes());
         verify(approvals,times(2)).requireApprovalDetailRequest(1L,99L,501L,"exact-bpm");assertEquals("exact-bpm",event.getProcessInstanceId());assertEquals(64,event.getFileVersionNo().length());

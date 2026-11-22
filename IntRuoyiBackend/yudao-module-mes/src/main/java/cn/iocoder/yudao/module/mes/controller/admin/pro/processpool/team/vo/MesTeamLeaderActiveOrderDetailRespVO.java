@@ -90,6 +90,8 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private List<Long> sourcePickListItemIds;
         private List<SourcePickListDocument> sourcePickListDocuments;
         private String sourceSnapshotHash;
+        @Schema(description = "冻结输入物料未匹配正式领料时的非阻断提示")
+        private String sourceMatchWarning;
     }
 
     @Data

@@ -95,6 +95,20 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
         saveConfigSnapshotsInternal(candidateRouteVersionId, expectedRouteSnapshotSha256, incomingConfigSnapshots);
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void migrateProductionConfigSnapshots(Long candidateRouteVersionId, String expectedRouteSnapshotSha256,
+                                                 Map<String, Object> configSnapshots) {
+        if (StrUtil.isBlank(expectedRouteSnapshotSha256)) {
+            throw exception(PRO_ROUTE_VERSION_CONFLICT, candidateRouteVersionId, null, null);
+        }
+        if (configSnapshots == null || !configSnapshots.keySet().equals(Set.of(
+                "productionProcessConfigSchemaVersion", "productionProcessConfigs"))) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidateRouteVersionId);
+        }
+        saveConfigSnapshotsInternal(candidateRouteVersionId, expectedRouteSnapshotSha256, configSnapshots, null, true);
+    }
+
     private void saveConfigSnapshotsInternal(Long candidateRouteVersionId, String expectedRouteSnapshotSha256,
                                              Map<String, Object> incomingConfigSnapshots) {
         saveConfigSnapshotsInternal(candidateRouteVersionId, expectedRouteSnapshotSha256, incomingConfigSnapshots, null);
@@ -102,6 +116,13 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
 
     private void saveConfigSnapshotsInternal(Long candidateRouteVersionId, String expectedRouteSnapshotSha256,
                                              Map<String, Object> incomingConfigSnapshots, String routeName) {
+        saveConfigSnapshotsInternal(candidateRouteVersionId, expectedRouteSnapshotSha256,
+                incomingConfigSnapshots, routeName, false);
+    }
+
+    private void saveConfigSnapshotsInternal(Long candidateRouteVersionId, String expectedRouteSnapshotSha256,
+                                             Map<String, Object> incomingConfigSnapshots, String routeName,
+                                             boolean migratingProductionConfig) {
         craftService.lockCatalog();
         MesProRouteVersionDO candidate = routeVersionMapper.selectById(candidateRouteVersionId);
         if (candidate == null) {
@@ -143,7 +164,12 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
             configSnapshots = new JSONObject(true);
             snapshot.put(SNAPSHOT_CONFIGS_KEY, configSnapshots);
         }
-        JSONObject previousConfigs = JSON.parseObject(configSnapshots.toJSONString());
+        JSONObject previousConfigs = JSON.parseObject(MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(configSnapshots));
+        if (migratingProductionConfig && (previousConfigs.containsKey("productionProcessConfigSchemaVersion")
+                || previousConfigs.containsKey("productionProcessConfigs"))) {
+            throw cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.invalid(
+                    "该版本已存在生产配置快照，不能重复迁移或覆盖已有配置");
+        }
         if (incomingConfigSnapshots.containsKey("craftChangeId")) {
             throw cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.invalid("工艺整批升级标识不可直接编辑");
         }
@@ -151,15 +177,18 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
             if (StrUtil.isBlank(entry.getKey()) || entry.getValue() == null) {
                 throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidate.getId());
             }
-            Object jsonSnapshot = JSON.parse(JSON.toJSONString(entry.getValue(),
-                    com.alibaba.fastjson.serializer.SerializerFeature.DisableCircularReferenceDetect));
+            Object jsonSnapshot = JSON.parse(MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(entry.getValue()));
             if (jsonSnapshot == null) {
                 throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidate.getId());
             }
             configSnapshots.put(entry.getKey(), jsonSnapshot);
         }
         MesRouteLossCoefficient.read(configSnapshots);
-        lossReasonService.validateBindings(previousConfigs, configSnapshots);
+        if (migratingProductionConfig) {
+            lossReasonService.validateLegacyBindings(candidate.getRouteId(), configSnapshots);
+        } else {
+            lossReasonService.validateBindings(previousConfigs, configSnapshots);
+        }
         craftService.validateBindingTransitions(previousConfigs, configSnapshots);
         craftService.validateBindings(configSnapshots);
         validateProductionProcessConfigs(candidate.getId(), configSnapshots);
@@ -175,7 +204,7 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
         update.setActive(Boolean.FALSE);
         update.setLifecycleStatus(candidate.getLifecycleStatus());
         update.setLastSavedBy(getLoginUserId());
-        MesProRouteVersionSnapshotIdentityWriter.apply(update, snapshot.toJSONString());
+        MesProRouteVersionSnapshotIdentityWriter.apply(update, MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(snapshot));
         LambdaUpdateWrapper<MesProRouteVersionDO> updateWrapper = new LambdaUpdateWrapper<MesProRouteVersionDO>()
                 .eq(MesProRouteVersionDO::getId, candidate.getId())
                 .eq(MesProRouteVersionDO::getLifecycleStatus,

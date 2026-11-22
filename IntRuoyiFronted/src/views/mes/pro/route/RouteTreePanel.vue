@@ -169,6 +169,7 @@
 </template>
 
 <script setup lang="ts">
+import { h } from 'vue'
 import RouteTreeProducts from './RouteTreeProducts.vue'
 import RouteTreeQuickConfig from './RouteTreeQuickConfig.vue'
 import { ElMessageBox, type TreeInstance } from 'element-plus'
@@ -508,8 +509,18 @@ const saveMove = () => run(async () => {
   if (!move.id) throw new Error('请选择要移动的目录或流程')
   const preview = await RouteTreeApi.movePreview(move.id, move.parentId)
   if (preview.different) await ElMessageBox.confirm(
-    '工序与目标目录不同。当前：' + preview.currentProcesses.join(' → ') + '；目标：' + preview.expectedProcesses.join(' → ') + '。确认保留差异并移动？',
-    '工序一致性确认', { type: 'warning', confirmButtonText: '保留差异并移动', cancelButtonText: '取消' })
+    h('div', { style: { maxHeight: '60vh', overflowY: 'auto', overflowWrap: 'anywhere', whiteSpace: 'normal' } }, [
+      h('p', '工序与目标目录不同，移动后配置保持原值。'),
+      ...([['当前工序', preview.currentProcesses], ['目标目录工序', preview.expectedProcesses]] as const).map(([label, names]) =>
+        h('div', [h('strong', label), h('ol', { style: { paddingLeft: '24px', margin: '8px 0 16px' } },
+          names.map(name => h('li', { style: { padding: '3px 0' } }, name)))])),
+      h('p', '确认保留差异并移动？')
+    ]),
+    '工序一致性确认', {
+      type: 'warning', customClass: 'route-tree-move-confirm',
+      customStyle: { width: '760px', maxWidth: 'calc(100vw - 32px)' },
+      confirmButtonText: '保留差异并移动', cancelButtonText: '取消'
+    })
   await RouteTreeApi.move({ id: move.id, parentId: move.parentId, fingerprint: preview.fingerprint, confirmDifference: preview.different })
   moveVisible.value = false; message.success('移动成功，流程配置保持原值')
 })
@@ -519,6 +530,7 @@ defineExpose({ load })
 </script>
 
 <style scoped>
+:global(.route-tree-move-confirm .el-message-box__message) { flex: 1; min-width: 0; }
 .route-tree { height: calc(100dvh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding) - 44px - 10px); margin-bottom: 0; }
 .route-tree :deep(.el-card__body) { display: flex; height: 100%; min-height: 0; box-sizing: border-box; flex-direction: column; }
 .route-tree__detail-header { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--el-border-color-lighter); }

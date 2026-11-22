@@ -143,7 +143,7 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
         JSONObject candidateRoot = JSON.parseObject(routeSnapshotJson);
         if (candidateRoot.getJSONObject("configSnapshots").containsKey("craftChangeId")) {
             candidateRoot.getJSONObject("configSnapshots").remove("craftChangeId");
-            routeSnapshotJson = candidateRoot.toJSONString();
+            routeSnapshotJson = MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(candidateRoot);
         }
         MesProRouteVersionSnapshotIdentityWriter.apply(candidate, routeSnapshotJson);
         routeVersionMapper.insert(candidate);
@@ -174,7 +174,7 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
         JSONObject migrated = JSON.parseObject(migrateLegacyProductionConfigs(
                 candidate, candidate.getRouteSnapshotJson(), reqVO.getMissingOveragePercent()))
                 .getJSONObject("configSnapshots");
-        candidateConfigService.saveConfigSnapshots(candidate.getId(), reqVO.getExpectedRouteSnapshotSha256(),
+        candidateConfigService.migrateProductionConfigSnapshots(candidate.getId(), reqVO.getExpectedRouteSnapshotSha256(),
                 Map.of("productionProcessConfigSchemaVersion", 1,
                         "productionProcessConfigs", migrated.getJSONArray("productionProcessConfigs")));
         MesProRouteVersionDO saved = getVersion(candidate.getId());
@@ -245,7 +245,7 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
         configSnapshots.put("productionProcessConfigSchemaVersion", 1);
         configSnapshots.put("productionProcessConfigs", migratedConfigs);
         MesProRouteCandidateConfigServiceImpl.validateProductionProcessConfigs(active.getId(), configSnapshots);
-        return snapshot.toJSONString();
+        return MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(snapshot);
     }
 
     private JSONObject toMigratedProductionConfig(Long routeVersionId, MesTeamLeaderProcessConfigRow row,

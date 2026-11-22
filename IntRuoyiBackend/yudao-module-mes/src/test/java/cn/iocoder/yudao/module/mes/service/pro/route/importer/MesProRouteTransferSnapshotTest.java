@@ -17,7 +17,7 @@ class MesProRouteTransferSnapshotTest {
         Map<String,Long> ids = new HashMap<>();
         rows.forEach((key,row)->ids.put(key,row.getLong("id")+100));
         var snapshot = JSON.parseObject(MesProRouteResourceImportService.rewriteJson(rows.get("mes_pro_route_version:20").getString("route_snapshot_json"),ids));
-        var config = snapshot.getJSONObject("configSnapshots").getJSONObject("scheduleConfigs").getJSONObject("71");
+        var config = snapshot.getJSONObject("configSnapshots").getJSONObject("scheduleConfigs").getJSONObject("171");
         assertEquals(171L,config.getLong("routeProcessId"));
         assertNotEquals(config.getLong("routeProcessId"),config.getLong("id"));
     }

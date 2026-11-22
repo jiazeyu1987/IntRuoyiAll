@@ -24,8 +24,8 @@ function office({ pendingScript = false, duringConstruction } = {}) {
     constructor(id, config) { this.id = created.length + 1; created.push(this); configs.push(config); duringConstruction?.(config) }
     destroyEditor() { destroyed.push(this.id) }
   } }
-  const host = { exports: {}, ...vue, Error, ResizeObserver,
-    window: { ...(pendingScript ? {} : { DocsAPI, __dccOnlyOfficeScriptBaseUrl: props.baseUrl }), addEventListener() {}, removeEventListener() {} },
+  const host = { exports: {}, ...vue, Error, URL, clearTimeout, setTimeout: (callback, delay) => setTimeout(callback, delay).unref(), ResizeObserver,
+    window: { ...(pendingScript ? {} : { DocsAPI, __dccOnlyOfficeScriptBaseUrl: props.baseUrl }), location: { origin: 'https://app.example.test' }, addEventListener() {}, removeEventListener() {} },
     document: { createElement: () => ({}), head: { appendChild: element => scripts.push(element) } },
     defineProps: () => props, defineEmits: () => (...args) => emitted.push(args),
     watch: (input, callback, options) => { if (vue.isRef(input)) return vue.watch(input, callback, options) },
@@ -34,7 +34,7 @@ function office({ pendingScript = false, duringConstruction } = {}) {
   const ast = ts.createSourceFile('office.ts', descriptor.scriptSetup.content, ts.ScriptTarget.ES2022, true)
   const names = ast.statements.filter(ts.isVariableStatement).flatMap(statement => Array.from(statement.declarationList.declarations)
     .filter(declaration => ts.isIdentifier(declaration.name) && declaration.name.text !== 'editorInstance').map(declaration => declaration.name.text))
-  const code = descriptor.scriptSetup.content + '\nexports.api={' + names.join(',') + ',get editorInstance(){return editorInstance}}'
+  const code = descriptor.scriptSetup.content.replace(/import\.meta\.env\.BASE_URL/g, JSON.stringify('/')) + '\nexports.api={' + names.join(',') + ',get editorInstance(){return editorInstance}}'
   vm.runInNewContext(ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, host)
   return { api: host.exports.api, props, configs, created, destroyed, emitted, observers, scripts, lifecycle, descriptor,
     finishScript: () => { host.window.DocsAPI = DocsAPI; scripts[0].onload() } }

@@ -207,6 +207,11 @@ public class MesManagerReleaseCompletedActorResolver {
         var review = nonconformanceReviews.selectOne(new LambdaQueryWrapperX<cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO>()
                 .eq(cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO::getId, reviewId)
                 .eq(cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO::getTenantId, tenantId));
+        if (review == null) {
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400,
+                    "已办记录关联的QA评审不存在（评审编号：" + reviewId
+                            + "）。请恢复原始评审及签名证据后重试，不能据交接状态推定审批通过。");
+        }
         require(review != null && Objects.equals(reviewId, review.getId()) && Objects.equals(tenantId, review.getTenantId())
                 && !Boolean.TRUE.equals(review.getDeleted()) && "closed".equals(review.getReviewStatus())
                 && Set.of("concession_release", "rework", "void").contains(review.getDisposition())
@@ -237,7 +242,9 @@ public class MesManagerReleaseCompletedActorResolver {
         require(evidence != null && Objects.equals(signatureId, evidence.id()) && Objects.equals(actor.getId(), evidence.actorId())
                 && "MES".equals(evidence.moduleCode()) && "QA_DISPOSITION".equals(evidence.actionCode())
                 && "MES_BATCH_RECORD".equals(evidence.subjectType()) && "VALID".equals(evidence.verificationStatus())
-                && SignatureCredentialPolicy.matchesMethod(evidence.authenticationMethod(), "SESSION_PLUS_PASSWORD") && evidence.signedAt() != null
+                && (SignatureCredentialPolicy.matchesMethod(evidence.authenticationMethod(), "SESSION_PLUS_PASSWORD")
+                    || SignatureCredentialPolicy.matchesMethod(evidence.authenticationMethod(), "SESSION_PLUS_SELECTED_USER_PASSWORD"))
+                && evidence.signedAt() != null
                 && Objects.equals(review.getReviewOpinion(), evidence.reason()) && text(evidence.contentHash()) && text(evidence.evidenceHash()),
                 taskId, "QA closure signature identity is inconsistent");
         String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, "QA_DISPOSITION",

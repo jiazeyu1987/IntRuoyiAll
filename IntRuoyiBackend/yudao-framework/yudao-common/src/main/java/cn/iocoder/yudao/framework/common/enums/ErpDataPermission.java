@@ -8,8 +8,9 @@ public final class ErpDataPermission {
     public static final Set<String> LEGACY_ROLES = Set.of("tenant_admin", "super_admin",
             "mes_workshop_director", "mes_team_leader", "mes_scheduler");
     public static final String CONFIG = "erp:data-config:operate";
+    // 生产补料单使用自动生成的菜单编号，按 ERP 数据目录（991511）的子树识别，不固化环境内编号。
     public static final Set<Long> PAGE_IDS = Set.of(991511L, 6013L, 991502L, 2565L, 2590L,
-            6023L, 6021L, 6032L, 605071322L, 6025L, 5530L);
+            6023L, 6021L, 6032L, 6025L, 5530L);
     private static final Set<String> PREFIXES = Set.of("erp:data-", "erp:product:", "erp:stock:",
             "erp:bom-list:", "erp:production-material-list:", "erp:production-pick-list:",
             "erp:production-replenishment-list:", "erp:inventory-list:", "mes:pro-work-order:",

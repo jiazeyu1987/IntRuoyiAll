@@ -8,4 +8,8 @@ public interface MesFrontlineActiveOrderProcessService {
 
     MesFrontlineActiveOrderProcess requireProcess(Long leaderUserId, Long activeOrderId, Long routeId,
                                                   Long routeProcessId, Long processId);
+
+    /** Reads SOP only from the active order's locked route-version snapshot. */
+    String getFrozenSopFileUrl(Long leaderUserId, Long activeOrderId, Long routeId,
+                               Long routeProcessId, Long processId);
 }

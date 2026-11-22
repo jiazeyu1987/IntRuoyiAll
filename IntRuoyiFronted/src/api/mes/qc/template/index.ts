@@ -49,12 +49,12 @@ export interface QaInspectionRegulationParseVO {
 }
 
 export interface QaInspectionRegulationJsonPublishReqVO {
-  dccProjectCodeId: number
+  dccProjectCodeId: number | string
   recognitionJson: QaInspectionRegulationParseVO
 }
 
 export interface QaInspectionRegulationJsonPublishRespVO {
-  dccProjectCodeId: number
+  dccProjectCodeId: number | string
   regulationId: number
   publishedVersionId: number
   versionNo: string
@@ -131,7 +131,7 @@ export interface QaInspectionRegulationProcessVO {
 export interface QaInspectionRegulationPublishedVersionVO {
   commonRegulationVersions?: QaCommonRegulationVersionOptionVO[] | null
   draftRevision: number
-  dccProjectCodeId: number
+  dccProjectCodeId: number | string
   regulationId: number
   publishedVersionId: number
   versionNo: string
@@ -148,7 +148,7 @@ export interface QaInspectionRegulationPublishedVersionVO {
 }
 
 export interface QaInspectionRegulationProjectStatusVO {
-  dccProjectCodeId: number
+  dccProjectCodeId: number | string
   configured: boolean
   productionReady?: boolean
   regulationCount: number
@@ -161,7 +161,7 @@ export interface QaInspectionRegulationProjectStatusVO {
 }
 
 export interface QaInspectionRegulationVersionOptionVO {
-  dccProjectCodeId: number
+  dccProjectCodeId: number | string
   regulationId: number
   versionId: number
   versionNo: string
@@ -206,7 +206,7 @@ export interface QaCommonRegulationVersionOptionVO {
 }
 
 export interface QaCommonRegulationBindReqVO {
-  dccProjectCodeId: number
+  dccProjectCodeId: number | string
   commonRegulationSetVersionId: number
   changeReason?: string
 }
@@ -319,7 +319,7 @@ export interface QaInspectionRegulationSaveReqVO {
   commonRegulationVersionIds?: number[]
   expectedDraftRevision: number
   regulationId?: number
-  dccProjectCodeId?: number
+  dccProjectCodeId?: number | string
   ownerModule?: QaInspectionRegulationOwnerModule
   regulationCode: string
   regulationName: string
@@ -355,7 +355,7 @@ export interface QaCommonRegulationSetItemsUpgradeProcessReqVO
 
 export interface QaInspectionRegulationSaveRespVO {
   draftRevision: number
-  dccProjectCodeId: number
+  dccProjectCodeId: number | string
   regulationId: number
   draftVersionId: number
   versionNo: string
@@ -364,7 +364,7 @@ export interface QaInspectionRegulationSaveRespVO {
 }
 
 export interface QaInspectionRegulationImportRespVO {
-  dccProjectCodeId: number
+  dccProjectCodeId: number | string
   regulationId: number
   draftVersionId: number
   publishedVersionId?: number
@@ -386,7 +386,7 @@ export interface QaInspectionRegulationWordImportOptions {
 }
 
 export interface QaInspectionRegulationResetRespVO {
-  dccProjectCodeId: number
+  dccProjectCodeId: number | string
   regulationId?: number
   versionCount: number
   processCount: number
@@ -395,7 +395,7 @@ export interface QaInspectionRegulationResetRespVO {
 }
 
 export interface PqcItemEquipmentItemVO {
-  dccProjectCodeId: number
+  dccProjectCodeId: number | string
   itemCode: string
   itemCodes?: string[]
   projectName: string
@@ -438,7 +438,7 @@ export interface PqcItemEquipmentConfigSaveReqVO {
 }
 
 export interface PqcItemEquipmentBatchConfigSaveReqVO extends PqcItemEquipmentConfigSaveReqVO {
-  dccProjectCodeId: number
+  dccProjectCodeId: number | string
   itemCodes: string[]
 }
 
@@ -497,7 +497,7 @@ export const QcTemplateApi = {
 
   // 测试阶段重置指定 DCC 项目的正式 QA 检验规程
   resetQaRegulationForTesting: async (
-    dccProjectCodeId: number
+    dccProjectCodeId: number | string
   ): Promise<QaInspectionRegulationResetRespVO> => {
     return await request.post({
       url: `/mes/qa/inspection-regulation/test-reset`,
@@ -515,7 +515,7 @@ export const QcTemplateApi = {
 
   // 查询正式 QA 检验规程发布版本只读证据
   getPublishedQaRegulationVersion: async (
-    dccProjectCodeId: number,
+    dccProjectCodeId: number | string,
     versionId?: number
   ): Promise<QaInspectionRegulationPublishedVersionVO> => {
     return await request.get({
@@ -526,7 +526,7 @@ export const QcTemplateApi = {
 
   // 查询 DCC 项目全部 QA 检验规程版本
   listQaRegulationVersions: async (
-    dccProjectCodeId: number,
+    dccProjectCodeId: number | string,
     ownerModule: QaInspectionRegulationOwnerModule = 'MES_QA'
   ): Promise<QaInspectionRegulationVersionOptionVO[]> => {
     return await request.get({
@@ -537,7 +537,7 @@ export const QcTemplateApi = {
 
   // 查询 DCC 项目当前 QA 规程配置
   getCurrentQaRegulation: async (
-    dccProjectCodeId: number
+    dccProjectCodeId: number | string
   ): Promise<QaInspectionRegulationPublishedVersionVO | null> => {
     return await request.get({
       url: `/mes/qa/inspection-regulation/current`,
@@ -547,7 +547,7 @@ export const QcTemplateApi = {
 
   // 批量查询 DCC 项目 QA 检验规程配置状态
   getQaRegulationProjectStatuses: async (
-    dccProjectCodeIds: number[]
+    dccProjectCodeIds: Array<number | string>
   ): Promise<QaInspectionRegulationProjectStatusVO[]> => {
     if (dccProjectCodeIds.length === 0) {
       return []
@@ -560,7 +560,7 @@ export const QcTemplateApi = {
 
   // 查询当前产品绑定的通用检验规程版本
   getCurrentCommonRegulationBinding: async (
-    dccProjectCodeId: number
+    dccProjectCodeId: number | string
   ): Promise<QaCommonRegulationBindingVO | null> => {
     return await request.get({
       url: `/mes/qa/inspection-regulation/common-binding/current`,
@@ -684,7 +684,7 @@ export const QcTemplateApi = {
 
   // 查询当前 QA 项目下可维护的租户级 PQC 检验项目
   getPqcItemEquipmentItems: async (
-    dccProjectCodeId: number
+    dccProjectCodeId: number | string
   ): Promise<PqcItemEquipmentItemVO[]> => {
     return await request.get({
       url: `/mes/pqc/item-equipment/items`,
@@ -702,7 +702,7 @@ export const QcTemplateApi = {
 
   // 查询当前 QA 项目同名检验项目对应的全部设备配置
   getPqcItemEquipmentConfigBatch: async (
-    dccProjectCodeId: number,
+    dccProjectCodeId: number | string,
     itemCodes: string[]
   ): Promise<PqcItemEquipmentConfigVO> => {
     return await request.get({

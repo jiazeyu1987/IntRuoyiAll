@@ -83,7 +83,7 @@ import static org.mockito.Mockito.when;
         DccRegistrationCertificateReminderService.class,
         DccRegistrationCertificateQueryServiceTest.JdbcTestConfiguration.class
 })
-class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
+public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class JdbcTestConfiguration {
@@ -138,6 +138,10 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
 
     @BeforeEach
     void setUp() {
+        jdbcTemplate.execute("DROP ALIAS IF EXISTS JSON_EXTRACT");
+        jdbcTemplate.execute("CREATE ALIAS JSON_EXTRACT FOR 'cn.iocoder.yudao.module.dcc.registrationcertificate.DccRegistrationCertificateQueryServiceTest.jsonExtract'");
+        jdbcTemplate.execute("CREATE ALIAS IF NOT EXISTS JSON_LENGTH FOR 'cn.iocoder.yudao.module.dcc.registrationcertificate.DccRegistrationCertificateQueryServiceTest.jsonLength'");
+        jdbcTemplate.execute("CREATE ALIAS IF NOT EXISTS JSON_TYPE FOR 'cn.iocoder.yudao.module.dcc.registrationcertificate.DccRegistrationCertificateQueryServiceTest.jsonType'");
         reset(companyScopeApi, enterpriseApi, permissionApi, adminUserApi);
         when(adminUserApi.getUserList(any())).thenAnswer(invocation -> {
             Collection<Long> ids = invocation.getArgument(0);
@@ -181,6 +185,22 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 "detail response must expose the formal initial upload approver name");
         assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("uploadApprovedAt"),
                 "detail response must expose the formal initial upload approval time");
+    }
+
+    @Test
+    void ceNewAndOldVersionIdentityUsesTheirOwnLatestRevWhenGenericNumberIsEmpty() {
+        var fixture=seedFormal(1L,10L,"ACTIVE","CURRENT","CE-EMPTY",true,20L);
+        var facts=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshotMapper.selectById(fixture.snapshotId()).getFactsJson());
+        facts.setCertificateType("CE");facts.setCertificateNo(null);
+        var rev=new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.CeCertificate();
+        rev.setRevision("R04");rev.setCertificateNo("SIMULATION-CE-R04");facts.setCeCertificates(List.of(rev));
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=?",facts.toJson(),fixture.snapshotId());
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)),any())).thenReturn(List.of(owner(10L,"Owner A")));
+        assertEquals("SIMULATION-CE-R04",queryService.getDetail(1L,99L,fixture.certificateId(),null,context("CE-IDENTITY")).getCertificateNo());
+        var query=DccRegistrationCertificatePageQuery.builder().certificateNo("SIMULATION-CE-R04").build();
+        assertEquals(1,queryService.getPage(1L,99L,query,context("CE-IDENTITY-PAGE")).getTotal());
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_version SET status='OLD' WHERE id=?",fixture.versionId());
+        assertEquals("SIMULATION-CE-R04",queryService.getOldIndexPage(1L,99L,query,context("CE-IDENTITY-OLD")).getList().get(0).getCertificateNo());
     }
 
     @Test
@@ -1429,6 +1449,24 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
 
     private static DccRequestAuditContext context(String requestId) {
         return new DccRequestAuditContext("10.0.0.1", "JUnit", requestId);
+    }
+
+    public static String jsonExtract(String json, String path) {
+        if (json == null || path == null) return null;
+        var node = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(json);
+        var tokens = java.util.regex.Pattern.compile("([a-zA-Z_][a-zA-Z_0-9]*)|\\[([0-9]+)\\]").matcher(path.substring(2));
+        while (tokens.find() && node != null) node = tokens.group(1) != null ? node.get(tokens.group(1)) : node.get(Integer.parseInt(tokens.group(2)));
+        return node == null ? null : node.toString();
+    }
+    public static Integer jsonLength(String json) {
+        if (json == null) return null;
+        var node = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(json);
+        return node.isContainerNode() ? node.size() : 1;
+    }
+    public static String jsonType(String json) {
+        if (json == null) return null;
+        var node = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(json);
+        return node.isNull() ? "NULL" : node.isArray() ? "ARRAY" : node.isObject() ? "OBJECT" : node.isTextual() ? "STRING" : node.isBoolean() ? "BOOLEAN" : "INTEGER";
     }
 
     private record FormalFixture(Long certificateId, Long versionId, Long snapshotId, Long registrationFileId) {

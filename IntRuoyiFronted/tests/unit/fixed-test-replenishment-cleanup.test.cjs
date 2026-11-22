@@ -16,12 +16,13 @@ for (const removed of [0, 1, -1]) {
     const ref = value => ({ value })
     const notices = []
     const context = {
+      requireWritableHandoff: () => true,
       activeOrderTestResetBlocked: ref(false), activeOrderTestDataSet: ref(1),
       activeOrderTestDataSubmitting: ref(false), activeOrderTestResetSubmitting: ref(false),
       activeOrderTestDataReceipt: ref(undefined),
-      prepareFixedTestOrderData: async () => ({ workOrderCode: 'FIXED', documents:
+      prepareFixedTestOrderData: async () => ({ workOrderCode: 'FIXED', productionMaterialListNo: 'MATERIAL-FIXED', documents:
         ['生产订单', '领料单明细', '补料单明细', '用料清单'].map((name, i) => ({
-          name, createdCount: 0, deletedCount: i === 2 ? removed : 0, skippedCount: 0, repairedCount: 0
+          name, createdCount: 0, deletedCount: i === 2 ? removed : 0, skippedCount: 0, repairedCount: 0, preservedReferenceCount: 0
         })) }),
       resolveErrorMessage: e => e.message,
       ElMessage: { success: text => notices.push(text), error: text => notices.push(text) }
@@ -32,8 +33,8 @@ for (const removed of [0, 1, -1]) {
     assert.equal(context.activeOrderTestResetSubmitting.value, false)
     assert.equal(context.activeOrderTestDataSubmitting.value, false)
     if (removed === 1) {
-      assert.match(context.activeOrderTestDataReceipt.value.message, /补料单明细新增0条、移除旧模拟数据1条/)
-      assert.match(notices[0], /旧模拟补料已移除/)
+      assert.match(context.activeOrderTestDataReceipt.value.message, /补料单明细新增0条、跳过已有0条、修复关联0条、移除旧模拟数据1条/)
+      assert.match(notices[0], /补齐完成/)
     }
   })
 }

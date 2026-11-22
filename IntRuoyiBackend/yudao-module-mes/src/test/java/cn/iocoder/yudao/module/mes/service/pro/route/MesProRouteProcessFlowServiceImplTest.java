@@ -67,6 +67,7 @@ class MesProRouteProcessFlowServiceImplTest {
     void savingUnchangedNodePreservesFrozenIdentityAndWorkstationDisplay() {
         var previous = com.alibaba.fastjson.JSON.parseObject("""
                 {"processId":201,"processCode":"ER-201","processName":"冻结名称",
+                 "sopFileUrl":"/frozen-sop.png","attention":"冻结说明",
                  "routeProcessWorkstationId":81,"workstationId":81,"workstationCode":"WS81","workstationName":"冻结岗位"}
                 """);
         var node = MesProRouteProcessDO.builder().id(21L).processId(201L).workstationId(81L)
@@ -75,6 +76,8 @@ class MesProRouteProcessFlowServiceImplTest {
                 flowService, "buildCandidateFlowNodeSnapshot", node, previous);
         assertEquals("ER-201", saved.get("processCode"));
         assertEquals("冻结名称", saved.get("processName"));
+        assertEquals("/frozen-sop.png", saved.get("sopFileUrl"));
+        assertEquals("冻结说明", saved.get("attention"));
         assertEquals("WS81", saved.get("workstationCode"));
         assertEquals("冻结岗位", saved.get("workstationName"));
         assertEquals(true, saved.get("keyFlag")); assertEquals(true, saved.get("checkFlag"));
@@ -83,6 +86,39 @@ class MesProRouteProcessFlowServiceImplTest {
                 flowService, "buildCandidateFlowNodeSnapshot", node, previous);
         assertNull(changed.get("workstationCode"));
         assertEquals(82L, changed.get("routeProcessWorkstationId"));
+        verifyNoMoreInteractions(processService);
+    }
+
+    @Test
+    void newNodeCapturesSopAndFrozenNodeDoesNotReadCurrentProcess() {
+        var process = new MesProProcessDO();
+        process.setCode("P201");
+        process.setName("新工序");
+        process.setSopFileUrl("/new-sop.png");
+        process.setAttention("新说明");
+        when(processService.getProcess(201L)).thenReturn(process);
+        var node = MesProRouteProcessDO.builder().id(21L).processId(201L).sort(1).build();
+        Map<String, Object> saved = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                flowService, "buildCandidateFlowNodeSnapshot", node, null);
+        assertEquals("/new-sop.png", saved.get("sopFileUrl"));
+        assertEquals("新说明", saved.get("attention"));
+
+        var version = new MesProRouteVersionDO();
+        version.setId(9L);
+        version.setRouteSnapshotJson("""
+                {"configSnapshots":{"productionProcessConfigs":[{"routeProcessId":21,"processId":201,
+                "processCode":"P201","processName":"冻结工序"}]}}
+                """);
+        var graph = JSON.parseObject("""
+                {"nodes":[{"routeProcessId":21,"processId":201,"processCode":"P201",
+                "processName":"冻结工序","sort":1,"sopFileUrl":"/old-sop.png"}]}
+                """);
+        List<cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowNodeRespVO> frozen =
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                        flowService, "buildFrozenNodes", version, graph, List.of());
+        assertEquals("/old-sop.png", frozen.get(0).getSopFileUrl());
+        verify(processService).getProcess(201L);
+        verifyNoMoreInteractions(processService);
     }
 
     @InjectMocks

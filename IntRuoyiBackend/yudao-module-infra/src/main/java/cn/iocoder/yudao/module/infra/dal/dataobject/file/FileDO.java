@@ -3,6 +3,9 @@ package cn.iocoder.yudao.module.infra.dal.dataobject.file;
 import cn.iocoder.yudao.framework.mybatis.core.dataobject.BaseDO;
 import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
 import com.baomidou.mybatisplus.annotation.KeySequence;
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.*;
 
@@ -22,6 +25,10 @@ import lombok.*;
 @AllArgsConstructor
 @TenantIgnore
 public class FileDO extends BaseDO {
+
+    /** 写入文件时的真实租户归属；不改变现有业务文件访问策略。 */
+    @TableField(fill = FieldFill.INSERT, updateStrategy = FieldStrategy.NEVER)
+    private Long tenantId;
 
     /**
      * 编号，数据库自增

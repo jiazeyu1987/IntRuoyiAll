@@ -11,6 +11,94 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MesProRouteResourceTransferServiceTest {
     private final MesProRouteResourceTransferService service = new MesProRouteResourceTransferService();
+    @Test void personnelFreeWorkbookImportsIntoTenantWithoutSourceUsers() throws Exception {
+        Map<String, JSONObject> source = new LinkedHashMap<>();
+        source.put("mes_pro_route:101", resource("mes_pro_route", "{\"id\":101,\"code\":\"ROUTE\",\"remark\":\"[owner]source-person[/owner]工艺备注\"}"));
+        source.put("mes_pro_process:301", resource("mes_pro_process", "{\"id\":301,\"code\":\"PROCESS\",\"name\":\"清洗\"}"));
+        source.put("mes_pro_route_process:401", resource("mes_pro_route_process", "{\"id\":401,\"route_id\":101,\"process_id\":301,\"sort\":1}"));
+        source.put("mes_pro_route_dcc_project_binding:701", resource("mes_pro_route_dcc_project_binding", "{\"id\":701,\"route_id\":101,\"dcc_project_code_id\":801}"));
+        source.put("dcc_project_code:801", resource("dcc_project_code", "{\"id\":801,\"project_code\":\"PROJECT\"}"));
+        source.put("mes_pro_process_pool_team_device:501", resource("mes_pro_process_pool_team_device", "{\"id\":501,\"device_code\":\"DEVICE\",\"device_name\":\"清洗机\",\"enabled\":true}"));
+        source.put("mes_pro_craft:601", resource("mes_pro_craft", "{\"id\":601,\"code\":\"CRAFT\",\"name\":\"清洗工艺\",\"process_id\":301,\"parameters_json\":\"[]\"}"));
+        source.get("mes_pro_craft:601").put("parameters_json", "[{\"parameterCode\":\"TEMP\",\"parameterName\":\"温度\",\"standardText\":\"保持温度\",\"valueType\":\"DECIMAL\",\"lowerLimit\":10,\"upperLimit\":50}]");
+        JSONObject version = resource("mes_pro_route_version", "{\"id\":201,\"route_id\":101,\"active\":true,\"lifecycle_status\":\"ACTIVE\",\"route_snapshot_format_version\":\"MES_ROUTE_SNAPSHOT_CANONICAL_V1\"}");
+        version.put("route_snapshot_json", "{\"routeId\":101,\"routeVersionId\":201,\"remark\":\"[owner]source-person[/owner]备注\",\"configSnapshots\":{\"flowGraph\":{\"nodes\":[{\"routeProcessId\":401,\"processId\":301,\"sort\":1}]},\"routeStartProductionLeaders\":[{\"productionLineId\":101,\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[999],\"candidateSourceNames\":[\"source-person\"]}],\"batchUseConfigs\":[],\"productionProcessConfigs\":[{\"routeProcessId\":401,\"processId\":301,\"deviceIds\":[501],\"parameterRules\":[]}]}}");
+        source.put("mes_pro_route_version:201", version);
+        var exportJdbc = org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class, call -> {
+            if (!call.getMethod().getName().equals("queryForList")) return org.mockito.Answers.RETURNS_DEFAULTS.answer(call);
+            String sql = call.getArgument(0);
+            assertFalse(sql.contains("system_users"));
+            String table = sql.substring(sql.indexOf(" FROM ") + 6, sql.indexOf(" WHERE "));
+            Object[] args = (Object[]) call.getRawArguments()[sql.contains("WHERE id=?") ? 1 : 2];
+            if (sql.contains("WHERE id=?")) return List.of(new LinkedHashMap<>(source.get(table + ":" + args[0])));
+            String field = sql.substring(sql.indexOf(" WHERE ") + 7, sql.indexOf("=?"));
+            return source.entrySet().stream().filter(e -> e.getKey().startsWith(table + ":")
+                    && Objects.equals(e.getValue().getLong(field), args[0])).map(e -> e.getValue().getLong("id")).toList();
+        });
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "jdbc", exportJdbc);
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(186L);
+        try (Workbook workbook = new XSSFWorkbook(); var bytes = new java.io.ByteArrayOutputStream()) {
+            service.writeResources(workbook, List.of(101L)); workbook.write(bytes);
+            try (Workbook reopened = WorkbookFactory.create(new java.io.ByteArrayInputStream(bytes.toByteArray()));
+                 var security = org.mockito.Mockito.mockStatic(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.class)) {
+                var restored = service.readResources(reopened);
+                String payload = JSON.toJSONString(restored);
+                for (String forbidden : List.of("source-person", "candidateSource", "system_users", "leader_user_id", "[owner]")) assertFalse(payload.contains(forbidden), forbidden);
+                assertEquals("清洗工艺", restored.get("mes_pro_craft:601").getString("name"));
+                assertEquals("清洗机", restored.get("mes_pro_process_pool_team_device:501").getString("device_name"));
+                assertNotNull(restored.get("mes_pro_route_version:201").getString("route_snapshot_sha256"));
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(203L);
+                security.when(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils::getLoginUserId).thenReturn(12345L);
+                List<String> inserted = new ArrayList<>();
+                var targetJdbc = org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class, call -> {
+                    String method = call.getMethod().getName();
+                    if (method.equals("queryForList")) { assertFalse(((String) call.getArgument(0)).contains("system_users")); return List.of(); }
+                    if (method.equals("update")) {
+                        String sql = call.getArgument(0); inserted.add(sql);
+                        if (sql.startsWith("INSERT INTO mes_pro_process_pool_team_device ")) {
+                            List<String> columns = List.of(sql.substring(sql.indexOf('(') + 1, sql.indexOf(')')).split(","));
+                            assertEquals(12345L, ((Object[]) call.getRawArguments()[1])[columns.indexOf("leader_user_id")]);
+                        }
+                        return 1;
+                    }
+                    return org.mockito.Answers.RETURNS_DEFAULTS.answer(call);
+                });
+                var importer = new MesProRouteResourceImportService();
+                org.springframework.test.util.ReflectionTestUtils.setField(importer, "reader", service);
+                org.springframework.test.util.ReflectionTestUtils.setField(importer, "jdbc", targetJdbc);
+                org.springframework.test.util.ReflectionTestUtils.setField(importer, "owners", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteOwnerPermissionService.class));
+                org.springframework.test.util.ReflectionTestUtils.setField(importer, "platform", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteControlledContentAdapter.class));
+                org.springframework.test.util.ReflectionTestUtils.setField(importer, "versions", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper.class));
+                assertEquals(1, importer.importWorkbook(reopened).getRouteCount());
+                assertEquals(source.size(), inserted.size());
+            }
+        } finally { cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear(); }
+    }
+    private static JSONObject resource(String table, String values) {
+        JSONObject row = new JSONObject(true);
+        MesProRouteTransferSchema.TABLES.get(table).columns().forEach(column -> row.put(column, null));
+        row.putAll(JSON.parseObject(values));
+        return row;
+    }
+    @Test void clearsPersonnelInsideEncodedJsonAndKeepsTechnicalValues() {
+        JSONObject row = JSON.parseObject("{\"default_attributes_json\":\"{\\\"projectLeaderUserId\\\":999,\\\"model\\\":\\\"M1\\\"}\",\"config\":{\"candidateSourceType\":\"ROLE\",\"candidateSourceIds\":[999],\"candidateSourceNames\":[\"source-person\"],\"fillableScopeJson\":\"{\\\"userId\\\":999}\",\"permissionScopeId\":999,\"ownerRoleKey\":\"PRODUCTION\",\"parameterRules\":[{\"defaultValue\":999}]}}");
+        MesProRouteTransferPersonnel.remove(row);
+        assertEquals("{\"model\":\"M1\"}", row.getString("default_attributes_json"));
+        JSONObject config = row.getJSONObject("config");
+        assertEquals(Set.of("ownerRoleKey", "parameterRules"), config.keySet());
+        assertEquals(999, config.getJSONArray("parameterRules").getJSONObject(0).getIntValue("defaultValue"));
+    }
+    @Test void rejectsOldPersonnelBearingFormatAndInjectedPersonnel() throws Exception {
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = sheet(workbook);
+            sheet.getRow(0).getCell(0).setCellValue("MES_ROUTE_RESOURCES_V1");
+            assertTrue(assertThrows(ServiceException.class, () -> service.readResources(workbook)).getMessage().contains("重新导出"));
+            sheet.getRow(0).getCell(0).setCellValue(MesProRouteResourceTransferService.FORMAT);
+            JSONObject row = process(); row.put("remark", "[owner]source-person[/owner]");
+            fragment(sheet, 1, 0, JSON.toJSONString(row, SerializerFeature.WriteMapNullValue));
+            assertThrows(ServiceException.class, () -> service.readResources(workbook));
+        }
+    }
     @Test void importedProcessKeyedConfigurationsRemapBothKeysAndValues() {
         for (String collection : List.of("scheduleConfigs", "batchUseConfigs", "scheduleUseConfigs", "productionProcessConfigs")) {
             String source = "{\"configSnapshots\":{\"" + collection + "\":{\"11\":{\"routeProcessId\":11,\"capacityMode\":\"RESOURCE_CALCULATED\",\"remark\":null}}}}";

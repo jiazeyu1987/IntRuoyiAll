@@ -1,6 +1,9 @@
 package cn.iocoder.yudao.module.mes.service.pro.route;
 
 import cn.hutool.core.util.StrUtil;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.serializer.PropertyFilter;
+import com.alibaba.fastjson.serializer.SerializerFeature;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 
 /**
@@ -12,6 +15,13 @@ public final class MesProRouteVersionSnapshotIdentityWriter {
             new MesProRouteSnapshotCanonicalizer();
 
     private MesProRouteVersionSnapshotIdentityWriter() {
+    }
+
+    /** Keeps an explicitly unbound frozen SOP distinct from an absent snapshot field. */
+    public static String toSnapshotJson(Object snapshot) {
+        return JSON.toJSONString(snapshot,
+                (PropertyFilter) (source, name, value) -> value != null || "sopFileUrl".equals(name),
+                SerializerFeature.WriteMapNullValue, SerializerFeature.DisableCircularReferenceDetect);
     }
 
     public static void apply(MesProRouteVersionDO target, String routeSnapshotJson) {

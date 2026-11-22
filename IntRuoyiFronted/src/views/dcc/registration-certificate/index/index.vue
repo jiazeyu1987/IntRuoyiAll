@@ -8,6 +8,7 @@
       <el-tab-pane name="current" label="注册证">
         <div data-testid="registration-certificate-current-tab">
           <CategoryFilters v-model:query="queryParams" @search="loadPage"/>
+          <el-alert v-if="currentQueryError" :title="currentQueryError" type="error" show-icon :closable="false" class="mb-12px" />
           <UnifiedListTemplate
             class="registration-certificate-current-list"
             :table-key="CURRENT_TABLE_KEY"
@@ -260,6 +261,7 @@
 
       <el-tab-pane name="old" label="老证">
         <div data-testid="registration-certificate-old-index">
+          <el-alert v-if="oldQueryError" :title="oldQueryError" type="error" show-icon :closable="false" class="mb-12px" />
           <UnifiedListTemplate
             :table-key="OLD_TABLE_KEY"
             :query-model="oldQueryParams"
@@ -474,6 +476,7 @@ import {
   type UserTableColumnDefinition
 } from '@/hooks/web/useUserTableColumns'
 import RegistrationCertificateUploadDialog from '../upload/UploadDialog.vue'
+import { getRegistrationCertificateQueryError } from '../shared/queryValidation'
 import RegistrationCertificateRenewalDialog from '../renewal/RenewalDialog.vue'
 import RegistrationCertificateChangeDialog from '../change/ChangeDialog.vue'
 import RegistrationCertificateReminderConfigDialog from '../config/ReminderConfigDialog.vue'
@@ -503,6 +506,8 @@ const isRegistrationCertificateRoute = () => route.path === REGISTRATION_CERTIFI
 const activeTab = ref<'current' | 'old' | 'test' | 'applications'>('current')
 const currentRequest = useLatestListRequest()
 const oldRequest = useLatestListRequest()
+const currentQueryError = ref('')
+const oldQueryError = ref('')
 const loading = currentRequest.loading
 const oldLoading = oldRequest.loading
 const list = ref<DccRegistrationCertificatePageItemVO[]>([])
@@ -871,7 +876,13 @@ const syncRegistrationCertificateQueryFromRoute = () => {
 }
 
 const loadPage = async () => {
-  await currentRequest.run(() => getRegistrationCertificatePage({ ...queryParams }), (page) => {
+  currentQueryError.value = getRegistrationCertificateQueryError(queryParams)
+  if (currentQueryError.value) {
+    currentRequest.invalidate()
+    message.error(currentQueryError.value)
+    return false
+  }
+  return await currentRequest.run(() => getRegistrationCertificatePage({ ...queryParams }), (page) => {
     list.value = page.list
     total.value = page.total
     selectedCertificates.value = []
@@ -916,7 +927,13 @@ const handleDeleteCertificate = async () => {
 }
 
 const loadOldIndexPage = async () => {
-  await oldRequest.run(() => getRegistrationCertificateOldIndexPage({ ...oldQueryParams }), (page) => {
+  oldQueryError.value = getRegistrationCertificateQueryError(oldQueryParams)
+  if (oldQueryError.value) {
+    oldRequest.invalidate()
+    message.error(oldQueryError.value)
+    return false
+  }
+  return await oldRequest.run(() => getRegistrationCertificateOldIndexPage({ ...oldQueryParams }), (page) => {
     oldList.value = page.list
     oldTotal.value = page.total
   })
@@ -927,7 +944,7 @@ const applyRegistrationCertificateSort = (
   query: RegistrationCertificatePageQuery,
   updateSortState: (state: RegistrationCertificateSortState) => void,
   allowedFields: Set<RegistrationCertificateSortField>,
-  load: () => Promise<void>
+  load: () => Promise<boolean>
 ) => {
   const sortField = payload.prop || payload.key
   const order = payload.order

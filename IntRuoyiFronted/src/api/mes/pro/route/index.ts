@@ -263,8 +263,9 @@ export interface RouteFlowNodeVO {
   processId: number
   processCode?: string
   processName?: string
-  routeProcessWorkstationId?: number
-  workstationId?: number
+  sopFileUrl?: string | null
+  routeProcessWorkstationId?: MesRouteId
+  workstationId?: MesRouteId
   workstationCode?: string
   workstationName?: string
   sort?: number
@@ -360,7 +361,7 @@ export interface RouteFlowRouteProcessUpdateReqVO {
   routeId: MesRouteId
   processId: number
   sort: number
-  workstationId?: number
+  workstationId?: MesRouteId
   keyFlag?: boolean
   checkFlag?: boolean
 }

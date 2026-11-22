@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
@@ -97,6 +98,39 @@ public class MesProLossReasonService {
             }
         }
     }
+    /** 显式迁移时逐项核对正式原因，保留旧身份和停用状态；普通新增仍只允许原因库记录。 */
+    public void validateLegacyBindings(Long routeId, JSONObject after) {
+        record LegacyReason(Long id, Long routeProcessId, Long processId, String code, String name, Boolean enabled) {}
+        List<LegacyReason> source = jdbc.query("SELECT r.id,r.route_process_id,r.process_id,r.reason_code,r.reason_name,r.enabled "
+                        + "FROM mes_pro_process_pool_defect_reason r JOIN mes_pro_route_process p ON p.id=r.route_process_id "
+                        + "AND p.tenant_id=r.tenant_id AND p.process_id=r.process_id "
+                        + "WHERE r.tenant_id=? AND p.route_id=? AND r.reason_type='LOSS' AND r.deleted=0 AND p.deleted=0",
+                (rs, row) -> new LegacyReason(rs.getLong("id"), rs.getLong("route_process_id"),
+                        rs.getLong("process_id"), rs.getString("reason_code"), rs.getString("reason_name"),
+                        rs.getObject("enabled", Boolean.class)), TenantContextHolder.getRequiredTenantId(), routeId);
+        Map<Long, LegacyReason> expected = new HashMap<>();
+        source.forEach(reason -> expected.put(reason.id(), reason));
+        Set<Long> seen = new HashSet<>();
+        for (Object raw : after.getJSONArray("productionProcessConfigs")) {
+            JSONObject config = (JSONObject) JSON.toJSON(raw);
+            for (var entry : reasons(config.getJSONArray("lossReasons")).entrySet()) {
+                LegacyReason reason = expected.get(entry.getKey());
+                JSONObject value = entry.getValue();
+                if (reason == null || !seen.add(reason.id())
+                        || !Objects.equals(reason.routeProcessId(), config.getLong("routeProcessId"))
+                        || !Objects.equals(reason.processId(), config.getLong("processId"))
+                        || !Objects.equals(reason.code(), value.getString("reasonCode"))
+                        || !Objects.equals(reason.name(), value.getString("reasonName"))
+                        || !Objects.equals(reason.enabled(), value.getBoolean("enabled"))) {
+                    throw invalid("迁移损耗原因与所选路线正式配置不一致，请刷新后重试");
+                }
+            }
+        }
+        if (!seen.equals(expected.keySet())) {
+            throw invalid("迁移损耗原因不完整，请刷新后重试");
+        }
+    }
+
     private static Map<Long, JSONArray> configs(JSONObject snapshot) {
         Map<Long, JSONArray> result = new LinkedHashMap<>();
         JSONArray configs = snapshot.getJSONArray("productionProcessConfigs");

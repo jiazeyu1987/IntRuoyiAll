@@ -885,7 +885,11 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 if (item.getBigDecimal("baseActualQuantity") != null) baseActual = baseActual.add(item.getBigDecimal("baseActualQuantity"));
             }
         }
-        if (batches.isEmpty()) throw invalidCompletedInput(inputSourceSnapshot.activeOrderId(), "完工领料回填未匹配输入物料：" + material.materialCode());
+        if (batches.isEmpty()) {
+            // Keep the frozen material and the actual order-level issues separate; a mismatch is advisory.
+            return detail.setSourceMatchWarning("冻结工艺输入物料 " + material.materialCode()
+                    + " 未匹配正式领料记录，请核对用料。");
+        }
         return detail.setBatchCodes(List.copyOf(batches)).setSourcePickListIds(List.copyOf(pickIds))
                 .setSourcePickListNos(List.copyOf(pickNos)).setSourcePickListItemIds(List.copyOf(itemIds))
                 .setRequestedQuantity(requested).setActualQuantity(actual).setBaseActualQuantity(baseActual)

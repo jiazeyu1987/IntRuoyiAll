@@ -76,7 +76,7 @@ assert.match(
 )
 assert.match(
   list,
-  /class="my-notify-message-list__content-link"[\s\S]*role="link"[\s\S]*:title="scope\.row\.templateContent \|\| '-'"[\s\S]*@click\.stop="handleNotifyContentClick\(scope\.row\)"/,
+  /class="my-notify-message-list__content-link"[\s\S]*role="link"[\s\S]*:title="notifyMessageTooltip\(scope\.row\)"[\s\S]*@click\.stop="handleNotifyContentClick\(scope\.row\)"/,
   '我的站内信列表“消息内容”可点击内容必须具备链接语义、完整标题和稳定点击处理。'
 )
 assert.doesNotMatch(

@@ -207,7 +207,7 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
             throw new IllegalStateException("projected route process IDs must be unique and complete");
         }
         verifyRewrittenRouteProcessReferences(snapshot, projectedRouteProcessIds);
-        candidate.setRouteSnapshotJson(snapshot.toJSONString());
+        candidate.setRouteSnapshotJson(MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(snapshot));
         return new ProjectionResult(candidate.getRouteSnapshotJson(), Set.copyOf(projectedRouteProcessIds));
     }
 

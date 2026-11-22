@@ -108,7 +108,6 @@ class MesProRouteScheduleConfigServiceImplTest {
                         """)
                 .build();
         when(routeVersionMapper.selectById(633L)).thenReturn(routeVersion);
-        when(routeProcessMapper.selectListByRouteId(980091L)).thenReturn(List.of());
 
         List<MesProRouteScheduleConfigRespVO> configs =
                 scheduleConfigService.getConfigRespListByRouteVersionId(633L);
@@ -116,6 +115,47 @@ class MesProRouteScheduleConfigServiceImplTest {
         assertEquals(1, configs.size());
         assertEquals(-8L, configs.get(0).getRouteProcessId());
         assertEquals("RESOURCE_CALCULATED", configs.get(0).getCapacityMode());
+    }
+
+    @Test
+    void candidateCapacityReadUsesItsExplicitWorkstationAndKeepsLongIds() {
+        MesProRouteVersionDO version = MesProRouteVersionDO.builder().id(633L).routeId(980091L)
+                .active(false).lifecycleStatus("DRAFT").routeSnapshotJson("""
+                {"configSnapshots":{"flowGraph":{"nodes":[
+                  {"routeProcessId":2121453182219802725,"processId":99,"sort":1,
+                   "routeProcessWorkstationId":2121333283992494168}]},
+                  "scheduleConfigs":{"2121453182219802725":{
+                    "routeVersionId":633,"routeProcessId":2121453182219802725,
+                    "capacityMode":"MANUAL_OVERRIDE","hourlyCapacity":120,"nightShiftEnabled":false}}}}
+                """).build();
+        when(routeVersionMapper.selectById(633L)).thenReturn(version);
+        when(workstationService.getWorkstationList(java.util.Set.of(2121333283992494168L)))
+                .thenReturn(List.of(MesMdWorkstationDO.builder().id(2121333283992494168L)
+                        .shiftHours(new BigDecimal("8")).build()));
+
+        MesProRouteScheduleConfigRespVO result = scheduleConfigService.getConfigRespListByRouteVersionId(633L).get(0);
+
+        assertEquals(2121453182219802725L, result.getRouteProcessId());
+        assertEquals(0, new BigDecimal("8").compareTo(result.getShiftHours()));
+        assertEquals(0, new BigDecimal("960").compareTo(result.getStandardShiftCapacity()));
+        org.mockito.Mockito.verifyNoInteractions(routeProcessMapper, routeProcessService);
+    }
+
+    @Test
+    void candidateWithoutExplicitWorkstationDoesNotInferOneFromLiveProcesses() {
+        MesProRouteVersionDO version = MesProRouteVersionDO.builder().id(633L).routeId(980091L)
+                .active(false).lifecycleStatus("DRAFT").routeSnapshotJson("""
+                {"configSnapshots":{"flowGraph":{"nodes":[{"routeProcessId":-8,"processId":99,"sort":1}]},
+                  "scheduleConfigs":{"-8":{"routeVersionId":633,"routeProcessId":-8,
+                    "capacityMode":"MANUAL_OVERRIDE","hourlyCapacity":120,"nightShiftEnabled":false}}}}
+                """).build();
+        when(routeVersionMapper.selectById(633L)).thenReturn(version);
+
+        MesProRouteScheduleConfigRespVO result = scheduleConfigService.getConfigRespListByRouteVersionId(633L).get(0);
+
+        org.junit.jupiter.api.Assertions.assertNull(result.getShiftHours());
+        org.junit.jupiter.api.Assertions.assertNull(result.getStandardShiftCapacity());
+        org.mockito.Mockito.verifyNoInteractions(routeProcessMapper, routeProcessService, workstationService);
     }
 
     @Test

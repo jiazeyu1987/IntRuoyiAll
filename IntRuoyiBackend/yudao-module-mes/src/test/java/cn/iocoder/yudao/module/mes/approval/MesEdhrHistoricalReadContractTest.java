@@ -41,6 +41,8 @@ class MesEdhrHistoricalReadContractTest {
     MesProcessPoolActiveOrderReleaseApplicationDO app;
     MesProEdhrNonconformanceReviewDO review;
     AdminUserDO user;
+    String authenticationMethod = "SESSION_PLUS_PASSWORD";
+    boolean includeSelectedIdentity = true;
 
     @BeforeEach void setup() {
         TenantContextHolder.setTenantId(1L);
@@ -68,6 +70,16 @@ class MesEdhrHistoricalReadContractTest {
         when(users.selectById(188L)).thenReturn(user);
     }
     @AfterEach void cleanup() { TenantContextHolder.clear(); }
+
+    @Test void missingQaSourceReturnsAnActionableFailureWithoutInventingADecision() {
+        when(reviews.selectOne(any())).thenReturn(null);
+        var error = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> actors.readVerifiedQaReview(600L, 96L));
+        assertEquals(400, error.getCode());
+        assertTrue(error.getMessage().contains("评审编号：96"));
+        assertTrue(error.getMessage().contains("恢复原始评审及签名证据"));
+        verifyNoInteractions(signatures);
+    }
 
     @ParameterizedTest @ValueSource(strings={"concession_release","rework","void"})
     void qaHandoffDecisionReadsTheExactSignedDispositionAndRejectsChangedContent(String disposition) {
@@ -149,6 +161,30 @@ class MesEdhrHistoricalReadContractTest {
         assertBoth(result,188L,null);
     }
 
+    @ParameterizedTest @ValueSource(strings={"SESSION_PLUS_PASSWORD","SESSION_PLUS_PIN",
+            "SESSION_PLUS_SELECTED_USER_PASSWORD","SESSION_PLUS_SELECTED_USER_PIN"})
+    void qaClosureAcceptsTheTwoSystemAccountSigningContexts(String method) {
+        authenticationMethod = method;
+        qa("void");
+        assertBoth(reader.readAuthorizedTask(task),188L,null);
+    }
+
+    @ParameterizedTest @ValueSource(strings={"SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD",
+            "SESSION_PLUS_EMPLOYEE_PROFILE_PIN","SESSION_CONFIRMATION","UNKNOWN"})
+    void qaClosureRejectsOtherIdentityContexts(String method) {
+        authenticationMethod = method;
+        qa("void");
+        assertThrows(IllegalStateException.class,()->reader.readAuthorizedTask(task));
+    }
+
+    @ParameterizedTest @ValueSource(strings={"SESSION_PLUS_SELECTED_USER_PASSWORD","SESSION_PLUS_SELECTED_USER_PIN"})
+    void qaSelectedAccountStillRequiresTheFrozenSignerIdentity(String method) {
+        authenticationMethod = method;
+        includeSelectedIdentity = false;
+        qa("void");
+        assertThrows(IllegalStateException.class,()->reader.readAuthorizedTask(task));
+    }
+
     @ParameterizedTest @ValueSource(strings={"reviewFk","taskFk","reviewTenant","order","activeOrder","batch",
             "time","actorTenant","actorId","signatureMissing","signatureActor","signatureHash","reviewStatus"})
     void contradictoryQaEvidenceIsRejectedBeforeProjection(String broken) {
@@ -225,7 +261,7 @@ class MesEdhrHistoricalReadContractTest {
         when(service.getApprovalCenterAuthorizedWindow(any(),org.mockito.ArgumentMatchers.eq(false),
                 org.mockito.ArgumentMatchers.eq(true), org.mockito.ArgumentMatchers.eq(0L), org.mockito.ArgumentMatchers.eq(200L))).thenReturn(
                 new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(new MesEdhrAuthorizedTaskProjection(task,display)),1L));
-        when(handoff.prefix(any(),org.mockito.ArgumentMatchers.anyLong())).thenReturn(
+        when(handoff.window(any(),any())).thenReturn(
                 new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(),0L));
         when(service.getApprovalCenterTimelineTasks(177L,null,false)).thenReturn(List.of(task));
         ReflectionTestUtils.setField(adapter, "permissions", mock(cn.iocoder.yudao.module.system.api.permission.PermissionApi.class));
@@ -280,8 +316,13 @@ class MesEdhrHistoricalReadContractTest {
                 new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(new SignatureSubjectCommand(
                         actor,"MES",action,"MES_BATCH_RECORD",subject,version,reason)).canonicalContentJson());
         canonical.put("reason",reason == null ? "" : reason.trim());
+        if (includeSelectedIdentity && authenticationMethod.startsWith("SESSION_PLUS_SELECTED_USER_")) {
+            canonical.set("signatureIdentity",JsonUtils.parseTree(JsonUtils.toJsonString(Map.of(
+                    "domain","SYSTEM_USER","signerId",actor,"operatorId",199L,
+                    "tenantId",1L,"displayName","历史签名人"))));
+        }
         when(signatures.getById(id)).thenReturn(new ElectronicSignatureEvidenceDTO(id,"MES",action,"MES_BATCH_RECORD",subject,
-                version,actor,action,"正式签名",reason,AT,null,"SESSION_PLUS_PASSWORD","content","evidence","SHA-256","key",
+                version,actor,action,"正式签名",reason,AT,null,authenticationMethod,"content","evidence","SHA-256","key",
                 "mes-batch-record-signature-v1","VALID",null,null,null,null,JsonUtils.toJsonString(canonical),null,null,null,"历史签名人"));
         when(signatures.verifyEvidence(id)).thenReturn(new ElectronicSignatureVerificationDTO(id,"VALID","content","content","evidence","evidence","SHA-256","v1",
                 "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",

@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccReg
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateGrantDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateVersionDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateFileMapper;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateDownloadConsumptionMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateGrantMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
@@ -37,6 +38,7 @@ public class DccRegistrationCertificateAccessPolicyService {
     private final DccRegistrationCertificateVersionMapper versionMapper;
     private final DccRegistrationCertificateFileMapper fileMapper;
     private final DccRegistrationCertificateGrantMapper grantMapper;
+    private final DccRegistrationCertificateDownloadConsumptionMapper consumptionMapper;
     private final PermissionApi permissionApi;
     private final JdbcTemplate jdbcTemplate;
 
@@ -46,12 +48,14 @@ public class DccRegistrationCertificateAccessPolicyService {
             DccRegistrationCertificateFileMapper fileMapper,
             DccRegistrationCertificateGrantMapper grantMapper,
             PermissionApi permissionApi,
+            DccRegistrationCertificateDownloadConsumptionMapper consumptionMapper,
             JdbcTemplate jdbcTemplate) {
         this.certificateMapper = require(certificateMapper, "certificateMapper");
         this.versionMapper = require(versionMapper, "versionMapper");
         this.fileMapper = require(fileMapper, "fileMapper");
         this.grantMapper = require(grantMapper, "grantMapper");
         this.permissionApi = require(permissionApi, "permissionApi");
+        this.consumptionMapper = require(consumptionMapper, "consumptionMapper");
         this.jdbcTemplate = require(jdbcTemplate, "jdbcTemplate");
     }
 
@@ -118,7 +122,12 @@ public class DccRegistrationCertificateAccessPolicyService {
     }
 
     public void assertDownloadAllowed(Long tenantId, Long actorId, Long businessFileId, LocalDateTime at) {
-        if (!canDownloadFile(tenantId, actorId, businessFileId, at)) throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
+        try {
+            requireDownloadGrant(tenantId, actorId, businessFileId, at);
+        } catch (ServiceException ex) {
+            if (isMissingDownloadGrant(ex)) throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
+            throw ex;
+        }
     }
 
     public boolean canDownloadFile(Long tenantId, Long actorId, Long businessFileId, LocalDateTime at) {
@@ -137,8 +146,8 @@ public class DccRegistrationCertificateAccessPolicyService {
         }
         if (isExpired(tenantId, version, at) && !isRegistrationDepartment(tenantId, actorId)) return false;
         try {
-            requireDownloadGrant(tenantId, actorId, businessFileId, at);
-            return true;
+            DccRegistrationCertificateGrantDO grant = requireDownloadGrant(tenantId, actorId, businessFileId, at);
+            return consumptionMapper.countSuccess(tenantId, grant.getId(), businessFileId) == 0;
         } catch (ServiceException ex) {
             if (isMissingDownloadGrant(ex)) {
                 return false;
@@ -175,6 +184,16 @@ public class DccRegistrationCertificateAccessPolicyService {
         List<DccRegistrationCertificateGrantDO> grants = grantMapper.selectByBusinessFile(
                 tenantId, actorId, businessFileId, GRANT_TYPE_DOWNLOAD);
         DccRegistrationCertificateGrantDO grant = selectValidGrant(grants, at);
+        // Prefer an unused valid grant. Delivery checks consumption under its lock;
+        // retain the valid grant identity when exhausted for the rejection audit.
+        for (DccRegistrationCertificateGrantDO candidate : grants) {
+            if (GRANT_STATUS_ACTIVE.equals(candidate.getStatus()) && candidate.getExpiresAt() != null
+                    && candidate.getExpiresAt().isAfter(at)
+                    && consumptionMapper.countSuccess(tenantId, candidate.getId(), businessFileId) == 0) {
+                grant = candidate;
+                break;
+            }
+        }
         DccRegistrationCertificateFileDO file = fileMapper.selectById(businessFileId);
         if (file == null || !Objects.equals(file.getTenantId(), tenantId)
                 || !FILE_STATUS_BOUND.equals(file.getStatus())

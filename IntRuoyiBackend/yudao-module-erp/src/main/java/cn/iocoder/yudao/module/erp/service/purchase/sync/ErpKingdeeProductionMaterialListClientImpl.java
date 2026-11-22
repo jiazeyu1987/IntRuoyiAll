@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.erp.service.purchase.sync;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
@@ -287,7 +288,28 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
                 continue;
             }
             JsonNode result = parseJson(response.getBody(), label);
-            rejectQueryErrors(result);
+            try {
+                rejectQueryErrors(result);
+            } catch (ServiceException ex) {
+                String message = ex.getMessage();
+                // SQL Server explicitly rolls back a deadlock victim; retry this read-only page only.
+                boolean deadlockVictim = message != null && ((message.contains("死锁") && message.contains("牺牲品"))
+                        || message.toLowerCase(java.util.Locale.ROOT).contains("deadlock victim"));
+                if (!deadlockVictim || attempt >= MAX_QUERY_ATTEMPTS) {
+                    throw ex;
+                }
+                log.warn("PRD_PPBOM deadlock victim: startRow={}, limit={}, attempt={}/{}, cause={}",
+                        payload.get("StartRow"), payload.get("Limit"), attempt, MAX_QUERY_ATTEMPTS, message);
+                try {
+                    waitBeforeRetry(attempt);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    RestClientException cancelled = new RestClientException("生产用料清单死锁重试等待被中断", interrupted);
+                    cancelled.addSuppressed(ex);
+                    throw cancelled;
+                }
+                continue;
+            }
             log.info("PRD_PPBOM query completed: startRow={}, limit={}, attempt={}, elapsedMs={}",
                     payload.get("StartRow"), payload.get("Limit"), attempt,
                     (System.nanoTime() - started) / 1_000_000);

@@ -15,6 +15,7 @@ const ref = (value) => ({ value })
 function setup({ sync, search } = {}) {
   const alerts = []
   const state = {
+    requireWritableHandoff: () => true,
     activeOrderErpSyncing: ref(false), maintenanceSubmitting: ref(false),
     activeOrderErpCode: ref(' MO-001 '), activeOrderCandidateLoading: ref(true),
     activeOrderCandidateOptions: ref([{ workOrderId: 99 }]),

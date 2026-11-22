@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.process.MesProR
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.process.MesProRouteProcessRelationRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.process.MesProRouteProcessRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.process.MesProRouteProcessSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowGraphRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.repair.MesDvRepairDO;
@@ -38,6 +39,7 @@ import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationServic
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationWorkerService;
 import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessFlowService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProScheduleResourceAdjustmentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -95,6 +97,8 @@ public class MesProRouteProcessController {
 
     @Resource
     private MesProRouteProcessService routeProcessService;
+    @Resource
+    private MesProRouteProcessFlowService routeProcessFlowService;
     @Resource
     private MesProProcessService processService;
     @Resource
@@ -176,12 +180,26 @@ public class MesProRouteProcessController {
     @Operation(summary = "按工艺路线获得工序列表")
     @Parameter(name = "routeId", description = "工艺路线编号", required = true, example = "1")
     @Parameter(name = "calendarDate", description = "生效日期，默认今天")
-    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-route:query', 'mes:pro-schedule-order:query', 'mes:pro-route:schedule-config:query', 'mes:pro-route:batch-record-config:query')")
+    @PreAuthorize("#p2 == null ? @ss.hasAnyPermissions('mes:pro-route:query', 'mes:pro-schedule-order:query', 'mes:pro-route:schedule-config:query', 'mes:pro-route:batch-record-config:query')"
+            + " : @ss.hasAnyPermissions('mes:pro-route:query', 'mes:pro-route:schedule-config:query', 'mes:pro-route:batch-record-config:query')")
     public CommonResult<List<MesProRouteProcessRespVO>> getRouteProcessListByRoute(
             @RequestParam("routeId") Long routeId,
-            @RequestParam(value = "calendarDate", required = false) LocalDate calendarDate) {
+            @RequestParam(value = "calendarDate", required = false) LocalDate calendarDate,
+            @RequestParam(value = "routeVersionId", required = false) Long routeVersionId) {
+        LocalDate date = calendarDate == null ? LocalDate.now() : calendarDate;
+        if (routeVersionId != null) {
+            // getGraph validates tenant-visible route/version ownership and readable lifecycle.
+            // Versioned reads expose the resource baseline, never an active/manual override.
+            MesProRouteProcessFlowGraphRespVO graph = routeProcessFlowService.getGraph(routeId, routeVersionId);
+            List<MesProRouteProcessDO> nodes = graph.getNodes().stream().map(node ->
+                    MesProRouteProcessDO.builder().id(node.getRouteProcessId()).routeId(routeId)
+                            .processId(node.getProcessId()).sort(node.getSort())
+                            .workstationId(node.getRouteProcessWorkstationId())
+                            .keyFlag(node.getKeyFlag()).checkFlag(node.getCheckFlag()).build()).toList();
+            return success(buildRouteProcessRespVOList(nodes, routeId, date, graph));
+        }
         List<MesProRouteProcessDO> list = routeProcessService.getRouteProcessListByRouteId(routeId);
-        return success(buildRouteProcessRespVOList(list, routeId, calendarDate == null ? LocalDate.now() : calendarDate));
+        return success(buildRouteProcessRespVOList(list, routeId, date));
     }
 
     @GetMapping("/get-by-route-and-process")
@@ -218,6 +236,13 @@ public class MesProRouteProcessController {
     private List<MesProRouteProcessRespVO> buildRouteProcessRespVOList(List<MesProRouteProcessDO> list,
                                                                        Long routeIdHint,
                                                                        LocalDate calendarDate) {
+        return buildRouteProcessRespVOList(list, routeIdHint, calendarDate, null);
+    }
+
+    private List<MesProRouteProcessRespVO> buildRouteProcessRespVOList(List<MesProRouteProcessDO> list,
+                                                                       Long routeIdHint,
+                                                                       LocalDate calendarDate,
+                                                                       MesProRouteProcessFlowGraphRespVO versionGraph) {
         if (CollUtil.isEmpty(list)) {
             return Collections.emptyList();
         }
@@ -225,9 +250,12 @@ public class MesProRouteProcessController {
         Set<Long> processIds = convertSet(list, MesProRouteProcessDO::getProcessId);
         Map<Long, MesProProcessDO> processMap = convertMap(
                 processService.getProcessList(new ArrayList<>(processIds)), MesProProcessDO::getId);
-        RouteProcessRelationMaps relationMaps = buildRouteProcessRelationMaps(list, processMap);
-        List<MesMdWorkstationDO> processWorkstations =
-                workstationService.getWorkstationListByProcessIds(new ArrayList<>(processIds));
+        RouteProcessRelationMaps relationMaps = versionGraph == null
+                ? buildRouteProcessRelationMaps(list, processMap)
+                : buildVersionRelationMaps(list, processMap, versionGraph);
+        List<MesMdWorkstationDO> processWorkstations = versionGraph == null
+                ? workstationService.getWorkstationListByProcessIds(new ArrayList<>(processIds))
+                : Collections.emptyList();
         List<MesMdWorkstationDO> workstations = CollUtil.isEmpty(processWorkstations)
                 ? new ArrayList<>() : new ArrayList<>(processWorkstations);
         Set<Long> explicitWorkstationIds = list.stream()
@@ -270,17 +298,20 @@ public class MesProRouteProcessController {
         Map<String, MesProBatchRecordReportDO> batchRecordReportMap = convertMap(
                 batchRecordReportMapper.selectListByReportIds(batchRecordReportIds),
                 MesProBatchRecordReportDO::getReportId);
-        Map<Long, List<MesProScheduleResourceAdjustmentDO>> adjustmentMap = convertMultiMap(
+        Map<Long, List<MesProScheduleResourceAdjustmentDO>> adjustmentMap = versionGraph == null ? convertMultiMap(
                 scheduleResourceAdjustmentService.getAdjustmentList(routeId, calendarDate),
-                MesProScheduleResourceAdjustmentDO::getRouteProcessId);
+                MesProScheduleResourceAdjustmentDO::getRouteProcessId) : Collections.emptyMap();
         Map<Long, List<MesMdWorkstationDO>> routeProcessWorkstationMap = new LinkedHashMap<>();
         for (MesProRouteProcessDO routeProcess : list) {
             routeProcessWorkstationMap.put(routeProcess.getId(),
                     resolveRouteProcessWorkstations(routeProcess,
-                            workstationListMap.getOrDefault(routeProcess.getProcessId(), Collections.emptyList()),
+                            versionGraph == null
+                                    ? workstationListMap.getOrDefault(routeProcess.getProcessId(), Collections.emptyList())
+                                    : Collections.emptyList(),
                             workstationById));
         }
-        Map<Long, MesProRouteScheduleConfigDO> routeScheduleConfigMap = loadRouteScheduleConfigMap(routeId);
+        Map<Long, MesProRouteScheduleConfigDO> routeScheduleConfigMap = versionGraph == null
+                ? loadRouteScheduleConfigMap(routeId) : Collections.emptyMap();
         Map<Long, List<MesProRouteProcessMachineryRespVO>> machineryListMap =
                 buildMachineryListMap(routeProcessWorkstationMap, routeProcessMap, adjustmentMap);
         Map<Long, List<MesMdWorkstationWorkerDO>> workerBindingMap = buildWorkerBindingMap(workstations);
@@ -412,6 +443,26 @@ public class MesProRouteProcessController {
     private record RouteProcessRelationMaps(
             Map<Long, List<MesProRouteProcessRelationRespVO>> predecessors,
             Map<Long, List<MesProRouteProcessRelationRespVO>> successors) {
+    }
+
+    private RouteProcessRelationMaps buildVersionRelationMaps(List<MesProRouteProcessDO> nodes,
+                                                               Map<Long, MesProProcessDO> processMap,
+                                                               MesProRouteProcessFlowGraphRespVO graph) {
+        Map<Long, MesProRouteProcessDO> byId = convertMap(nodes, MesProRouteProcessDO::getId);
+        Map<Long, List<MesProRouteProcessRelationRespVO>> predecessors = new LinkedHashMap<>();
+        Map<Long, List<MesProRouteProcessRelationRespVO>> successors = new LinkedHashMap<>();
+        for (var edge : graph.getEdges()) {
+            MesProRouteProcessDO source = byId.get(edge.getSourceRouteProcessId());
+            MesProRouteProcessDO target = byId.get(edge.getTargetRouteProcessId());
+            if (source == null || target == null) {
+                throw new IllegalStateException("版本资源基线包含不存在的工序连线，routeId=" + graph.getRouteId());
+            }
+            predecessors.computeIfAbsent(target.getId(), key -> new ArrayList<>())
+                    .add(toRouteProcessRelation(source, processMap));
+            successors.computeIfAbsent(source.getId(), key -> new ArrayList<>())
+                    .add(toRouteProcessRelation(target, processMap));
+        }
+        return new RouteProcessRelationMaps(predecessors, successors);
     }
 
     private Map<Long, MesProRouteScheduleConfigDO> loadRouteScheduleConfigMap(Long routeId) {

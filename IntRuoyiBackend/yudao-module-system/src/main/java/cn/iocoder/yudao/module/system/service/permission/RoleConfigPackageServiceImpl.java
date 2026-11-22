@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.system.dal.mysql.permission.MenuMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleCategoryMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleMapper;
 import cn.iocoder.yudao.module.system.enums.permission.DataScopeEnum;
+import cn.iocoder.yudao.module.system.enums.permission.MenuTypeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.RoleTypeEnum;
 import cn.iocoder.yudao.module.system.service.tenant.TenantService;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
@@ -474,7 +475,9 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
             return cached;
         }
         boolean sharedPermission = StringUtils.hasText(menu.getPermission()) && menuById.values().stream()
-                .filter(candidate -> menu.getPermission().equals(candidate.getPermission())).count() > 1;
+                .anyMatch(candidate -> menu.getPermission().equals(candidate.getPermission())
+                        && !Objects.equals(menu.getId(), candidate.getId())
+                        && !sameButtonBoundary(menu, candidate));
         if (StringUtils.hasText(menu.getPermission()) && !sharedPermission) {
             return MENU_KEY_PERMISSION_PREFIX + menu.getPermission().trim();
         }
@@ -493,6 +496,17 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
                 + normalizeSegment(menu.getComponent()) + MENU_KEY_SEPARATOR
                 + normalizeSegment(menu.getComponentName()) + MENU_KEY_SEPARATOR
                 + normalizeSegment(menu.getName());
+    }
+
+    private boolean sameButtonBoundary(MenuDO menu, MenuDO candidate) {
+        // Repeated buttons under one node represent the same authority. Their row count
+        // must not change an otherwise unique permission key across environments.
+        return Objects.equals(menu.getType(), MenuTypeEnum.BUTTON.getType())
+                && Objects.equals(menu.getType(), candidate.getType())
+                && Objects.equals(menu.getParentId(), candidate.getParentId())
+                && normalizeSegment(menu.getPath()).equals(normalizeSegment(candidate.getPath()))
+                && normalizeSegment(menu.getComponent()).equals(normalizeSegment(candidate.getComponent()))
+                && normalizeSegment(menu.getComponentName()).equals(normalizeSegment(candidate.getComponentName()));
     }
 
     private String normalizeSegment(Object value) {

@@ -97,8 +97,8 @@ class MesProRouteVersionPublishProjectionServiceImplTest {
                           "configSnapshots": {
                             "flowGraph": {
                               "nodes": [
-                                {"routeProcessId": 101, "processId": 201, "sort": 1},
-                                {"routeProcessId": 102, "processId": 202, "sort": 2}
+                                {"routeProcessId": 101, "processId": 201, "sort": 1, "sopFileUrl": null},
+                                {"routeProcessId": 102, "processId": 202, "sort": 2, "sopFileUrl": "/files/sop-v1.pdf"}
                               ],
                               "edges": [{"sourceRouteProcessId": 101, "targetRouteProcessId": 102,
                                 "relationType": "SEQUENTIAL"}],
@@ -140,6 +140,11 @@ class MesProRouteVersionPublishProjectionServiceImplTest {
         assertEquals(2012L, rewritten.getJSONObject("configSnapshots").getJSONObject("nestedFormalRef")
                 .getLongValue("reviewRouteProcessId"));
         assertEquals(Set.of(2011L, 2012L), result.projectedRouteProcessIds());
+        var nodes = JSON.parseObject(result.rewrittenSnapshotJson()).getJSONObject("configSnapshots")
+                .getJSONObject("flowGraph").getJSONArray("nodes");
+        assertTrue(nodes.getJSONObject(0).containsKey("sopFileUrl"));
+        org.junit.jupiter.api.Assertions.assertNull(nodes.getJSONObject(0).get("sopFileUrl"));
+        assertEquals("/files/sop-v1.pdf", nodes.getJSONObject(1).getString("sopFileUrl"));
     }
 
     @Test

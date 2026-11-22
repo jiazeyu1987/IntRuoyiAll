@@ -111,6 +111,29 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
                         activeOrderId, routeProcessId, processId));
     }
 
+    @Override
+    public String getFrozenSopFileUrl(Long leaderUserId, Long activeOrderId, Long routeId,
+                                      Long routeProcessId, Long processId) {
+        MesFrontlineActiveOrderProcess process = requireProcess(
+                leaderUserId, activeOrderId, routeId, routeProcessId, processId);
+        MesProcessPoolActiveOrderDO activeOrder = requireActiveOrder(leaderUserId, activeOrderId);
+        if (!Objects.equals(process.routeId(), activeOrder.getRouteId())
+                || !Objects.equals(process.routeVersionId(), activeOrder.getRouteVersionId())) {
+            throw snapshotInvalid(activeOrderId, "读取 SOP 时锁定工艺路线或版本发生变化");
+        }
+        JSONObject node = parseProcessNodes(activeOrder,
+                parseRouteSnapshot(activeOrder, requireLockedRouteVersion(activeOrder)))
+                .get(new ProcessIdentity(routeProcessId, processId));
+        if (node == null || !node.containsKey("sopFileUrl")) {
+            throw snapshotInvalid(activeOrderId, "冻结工序缺少 SOP 文件绑定字段");
+        }
+        Object fileUrl = node.get("sopFileUrl");
+        if (fileUrl != null && !(fileUrl instanceof String)) {
+            throw snapshotInvalid(activeOrderId, "冻结工序 SOP 文件绑定字段格式无效");
+        }
+        return normalize((String) fileUrl);
+    }
+
     private MesProcessPoolActiveOrderDO requireActiveOrder(Long leaderUserId, Long activeOrderId) {
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectById(activeOrderId);
         if (activeOrder == null || !(Objects.equals(activeOrder.getLeaderUserId(), leaderUserId) || packagingAccess.canAccess(leaderUserId, activeOrder))

@@ -11,7 +11,7 @@ const viewerRoot = path.join(root, 'src/views/dcc/controlled-file/view')
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } }
 
 function loadTs(name) {
-  const host = { exports: {}, Error, require: id => { throw new Error(id) } }
+  const host = { exports: {}, Error, require: id => { if (id === '@/utils/uuid') return require('../helpers/load-secure-uuid.cjs')(); throw new Error(id) } }
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(viewerRoot, name + '.ts'), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
   }).outputText, host)
@@ -74,17 +74,17 @@ function loadViewer({ pages = ['first needle', 'second NEEDLE needle', 'last'], 
         getOnlineFilePreviewMetadata: async () => { throw metadataError || new Error('unexpected metadata request') },
         previewOnlineFileWithWatermark: async () => { throw new Error('unexpected byte request') }
       }
-      throw new Error(id)
+      if (id === '@/utils/uuid') return require('../helpers/load-secure-uuid.cjs')(); throw new Error(id)
     }
   }
   const names = ['loadPreview', 'pageEntries', 'bindCanvasRef', 'bindPdfPageRef', 'viewerFrameRef', 'pdfTextPages',
-    'pdfSearchQuery', 'pdfSearchMatches', 'pdfSearchMatchIndex', 'pdfSearchMessage', 'pdfSearchError',
+    'pdfMatchBoxes', 'pdfSearchQuery', 'pdfSearchMatches', 'pdfSearchMatchIndex', 'pdfSearchMessage', 'pdfSearchError',
     'pdfCurrentPage', 'pdfPageInput', 'pdfNavigationError', 'handlePdfPageJump', 'goToPdfPage',
     'handlePdfSearch', 'handlePdfSearchNext', 'handlePdfSearchPrevious', 'handlePdfScroll',
     'handleZoomIn', 'handleZoomOut', 'handleRotateRight', 'getPdfPageViewportStyle', 'viewerZoomPercent',
     'viewerRotationDegrees', 'errorMessage', 'loading', 'resolvedWatermark', 'pdfDocument',
     'resolvedPreviewKind', 'resolvedWatermarkText', 'resolvedWatermarkLabel', 'watermarkDetail',
-    'watermarkBackground', 'canTransformPreview', 'pdfPreviewTransformStyle', 'pdfCanSearch',
+    'watermarkBackground', 'canTransformPreview', 'getPdfPreviewTransformStyle', 'pdfCanSearch',
     'MIN_VIEWER_ZOOM_PERCENT', 'MAX_VIEWER_ZOOM_PERCENT', 'DEFAULT_VIEWER_ZOOM_PERCENT',
     'handleResetViewerTransform', 'blockPreviewInteraction', 'handleWindowKeydown', 'renderVersion', 'registeredPreviewVisible', 'registeredPreviewLabel',
     'readingSupported', 'readingSummary', 'readingError', 'readingCloseError', 'formatReadingOpenedAt']
@@ -197,12 +197,13 @@ test('late text completion and late render completion after unmount cannot resto
   }
 })
 
-test('failed text extraction is a visible failure and not the scanned-document empty state', async () => {
+test('failed text extraction rejects the rendered preview and cannot become a successful blank page', async () => {
   const r = loadViewer({ textError: new Error('TEXT_PERMISSION_DENIED') })
   await r.api.loadPreview()
-  assert.equal(r.api.pdfSearchError.value, 'TEXT_PERMISSION_DENIED')
-  assert.match(r.api.pdfSearchMessage.value, /不可用/)
-  assert.doesNotMatch(r.api.pdfSearchMessage.value, /无可搜索文本/)
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(r.api.errorMessage.value, 'TEXT_PERMISSION_DENIED')
+  assert.equal(r.rendered.length, 0)
+  assert.equal(r.api.registeredPreviewVisible.value, false)
   assert.equal(r.api.pdfTextPages.value.length, 0)
 })
 

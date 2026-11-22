@@ -401,7 +401,11 @@ const discardListEditCandidateDraft = async (notify = true) => {
   }
   routeVersionActionLoading.value = true
   try {
-    await ProRouteApi.cancelRouteCandidateVersion(context.routeVersionId)
+    const latestVersion = await ProRouteApi.getRouteVersion(context.routeVersionId)
+    if (latestVersion.lifecycleStatus !== 'CANCELLED') {
+      await ProRouteApi.cancelRouteCandidateVersion(context.routeVersionId)
+    }
+    contentRef.value?.discardRouteCandidateDraftChanges?.()
     listEditCandidateDraftDiscarded.value = true
     if (notify) message.success('未保存的候选版本草稿已丢弃')
     return true
@@ -414,6 +418,27 @@ const discardListEditCandidateDraft = async (notify = true) => {
 }
 
 const confirmUnsavedCandidateDraftBeforeExit = async () => {
+  if (
+    shouldPromptUnsavedCandidateDraftBeforeExit.value ||
+    shouldDiscardListEditCandidateDraftBeforeExit.value
+  ) {
+    const context = routeVersionEditContext.value
+    if (!context) {
+      message.error('退出候选版本失败：缺少路线版本上下文')
+      return false
+    }
+    try {
+      const latestVersion = await ProRouteApi.getRouteVersion(context.routeVersionId)
+      if (latestVersion.lifecycleStatus === 'CANCELLED') {
+        contentRef.value?.discardRouteCandidateDraftChanges?.()
+        listEditCandidateDraftDiscarded.value = true
+        return true
+      }
+    } catch (error) {
+      message.error(resolveRouteOperationErrorMessage(error, '读取候选版本状态失败，请查看后端返回错误'))
+      return false
+    }
+  }
   if (!shouldPromptUnsavedCandidateDraftBeforeExit.value) {
     if (shouldDiscardListEditCandidateDraftBeforeExit.value) {
       return await discardListEditCandidateDraft(false)

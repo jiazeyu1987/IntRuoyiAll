@@ -280,9 +280,27 @@ public class MesProRouteTreeService {
         return version == null ? List.of() : MesProRouteTreePatch.order(snapshot(version));
     }
     private static List<String> processNames(JSONObject root) {
-        return root.getJSONObject("configSnapshots").getJSONObject("flowGraph").getJSONArray("nodes")
+        JSONObject configs = root.getJSONObject("configSnapshots");
+        JSONArray productionConfigs = configs.getJSONArray("productionProcessConfigs");
+        Map<Long, JSONObject> byRouteProcess = new HashMap<>();
+        if (productionConfigs != null) {
+            for (JSONObject config : productionConfigs.toJavaList(JSONObject.class)) {
+                if (config == null || config.getLong("routeProcessId") == null
+                        || byRouteProcess.putIfAbsent(config.getLong("routeProcessId"), config) != null)
+                    throw invalid("工序生产配置缺失或重复，无法展示工序名称");
+            }
+        }
+        // 与冻结流程图一致：生产配置存在时，名称必须来自同一版本的生产配置。
+        return configs.getJSONObject("flowGraph").getJSONArray("nodes")
                 .toJavaList(JSONObject.class).stream().sorted(Comparator.comparing(row -> row.getInteger("sort")))
-                .map(row -> row.getString("processName")).toList();
+                .map(row -> {
+                    JSONObject source = productionConfigs == null ? row : byRouteProcess.get(row.getLong("routeProcessId"));
+                    if (source == null || !Objects.equals(row.getLong("processId"), source.getLong("processId")))
+                        throw invalid("工序生产配置与流程图不一致，无法展示工序名称");
+                    String name = source.getString("processName");
+                    if (name == null || name.isBlank()) throw invalid("工序名称缺失，请核查已发布配置");
+                    return name;
+                }).toList();
     }
     private static List<Map<String, Object>> differences(Object before, Object after, String path) {
         List<Map<String, Object>> result = new ArrayList<>();

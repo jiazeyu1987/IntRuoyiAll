@@ -149,7 +149,9 @@ class MesProRouteWorkbookExportServiceTest {
                 MesProRouteFlowProcessBatchRecordDO.builder().routeFlowProcessConfigId(700L)
                         .routeId(10L).routeProcessId(20L).useType("BATCH")
                         .batchRecordReportId("BR-001").formBindingKey("slot-a")
-                        .formTemplateNameSnapshot("过程记录").reportSort(1).build()));
+                        .formTemplateNameSnapshot("过程记录").candidateSourceType("USERS")
+                        .candidateSourceIds("999").candidateSourceNames("source-person")
+                        .fillableScopeJson("{\"userId\":999}").permissionScopeId(999L).reportSort(1).build()));
         when(routeProductMapper.selectListByRouteIds(eq(Set.of(10L)))).thenReturn(List.of());
         when(routeProductBomMapper.selectList(eq(10L), eq(null), eq(null))).thenReturn(List.of());
         when(processMapper.selectListByIds(eq(Set.of(30L)))).thenReturn(List.of(process(30L, "PROC-A")));
@@ -159,8 +161,8 @@ class MesProRouteWorkbookExportServiceTest {
 
         try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(bytes))) {
             assertNotNull(workbook.getSheet("工艺路线"));
-            assertEquals("项目代码", workbook.getSheet("工艺路线").getRow(0).getCell(6).getStringCellValue());
-            assertEquals("PROJECT-1", workbook.getSheet("工艺路线").getRow(1).getCell(6).getStringCellValue());
+            assertEquals("项目代码", workbook.getSheet("工艺路线").getRow(0).getCell(5).getStringCellValue());
+            assertEquals("PROJECT-1", workbook.getSheet("工艺路线").getRow(1).getCell(5).getStringCellValue());
             assertNotNull(workbook.getSheet("路线工序"));
             assertNotNull(workbook.getSheet("流转关系"));
             assertNotNull(workbook.getSheet("边界关系"));
@@ -171,6 +173,8 @@ class MesProRouteWorkbookExportServiceTest {
             assertNotNull(workbook.getSheet("流程用途配置"));
             assertNotNull(workbook.getSheet("工序用途配置"));
             assertNotNull(workbook.getSheet("工序表单绑定"));
+            for (var sheet : workbook) for (var row : sheet) for (var cell : row)
+                org.junit.jupiter.api.Assertions.assertFalse(cell.toString().contains("source-person"));
             assertEquals("START", workbook.getSheet("边界关系").getRow(1).getCell(1).getStringCellValue());
             assertEquals("PROC-A", workbook.getSheet("流转布局").getRow(1).getCell(1).getStringCellValue());
             assertEquals("RESOURCE_CALCULATED", workbook.getSheet("路线排产配置").getRow(1).getCell(2).getStringCellValue());
@@ -220,6 +224,10 @@ class MesProRouteWorkbookExportServiceTest {
 
         try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(bytes))) {
             assertEquals(11, workbook.getNumberOfSheets());
+            assertEquals("路线说明", workbook.getSheet("工艺路线").getRow(1).getCell(3).getStringCellValue());
+            assertEquals("路线备注", workbook.getSheet("工艺路线").getRow(1).getCell(4).getStringCellValue());
+            for (var sheet : workbook) for (var row : sheet) for (var cell : row)
+                org.junit.jupiter.api.Assertions.assertFalse(cell.toString().contains("张三"));
             assertEquals("工艺路线", workbook.getSheetName(0));
             assertEquals("路线工序", workbook.getSheetName(1));
             assertEquals("流转关系", workbook.getSheetName(2));

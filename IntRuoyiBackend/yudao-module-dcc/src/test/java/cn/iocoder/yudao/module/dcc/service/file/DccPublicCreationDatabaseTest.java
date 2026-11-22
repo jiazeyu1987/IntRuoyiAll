@@ -57,7 +57,7 @@ class DccPublicCreationDatabaseTest extends DccWorkflowAttributesIntegrationTest
         var login=new LoginUser();login.setId(99L);login.setTenantId(1L);login.setUserType(2);
         login.setInfo(Map.of("username","public-test",LoginUser.INFO_KEY_NICKNAME,"Public test"));
         SecurityFrameworkUtils.setLoginUser(login,new MockHttpServletRequest());
-        jdbc.execute("CREATE TABLE IF NOT EXISTS infra_file(id BIGINT PRIMARY KEY,config_id BIGINT,name VARCHAR(256),path VARCHAR(1024),url VARCHAR(1024),type VARCHAR(128),size BIGINT,creator VARCHAR(64),updater VARCHAR(64),create_time TIMESTAMP,update_time TIMESTAMP,deleted BIT DEFAULT 0)");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS infra_file(id BIGINT PRIMARY KEY,tenant_id BIGINT,config_id BIGINT,name VARCHAR(256),path VARCHAR(1024),url VARCHAR(1024),type VARCHAR(128),size BIGINT,creator VARCHAR(64),updater VARCHAR(64),create_time TIMESTAMP,update_time TIMESTAMP,deleted BIT DEFAULT 0)");
         jdbc.update("DELETE FROM infra_file");jdbc.update("DELETE FROM dcc_controlled_file_source_ownership");
         var source=FileDO.builder().id(100L).configId(1L).name("SOP.pdf").path("original/SOP.pdf").url("isolated-test").type("application/pdf").size(4L).build();infraFiles.insert(source);bytes.clear();bytes.put(source.getPath(),new byte[]{1,2,3,4});
         var storage=mock(FileService.class);

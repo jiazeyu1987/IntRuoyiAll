@@ -137,8 +137,8 @@ class DccRegistrationCertificateUploadServiceTest {
     }
 
     @ParameterizedTest
-    @org.junit.jupiter.params.provider.CsvSource({"MDM,", "CATALOG,", "MDM,701"})
-    void submitUploadUsesBoundDccProductRegardlessOfShowroomBinding(String productSource, Long handlingTaskId) {
+    @org.junit.jupiter.params.provider.CsvSource({"MDM,,DOMESTIC", "CATALOG,,DOMESTIC", "MDM,701,DOMESTIC", "MDM,,CE"})
+    void submitUploadUsesBoundDccProductRegardlessOfShowroomBinding(String productSource, Long handlingTaskId, String certificateType) {
         mockOwnedCompany();
         if ("MDM".equals(productSource)) mockProjectCode();
         else mockProjectCodeWithoutProductBinding();
@@ -170,9 +170,18 @@ class DccRegistrationCertificateUploadServiceTest {
         when(businessClock.now()).thenReturn(LocalDateTime.of(2026, 8, 29, 10, 0));
         when(registrationHandlingTasks.resolveUploadTaskId(null, handlingTaskId)).thenReturn(handlingTaskId);
 
+        var command = uploadCommand(1001L, 501L, "一次性使用无菌导管", true, false, List.of(301L, 302L), handlingTaskId);
+        if ("CE".equals(certificateType)) {
+            var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(command.factsJson());
+            facts.setCertificateType("CE");facts.setCertificateNo(null);facts.setFirstObtainedDate(null);facts.setEffectiveDate(null);
+            var rev = new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.CeCertificate();
+            rev.setRevision("R04");rev.setCertificateNo("SIMULATION-CE-R04");facts.setCeCertificates(List.of(rev));
+            command = new DccRegistrationCertificateUploadCommand(command.projectCodeId(),command.companyId(),command.productName(),
+                    null,null,null,command.expiryDate(),command.classification(),command.entrustedProduction(),command.selfProduction(),
+                    command.entrustedEnterpriseIds(),command.remark(),command.file(),facts.toJson(),List.of(),List.of(),null,List.of(),handlingTaskId);
+        }
         DccRegistrationCertificateUploadSubmitResult result = uploadService.submitUploadForApproval(
-                TENANT_ID, ACTOR_ID, "UPLOAD-KEY-1", "TRACE-1",
-                uploadCommand(1001L, 501L, "一次性使用无菌导管", true, false, List.of(301L, 302L), handlingTaskId));
+                TENANT_ID, ACTOR_ID, "UPLOAD-KEY-1", "TRACE-1", command);
 
         assertEquals(9401L, result.requestId());
         assertEquals(9001L, result.certificateId());
@@ -180,6 +189,12 @@ class DccRegistrationCertificateUploadServiceTest {
         assertEquals("MDM".equals(productSource) ? 2001L : null, draft.getValue().productMasterId());
         assertEquals(Boolean.TRUE, cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts
                 .parse(draft.getValue().factsJson()).getOwnProduct());
+        if ("CE".equals(certificateType)) {
+            assertEquals("SIMULATION-CE-R04", draft.getValue().certificateNo());
+            assertEquals("SIMULATION-CE-R04", cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts
+                    .parse(draft.getValue().factsJson()).getCertificateNo());
+            assertNull(draft.getValue().firstObtainedDate());
+        }
         assertEquals(501L, draft.getValue().ownerCompanyId());
         assertEquals("一次性使用无菌导管", draft.getValue().productName());
         assertEquals(1001L, draft.getValue().projectCodeId());

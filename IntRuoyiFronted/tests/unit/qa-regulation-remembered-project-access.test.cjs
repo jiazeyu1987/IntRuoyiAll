@@ -10,11 +10,12 @@ function harness({ rememberedId, queryId, projects = [], loadError, selectionErr
   const calls = [], warnings = []
   const initialize = new Function('loadDccProjectCodeOptions', 'loadQaMachineryOptions',
     'resolveInitialDccProjectCodeId', 'route', 'dccProjectCodeOptions', 'selectDccProjectCode',
-    'ElMessage', 'handleDccProjectCodeChange', `return async () => {${body}}`)(
+    'ElMessage', 'handleDccProjectCodeChange', 'resolveDccProjectId', `return async () => {${body}}`)(
     async () => { if (loadError) throw loadError }, async () => {},
-    () => queryId || rememberedId, { query: { dccProjectCodeId: queryId } }, { value: projects },
+    () => queryId || rememberedId ? String(queryId || rememberedId) : undefined,
+    { query: { dccProjectCodeId: queryId } }, { value: projects },
     async () => calls.push('clear'), { warning: message => warnings.push(message) },
-    async id => { calls.push(id); if (selectionError) throw selectionError })
+    async id => { calls.push(id); if (selectionError) throw selectionError }, String)
   return { initialize, calls, warnings }
 }
 
@@ -28,7 +29,7 @@ test('a remembered inaccessible project is cleared without requesting its detail
 test('a remembered readable project restores its QA configuration', async () => {
   const h = harness({ rememberedId: 129, projects: [{ id: '129' }] })
   await h.initialize()
-  assert.deepEqual(h.calls, [129])
+  assert.deepEqual(h.calls, ['129'])
   assert.deepEqual(h.warnings, [])
 })
 
@@ -36,7 +37,7 @@ test('an explicit link preserves the server permission rejection', async () => {
   const denied = new Error('project access denied')
   const h = harness({ queryId: 129, projects: [], selectionError: denied })
   await assert.rejects(h.initialize(), error => error === denied)
-  assert.deepEqual(h.calls, [129])
+  assert.deepEqual(h.calls, ['129'])
   assert.deepEqual(h.warnings, [])
 })
 

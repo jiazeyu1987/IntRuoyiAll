@@ -13,6 +13,12 @@ public class ErpKingdeeProductionPickListSyncResult {
         createdCount++;
     }
 
+    public void add(ErpKingdeeProductionPickListSyncResult batch) {
+        createdCount = Math.addExact(createdCount, batch.createdCount);
+        updatedCount = Math.addExact(updatedCount, batch.updatedCount);
+        skippedCount = Math.addExact(skippedCount, batch.skippedCount);
+    }
+
     public void addUpdated() {
         updatedCount++;
     }

@@ -3,6 +3,9 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.route;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.process.MesProRouteProcessRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowGraphRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowNodeRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowEdgeRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.repair.MesDvRepairDO;
@@ -14,6 +17,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessFlowEdgeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteScheduleConfigDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProScheduleResourceAdjustmentDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.repair.MesDvRepairMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessFlowEdgeMapper;
@@ -27,6 +31,7 @@ import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationServic
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationWorkerService;
 import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessFlowService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProScheduleResourceAdjustmentService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,6 +39,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -46,12 +54,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteProcessControllerWorkstationViewTest {
 
     @Mock
     private MesProRouteProcessService routeProcessService;
+    @Mock
+    private MesProRouteProcessFlowService routeProcessFlowService;
     @Mock
     private MesProProcessService processService;
     @Mock
@@ -109,7 +122,7 @@ class MesProRouteProcessControllerWorkstationViewTest {
                 flowEdge(routeId, 23L, 24L)));
 
         CommonResult<List<MesProRouteProcessRespVO>> response =
-                controller.getRouteProcessListByRoute(routeId, null);
+                controller.getRouteProcessListByRoute(routeId, null, null);
 
         MesProRouteProcessRespVO routeProcessA = response.getData().get(0);
         MesProRouteProcessRespVO routeProcessB = response.getData().get(1);
@@ -148,7 +161,7 @@ class MesProRouteProcessControllerWorkstationViewTest {
                 flowEdge(routeId, 33L, 34L)));
 
         CommonResult<List<MesProRouteProcessRespVO>> response =
-                controller.getRouteProcessListByRoute(routeId, null);
+                controller.getRouteProcessListByRoute(routeId, null, null);
 
         MesProRouteProcessRespVO routeProcessD = response.getData().get(3);
         assertNull(routeProcessD.getPredecessor());
@@ -174,7 +187,7 @@ class MesProRouteProcessControllerWorkstationViewTest {
                 flowEdge(routeId, 598L, 52L)));
 
         CommonResult<List<MesProRouteProcessRespVO>> response =
-                controller.getRouteProcessListByRoute(routeId, null);
+                controller.getRouteProcessListByRoute(routeId, null, null);
 
         MesProRouteProcessRespVO routeProcessA = response.getData().get(0);
         MesProRouteProcessRespVO routeProcessB = response.getData().get(1);
@@ -210,7 +223,7 @@ class MesProRouteProcessControllerWorkstationViewTest {
                         .shiftHours(new BigDecimal("8")).build()));
         when(workstationMachineService.getWorkstationMachineListByWorkstationIds(any())).thenReturn(List.of());
 
-        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(10L, null);
+        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(10L, null, null);
 
         MesProRouteProcessRespVO vo = response.getData().get(0);
         assertEquals(201L, vo.getWorkstationId());
@@ -246,7 +259,7 @@ class MesProRouteProcessControllerWorkstationViewTest {
                         .shiftHours(new BigDecimal("8")).build()));
         when(workstationMachineService.getWorkstationMachineListByWorkstationIds(any())).thenReturn(List.of());
 
-        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(10L, null);
+        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(10L, null, null);
 
         MesProRouteProcessRespVO vo = response.getData().get(0);
         assertEquals(201L, vo.getWorkstationId());
@@ -263,7 +276,7 @@ class MesProRouteProcessControllerWorkstationViewTest {
         when(processService.getProcessList(any()))
                 .thenReturn(List.of(MesProProcessDO.builder().id(102L).code("P102").name("无工位工序").build()));
 
-        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(11L, null);
+        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(11L, null, null);
 
         MesProRouteProcessRespVO vo = response.getData().get(0);
         assertNull(vo.getWorkstationId());
@@ -287,7 +300,7 @@ class MesProRouteProcessControllerWorkstationViewTest {
         when(batchRecordReportMapper.selectListByReportIds(any()))
                 .thenReturn(List.of(report("ebr-report-1", "EBR_A_T01", "电子批记录[A]-表1")));
 
-        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(12L, null);
+        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(12L, null, null);
 
         MesProRouteProcessRespVO vo = response.getData().get(0);
         assertEquals("ebr-report-1", vo.getBatchRecordReportId());
@@ -340,7 +353,7 @@ class MesProRouteProcessControllerWorkstationViewTest {
                         MesMdWorkstationWorkerDO.builder().id(401L).workstationId(201L).quantity(7).build(),
                         MesMdWorkstationWorkerDO.builder().id(402L).workstationId(203L).quantity(5).build()));
 
-        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(13L, null);
+        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(13L, null, null);
 
         MesProRouteProcessRespVO withMachines = response.getData().get(0);
         assertEquals(5, withMachines.getMachineryQuantityTotal());
@@ -413,7 +426,7 @@ class MesProRouteProcessControllerWorkstationViewTest {
                         .hourlyCapacity(new BigDecimal("60"))
                         .build()));
 
-        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(20L, null);
+        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(20L, null, null);
 
         MesProRouteProcessRespVO vo = response.getData().get(0);
         assertEquals(0, vo.getProcessHourlyCapacityTotal().compareTo(new BigDecimal("60")));
@@ -445,7 +458,7 @@ class MesProRouteProcessControllerWorkstationViewTest {
                         .hourlyCapacity(new BigDecimal("60"))
                         .build()));
 
-        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(21L, null);
+        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(21L, null, null);
 
         MesProRouteProcessRespVO vo = response.getData().get(0);
         assertEquals(0, vo.getShiftHours().compareTo(new BigDecimal("8")));
@@ -483,7 +496,7 @@ class MesProRouteProcessControllerWorkstationViewTest {
                         .infiniteDurationBaseMinutes(new BigDecimal("0"))
                         .build()));
 
-        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(22L, null);
+        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(22L, null, null);
 
         MesProRouteProcessRespVO vo = response.getData().get(0);
         assertEquals(0, vo.getProcessHourlyCapacityTotal().compareTo(new BigDecimal("15")));
@@ -521,7 +534,7 @@ class MesProRouteProcessControllerWorkstationViewTest {
                                 .standardHourlyCapacity(new BigDecimal("99")).build()));
         when(repairMapper.selectListByMachineryIdsAndStatuses(any(), any())).thenReturn(List.of());
 
-        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(23L, null);
+        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(23L, null, null);
 
         MesProRouteProcessRespVO vo = response.getData().get(0);
         assertNull(vo.getShiftHours());
@@ -553,7 +566,7 @@ class MesProRouteProcessControllerWorkstationViewTest {
                         .build()));
         when(workstationMachineService.getWorkstationMachineListByWorkstationIds(any())).thenReturn(List.of());
 
-        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(26L, null);
+        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(26L, null, null);
 
         MesProRouteProcessRespVO vo = response.getData().get(0);
         assertEquals(802L, vo.getWorkstationId());
@@ -586,7 +599,7 @@ class MesProRouteProcessControllerWorkstationViewTest {
                         MesMdWorkstationWorkerDO.builder().id(4900L).workstationId(900L).quantity(1).build(),
                         MesMdWorkstationWorkerDO.builder().id(4901L).workstationId(901L).quantity(1).build()));
 
-        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(24L, null);
+        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(24L, null, null);
 
         MesProRouteProcessRespVO vo = response.getData().get(0);
         assertNull(vo.getShiftHours());
@@ -616,7 +629,7 @@ class MesProRouteProcessControllerWorkstationViewTest {
                         .quantity(null)
                         .build()));
 
-        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(25L, null);
+        CommonResult<List<MesProRouteProcessRespVO>> response = controller.getRouteProcessListByRoute(25L, null, null);
 
         MesProRouteProcessRespVO vo = response.getData().get(0);
         assertEquals(922467L, vo.getId());
@@ -645,7 +658,7 @@ class MesProRouteProcessControllerWorkstationViewTest {
         when(machineryService.getMachineryMap(any())).thenReturn(Map.of());
 
         IllegalStateException exception = assertThrows(IllegalStateException.class,
-                () -> controller.getRouteProcessListByRoute(14L, null));
+                () -> controller.getRouteProcessListByRoute(14L, null, null));
         assertTrue(exception.getMessage().contains("workstationMachineId=304"));
         assertTrue(exception.getMessage().contains("machineryId=999"));
     }
@@ -667,9 +680,142 @@ class MesProRouteProcessControllerWorkstationViewTest {
                 MesDvMachineryDO.builder().id(505L).code("M-E").name("设备 E").build()));
 
         IllegalStateException exception = assertThrows(IllegalStateException.class,
-                () -> controller.getRouteProcessListByRoute(15L, null));
+                () -> controller.getRouteProcessListByRoute(15L, null, null));
         assertTrue(exception.getMessage().contains("workstationMachineId=305"));
         assertTrue(exception.getMessage().contains("machineryId=505"));
+    }
+
+    @Test
+    void versionResourceBaseline_keepsExactIdsAndIgnoresActiveOverridesAndOtherProcessWorkstations() {
+        Long routeId = 2121453182031056995L;
+        Long versionId = 2121453182031057259L;
+        Long nodeId = 2121453182219802723L;
+        Long workstationId = 2121333283992494168L;
+        // A current-day override must not leak into the explicitly requested version baseline.
+        lenient().when(scheduleResourceAdjustmentService.getAdjustmentList(any(), any())).thenReturn(List.of(
+                MesProScheduleResourceAdjustmentDO.builder().routeProcessId(nodeId)
+                        .resourceType("WORKER").workerQuantityOverride(99)
+                        .singleHourlyCapacityOverride(new BigDecimal("999"))
+                        .shiftHoursOverride(new BigDecimal("24")).build()));
+        MesProRouteProcessFlowNodeRespVO bound = versionNode(nodeId, 101L, workstationId, 1);
+        MesProRouteProcessFlowNodeRespVO unbound = versionNode(nodeId + 1, 101L, null, 2);
+        MesProRouteProcessFlowEdgeRespVO edge = new MesProRouteProcessFlowEdgeRespVO();
+        edge.setSourceRouteProcessId(nodeId);
+        edge.setTargetRouteProcessId(nodeId + 1);
+        MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
+        graph.setRouteId(routeId);
+        graph.setNodes(List.of(bound, unbound));
+        graph.setEdges(List.of(edge));
+        when(routeProcessFlowService.getGraph(routeId, versionId)).thenReturn(graph);
+        when(processService.getProcessList(any())).thenReturn(List.of(process(101L, "P101", "候选工序")));
+        when(workstationService.getWorkstationList(any())).thenReturn(List.of(
+                MesMdWorkstationDO.builder().id(workstationId).processId(101L)
+                        .code("WS-EXACT").name("候选绑定工作站")
+                        .singleStandardHourlyCapacity(new BigDecimal("15"))
+                        .shiftHours(new BigDecimal("8")).build()));
+        when(workstationMachineService.getWorkstationMachineListByWorkstationIds(any())).thenReturn(List.of());
+
+        List<MesProRouteProcessRespVO> rows = controller.getRouteProcessListByRoute(routeId, null, versionId).getData();
+
+        assertEquals(2, rows.size());
+        MesProRouteProcessRespVO row = rows.get(0);
+        assertEquals(nodeId, row.getId());
+        assertEquals(workstationId, row.getWorkstationId());
+        assertEquals(0, new BigDecimal("15").compareTo(row.getProcessHourlyCapacityTotal()));
+        assertEquals(0, new BigDecimal("8").compareTo(row.getShiftHours()));
+        assertEquals(0, new BigDecimal("120").compareTo(row.getProcessShiftCapacityTotal()));
+        assertEquals(nodeId + 1, row.getSuccessors().get(0).getRouteProcessId());
+        assertNull(rows.get(1).getWorkstationId());
+        assertEquals(nodeId, rows.get(1).getPredecessor().getRouteProcessId());
+        verify(workstationService).getWorkstationList(java.util.Set.of(workstationId));
+        verify(workstationService, never()).getWorkstationListByProcessIds(any());
+        verify(routeProcessService, never()).getRouteProcessListByRouteId(any());
+        verifyNoInteractions(routeVersionMapper, routeScheduleConfigMapper, routeProcessFlowEdgeMapper,
+                scheduleResourceAdjustmentService);
+    }
+
+    @Test
+    void versionResourceBaseline_rejectsMissingExplicitWorkstationInsteadOfBorrowingResources() {
+        MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
+        graph.setRouteId(10L);
+        graph.setNodes(List.of(versionNode(11L, 101L, 2121333283992494168L, 1)));
+        when(routeProcessFlowService.getGraph(10L, 20L)).thenReturn(graph);
+        when(processService.getProcessList(any())).thenReturn(List.of(process(101L, "P", "工序")));
+        when(workstationService.getWorkstationList(any())).thenReturn(List.of());
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> controller.getRouteProcessListByRoute(10L, null, 20L));
+        assertTrue(failure.getMessage().contains("2121333283992494168"));
+        verify(workstationService, never()).getWorkstationListByProcessIds(any());
+    }
+
+    @Test
+    void versionResourceBaseline_propagatesVersionOwnershipFailureBeforeReadingResources() {
+        IllegalArgumentException failure = new IllegalArgumentException("version does not belong to route");
+        when(routeProcessFlowService.getGraph(10L, 20L)).thenThrow(failure);
+        assertEquals(failure, assertThrows(IllegalArgumentException.class,
+                () -> controller.getRouteProcessListByRoute(10L, null, 20L)));
+        verifyNoInteractions(workstationService, processService, routeScheduleConfigMapper, routeProcessService);
+    }
+
+    @Test
+    void versionResourceBaseline_rejectsDanglingVersionEdge() {
+        MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
+        graph.setRouteId(10L);
+        graph.setNodes(List.of(versionNode(11L, 101L, null, 1)));
+        MesProRouteProcessFlowEdgeRespVO edge = new MesProRouteProcessFlowEdgeRespVO();
+        edge.setSourceRouteProcessId(11L);
+        edge.setTargetRouteProcessId(999L);
+        graph.setEdges(List.of(edge));
+        when(routeProcessFlowService.getGraph(10L, 20L)).thenReturn(graph);
+        when(processService.getProcessList(any())).thenReturn(List.of(process(101L, "P", "工序")));
+        assertThrows(IllegalStateException.class, () -> controller.getRouteProcessListByRoute(10L, null, 20L));
+        verifyNoInteractions(workstationService, routeScheduleConfigMapper, routeProcessFlowEdgeMapper);
+    }
+
+    @Test
+    void versionResourceBaseline_requiresGraphQueryPermissionsWhilePreservingUnversionedOrderQuery() throws Exception {
+        String expression = MesProRouteProcessController.class.getMethod("getRouteProcessListByRoute",
+                Long.class, java.time.LocalDate.class, Long.class).getAnnotation(PreAuthorize.class).value();
+        assertTrue(evaluateReadPermission(expression, null, "mes:pro-schedule-order:query"));
+        assertEquals(false, evaluateReadPermission(expression, 20L, "mes:pro-schedule-order:query"));
+        for (String permission : List.of("mes:pro-route:query", "mes:pro-route:schedule-config:query",
+                "mes:pro-route:batch-record-config:query")) {
+            assertTrue(evaluateReadPermission(expression, 20L, permission));
+        }
+        assertEquals(false, evaluateReadPermission(expression, null, "unrelated:query"));
+        assertEquals(false, evaluateReadPermission(expression, 20L, "unrelated:query"));
+    }
+
+    private boolean evaluateReadPermission(String expression, Long versionId, String granted) {
+        StandardEvaluationContext context = new StandardEvaluationContext();
+        context.setVariable("p2", versionId);
+        context.setBeanResolver((evaluationContext, name) -> {
+            if (!"ss".equals(name)) throw new IllegalArgumentException(name);
+            return new QueryPermission(granted);
+        });
+        return Boolean.TRUE.equals(new SpelExpressionParser().parseExpression(expression).getValue(context, Boolean.class));
+    }
+
+    public static class QueryPermission {
+        private final String granted;
+
+        public QueryPermission(String granted) {
+            this.granted = granted;
+        }
+
+        public boolean hasAnyPermissions(String... permissions) {
+            return java.util.Arrays.asList(permissions).contains(granted);
+        }
+    }
+
+    private MesProRouteProcessFlowNodeRespVO versionNode(Long id, Long processId, Long workstationId, int sort) {
+        MesProRouteProcessFlowNodeRespVO node = new MesProRouteProcessFlowNodeRespVO();
+        node.setRouteProcessId(id);
+        node.setProcessId(processId);
+        node.setRouteProcessWorkstationId(workstationId);
+        node.setSort(sort);
+        return node;
     }
 
     private MesProBatchRecordReportDO report(String reportId, String reportCode, String reportName) {

@@ -1223,6 +1223,7 @@ public class MesProcessPoolTeamLeaderController {
     private static MesTeamLeaderActiveOrderDetailRespVO.InputMaterialDetail toActiveOrderInputMaterialDetailRespVO(
             MesTeamLeaderActiveOrderDetail.InputMaterialDetail material) {
         return new MesTeamLeaderActiveOrderDetailRespVO.InputMaterialDetail()
+                .setSourceMatchWarning(material.getSourceMatchWarning())
                 .setMaterialId(material.getMaterialId())
                 .setMaterialCode(material.getMaterialCode())
                 .setMaterialName(material.getMaterialName())

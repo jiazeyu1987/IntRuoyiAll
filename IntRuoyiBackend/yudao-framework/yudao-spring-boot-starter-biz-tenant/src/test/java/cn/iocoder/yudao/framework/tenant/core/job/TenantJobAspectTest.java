@@ -51,6 +51,21 @@ class TenantJobAspectTest {
     }
 
     @Test
+    void scopedFailureMustPropagateInsteadOfReturningSuccessJson() throws Throwable {
+        TenantFrameworkService tenantService = mock(TenantFrameworkService.class);
+        ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
+        when(joinPoint.getArgs()).thenReturn(new Object[]{TenantJobParam.forTenant(163L, "")});
+        when(joinPoint.proceed(any(Object[].class))).thenThrow(new IllegalStateException("ERP failed"));
+
+        RuntimeException failure = assertThrows(RuntimeException.class,
+                () -> new TenantJobAspect(tenantService).around(joinPoint, mock(TenantJob.class)));
+
+        assertTrue(failure.getMessage().contains("tenant=163"));
+        assertTrue(failure.getMessage().contains("ERP failed"));
+        verify(tenantService, never()).getTenantIds();
+    }
+
+    @Test
     void unscopedParameter_keepsAllEnabledTenantExecution() throws Throwable {
         TenantFrameworkService tenantService = mock(TenantFrameworkService.class);
         ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);

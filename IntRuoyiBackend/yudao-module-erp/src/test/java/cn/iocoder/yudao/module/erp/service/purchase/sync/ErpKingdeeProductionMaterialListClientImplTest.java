@@ -83,8 +83,9 @@ class ErpKingdeeProductionMaterialListClientImplTest {
         server.verify();
     }
 
-    @Test
-    void retriesOnlyFailedPageAndContinuesWithoutDuplicatingRows() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void retriesOnlyFailedPageAndContinuesWithoutDuplicatingRows(boolean deadlock) {
         RestTemplate template = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.bindTo(template).build();
         java.util.concurrent.atomic.AtomicInteger committed = new java.util.concurrent.atomic.AtomicInteger();
@@ -104,11 +105,13 @@ class ErpKingdeeProductionMaterialListClientImplTest {
         server.expect(requestTo(containsString("ExecuteBillQuery")))
                 .andExpect(request -> assertEquals(1, committed.get()))
                 .andExpect(content().string(containsString("%22StartRow%22%3A1")))
-                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withException(new SocketTimeoutException()));
+                .andRespond(deadlock ? withSuccess(deadlockResponse(), MediaType.APPLICATION_JSON)
+                        : org.springframework.test.web.client.response.MockRestResponseCreators.withException(new SocketTimeoutException()));
         server.expect(requestTo(containsString("ExecuteBillQuery")))
                 .andExpect(request -> assertEquals(1, committed.get()))
                 .andExpect(content().string(containsString("%22StartRow%22%3A1")))
-                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withException(new java.net.SocketException("Connection reset")));
+                .andRespond(deadlock ? withSuccess(deadlockResponse(), MediaType.APPLICATION_JSON)
+                        : org.springframework.test.web.client.response.MockRestResponseCreators.withException(new java.net.SocketException("Connection reset")));
         server.expect(requestTo(containsString("ExecuteBillQuery")))
                 .andExpect(request -> assertEquals(1, committed.get()))
                 .andExpect(content().string(containsString("%22StartRow%22%3A1")))
@@ -117,6 +120,29 @@ class ErpKingdeeProductionMaterialListClientImplTest {
         client.forEachProductionMaterialListPage(properties, page -> { received.addAll(page); committed.incrementAndGet(); });
         assertEquals(1, received.size());
         assertEquals(List.of(1, 2), waits);
+        server.verify();
+    }
+
+    private static String deadlockResponse() {
+        return "[[{\"Result\":{\"ResponseStatus\":{\"IsSuccess\":false,\"ErrorCode\":\"500\","
+                + "\"Errors\":[{\"Message\":\"事务(进程 ID 349)与另一个进程被死锁在锁资源上，并且已被选作死锁牺牲品。请重新运行该事务。\"}]}}}]]";
+    }
+
+    @Test
+    void repeatedDeadlockFailsAfterThreeAttempts() {
+        RestTemplate template = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(template).build();
+        server.expect(requestTo(containsString("ValidateUser")))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.TEXT_PLAIN)
+                        .header(HttpHeaders.SET_COOKIE, "session=test"));
+        server.expect(org.springframework.test.web.client.ExpectedCount.times(3),
+                requestTo(containsString("ExecuteBillQuery")))
+                .andRespond(withSuccess(deadlockResponse(), MediaType.APPLICATION_JSON));
+        ServiceException error = assertThrows(ServiceException.class, () ->
+                new ErpKingdeeProductionMaterialListClientImpl(template) {
+                    @Override void waitBeforeRetry(int attempt) { }
+                }.forEachProductionMaterialListPage(buildProperties(), page -> org.junit.jupiter.api.Assertions.fail()));
+        assertTrue(error.getMessage().contains("死锁牺牲品"));
         server.verify();
     }
 

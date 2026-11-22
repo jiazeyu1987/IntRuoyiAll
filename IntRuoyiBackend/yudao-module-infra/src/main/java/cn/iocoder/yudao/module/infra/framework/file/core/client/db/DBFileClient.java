@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.infra.framework.file.core.client.db;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.extra.spring.SpringUtil;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileContentDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileContentMapper;
 import cn.iocoder.yudao.module.infra.framework.file.core.client.AbstractFileClient;
@@ -29,7 +30,7 @@ public class DBFileClient extends AbstractFileClient<DBFileClientConfig> {
 
     @Override
     public String upload(byte[] content, String path, String type) {
-        FileContentDO contentDO = new FileContentDO().setConfigId(getId())
+        FileContentDO contentDO = new FileContentDO().setTenantId(TenantContextHolder.getRequiredTenantId()).setConfigId(getId())
                 .setPath(path).setContent(content);
         fileContentMapper.insert(contentDO);
         // 拼接返回路径

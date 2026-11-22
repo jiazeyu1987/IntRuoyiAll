@@ -19,7 +19,7 @@ function setup(api = {}) {
   const context = { ...vue, exports, onMounted() {}, onActivated() {}, defineExpose() {},
     defineEmits: () => () => {}, useMessage: () => ({}),
     setTimeout: callback => { timers.add(callback); return callback }, clearTimeout: callback => timers.delete(callback),
-    require: name => name === './routeTreeOrderSearch' ? helper : name === './routeError'
+    require: name => name === '@/utils/auth' ? { authContextRevision: vue.ref(0), getTenantId: () => '1', getVisitTenantId: () => undefined } : name === '@/store/modules/user' ? { useUserStore: () => ({ getRoles: [], getUser: { id: undefined } }) } : name === './routeTreeOrderSearch' ? helper : name === './routeError'
       ? { resolveRouteOperationErrorMessage: failure => failure.message } : {} }
   const code = descriptor.scriptSetup.content + '\nObject.assign(exports, { filterNode, filter, treeRef, rows, tree, nodeLabel, searchType, orderSearchResult, orderSearchLoading, orderSearchError, searchEmptyText })'
   vm.runInNewContext(ts.transpileModule(code, { compilerOptions: {

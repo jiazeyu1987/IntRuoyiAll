@@ -99,6 +99,30 @@ class MesProLossReasonServiceTest {
         assertDoesNotThrow(()->service.validateBindings(legacy,legacy));
         assertThrows(ServiceException.class,()->service.validateBindings(config("[]"),legacy));
     }
+    @Test void explicitMigrationPreservesOnlyExactFormalLegacyReasonsIncludingDisabledState() {
+        legacyTables();
+        jdbc.update("INSERT INTO mes_pro_route_process VALUES (51,1,90,20,0)");
+        jdbc.update("INSERT INTO mes_pro_process_pool_defect_reason VALUES (8301,1,51,20,'LOSS','LOSS-001','原损耗',false,0)");
+        var legacy = config("[{id:8301,reasonCode:'LOSS-001',reasonName:'原损耗',enabled:false}]");
+        legacy.getJSONArray("productionProcessConfigs").getJSONObject(0).put("processId",20L);
+        assertDoesNotThrow(() -> service.validateLegacyBindings(90L,legacy));
+        assertThrows(ServiceException.class, () -> service.validateBindings(config("[]"),legacy));
+        assertThrows(ServiceException.class, () -> service.validateLegacyBindings(91L,legacy));
+        TenantContextHolder.setTenantId(2L);
+        assertThrows(ServiceException.class, () -> service.validateLegacyBindings(90L,legacy));
+        TenantContextHolder.setTenantId(1L);
+        var forged = JSON.parseObject(legacy.toJSONString());
+        forged.getJSONArray("productionProcessConfigs").getJSONObject(0).getJSONArray("lossReasons")
+                .getJSONObject(0).put("enabled",true);
+        assertThrows(ServiceException.class, () -> service.validateLegacyBindings(90L,forged));
+        assertThrows(ServiceException.class, () -> service.validateLegacyBindings(90L,config("[]")));
+        legacy.getJSONArray("productionProcessConfigs").getJSONObject(0).put("processId",21L);
+        assertThrows(ServiceException.class, () -> service.validateLegacyBindings(90L,legacy));
+    }
+    private void legacyTables() {
+        jdbc.execute("CREATE TABLE mes_pro_route_process(id BIGINT PRIMARY KEY,tenant_id BIGINT,route_id BIGINT,process_id BIGINT,deleted BOOLEAN)");
+        jdbc.execute("CREATE TABLE mes_pro_process_pool_defect_reason(id BIGINT PRIMARY KEY,tenant_id BIGINT,route_process_id BIGINT,process_id BIGINT,reason_type VARCHAR(40),reason_code VARCHAR(40),reason_name VARCHAR(128),enabled BOOLEAN,deleted BOOLEAN)");
+    }
     @Test void browserStringIdentitiesPreserveExistingBindingsWhenAppendingAnotherReason() {
         var catalog = create("调机损耗", "裁切损耗");
         var first = catalog.get(0);

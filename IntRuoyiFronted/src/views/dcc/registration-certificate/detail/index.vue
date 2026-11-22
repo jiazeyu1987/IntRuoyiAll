@@ -28,7 +28,7 @@
 
       <el-alert v-if="detail.status === 'OLD'" title="已被替换的旧版本；以下证载状态为历史记录" type="info" :closable="false" class="mb-16px" />
       <el-form label-width="140px"><FactsFields :model-value="parseFacts(detail.factsJson)" :historical-record="detail.status === 'OLD'" readonly/></el-form>
-      <EvidencePanel :certificate-id="detail.certificateId" :version-id="detail.versionId" @preview="openAttachmentPreview" @download="downloadAttachment" @request-download="openDownloadRequest"/>
+      <EvidencePanel :certificate-id="detail.certificateId" :version-id="detail.versionId" :authorized-file-ids="downloadAuthorizedFileIds" :pending-file-ids="requestPendingFileIds" @files-loaded="handleEvidenceFilesLoaded" @preview="openAttachmentPreview" @download="downloadAttachment" @request-download="openDownloadRequest"/>
       <el-descriptions :column="detailDescriptionColumns" border>
         <el-descriptions-item label="版本号">第 {{ detail.versionNo }} 版</el-descriptions-item>
         <el-descriptions-item label="分类">{{ displayText(detail.classification) }}</el-descriptions-item>
@@ -456,6 +456,15 @@ const downloadingBusinessFileId = ref('')
 const requestingDownloadFileId = ref('')
 const downloadAuthorizedFileIds = ref<Set<string>>(new Set())
 const requestPendingFileIds = ref<Set<string>>(new Set())
+const evidenceFileIds = ref<Array<number | string>>([])
+const handleEvidenceFilesLoaded = async (ids: Array<number | string>) => {
+  evidenceFileIds.value = ids
+  try {
+    await loadDownloadGrantStatuses(detailLoadVersion)
+  } catch (error) {
+    attachmentActionError.value = resolveRegistrationCertificateUserMessage(error, '下载申请状态读取失败')
+  }
+}
 const canDirectDownload = (businessFileId: number | string) =>
   downloadAuthorizedFileIds.value.has(String(businessFileId))
 const isDownloadRequestPending = (businessFileId: number | string) =>
@@ -607,6 +616,7 @@ const downloadAttachment = async (businessFileId: number | string) => {
       expired
     })
     downloadByData(result.blob, savedFileName, result.blob.type || 'application/octet-stream')
+    await loadDownloadGrantStatuses(detailLoadVersion)
   } catch (error) {
     attachmentActionError.value = resolveAttachmentDownloadError(error)
   } finally {
@@ -701,7 +711,7 @@ const downloadableFiles = computed<DownloadableFileOption[]>(() => {
 const loadDownloadGrantStatuses = async (version: number) => {
   downloadAuthorizedFileIds.value = new Set()
   requestPendingFileIds.value = new Set()
-  const businessFileIds = downloadableFiles.value.map((file) => file.businessFileId)
+  const businessFileIds = [...new Set([...downloadableFiles.value.map((file) => file.businessFileId), ...evidenceFileIds.value])]
   if (businessFileIds.length === 0) {
     return
   }
@@ -743,6 +753,7 @@ const loadDetail = async () => {
   const version = ++detailLoadVersion
   detail.value = undefined
   history.value = []
+  evidenceFileIds.value = []
   loadError.value = ''
   loading.value = false
   previewDialogVisible.value = false

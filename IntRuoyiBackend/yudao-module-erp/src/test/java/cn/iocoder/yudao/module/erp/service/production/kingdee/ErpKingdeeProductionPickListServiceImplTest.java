@@ -51,6 +51,7 @@ class ErpKingdeeProductionPickListServiceImplTest {
 
     private ErpKingdeeProperties properties;
     private ErpKingdeeProductionPickListServiceImpl service;
+    private CountingTransactionManager transactionManager;
 
     @BeforeEach
     void setUp() {
@@ -68,6 +69,8 @@ class ErpKingdeeProductionPickListServiceImplTest {
         ReflectionTestUtils.setField(service, "productionPickListMapper", productionPickListMapper);
         ReflectionTestUtils.setField(service, "productionPickListItemMapper",
                 productionPickListItemMapper);
+        transactionManager = new CountingTransactionManager();
+        ReflectionTestUtils.setField(service, "transactionManager", transactionManager);
     }
 
     @Test
@@ -76,8 +79,7 @@ class ErpKingdeeProductionPickListServiceImplTest {
         when(kingdeeConfigService.getEffectiveProperties()).thenReturn(properties);
         LocalDateTime windowStart = LocalDateTime.of(2025, 8, 22, 0, 0);
         LocalDateTime windowEnd = LocalDateTime.of(2026, 8, 22, 13, 0);
-        when(productionPickListClient.fetchProductionPickLists(properties, windowStart, windowEnd))
-                .thenReturn(List.of(pickList));
+        streamBatch(windowStart, windowEnd, pickList);
         when(productionPickListMapper.selectBySource("PRD_PickMtrl", "1001"))
                 .thenReturn(null);
         doAnswer(invocation -> {
@@ -91,6 +93,8 @@ class ErpKingdeeProductionPickListServiceImplTest {
 
         assertEquals(1, result.getCreatedCount());
         assertEquals(0, result.getUpdatedCount());
+        assertEquals(1, transactionManager.commits);
+        assertEquals(0, transactionManager.rollbacks);
         ArgumentCaptor<ErpKingdeeProductionPickListDO> headerCaptor =
                 ArgumentCaptor.forClass(ErpKingdeeProductionPickListDO.class);
         verify(productionPickListMapper).insert(headerCaptor.capture());
@@ -141,8 +145,7 @@ class ErpKingdeeProductionPickListServiceImplTest {
         LocalDateTime windowStart = LocalDateTime.of(2026, 8, 21, 0, 0);
         LocalDateTime windowEnd = windowStart.plusDays(1);
         when(kingdeeConfigService.getEffectiveProperties()).thenReturn(properties);
-        when(productionPickListClient.fetchProductionPickLists(properties, windowStart, windowEnd))
-                .thenReturn(List.of(pickList));
+        streamBatch(windowStart, windowEnd, pickList);
         when(productionPickListMapper.selectBySource("PRD_PickMtrl", "1001"))
                 .thenReturn(ErpKingdeeProductionPickListDO.builder().id(501L).build());
         when(productionPickListItemMapper.insertBatch(any(), eq(1000))).thenReturn(false);
@@ -150,8 +153,49 @@ class ErpKingdeeProductionPickListServiceImplTest {
         IllegalStateException error = assertThrows(IllegalStateException.class,
                 () -> service.syncAll(windowStart, windowEnd));
 
-        assertEquals("Production pick list item batch insert failed: fid=1001", error.getMessage());
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("已提交新增 0 条、更新 0 条"));
+        assertEquals("Production pick list item batch insert failed: fid=1001", error.getCause().getMessage());
+        assertEquals(0, transactionManager.commits);
+        assertEquals(1, transactionManager.rollbacks);
         verify(productionPickListItemMapper).deleteByProductionPickListId(501L);
+    }
+
+    @Test
+    void syncAll_keepsCommittedBatchesAndRollsBackOnlyFailingBatch() {
+        LocalDateTime start = LocalDateTime.of(1970, 1, 1, 0, 0);
+        LocalDateTime end = LocalDateTime.of(2026, 11, 21, 0, 0);
+        when(kingdeeConfigService.getEffectiveProperties()).thenReturn(properties);
+        when(productionPickListItemMapper.insertBatch(any(), eq(1000))).thenReturn(true, false);
+        doAnswer(invocation -> {
+            java.util.function.Consumer<List<ErpKingdeeProductionPickList>> consumer = invocation.getArgument(3);
+            consumer.accept(List.of(buildPickList()));
+            consumer.accept(List.of(buildPickList()));
+            return null;
+        }).when(productionPickListClient).forEachProductionPickListBatch(eq(properties), eq(start), eq(end), any());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> service.syncAll(start, end));
+
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("已提交新增 1 条、更新 0 条"));
+        assertEquals(1, transactionManager.commits);
+        assertEquals(1, transactionManager.rollbacks);
+    }
+
+    private void streamBatch(LocalDateTime start, LocalDateTime end, ErpKingdeeProductionPickList bill) {
+        doAnswer(invocation -> {
+            java.util.function.Consumer<List<ErpKingdeeProductionPickList>> consumer = invocation.getArgument(3);
+            consumer.accept(List.of(bill));
+            return null;
+        }).when(productionPickListClient).forEachProductionPickListBatch(eq(properties), eq(start), eq(end), any());
+    }
+
+    private static final class CountingTransactionManager
+            extends org.springframework.transaction.support.AbstractPlatformTransactionManager {
+        int commits;
+        int rollbacks;
+        @Override protected Object doGetTransaction() { return new Object(); }
+        @Override protected void doBegin(Object tx, org.springframework.transaction.TransactionDefinition definition) { }
+        @Override protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) { commits++; }
+        @Override protected void doRollback(org.springframework.transaction.support.DefaultTransactionStatus status) { rollbacks++; }
     }
 
     @Test

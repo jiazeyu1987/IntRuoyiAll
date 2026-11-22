@@ -64,6 +64,14 @@
         </div>
       </div>
 
+      <div
+        v-if="inputMaterialMatchWarnings.length"
+        class="active-order-material-match-warnings"
+        role="status"
+        data-active-order-material-match-warnings
+      >
+        <div v-for="warning in inputMaterialMatchWarnings" :key="warning">{{ warning }}</div>
+      </div>
       <el-alert
         v-if="conditionalTabError"
         :title="conditionalTabError"
@@ -2770,6 +2778,14 @@ const inputMaterialSources = computed(() => [
   }))
 ])
 
+const inputMaterialMatchWarnings = computed(() =>
+  inputMaterialSources.value.flatMap((source) =>
+    source.materials
+      .filter((material) => material.sourceMatchWarning)
+      .map((material) => `${source.scopeName}：${material.sourceMatchWarning}`)
+  )
+)
+
 const productionMaterialListActualUsageByCode = computed(() => {
   const usageByCode = new Map<string, number>()
   for (const source of inputMaterialSources.value) {
@@ -4518,6 +4534,12 @@ onBeforeUnmount(() => {
 })
 </script>
 <style scoped>
+.active-order-material-match-warnings {
+  margin: 12px 0;
+  color: var(--el-color-danger);
+  line-height: 1.6;
+}
+
 .team-leader-workbench__active-order-detail {
   display: grid;
   gap: 16px;

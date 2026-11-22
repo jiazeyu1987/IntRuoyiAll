@@ -87,8 +87,6 @@ public class MesProRouteWorkbookExportServiceImpl implements MesProRouteWorkbook
 
     @Resource private MesProRouteResourceTransferService resourceTransfer;
 
-    private static final String OWNER_PREFIX = "[owner]";
-    private static final String OWNER_SUFFIX = "[/owner]";
 
     @Resource
     private MesProRouteMapper routeMapper;
@@ -215,9 +213,8 @@ public class MesProRouteWorkbookExportServiceImpl implements MesProRouteWorkbook
         Sheet sheet = createSheet(workbook, ROUTE_SHEET, ROUTE_HEADERS);
         int rowIndex = 1;
         for (MesProRouteDO route : routes) {
-            RouteRemarkParts remarkParts = splitRouteRemark(route.getRemark());
             writeRow(sheet.createRow(rowIndex++), route.getCode(), route.getName(), route.getStatus(),
-                    remarkParts.ownerName(), route.getDescription(), remarkParts.visibleRemark(),
+                    route.getDescription(), MesProRouteTransferPersonnel.visibleRemark(route.getRemark()),
                     projectGuard.boundProjectCode(route.getId()));
         }
     }
@@ -366,12 +363,11 @@ public class MesProRouteWorkbookExportServiceImpl implements MesProRouteWorkbook
                     record.getBatchRecordVersionId(), record.getFormSlotType(), record.getFormBindingKey(),
                     record.getFormTemplateId(), record.getFormTemplateNameSnapshot(),
                     record.getLastPublishedTemplateVersionId(), record.getLastPublishedTemplateVersionNo(),
-                    record.getInstanceScope(), record.getSharedFormKey(), record.getFillableScopeJson(),
+                    record.getInstanceScope(), record.getSharedFormKey(),
                     record.getRecordCategory(), record.getValidationProfile(), record.getRecordbookEnabled(),
-                    record.getPermissionScopeId(), record.getRecordCategorySnapshotHash(), record.getRequiredPolicy(),
+                    record.getRecordCategorySnapshotHash(), record.getRequiredPolicy(),
                     record.getRequiredConditionJson(), record.getOwnerRoleKey(), record.getArchiveVisibility(),
-                    record.getSlotConfigSnapshotHash(), record.getCandidateSourceType(), record.getCandidateSourceIds(),
-                    record.getCandidateSourceNames(), record.getReportSort(), record.getRemark());
+                    record.getReportSort(), record.getRemark());
         }
     }
 
@@ -452,29 +448,6 @@ public class MesProRouteWorkbookExportServiceImpl implements MesProRouteWorkbook
 
     private String name(MesMdItemDO item) {
         return item == null ? null : item.getName();
-    }
-
-    private RouteRemarkParts splitRouteRemark(String remark) {
-        if (remark == null || remark.isBlank()) {
-            return new RouteRemarkParts(null, null);
-        }
-        String normalized = remark.trim();
-        int prefixIndex = normalized.indexOf(OWNER_PREFIX);
-        int suffixIndex = normalized.indexOf(OWNER_SUFFIX);
-        if (prefixIndex >= 0 && suffixIndex > prefixIndex) {
-            String ownerName = normalized.substring(prefixIndex + OWNER_PREFIX.length(), suffixIndex).trim();
-            String visibleRemark = (normalized.substring(0, prefixIndex)
-                    + normalized.substring(suffixIndex + OWNER_SUFFIX.length())).trim();
-            return new RouteRemarkParts(blankToNull(ownerName), blankToNull(visibleRemark));
-        }
-        return new RouteRemarkParts(null, normalized);
-    }
-
-    private String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value;
-    }
-
-    private record RouteRemarkParts(String ownerName, String visibleRemark) {
     }
 
     private record RouteProcessContext(MesProRouteDO route, MesProRouteProcessDO routeProcess,

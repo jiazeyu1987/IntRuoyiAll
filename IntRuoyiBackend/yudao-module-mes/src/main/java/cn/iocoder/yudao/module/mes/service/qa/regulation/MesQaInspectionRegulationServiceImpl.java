@@ -147,8 +147,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     @Transactional(rollbackFor = Exception.class)
     public MesQaInspectionRegulationSaveRespVO saveDraft(MesQaInspectionRegulationSaveReqVO reqVO) {
         DccProjectCodeDO dccProjectCode = validateRequest(reqVO);
-        // Association edits are committed only by publication, never by saving a draft.
-        reqVO.setCommonRegulationVersionIds(null);
+        // Keep association edits in the draft snapshot; only publication changes effective bindings.
         DraftContext context = saveDraftInternal(reqVO, dccProjectCode);
         return MesQaInspectionRegulationSaveRespVO.builder()
                 .dccProjectCodeId(context.regulation().getDccProjectCodeId())
@@ -218,11 +217,6 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         DccProjectCodeDO dccProjectCode = validateRequest(reqVO);
         boolean productQa = !Objects.equals(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON,
                 reqVO.getOwnerModule());
-        if (productQa && reqVO.getCommonRegulationVersionIds() == null) {
-            reqVO.setCommonRegulationVersionIds(currentCommonVersionIds(
-                    commonRegulationProductBindingMapper.selectEnabledByProjectId(
-                            dccProjectCode.getId())));
-        }
         DraftContext context = saveDraftInternal(reqVO, dccProjectCode);
         if (productQa) {
             MesQaCommonRegulationBindingListSaveReqVO bindingReq = new MesQaCommonRegulationBindingListSaveReqVO();
@@ -962,6 +956,26 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         }
         MesQaInspectionRegulationVersionDO previous = version != null ? version
                 : versionMapper.selectLatestPublishedByRegulationId(regulation.getId());
+        if (!Objects.equals(regulation.getOwnerModule(), MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON)) {
+            // Omitted means retain the version's selection; [] explicitly clears it.
+            if (reqVO.getCommonRegulationVersionIds() == null && previous != null) {
+                reqVO.setCommonRegulationVersionIds(parseSnapshotRequest(previous).getCommonRegulationVersionIds());
+            }
+            List<Long> effectiveIds = currentCommonVersionIds(
+                    commonRegulationProductBindingMapper.selectEnabledByProjectId(dccProjectCode.getId()));
+            if (reqVO.getCommonRegulationVersionIds() == null) {
+                // A version without an association snapshot inherits the product's effective binding.
+                reqVO.setCommonRegulationVersionIds(effectiveIds);
+            }
+            Set<Long> seenRegulations = new LinkedHashSet<>();
+            for (Long id : reqVO.getCommonRegulationVersionIds()) {
+                CommonPublishedVersion common = effectiveIds.contains(id)
+                        ? requireCommonVersionSnapshot(id) : requireCommonCurrentPublishedVersion(id);
+                if (!seenRegulations.add(common.regulation().getId())) {
+                    throw exception(QA_COMMON_REGULATION_BINDING_INVALID, "同一通用规程不能重复绑定");
+                }
+            }
+        }
         if (previous != null) {
             var previousItems = indexSnapshotItemsByCode(parseSnapshotRequest(previous));
             for (var process : reqVO.getProcesses()) {

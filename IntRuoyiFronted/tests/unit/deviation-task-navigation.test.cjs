@@ -94,6 +94,7 @@ test('nondeviation routes retain existing behavior', () => {
 
 function notifications(resolveTask, session = { syncSession: () => ({ key: 'session-1' }), isCurrent: key => key === 'session-1' }) {
   return load('src/utils/notifyMessageNavigation.ts', {
+    '@/utils/exactJavaLong': load('src/utils/exactJavaLong.ts'),
     '@/utils/activeOrderHandoffNavigation': {}, './dccDistributionNavigation': {},
     './dccOfflineTrainingRecord': { DCC_OFFLINE_TRAINING_RECORD: 'DCC_OFFLINE_TRAINING_RECORD' },
     '@/utils/edhrWorkTaskNavigation': navigation,

@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -79,6 +80,7 @@ public class ErpKingdeeStockMoveClientImpl implements ErpKingdeeStockMoveClient 
         String cookieHeader = login(properties);
         int startRow = 0;
         Map<String, ErpKingdeeStockMove> moveMap = new LinkedHashMap<>();
+        Map<String, ErpKingdeeStockMove.Line> lineMap = new HashMap<>();
         while (true) {
             int pageLimit = PAGE_LIMIT;
             JsonNode rows = executeBillQuery(properties, cookieHeader, startRow, pageLimit);
@@ -88,7 +90,7 @@ public class ErpKingdeeStockMoveClientImpl implements ErpKingdeeStockMoveClient 
             if (rows.isEmpty()) {
                 break;
             }
-            addRowsToMoves(rows, moveMap, false);
+            addRowsToMoves(rows, moveMap, lineMap, false);
             if (rows.size() < pageLimit) {
                 break;
             }
@@ -105,6 +107,7 @@ public class ErpKingdeeStockMoveClientImpl implements ErpKingdeeStockMoveClient 
         String cookieHeader = login(properties);
         int startRow = 0;
         Map<String, ErpKingdeeStockMove> moveMap = new LinkedHashMap<>();
+        Map<String, ErpKingdeeStockMove.Line> lineMap = new HashMap<>();
         while (true) {
             JsonNode rows = executeIncrementalBillQuery(properties, cookieHeader, windowStart, windowEnd, startRow);
             if (!rows.isArray()) {
@@ -113,7 +116,7 @@ public class ErpKingdeeStockMoveClientImpl implements ErpKingdeeStockMoveClient 
             if (rows.isEmpty()) {
                 break;
             }
-            addRowsToMoves(rows, moveMap, true);
+            addRowsToMoves(rows, moveMap, lineMap, true);
             if (rows.size() < PAGE_LIMIT) {
                 break;
             }
@@ -153,7 +156,8 @@ public class ErpKingdeeStockMoveClientImpl implements ErpKingdeeStockMoveClient 
         query.put("FormId", FORM_ID);
         query.put("FieldKeys", FIELD_KEYS);
         query.put("FilterString", "(FBillNo <> '')");
-        query.put("OrderString", "FModifyDate DESC,FID DESC,FBillEntry_FEntryID ASC");
+        // Full scans must not reorder earlier pages when an ERP bill is modified during the scan.
+        query.put("OrderString", "FID ASC,FBillEntry_FEntryID ASC");
         query.put("StartRow", startRow);
         query.put("Limit", limit);
         return postQuery(properties, cookieHeader, query, "STK_TransferDirect ExecuteBillQuery response");
@@ -200,7 +204,8 @@ public class ErpKingdeeStockMoveClientImpl implements ErpKingdeeStockMoveClient 
         return responseJson;
     }
 
-    private void addRowsToMoves(JsonNode rows, Map<String, ErpKingdeeStockMove> moveMap, boolean incremental) {
+    private void addRowsToMoves(JsonNode rows, Map<String, ErpKingdeeStockMove> moveMap,
+                               Map<String, ErpKingdeeStockMove.Line> lineMap, boolean incremental) {
         for (JsonNode row : rows) {
             int expectedFieldCount = incremental ? INCREMENTAL_FIELD_COUNT : FIELD_COUNT;
             if (!row.isArray() || row.size() < expectedFieldCount) {
@@ -212,7 +217,18 @@ public class ErpKingdeeStockMoveClientImpl implements ErpKingdeeStockMoveClient 
             if (incremental && move.getSourceModifyTime() == null) {
                 move.setSourceModifyTime(parseDateTime(requiredText(row, 20, MODIFY_TIME_FIELD), MODIFY_TIME_FIELD));
             }
-            move.getLines().add(buildLine(row));
+            ErpKingdeeStockMove.Line line = buildLine(row);
+            ErpKingdeeStockMove.Line previous = lineMap.putIfAbsent(fid + "|" + line.getEntryId(), line);
+            if (previous == null) {
+                move.getLines().add(line);
+            } else if (!previous.equals(line)) {
+                throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID,
+                        "STK_TransferDirect conflicting duplicate entry: FID=" + fid
+                                + ", FEntryID=" + line.getEntryId());
+            } else {
+                org.slf4j.LoggerFactory.getLogger(ErpKingdeeStockMoveClientImpl.class).warn(
+                        "STK_TransferDirect repeated identical entry: FID={}, FEntryID={}", fid, line.getEntryId());
+            }
         }
     }
 
