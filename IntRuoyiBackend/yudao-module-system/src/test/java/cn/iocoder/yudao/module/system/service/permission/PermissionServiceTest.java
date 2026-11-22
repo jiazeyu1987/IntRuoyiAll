@@ -380,6 +380,8 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         Long roleId = 100L;
         // mock 方法
         when(roleService.hasAnySuperAdmin(eq(singleton(100L)))).thenReturn(true);
+        when(roleService.getRoleListFromCache(singleton(roleId))).thenReturn(
+                List.of(new RoleDO().setId(roleId).setCode(RoleCodeEnum.SUPER_ADMIN.getCode()).setStatus(0)));
         List<MenuDO> menuList = singletonList(randomPojo(MenuDO.class).setId(1L));
         when(menuService.getMenuList()).thenReturn(menuList);
 
@@ -394,7 +396,7 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         // 准备参数
         Long roleId = 100L;
         when(roleService.getRoleListFromCache(eq(singleton(roleId))))
-                .thenReturn(singletonList(randomPojo(RoleDO.class).setId(roleId).setCode("test_role")));
+                .thenReturn(singletonList(randomPojo(RoleDO.class).setId(roleId).setCode("test_role").setStatus(0)));
         // mock 数据
         RoleMenuDO roleMenu01 = randomPojo(RoleMenuDO.class).setRoleId(100L).setMenuId(1L);
         roleMenuMapper.insert(roleMenu01);
@@ -566,7 +568,7 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         prepareAuditorAssignment("system:login-log:query");
         userRoleMapper.deleteListByUserId(1L);
         userRoleMapper.insert(randomPojo(UserRoleDO.class).setUserId(1L).setRoleId(200L).setTenantId(1L));
-        doReturn(List.of(new RoleDO().setId(300L).setCode(RoleCodeEnum.BPM_ADMIN.getCode())))
+        doReturn(List.of(new RoleDO().setId(300L).setCode(RoleCodeEnum.BPM_ADMIN.getCode()).setStatus(0)))
                 .when(roleService).getRoleListFromCache(eq(Set.of(300L)));
 
         assertThrows(ServiceException.class, () -> permissionService.assignUserRole(1L, Set.of(300L),
@@ -618,7 +620,7 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         prepareLogRoleAssignment("dcc_project_code_admin", "dcc:controlled-file:log:query");
         userRoleMapper.deleteListByUserId(1L);
         userRoleMapper.insert(randomPojo(UserRoleDO.class).setUserId(1L).setRoleId(200L).setTenantId(1L));
-        doReturn(List.of(new RoleDO().setId(300L).setCode(RoleCodeEnum.BPM_ADMIN.getCode())))
+        doReturn(List.of(new RoleDO().setId(300L).setCode(RoleCodeEnum.BPM_ADMIN.getCode()).setStatus(0)))
                 .when(roleService).getRoleListFromCache(eq(Set.of(300L)));
 
         assertThrows(ServiceException.class, () -> permissionService.assignUserRole(1L, Set.of(300L),
@@ -630,8 +632,8 @@ public class PermissionServiceTest extends BaseDbUnitTest {
     private void prepareLogRoleAssignment(String roleCode, String permission) {
         userRoleMapper.insert(randomPojo(UserRoleDO.class).setUserId(1L).setRoleId(100L).setTenantId(1L));
         roleMenuMapper.insert(randomPojo(RoleMenuDO.class).setRoleId(200L).setMenuId(3000L));
-        List<RoleDO> roles = List.of(new RoleDO().setId(100L).setCode("normal_role"),
-                new RoleDO().setId(200L).setCode(roleCode));
+        List<RoleDO> roles = List.of(new RoleDO().setId(100L).setCode("normal_role").setStatus(0),
+                new RoleDO().setId(200L).setCode(roleCode).setStatus(0));
         when(roleService.getRoleListFromCache(any())).thenAnswer(invocation -> {
             Collection<Long> ids = invocation.getArgument(0);
             return roles.stream().filter(role -> ids.contains(role.getId())).collect(Collectors.toList());
@@ -816,7 +818,7 @@ public class PermissionServiceTest extends BaseDbUnitTest {
             // mock 用户的角色编号
             userRoleMapper.insert(randomPojo(UserRoleDO.class).setUserId(userId).setRoleId(2L));
             // mock 获得用户的角色
-            RoleDO roleDO = randomPojo(RoleDO.class, o -> o.setDataScope(DataScopeEnum.DEPT_CUSTOM.getScope())
+            RoleDO roleDO = randomPojo(RoleDO.class, o -> o.setDataScope(DataScopeEnum.DEPT_CUSTOM.getScope()).setDataScopeDeptIds(Set.of(10L, 20L))
                     .setStatus(CommonStatusEnum.ENABLE.getStatus()));
             when(roleService.getRoleListFromCache(eq(singleton(2L)))).thenReturn(toList(roleDO));
             // mock 部门的返回
@@ -828,9 +830,9 @@ public class PermissionServiceTest extends BaseDbUnitTest {
             // 断言
             assertFalse(result.getAll());
             assertFalse(result.getSelf());
-            assertEquals(roleDO.getDataScopeDeptIds().size() + 1, result.getDeptIds().size());
-            assertTrue(CollUtil.containsAll(result.getDeptIds(), roleDO.getDataScopeDeptIds()));
-            assertTrue(CollUtil.contains(result.getDeptIds(), 3L));
+            assertEquals(Set.of(10L, 20L), result.getDeptIds());
+            assertFalse(result.getDeptIds().contains(3L), "自定义范围不自动加入本人部门");
+            verify(userService, never()).getUser(any());
         }
     }
 
@@ -845,7 +847,7 @@ public class PermissionServiceTest extends BaseDbUnitTest {
             // mock 用户的角色编号
             userRoleMapper.insert(randomPojo(UserRoleDO.class).setUserId(userId).setRoleId(2L));
             // mock 获得用户的角色
-            RoleDO roleDO = randomPojo(RoleDO.class, o -> o.setDataScope(DataScopeEnum.DEPT_CUSTOM.getScope())
+            RoleDO roleDO = randomPojo(RoleDO.class, o -> o.setDataScope(DataScopeEnum.DEPT_CUSTOM.getScope()).setDataScopeDeptIds(Set.of(10L, 20L))
                     .setStatus(CommonStatusEnum.ENABLE.getStatus()));
             when(roleService.getRoleListFromCache(eq(singleton(2L)))).thenReturn(toList(roleDO));
             // mock 部门的返回：用户未设置部门

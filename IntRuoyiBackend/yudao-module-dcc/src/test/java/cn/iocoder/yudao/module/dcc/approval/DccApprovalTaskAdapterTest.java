@@ -126,15 +126,20 @@ class DccApprovalTaskAdapterTest {
     void countIncludesNativeAndFlowableTasksWithoutLoadingFileSummaries() {
         var context = ApprovalTaskQueryContext.of(100L, ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC,
                 null, 1, 10);
-        when(projectApplications.list(any())).thenReturn(List.of(ApprovalTaskSummary.builder().id("project").build()));
-        when(offlineTraining.list(any())).thenReturn(List.of(ApprovalTaskSummary.builder().id("training").build()));
-        when(centerQuery.todo(any(), eq("DCC_TASK"))).thenReturn(new PageResult<>(List.of(), 319L));
+        when(projectApplications.page(any())).thenReturn(new PageResult<>(List.of(), 1L));
+        when(offlineTraining.page(any())).thenReturn(new PageResult<>(List.of(), 1L));
+        when(centerQuery.todo(any(), eq("DCC_TASK"), eq(DccApprovalListFilterSql.flowable(false))))
+                .thenReturn(new PageResult<>(List.of(), 319L));
         var count = adapter.window(context, new cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow(0, 0));
         assertEquals(321L, count.getTotal());
         assertTrue(count.getList().isEmpty());
         var captured = ArgumentCaptor.forClass(ApprovalTaskQueryContext.class);
-        verify(centerQuery).todo(captured.capture(), eq("DCC_TASK"));
+        verify(centerQuery).todo(captured.capture(), eq("DCC_TASK"), eq(DccApprovalListFilterSql.flowable(false)));
         assertEquals(0, captured.getValue().getWindow().limit());
+        verify(projectApplications).page(eq(captured.getValue()));
+        verify(offlineTraining).page(eq(captured.getValue()));
+        verify(projectApplications, never()).list(any());
+        verify(offlineTraining, never()).list(any());
         org.mockito.Mockito.verifyNoInteractions(processInstanceService, controlledFileMapper, fileCategoryMapper);
     }
 
