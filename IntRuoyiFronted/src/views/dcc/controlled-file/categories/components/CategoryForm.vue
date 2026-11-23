@@ -192,8 +192,17 @@ const formData = ref<CategoryFormData>({
 })
 
 const formRules = reactive<FormRules>({
-  code: [{ required: true, message: '类别编码不能为空', trigger: 'blur' }],
-  name: [{ required: true, message: '类别名称不能为空', trigger: 'blur' }],
+  code: [
+    { required: true, message: '类别编码不能为空', trigger: 'blur' },
+    { max: 64, message: '类别编码长度不能超过64个字符', trigger: 'blur' }
+  ],
+  name: [
+    { required: true, message: '类别名称不能为空', trigger: 'blur' },
+    { max: 128, message: '类别名称长度不能超过128个字符', trigger: 'blur' }
+  ],
+  source: [{ max: 32, message: '类别来源长度不能超过32个字符', trigger: 'blur' }],
+  remark: [{ max: 255, message: '备注长度不能超过255个字符', trigger: 'blur' }],
+  description: [{ max: 255, message: '类别说明长度不能超过255个字符', trigger: 'blur' }],
   approvalSourceMode: [{ required: true, message: '请明确文件类别审批来源', trigger: 'change' }],
   fileTypeTaxonomyId: [{ required: true, message: '默认文件分类不能为空', trigger: 'change' }],
   directoryId: [{ required: true, message: '绑定目录不能为空', trigger: 'change' }],

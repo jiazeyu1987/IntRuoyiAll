@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DccRegistrationCertificateReminderConfigUpdateReqVOTest {
 
     @Test
-    void acceptsFourThresholdsAndChangeConfirmationRecipients() {
+    void acceptsDomesticAndCeThresholdsAndChangeConfirmationRecipients() {
         try (var factory = Validation.buildDefaultValidatorFactory()) {
             assertTrue(factory.getValidator().validate(request()).isEmpty());
         }
@@ -41,6 +41,7 @@ class DccRegistrationCertificateReminderConfigUpdateReqVOTest {
         request.setThresholdRecipientUserIds(Map.of(
                 "T_30", List.of(1L), "T_8", List.of(1L),
                 "T_2", List.of(1L), "T_1", List.of(1L),
+                "CE_T_18", List.of(1L), "CE_T_12", List.of(1L), "CE_T_3", List.of(1L),
                 "CHANGE_CONFIRMATION", List.of(910522L, 910524L)));
         return request;
     }

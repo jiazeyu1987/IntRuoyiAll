@@ -64,8 +64,8 @@ assert.match(
 )
 assert.match(
   list,
-  /formatRegistrationCertificateDate\(row\.expiryDate\)/,
-  'old index must format LocalDate arrays in the invalid status text and old expiry date column'
+  /'已被替换，原有效期至 '\s*\+\s*formatRegistrationCertificateDate\(row\.expiryDate\)/,
+  'old index must distinguish replacement from the original certificate expiry date'
 )
 assert.match(
   list,
@@ -86,17 +86,17 @@ assert.match(
 )
 assert.match(
   detail,
-  /const\s+resolvedCertificateId\s*=\s*await\s+resolveCertificateIdForDetail\(\)[\s\S]*getRegistrationCertificateDetail\(resolvedCertificateId,\s*detailVersionId\.value\)/,
+  /const\s+versionId\s*=\s*detailVersionId\.value[\s\S]*const\s+resolvedCertificateId\s*=\s*await\s+resolveCertificateIdForDetail\(\)[\s\S]*getRegistrationCertificateDetail\(resolvedCertificateId,\s*versionId\)/,
   'detail page must pass the optional versionId into the detail API after resolving the formal certificate id'
 )
 assert.match(
   detail,
-  /'已失效，失效日期 '\s*\+\s*formatRegistrationCertificateDate\(detail\.expiryDate\)/,
-  'old detail status text must format the invalid date as YYYY-MM-DD'
+  /v-if="detail\.status === 'OLD'" title="已被替换的旧版本，已停止使用；原有效期至仅为证载日期，以下证载状态为历史记录"/,
+  'old detail must distinguish replacement from the original certificate expiry date'
 )
 assert.match(
   detail,
-  /label="有效期至">\{\{\s*formatRegistrationCertificateDate\(detail\.expiryDate\)\s*\}\}/,
+  /:label="detail\.status === 'OLD' \? '原有效期至' : '有效期至'">\{\{\s*formatRegistrationCertificateDate\(detail\.expiryDate\)\s*\}\}/,
   'detail date fields must not render Java LocalDate arrays with comma-separated displayText'
 )
 
@@ -148,8 +148,8 @@ assert.match(
   'query mapper must expose versionId as a formal SQL parameter'
 )
 assert.match(
-  mapper,
-  /<if test="versionId != null">\s*AND v\.id = #\{versionId\}\s*<\/if>/,
+  mapper.replaceAll('\\"', '"'),
+  /<when test="versionId != null">[\s\S]{0,80}AND v\.id = #\{versionId\}/,
   'detail mapper must constrain the selected row by versionId when provided'
 )
 

@@ -1329,7 +1329,7 @@ test.describe('registration certificate renewal lifecycle real path', () => {
       expect(oldDetailPayload.data?.versionId).toBe(oldRow.versionId)
       expect(oldDetailPayload.data?.status).toBe('OLD')
       await expect(page.locator('[data-testid="registration-certificate-detail-page"]')).toContainText(
-        `已失效，失效日期 ${INITIAL_EXPIRY_DATE}`
+        `已被替换，原有效期至 ${INITIAL_EXPIRY_DATE}`
       )
       expect(new URL(page.url()).searchParams.get('versionId')).toBe(String(oldRow.versionId))
       expect(evidence.pageErrors).toEqual([])

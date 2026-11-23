@@ -70,16 +70,18 @@
         v-if="bizType === BizTypeEnum.CRM_CUSTOMER"
       >
         <template #default="scope">
-          <el-link
-            v-for="contact in scope.row.contacts"
-            :key="`key-${contact.id}`"
-            :underline="false"
-            type="primary"
-            @click="openContactDetail(contact.id)"
-            class="ml-5px"
-          >
-            {{ contact.name }}
-          </el-link>
+          <template v-for="contact in scope.row.contacts" :key="`key-${contact.id}`">
+            <el-link
+              v-if="checkPermi(['crm:contact:query'])"
+              :underline="false"
+              type="primary"
+              @click="openContactDetail(contact.id)"
+              class="ml-5px"
+            >
+              {{ contact.name }}
+            </el-link>
+            <span v-else class="ml-5px">{{ contact.name }}</span>
+          </template>
         </template>
       </el-table-column>
       <el-table-column
@@ -89,16 +91,18 @@
         v-if="bizType === BizTypeEnum.CRM_CUSTOMER"
       >
         <template #default="scope">
-          <el-link
-            v-for="business in scope.row.businesses"
-            :key="`key-${business.id}`"
-            :underline="false"
-            type="primary"
-            @click="openBusinessDetail(business.id)"
-            class="ml-5px"
-          >
-            {{ business.name }}
-          </el-link>
+          <template v-for="business in scope.row.businesses" :key="`key-${business.id}`">
+            <el-link
+              v-if="checkPermi(['crm:business:query'])"
+              :underline="false"
+              type="primary"
+              @click="openBusinessDetail(business.id)"
+              class="ml-5px"
+            >
+              {{ business.name }}
+            </el-link>
+            <span v-else class="ml-5px">{{ business.name }}</span>
+          </template>
         </template>
       </el-table-column>
       <el-table-column align="center" label="操作">
@@ -121,6 +125,7 @@
 </template>
 
 <script lang="ts" setup>
+import { checkPermi } from '@/utils/permission'
 import { dateFormatter } from '@/utils/formatTime'
 import { DICT_TYPE } from '@/utils/dict'
 import { FollowUpRecordApi, FollowUpRecordVO } from '@/api/crm/followup'
@@ -188,11 +193,13 @@ const handleDelete = async (id: number) => {
 /** 打开联系人详情 */
 const { push } = useRouter()
 const openContactDetail = (id: number) => {
+  if (!checkPermi(['crm:contact:query'])) return
   push({ name: 'CrmContactDetail', params: { id } })
 }
 
 /** 打开商机详情 */
 const openBusinessDetail = (id: number) => {
+  if (!checkPermi(['crm:business:query'])) return
   push({ name: 'CrmBusinessDetail', params: { id } })
 }
 

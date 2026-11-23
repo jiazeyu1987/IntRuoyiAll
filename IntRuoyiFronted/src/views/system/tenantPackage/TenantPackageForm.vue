@@ -86,7 +86,11 @@ const formData = ref({
   status: CommonStatusEnum.ENABLE
 })
 const formRules = reactive({
-  name: [{ required: true, message: '套餐名不能为空', trigger: 'blur' }],
+  name: [
+    { required: true, message: '套餐名不能为空', trigger: 'blur' },
+    { max: 30, message: '套餐名长度不能超过30个字符', trigger: ['blur', 'change'] }
+  ],
+  remark: [{ max: 256, message: '备注长度不能超过256个字符', trigger: ['blur', 'change'] }],
   status: [{ required: true, message: '状态不能为空', trigger: 'blur' }],
   menuIds: [{ required: true, message: '关联的菜单编号不能为空', trigger: 'blur' }]
 })

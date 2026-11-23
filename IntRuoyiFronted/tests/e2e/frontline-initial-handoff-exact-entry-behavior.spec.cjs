@@ -3,7 +3,7 @@ const {test}=require('node:test'),{parse,compileTemplate}=require('vue/compiler-
 const root=path.resolve(__dirname,'../..'),filename=path.join(root,'src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue')
 const descriptor=parse(fs.readFileSync(filename,'utf8')).descriptor
 const ast=ts.createSourceFile('frontline.ts',descriptor.scriptSetup.content,ts.ScriptTarget.Latest,true)
-const wanted=new Set(['initialHandoffTask','initialHandoffPqcRound','initialHandoffLoading','initialHandoffInvalid','initialHandoffEpoch','initialHandoffPageMounted','hasInitialHandoffQuery','isInitialHandoffBlocked','hasPqcTaskOptionSnapshot','initializeInitialHandoffSelection'])
+const wanted=new Set(['initialHandoffTask','initialHandoffPqcRound','initialHandoffLoading','initialHandoffInvalid','initialHandoffEpoch','initialHandoffPageMounted','hasInitialHandoffQuery','isInitialHandoffBlocked','hasPqcTaskOptionSnapshot','initializeInitialHandoffSelection','clearFrontlineEntryState','initializePqcReturnedSelection'])
 const body=ast.statements.filter(s=>ts.isVariableStatement(s)&&s.declarationList.declarations.some(d=>wanted.has(d.name.getText(ast)))).map(s=>s.getText(ast)).join('\n')
 assert.equal(ast.statements.filter(s=>ts.isVariableStatement(s)).flatMap(s=>[...s.declarationList.declarations]).filter(d=>wanted.has(d.name.getText(ast))).length,wanted.size)
 const navigationCode=ts.transpileModule(fs.readFileSync(path.join(root,'src/utils/activeOrderHandoffNavigation.ts'),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText
@@ -15,18 +15,19 @@ function task(mode='production',active='413',id=taskId){const pqc=mode==='pqc',t
 const query=t=>Object.fromEntries(new URL(t.actionUrl,'http://localhost:8081').searchParams)
 const order=active=>({activeOrderId:Number(active),workOrderId:274,routeId:98})
 function harness(mode='production',initial=task(mode),selectionPorts=()=>({})){
- const route=vue.reactive({query:query(initial)}),state=vue.reactive({}),selectedId=vue.ref(),calls=[],errors=[];let context={task:initial,current:true,processable:true};let orders=[order('414'),order('413')]
+ const route=vue.reactive({path:'/fill',query:query(initial)}),state=vue.reactive({}),selectedId=vue.ref(),calls=[],errors=[];let context={task:initial,current:true,processable:true};let orders=[order('414'),order('413')]
  let processes=mode==='pqc'?[{activeOrderId:413,qaProcessId:31,pqcTaskOptions:[pqcOption(54,'FIRST'),pqcOption(55,'PATROL_AM')]}]:[{activeOrderId:413,routeProcessId:91,processId:15}]
- const values={isExecutableFrontlinePqcTaskOption:availabilityExports.isExecutableFrontlinePqcTaskOption,ref:vue.ref,computed:vue.computed,route,deviceState:state,isPqcMode:vue.ref(mode==='pqc'),activePqcTaskOptionId:selectedId,payloadPreview:vue.ref(),employeeTemplateCode:vue.ref(),selectedPqcInspectionRuleKey:vue.ref(),currentLoginUserId:vue.ref(344),
+ let routeWatch;const values={ProFeedbackApi:{getPqcProcesses:async()=>[]},invalidateFrontlinePqcProcessCacheForActiveOrder:()=>{},selectedPqcPatrolRound:vue.ref(),handleSelectActiveOrder:async()=>{},frontlinePagePath:'/fill',hasReturnNotification:vue.ref(false),watch:(_,callback)=>{routeWatch=callback},hydrateContextFromRoute:()=>calls.push(['hydrate']),initializeProductionSelection:async()=>calls.push(['ordinary']),refreshPqcActiveOrdersAndEnsureSelection:async()=>calls.push(['ordinaryPqc']),clearFrontlineError:()=>{errors.length=0},context:{},closePicker:()=>{},cancelProductionFormalSubmitConfirmation:()=>{},productionSignaturePassword:vue.ref(''),pqcSignaturePassword:vue.ref(''),pqcSignatureDialogVisible:vue.ref(false),productionSubmitSuccessOpen:vue.ref(false),resetProductionSubmissionDraft:()=>{},isExecutableFrontlinePqcTaskOption:availabilityExports.isExecutableFrontlinePqcTaskOption,ref:vue.ref,computed:vue.computed,route,deviceState:state,isPqcMode:vue.ref(mode==='pqc'),activePqcTaskOptionId:selectedId,payloadPreview:vue.ref(),employeeTemplateCode:vue.ref(),selectedPqcInspectionRuleKey:vue.ref(),currentLoginUserId:vue.ref(344),
  handoffNavigationContext:async id=>{calls.push(['context',id]);return typeof context==='function'?context(id):context},resolveActiveOrderHandoffTarget:exportsNav.resolveActiveOrderHandoffTarget,
  loadFrontlinePqcActiveOrders:async()=>{calls.push(['orders']);return orders},loadFrontlineProductionActiveOrders:async()=>{calls.push(['orders']);return orders},applyActiveOrderToContext:()=>{},
  selectFrontlineProductionActiveOrder:async(_,o)=>{calls.push(['order',o.activeOrderId]);state.selectedActiveOrder=o;return processes},selectFrontlinePqcActiveOrder:async(_,o)=>{calls.push(['order',o.activeOrderId]);state.selectedActiveOrder=o;return processes},
  handleSelectProcess:async p=>{calls.push(['process',p.routeProcessId]);state.selectedProcess=p;state.selectedEmployee={userId:342}},
  clearPqcExecutionSelection:()=>{selectedId.value=undefined},getPqcTaskOptions:p=>p.pqcTaskOptions,selectFrontlinePqcProcess:async(_,p)=>{calls.push(['qaProcess',p.qaProcessId]);state.selectedProcess=p},applyProcessToContext:()=>{},applyPqcTaskOptionToDraft:o=>{calls.push(['pqcTask',o.pqcTaskId]);selectedId.value=o.pqcTaskId},findCurrentLoginEmployee:()=>({userId:344}),handleSelectEmployee:async e=>{state.selectedEmployee=e},showFrontlineError:e=>errors.push(e.message||e)}
  Object.assign(values,selectionPorts({state,selectedId,calls}) || {})
- const code=ts.transpileModule(body,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
+ const routeWatcher=ast.statements.find(s=>ts.isExpressionStatement(s)&&s.expression.expression?.getText(ast)==='watch'&&s.getText(ast).startsWith('watch(() => [route.path, JSON.stringify(route.query)]')).getText(ast);
+ const code=ts.transpileModule('let pqcActiveOrderRefreshPromise,activeOrderSelectionRequestId=0,processSelectionRequestId=0,productionEmployeeSelectionRequestId=0;'+body+';initialHandoffPageMounted=true;'+routeWatcher,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
  const page=Function(...Object.keys(values),code+';return {initialHandoffTask,initialHandoffLoading,initialHandoffInvalid,hasInitialHandoffQuery,isInitialHandoffBlocked,initializeInitialHandoffSelection};')(...Object.values(values))
- return{page,route,state,selectedId,calls,errors,setContext:v=>context=v,setOrders:v=>orders=v,setProcesses:v=>processes=v}
+ return{watchRoute:()=>routeWatch(),page,route,state,selectedId,calls,errors,setContext:v=>context=v,setOrders:v=>orders=v,setProcesses:v=>processes=v}
 }
 test('真实父 SFC 可编译且保留独立本人 RETURN watcher，初始交接优先于泛用自动工单',()=>{
  assert.deepEqual(compileTemplate({source:descriptor.template.content,filename,id:'initial-handoff'}).errors,[])
@@ -103,4 +104,25 @@ for(const mode of ['production','pqc'])test(`${mode}最后选择await迟到后�
  const b=task(mode,'414',otherTaskId);h.route.query=query(b);h.setOrders([order('414')]);h.setContext({task:b,current:true,processable:true});h.setProcesses(mode==='pqc'?[{activeOrderId:414,qaProcessId:32,pqcTaskOptions:[pqcOption(55,'PATROL_AM')]}]:[{activeOrderId:414,routeProcessId:92,processId:16}])
  await h.page.initializeInitialHandoffSelection();resolveA();await first
  assert.equal(h.page.initialHandoffTask.value.id,otherTaskId);assert.equal(h.state.selectedActiveOrder.activeOrderId,414);assert.equal(h.page.isInitialHandoffBlocked.value,false);assert.equal(h.page.initialHandoffLoading.value,false);assert.deepEqual(h.errors,[])
+})
+
+
+test('真实清理入口使旧失败红条在新交接成功后释放，loading归零',async()=>{const h=harness();h.setContext(()=>{throw Error('旧入口失败')});await h.page.initializeInitialHandoffSelection();assert.equal(h.errors.length,1);assert.equal(h.page.initialHandoffLoading.value,false);h.setContext({task:task(),current:true,processable:true});await h.page.initializeInitialHandoffSelection();assert.deepEqual(h.errors,[]);assert.equal(h.page.initialHandoffInvalid.value,false);assert.equal(h.page.initialHandoffLoading.value,false)})
+
+test('真实route watcher离页不初始化QA任务，交接回普通入口重建上下文',async()=>{const h=harness();await h.page.initializeInitialHandoffSelection();h.route.path='/qa';h.route.query={handoffTaskId:otherTaskId};const count=h.calls.length;await h.watchRoute();assert.equal(h.calls.length,count);assert.equal(h.state.selectedActiveOrder,undefined);h.route.path='/fill';h.route.query={};await h.watchRoute();assert.deepEqual(h.calls.slice(-2),[['hydrate'],['ordinary']]);assert.equal(h.page.initialHandoffInvalid.value,false)})
+
+test('真实returned route watcher旧请求失败不写新红条，当前失败仍可见',async()=>{
+ let rejectOld
+ const h=harness('pqc',task('pqc'),()=>({loadFrontlinePqcActiveOrders:()=>new Promise((resolve,reject)=>{rejectOld=reject})}))
+ h.route.query={returnTaskId:'returned',activeOrderId:'413'}
+ h.state.processSelectionRequestToken=7;h.state.employeeSwitchRequestToken=9;h.state.selectedEmployee={userId:99};h.state.runtimeConfig={old:true};h.state.loadingEmployees=true
+ const old=h.watchRoute()
+ assert.equal(h.state.processSelectionRequestToken,8);assert.equal(h.state.employeeSwitchRequestToken,10);assert.equal(h.state.selectedEmployee,undefined);assert.equal(h.state.runtimeConfig,undefined);assert.equal(h.state.loadingEmployees,false)
+ h.route.query={};await h.watchRoute()
+ rejectOld(Error('旧入口读取失败'));await old
+ assert.deepEqual(h.errors,[])
+ h.route.query={returnTaskId:'returned',activeOrderId:'413'}
+ const current=h.watchRoute()
+ rejectOld(Error('当前入口读取失败'));await current
+ assert.deepEqual(h.errors,['当前入口读取失败'])
 })

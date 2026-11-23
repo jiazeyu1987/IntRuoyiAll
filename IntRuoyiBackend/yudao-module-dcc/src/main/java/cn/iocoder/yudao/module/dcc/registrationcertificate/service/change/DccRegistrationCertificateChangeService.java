@@ -352,6 +352,18 @@ public class DccRegistrationCertificateChangeService {
             throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED);
     }
 
+    private static void validateNameLength(String label, String value) {
+        if (value != null && value.trim().length() > 255) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
+                    label + "长度不能超过255个字符");
+        }
+    }
+
+    private static void validateStructuredName(String field, String value) {
+        if ("PRODUCT_NAME".equals(field)) validateNameLength("产品名称", value);
+        if ("REGISTRANT_NAME".equals(field)) validateNameLength("注册人名称", value);
+    }
+
     private ChangeSelection validateSelection(DccRegistrationCertificateChangeCommand command) {
         Map<String, String> structured = new LinkedHashMap<>();
         if (command.structuredValues() != null) {
@@ -367,6 +379,7 @@ public class DccRegistrationCertificateChangeService {
                     facts.validate();
                     if (facts.isFda() && isBlank(facts.getChangeDescription())) throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED);
                 }
+                validateStructuredName(entry.getKey(), entry.getValue());
                 structured.put(entry.getKey(), entry.getValue().trim());
             }
         }
@@ -429,6 +442,7 @@ public class DccRegistrationCertificateChangeService {
                     facts.validate();
                     if (facts.isFda() && isBlank(facts.getChangeDescription())) throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED);
                 }
+                validateStructuredName(entry.getKey(), entry.getValue());
                 structured.put(entry.getKey(), entry.getValue().trim());
             }
         }
@@ -637,6 +651,9 @@ public class DccRegistrationCertificateChangeService {
     }
 
     private Long insertSnapshot(Long tenantId, Long versionId, SnapshotRow snapshot) {
+        // 历史待审申请也必须在入库前返回明确的字段错误。
+        validateNameLength("产品名称", snapshot.productName());
+        validateNameLength("注册人名称", snapshot.registrantName());
         return insertAndReturnId("""
                 INSERT INTO dcc_registration_certificate_snapshot
                   (tenant_id, version_id, revision_no, product_name, registrant_name,

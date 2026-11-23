@@ -126,7 +126,12 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private List<LossDetail> lossDetails = List.of();
         private Long eventId;
         private String originalBusinessIdentityJson;
+        /** 当前订单分配量，累计和进度使用此值。 */
         private BigDecimal submittedQuantity;
+        /** 正式事件原始生产量，跨单分配前，一次事件仅计算一次。 */
+        private BigDecimal originalOutputQuantity;
+        /** 正式事件原始损耗量，非物料明细推算或订单分配量。 */
+        private BigDecimal originalLossQuantity;
         private String submitterName;
         private String reviewerName;
         private LocalDateTime submittedAt;

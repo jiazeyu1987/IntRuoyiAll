@@ -1269,6 +1269,8 @@ public class MesProcessPoolTeamLeaderController {
                 .setEventId(submission.getEventId())
                 .setOriginalBusinessIdentityJson(submission.getOriginalBusinessIdentityJson())
                 .setSubmittedQuantity(submission.getSubmittedQuantity())
+                .setOriginalOutputQuantity(submission.getOriginalOutputQuantity())
+                .setOriginalLossQuantity(submission.getOriginalLossQuantity())
                 .setSubmitterName(submission.getSubmitterName())
                 .setReviewerName(submission.getReviewerName())
                 .setSubmittedAt(submission.getSubmittedAt())

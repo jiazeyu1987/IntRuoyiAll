@@ -24,7 +24,7 @@
         <el-input v-model="formData.contactName" placeholder="请输入联系人" />
       </el-form-item>
       <el-form-item label="联系手机" prop="contactMobile">
-        <el-input v-model="formData.contactMobile" placeholder="请输入联系手机" />
+        <el-input v-model="formData.contactMobile" placeholder="请输入11位手机号码" />
       </el-form-item>
       <el-form-item v-if="formData.id === undefined" label="用户名称" prop="username">
         <el-input v-model="formData.username" placeholder="请输入用户名称" />
@@ -108,9 +108,34 @@ const formData = ref({
   password: undefined
 })
 const formRules = reactive({
-  name: [{ required: true, message: '租户名不能为空', trigger: 'blur' }],
+  name: [
+    { required: true, message: '租户名不能为空', trigger: 'blur' },
+    { max: 30, message: '租户名长度不能超过30个字符', trigger: ['blur', 'change'] }
+  ],
   packageId: [{ required: true, message: '租户套餐不能为空', trigger: 'blur' }],
-  contactName: [{ required: true, message: '联系人不能为空', trigger: 'blur' }],
+  contactName: [
+    { required: true, message: '联系人不能为空', trigger: 'blur' },
+    { max: 30, message: '联系人长度不能超过30个字符', trigger: ['blur', 'change'] }
+  ],
+  websites: [
+    {
+      validator: (_rule: unknown, value: string[] | undefined, callback: (error?: Error) => void) => {
+        if (value && value.join(',').length > 1024) {
+          callback(new Error('绑定域名总长度不能超过1024个字符（含分隔逗号）'))
+          return
+        }
+        callback()
+      },
+      trigger: ['blur', 'change']
+    }
+  ],
+  contactMobile: [
+    {
+      pattern: /^1[3-9]\d{9}$/,
+      message: '联系手机格式不正确，请输入11位手机号码',
+      trigger: ['blur', 'change']
+    }
+  ],
   status: [{ required: true, message: '租户状态不能为空', trigger: 'blur' }],
   accountCount: [{ required: true, message: '账号额度不能为空', trigger: 'blur' }],
   expireTime: [{ required: true, message: '过期时间不能为空', trigger: 'blur' }],

@@ -464,13 +464,13 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
                 missing.add(taskText + " " + scrapQuantityEvidence.invalidReason());
                 continue;
             }
-            String expectedResult = expectedInspectionResult(scrapQuantityEvidence.scrapQuantity(), pieceDetails);
+            String expectedResult = expectedInspectionResult(pieceDetails);
             if (!Objects.equals(expectedResult, record.getInspectionResult())) {
-                missing.add(taskText + " 检验结论与报废数量/逐件判定不一致，expected=" + expectedResult
+                missing.add(taskText + " 检验结论与逐件判定不一致，expected=" + expectedResult
                         + ", actual=" + record.getInspectionResult());
                 continue;
             }
-            String dispositionReason = invalidNonconformanceDispositionReason(task, expectedResult);
+            String dispositionReason = invalidNonconformanceDispositionReason(task);
             if (dispositionReason != null) {
                 missing.add(taskText + " " + dispositionReason);
             }
@@ -661,10 +661,7 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
         return new FormalScrapQuantityEvidence(scrapQuantity, null);
     }
 
-    private String expectedInspectionResult(Integer scrapQuantity, List<MesPqcInspectionPieceDetailDO> pieceDetails) {
-        if (scrapQuantity != null && scrapQuantity > 0) {
-            return MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE;
-        }
+    private String expectedInspectionResult(List<MesPqcInspectionPieceDetailDO> pieceDetails) {
         return pieceDetails.stream()
                 .anyMatch(detail -> MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE.equals(
                         detail.getJudgement()))
@@ -672,21 +669,22 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
                 : MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS;
     }
 
-    private String invalidNonconformanceDispositionReason(MesPqcInspectionTaskDO task, String expectedResult) {
-        if (!MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE.equals(expectedResult)) {
-            return null;
-        }
+    private String invalidNonconformanceDispositionReason(MesPqcInspectionTaskDO task) {
         MesProEdhrNonconformanceReviewDO review = nonconformanceReviewMapper.selectLatestBySource(
                 MesProEdhrNonconformanceReviewService.SOURCE_TYPE_PQC_SUBMISSION, task.getSubmittedEventId());
         if (review == null) {
-            return "失败检验缺少不合格处置记录";
+            return null;
         }
         if (!MesProEdhrNonconformanceReviewService.STATUS_CLOSED.equals(review.getReviewStatus())
+                || review.getDisposition() == null
                 || !ACCEPTED_NONCONFORMANCE_DISPOSITIONS.contains(review.getDisposition())
                 || StrUtil.hasBlank(review.getReviewMaterialUrl(), review.getReviewOpinion(), review.getQaSignature())
                 || review.getQaUserId() == null
                 || review.getClosedAt() == null) {
-            return "失败检验不合格处置证据未闭环";
+            return "人工不合格评审状态或处置证据未闭环";
+        }
+        if (!MesProEdhrNonconformanceReviewService.DISPOSITION_CONCESSION_RELEASE.equals(review.getDisposition())) {
+            return "人工不合格评审已选择返工或作废，原周期不得正常放行";
         }
         return null;
     }

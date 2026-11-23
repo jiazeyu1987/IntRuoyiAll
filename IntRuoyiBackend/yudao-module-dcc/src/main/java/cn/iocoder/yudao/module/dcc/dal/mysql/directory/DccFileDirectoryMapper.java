@@ -13,6 +13,14 @@ import java.util.Objects;
  */
 @Mapper
 public interface DccFileDirectoryMapper extends BaseMapperX<DccFileDirectoryDO> {
+    // 匹配现有全局唯一索引 (parent_id, code)，包括已删除记录；不返回其他目录的业务内容。
+    @com.baomidou.mybatisplus.annotation.InterceptorIgnore(tenantLine = "true")
+    @org.apache.ibatis.annotations.Select("<script>SELECT id FROM dcc_file_directory WHERE parent_id=#{parentId} AND code=#{code}"
+            + "<if test='excludeId != null'> AND id != #{excludeId}</if> FOR UPDATE</script>")
+    List<Long> selectReservedCodeForUpdate(@org.apache.ibatis.annotations.Param("parentId") Long parentId,
+                                          @org.apache.ibatis.annotations.Param("code") String code,
+                                          @org.apache.ibatis.annotations.Param("excludeId") Long excludeId);
+
     @org.apache.ibatis.annotations.Select("SELECT * FROM dcc_file_directory WHERE tenant_id=#{tenant} AND id=#{id} AND deleted=0 FOR UPDATE")
     DccFileDirectoryDO selectTenantForUpdate(@org.apache.ibatis.annotations.Param("tenant") Long tenant,@org.apache.ibatis.annotations.Param("id") Long id);
     @org.apache.ibatis.annotations.Select("SELECT COUNT(*) FROM dcc_file_directory WHERE tenant_id=#{tenant} AND parent_id=#{id} AND active=1 AND deleted=0")

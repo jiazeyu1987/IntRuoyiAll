@@ -286,8 +286,26 @@ public class UserController {
         // 输出 Excel
         Map<Long, DeptDO> deptMap = deptService.getDeptMap(
                 convertList(list, AdminUserDO::getDeptId));
-        ExcelUtils.write(response, "用户数据.xlsx", "数据", UserRespVO.class,
-                UserConvert.INSTANCE.convertList(list, deptMap));
+        deptMap = new java.util.HashMap<>(deptMap);
+        List<DeptDO> departments = deptService.getDeptList(
+                new cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptListReqVO());
+        for (DeptDO dept : departments) deptMap.put(dept.getId(), dept);
+        List<UserRespVO> rows = UserConvert.INSTANCE.convertList(list, deptMap);
+        java.util.Set<Long> exportedUserIds = new java.util.HashSet<>(convertList(list, AdminUserDO::getId));
+        Map<Long, List<String>> leaderPaths = new java.util.HashMap<>();
+        for (DeptDO dept : departments) {
+            if (!exportedUserIds.contains(dept.getLeaderUserId())) continue;
+            leaderPaths.computeIfAbsent(dept.getLeaderUserId(), key -> new java.util.ArrayList<>())
+                    .add(cn.iocoder.yudao.module.system.service.user.UserDepartmentPath
+                            .exportPath(dept.getId(), deptMap, deptService));
+        }
+        for (UserRespVO row : rows) {
+            row.setDeptPath(cn.iocoder.yudao.module.system.service.user.UserDepartmentPath
+                    .exportPath(row.getDeptId(), deptMap, deptService));
+            row.setLeaderDeptPaths(cn.iocoder.yudao.framework.common.util.json.JsonUtils
+                    .toJsonString(leaderPaths.getOrDefault(row.getId(), List.of())));
+        }
+        ExcelUtils.write(response, "用户数据.xlsx", "数据", UserRespVO.class, rows);
     }
 
     @PostMapping("/export-excel")
@@ -437,10 +455,17 @@ public class UserController {
             int line = i + 1;
             personnel.add(previewValue(row.getUsername(), line, "账号") + " / "
                     + previewValue(row.getNickname(), line, "姓名"));
-            organizations.add(row.getDeptName() != null && !row.getDeptName().isBlank()
-                    ? "部门名称：" + row.getDeptName() + "（不存在时创建为根级部门）"
+            organizations.add(row.getDeptPath() != null && !row.getDeptPath().isBlank()
+                    ? "部门路径：" + row.getDeptPath() + "（按层级匹配或创建）"
+                    : row.getDeptName() != null && !row.getDeptName().isBlank()
+                    ? "部门名称：" + row.getDeptName() + "（仅匹配现有部门，新建需完整部门路径）"
                     : row.getDeptId() == null ? "第" + line + "条记录：部门编号缺失"
                     : "部门编号：" + row.getDeptId());
+            for (String path : cn.iocoder.yudao.module.system.service.user.UserDepartmentPath
+                    .parseLeaderPaths(row.getLeaderDeptPaths())) {
+                organizations.add("部门负责人：" + path + " → " + row.getUsername()
+                        + "（该账号成功导入后恢复）");
+            }
         }
         return success(new UserImportPreviewRespVO(rows.size(), personnel, new java.util.ArrayList<>(organizations)));
     }

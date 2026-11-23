@@ -190,7 +190,7 @@ class MesOrderReleaseCompletenessServiceTest {
     }
 
     @Test
-    void evaluateInspectionResultPassesWhenScrapOnlyFailureHasClosedQaDisposition() {
+    void evaluateInspectionResultPassesWithScrapAndNoQaDisposition() {
         MesProEdhrBatchExecutionDO batch = batch();
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(batch);
         List<MesPqcInspectionTaskDO> tasks = List.of(
@@ -199,15 +199,11 @@ class MesOrderReleaseCompletenessServiceTest {
                 confirmedPqcTask(3L, "PATROL", "PM"),
                 confirmedPqcTask(4L, "FINAL", "FINAL"));
         mockFormalSuccessEvidence(tasks);
-        MesPqcInspectionTaskDO scrapOnlyFailure = tasks.get(0);
-        mockFormalPqcEvidence(scrapOnlyFailure,
-                MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE,
-                "{\"scrapQuantity\":1,\"inspectionResult\":\"FAILURE\"}",
+        MesPqcInspectionTaskDO passingWithScrap = tasks.get(0);
+        mockFormalPqcEvidence(passingWithScrap,
+                MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS,
+                "{\"scrapQuantity\":1,\"inspectionResult\":\"SUCCESS\"}",
                 MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS);
-        lenient().when(nonconformanceReviewMapper.selectLatestBySource(
-                        MesProEdhrNonconformanceReviewService.SOURCE_TYPE_PQC_SUBMISSION,
-                        scrapOnlyFailure.getSubmittedEventId()))
-                .thenReturn(closedPqcSubmissionReview(scrapOnlyFailure.getSubmittedEventId()));
         when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
                 batch.getRouteVersionId())).thenReturn(activeOrder);
         when(pqcInspectionTaskMapper.selectEffectiveListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
@@ -215,11 +211,11 @@ class MesOrderReleaseCompletenessServiceTest {
         MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
 
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.checkResult());
-        assertTrue(result.failureReason().contains("必要处置依据完整"));
+        assertTrue(result.failureReason().contains("正式检验结论"));
     }
 
     @Test
-    void evaluateInspectionResultBlocksScrapOnlyFailureWithoutClosedQaDisposition() {
+    void evaluateInspectionResultRejectsHistoricalLossOnlyFailureWhenSamplesPass() {
         MesProEdhrBatchExecutionDO batch = batch();
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(batch);
         List<MesPqcInspectionTaskDO> tasks = List.of(
@@ -228,8 +224,8 @@ class MesOrderReleaseCompletenessServiceTest {
                 confirmedPqcTask(3L, "PATROL", "PM"),
                 confirmedPqcTask(4L, "FINAL", "FINAL"));
         mockFormalSuccessEvidence(tasks);
-        MesPqcInspectionTaskDO scrapOnlyFailure = tasks.get(0);
-        mockFormalPqcEvidence(scrapOnlyFailure,
+        MesPqcInspectionTaskDO historicalLossOnlyFailure = tasks.get(0);
+        mockFormalPqcEvidence(historicalLossOnlyFailure,
                 MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE,
                 "{\"scrapQuantity\":1,\"inspectionResult\":\"FAILURE\"}",
                 MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS);
@@ -240,7 +236,73 @@ class MesOrderReleaseCompletenessServiceTest {
         MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
 
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER, result.checkResult());
-        assertTrue(result.failureReason().contains("失败检验缺少不合格处置记录"));
+        assertTrue(result.failureReason().contains("检验结论与逐件判定不一致"));
+    }
+
+    @Test
+    void evaluateInspectionResultBlocksPassingSampleWithPendingManualNonconformance() {
+        MesProEdhrBatchExecutionDO batch = batch();
+        MesProcessPoolActiveOrderDO order = activeOrder(batch);
+        List<MesPqcInspectionTaskDO> tasks = List.of(
+                confirmedPqcTask(1L, "FIRST", "FIRST"),
+                confirmedPqcTask(2L, "PATROL", "AM"),
+                confirmedPqcTask(3L, "PATROL", "PM"),
+                confirmedPqcTask(4L, "FINAL", "FINAL"));
+        mockFormalSuccessEvidence(tasks);
+        when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
+                batch.getRouteVersionId())).thenReturn(order);
+        when(pqcInspectionTaskMapper.selectEffectiveListByActiveOrderId(order.getId())).thenReturn(tasks);
+        when(nonconformanceReviewMapper.selectLatestBySource(
+                MesProEdhrNonconformanceReviewService.SOURCE_TYPE_PQC_SUBMISSION,
+                tasks.get(0).getSubmittedEventId())).thenReturn(new MesProEdhrNonconformanceReviewDO());
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER,
+                service.evaluateInspectionResult(batch).checkResult());
+    }
+
+    @Test
+    void evaluateInspectionResultRejectsMissingDispositionAndOriginalDisposedCycle() {
+        MesProEdhrBatchExecutionDO batch = batch();
+        MesProcessPoolActiveOrderDO order = activeOrder(batch);
+        List<MesPqcInspectionTaskDO> tasks = List.of(
+                confirmedPqcTask(1L, "FIRST", "FIRST"),
+                confirmedPqcTask(2L, "PATROL", "AM"),
+                confirmedPqcTask(3L, "PATROL", "PM"),
+                confirmedPqcTask(4L, "FINAL", "FINAL"));
+        mockFormalSuccessEvidence(tasks);
+        when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
+                batch.getRouteVersionId())).thenReturn(order);
+        when(pqcInspectionTaskMapper.selectEffectiveListByActiveOrderId(order.getId())).thenReturn(tasks);
+        MesProEdhrNonconformanceReviewDO review = closedPqcSubmissionReview(tasks.get(0).getSubmittedEventId());
+        when(nonconformanceReviewMapper.selectLatestBySource(
+                MesProEdhrNonconformanceReviewService.SOURCE_TYPE_PQC_SUBMISSION,
+                tasks.get(0).getSubmittedEventId())).thenReturn(review);
+        review.setDisposition(null);
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER, service.evaluateInspectionResult(batch).checkResult());
+        for (String disposition : List.of(MesProEdhrNonconformanceReviewService.DISPOSITION_REWORK,
+                MesProEdhrNonconformanceReviewService.DISPOSITION_VOID)) {
+            review.setDisposition(disposition);
+            assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER, service.evaluateInspectionResult(batch).checkResult());
+        }
+    }
+
+    @Test
+    void evaluateInspectionResultAllowsFailedSampleWithoutManualReview() {
+        MesProEdhrBatchExecutionDO batch = batch();
+        MesProcessPoolActiveOrderDO order = activeOrder(batch);
+        List<MesPqcInspectionTaskDO> tasks = List.of(
+                confirmedPqcTask(1L, "FIRST", "FIRST"),
+                confirmedPqcTask(2L, "PATROL", "AM"),
+                confirmedPqcTask(3L, "PATROL", "PM"),
+                confirmedPqcTask(4L, "FINAL", "FINAL"));
+        mockFormalSuccessEvidence(tasks);
+        when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
+                batch.getRouteVersionId())).thenReturn(order);
+        when(pqcInspectionTaskMapper.selectEffectiveListByActiveOrderId(order.getId())).thenReturn(tasks);
+        mockFormalPqcEvidence(tasks.get(0), MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE,
+                "{\"scrapQuantity\":0,\"inspectionResult\":\"FAILURE\"}",
+                MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE);
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS,
+                service.evaluateInspectionResult(batch).checkResult());
     }
 
     @Test

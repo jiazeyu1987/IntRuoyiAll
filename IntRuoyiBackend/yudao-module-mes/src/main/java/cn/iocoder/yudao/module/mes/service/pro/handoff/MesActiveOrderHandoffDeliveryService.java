@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.handoff;
 
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.handoff.*;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.handoff.*;
@@ -32,9 +33,7 @@ public class MesActiveOrderHandoffDeliveryService {
         require(TransactionSynchronizationManager.isSynchronizationActive(),"通知意图必须加入正式交接事务");
         require(!"PQC_HANDOFF".equals(task.getTaskType()),"PQC检验接手通知已取消");
         validate(task);
-        if (RETIRED_EDHR_NOTICES.contains(task.getTaskType())) return;
-        // Production and PQC reviews retain workbench responsibility without notification delivery.
-        if (Set.of("PRODUCTION_REVIEW", "PQC_REVIEW").contains(task.getTaskType())) return;
+        if (!notificationDeliveryEnabled(task.getTaskType())) return;
         audit.lock(); Long currentTenant=tenant();
         String params=JsonUtils.toJsonString(Map.of("activeOrderId",task.getActiveOrderId().toString(),
                 "taskName",label(task.getTaskType()),"actionUrl",task.getActionUrl(),"reason",task.getReason(),"handoffTaskId",task.getId().toString(),"handoffType",task.getTaskType()));
@@ -70,6 +69,22 @@ public class MesActiveOrderHandoffDeliveryService {
                 }
             }
         });
+    }
+    public boolean notificationDeliveryEnabled(String taskType) {
+        require(TYPES.contains(taskType), "未知交接类型");
+        return !RETIRED_EDHR_NOTICES.contains(taskType)
+                && !Set.of("PQC_HANDOFF", "PRODUCTION_REVIEW", "PQC_REVIEW").contains(taskType);
+    }
+    public Set<Long> ownReceiptTaskIds(Collection<Long> taskIds, Long actor) {
+        require(actor != null, "请先登录");
+        if (taskIds.isEmpty()) return Set.of();
+        return mapper.selectList(new LambdaQueryWrapperX<MesActiveOrderHandoffDeliveryDO>()
+                .select(MesActiveOrderHandoffDeliveryDO::getHandoffTaskId)
+                .eq(MesActiveOrderHandoffDeliveryDO::getTenantId, tenant())
+                .eq(MesActiveOrderHandoffDeliveryDO::getUserId, actor)
+                .in(MesActiveOrderHandoffDeliveryDO::getHandoffTaskId, taskIds))
+                .stream().map(MesActiveOrderHandoffDeliveryDO::getHandoffTaskId)
+                .collect(java.util.stream.Collectors.toSet());
     }
     public List<MesActiveOrderHandoffDeliveryDO> ownReceipts(Long taskId,Long actor) {
         access(tasks.selectById(taskId),actor);

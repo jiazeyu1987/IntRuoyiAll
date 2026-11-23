@@ -21,7 +21,7 @@ public class DccCatalogPackageController {
         return CommonResult.error(BAD_REQUEST.getCode(), exception.getMessage());
     }
     @GetMapping("/export")
-    @PreAuthorize("@ss.hasAnyRoles('super_admin', 'tenant_admin', 'dcc_project_code_admin') or (@ss.hasPermission('mdm:product:query') and @ss.hasPermission('dcc:project-code:query') and @ss.hasPermission('mdm:enterprise:query') and @ss.hasPermission('mdm:company-scope:query') and @ss.hasPermission('dcc:registration-certificate:query-current'))")
+    @PreAuthorize("@ss.hasAnyRoles('super_admin', 'tenant_admin', 'dcc_project_code_admin') or @ss.hasPermission('dcc:project-code:query')")
     public void exportWorkbook(HttpServletResponse response) throws IOException {
         byte[] bytes = service.exportWorkbook();
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -29,7 +29,7 @@ public class DccCatalogPackageController {
         response.getOutputStream().write(bytes);
     }
     @PostMapping("/import")
-    @PreAuthorize("@ss.hasAnyRoles('super_admin', 'tenant_admin', 'dcc_project_code_admin') or (@ss.hasPermission('mdm:product:create') and @ss.hasPermission('mdm:product:update') and @ss.hasPermission('dcc:project-code:create') and @ss.hasPermission('dcc:project-code:update') and @ss.hasPermission('mdm:enterprise:create') and @ss.hasPermission('mdm:enterprise:update') and @ss.hasPermission('mdm:company-scope:create') and @ss.hasPermission('mdm:company-scope:update') and @ss.hasPermission('dcc:registration-certificate:config:update'))")
+    @PreAuthorize("@ss.hasAnyRoles('super_admin', 'tenant_admin', 'dcc_project_code_admin') or (@ss.hasPermission('dcc:project-code:create') and @ss.hasPermission('dcc:project-code:update'))")
     public CommonResult<Map<String, Integer>> importWorkbook(@RequestParam("file") MultipartFile file) throws IOException {
         if (file.isEmpty() || file.getSize() > 20L * 1024 * 1024) throw new IllegalArgumentException("请选择 20MB 以内的 Excel 工作簿");
         return success(service.importWorkbook(file.getBytes()));

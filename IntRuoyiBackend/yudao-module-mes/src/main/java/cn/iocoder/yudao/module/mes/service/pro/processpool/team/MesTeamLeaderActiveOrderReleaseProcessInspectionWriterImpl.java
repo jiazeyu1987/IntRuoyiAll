@@ -516,8 +516,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
         if (scrapQuantity == null) {
             return source.getAggregateDetails().get(0).getItemCode();
         }
-        String expectedInspectionResult = scrapQuantity > 0
-                || source.getAggregateDetails().stream().anyMatch(detail ->
+        String expectedInspectionResult = source.getAggregateDetails().stream().anyMatch(detail ->
                 !MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS.equals(detail.getJudgement()))
                 ? MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE
                 : MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS;

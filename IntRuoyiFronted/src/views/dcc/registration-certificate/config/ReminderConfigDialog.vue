@@ -2,7 +2,7 @@
   <Dialog v-model="dialogVisible" title="通知设置" width="640px">
     <el-alert
       v-if="loaded && recipientsUnconfigured"
-      title="通知接收人尚未配置，请按实际职责选择接收人后保存。"
+      title="国内或 CE 提醒接收人尚未配置完整，请按实际职责补齐后保存。"
       type="info"
       :closable="false"
       show-icon
@@ -75,10 +75,13 @@ type ThresholdKey = keyof RegistrationCertificateThresholdRecipientUserIds
 
 const thresholds: Array<{ key: ThresholdKey; label: string }> = [
   { key: 'CHANGE_CONFIRMATION', label: '变更生效确认人员' },
-  { key: 'T_30', label: '到期前 30 个月' },
-  { key: 'T_8', label: '到期前 8 个月' },
-  { key: 'T_2', label: '到期前 2 个月' },
-  { key: 'T_1', label: '到期前 1 个月' }
+  { key: 'T_30', label: '国内到期前 30 个月' },
+  { key: 'T_8', label: '国内到期前 8 个月' },
+  { key: 'T_2', label: '国内到期前 2 个月' },
+  { key: 'T_1', label: '国内到期前 1 个月' },
+  { key: 'CE_T_18', label: 'CE 到期前 18 个月' },
+  { key: 'CE_T_12', label: 'CE 到期前 12 个月' },
+  { key: 'CE_T_3', label: 'CE 到期前 3 个月' }
 ]
 
 const message = useMessage()
@@ -96,7 +99,7 @@ const formData = reactive({
   thresholdRecipientUserIds: createEmptyRecipients()
 })
 const recipientsUnconfigured = computed(() =>
-  ['T_30', 'T_8', 'T_2', 'T_1'].every((key) =>
+  ['T_30', 'T_8', 'T_2', 'T_1', 'CE_T_18', 'CE_T_12', 'CE_T_3'].some((key) =>
     formData.thresholdRecipientUserIds[key as ThresholdKey]?.length === 0
   )
 )
@@ -127,7 +130,7 @@ const open = async () => {
     formData.rowVersion = config.rowVersion
     for (const { key } of thresholds) {
       formData.thresholdRecipientUserIds[key] = normalizeUserIds(
-        key === 'CHANGE_CONFIRMATION' && config.thresholdRecipientUserIds[key] === undefined
+        (key === 'CHANGE_CONFIRMATION' || key.startsWith('CE_')) && config.thresholdRecipientUserIds[key] === undefined
           ? []
           : config.thresholdRecipientUserIds[key]
       )
@@ -163,6 +166,9 @@ const submit = async () => {
         T_30: normalizeUserIds(formData.thresholdRecipientUserIds.T_30),
         T_8: normalizeUserIds(formData.thresholdRecipientUserIds.T_8),
         T_2: normalizeUserIds(formData.thresholdRecipientUserIds.T_2),
+        CE_T_18: normalizeUserIds(formData.thresholdRecipientUserIds.CE_T_18),
+        CE_T_12: normalizeUserIds(formData.thresholdRecipientUserIds.CE_T_12),
+        CE_T_3: normalizeUserIds(formData.thresholdRecipientUserIds.CE_T_3),
         T_1: normalizeUserIds(formData.thresholdRecipientUserIds.T_1),
         CHANGE_CONFIRMATION: normalizeUserIds(formData.thresholdRecipientUserIds.CHANGE_CONFIRMATION)
       }
@@ -193,7 +199,7 @@ const removeRecipient = (threshold: ThresholdKey, userId: number) => {
 }
 
 function createEmptyRecipients(): RegistrationCertificateThresholdRecipientUserIds {
-  return { T_30: [], T_8: [], T_2: [], T_1: [], CHANGE_CONFIRMATION: [] }
+  return { T_30: [], T_8: [], T_2: [], T_1: [], CE_T_18: [], CE_T_12: [], CE_T_3: [], CHANGE_CONFIRMATION: [] }
 }
 
 function formatUserLabel(user: UserVO) {

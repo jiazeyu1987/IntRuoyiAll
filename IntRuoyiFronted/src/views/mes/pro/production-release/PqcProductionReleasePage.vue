@@ -5,7 +5,17 @@
       <el-button data-pqc-production-release-detail-back @click="detailVisible = false">
         返回
       </el-button>
+      <el-descriptions v-if="rejectedDecision" title="生产放行驳回回执" :column="1" border data-pqc-production-release-rejection-receipt>
+        <el-descriptions-item label="处理结果">已驳回</el-descriptions-item>
+        <el-descriptions-item label="申请编号">{{ rejectedDecision.applicationId }}</el-descriptions-item>
+        <el-descriptions-item label="工作任务编号">{{ rejectedDecision.pqcReleaseWorkTaskId }}</el-descriptions-item>
+        <el-descriptions-item v-if="rejectedDecision.batchExecutionId" label="批次执行编号">{{ rejectedDecision.batchExecutionId }}</el-descriptions-item>
+        <el-descriptions-item label="处理人编号">{{ rejectedDecision.decidedBy }}</el-descriptions-item>
+        <el-descriptions-item label="处理时间">{{ formatDateTime(rejectedDecision.decidedAt) }}</el-descriptions-item>
+        <el-descriptions-item label="驳回原因">{{ rejectedDecision.rejectReason }}</el-descriptions-item>
+      </el-descriptions>
       <ActiveOrderSubmissionDetailPanel
+        v-else
         hide-order-summary
         :detail="orderDetail?.detail"
         :production-material-lists="orderDetail?.productionMaterialLists || []"
@@ -293,6 +303,7 @@ const detailError = ref('')
 const detailRow = ref<MesPqcProductionReleasePageItemRespVO>()
 const detailApplicationId = ref<string>()
 const detailReadOnly = ref(false)
+const rejectedDecision = ref<MesPqcProductionReleaseDecisionRespVO>()
 const orderDetail = ref<Awaited<ReturnType<typeof getPqcProductionReleaseOrderDetail>>>()
 let detailRequestSequence = 0
 const activeView = ref<MesPqcProductionReleasePageReqVO['viewStatus']>(PQC_RELEASE_VIEW_PENDING)
@@ -336,8 +347,6 @@ const queryParams = reactive({
   listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
-  applicationId: undefined as string | undefined,
-  pqcReleaseWorkTaskId: undefined as string | undefined,
   workOrderCode: typeof route.query.workOrderCode === 'string' ? route.query.workOrderCode : '',
   batchCode: ''
 })
@@ -358,7 +367,10 @@ const resolveErrorMessage = (error: unknown, fallback: string) => {
   return fallback
 }
 
-const getList = async (isCurrent: () => boolean = () => true) => {
+const getList = async (
+  isCurrent: () => boolean = () => true,
+  exactContext?: PqcReleaseRouteContext
+) => {
   const requestId = ++listRequestSequence
   const contextKey = JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath])
   const current = () => requestId === listRequestSequence && isCurrent() && contextKey === JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath])
@@ -370,16 +382,17 @@ const getList = async (isCurrent: () => boolean = () => true) => {
       pageNo: queryParams.pageNo,
       pageSize: queryParams.pageSize,
       viewStatus: activeView.value,
-      applicationId: queryParams.applicationId,
-      pqcReleaseWorkTaskId: queryParams.pqcReleaseWorkTaskId,
+      applicationId: exactContext?.applicationId,
+      pqcReleaseWorkTaskId: exactContext?.pqcReleaseWorkTaskId,
       workOrderCode: queryParams.workOrderCode.trim() || undefined,
       batchCode: queryParams.batchCode.trim() || undefined
     }, { ignoreErrorMessage: true, isRequestContextCurrent: current })
     if (!current()) return false
-    if (queryParams.applicationId && (
+    // Exact identity is required when opening a task, not when browsing another list tab.
+    if (exactContext && (
       data.list?.length !== 1 || data.total !== 1 ||
-      String(data.list[0].applicationId) !== queryParams.applicationId ||
-      String(data.list[0].pqcReleaseWorkTaskId) !== queryParams.pqcReleaseWorkTaskId
+      String(data.list[0].applicationId) !== exactContext.applicationId ||
+      String(data.list[0].pqcReleaseWorkTaskId) !== exactContext.pqcReleaseWorkTaskId
     )) {
       throw new Error('未查询到唯一匹配当前申请和工作任务的生产放行记录。')
     }
@@ -419,6 +432,7 @@ const clearOrderDetail = () => {
   detailRow.value = undefined
   detailApplicationId.value = undefined
   detailReadOnly.value = false
+  rejectedDecision.value = undefined
   orderDetail.value = undefined
 }
 
@@ -439,6 +453,16 @@ const requirePqcReleaseAuthority = (
     throw new Error('正式生产放行回执与当前申请或工作任务不一致。')
   }
   if (result.status === 'PQC_RELEASE_PENDING' && result.decision == null) return 'PENDING'
+  // The persisted rejection receipt has no production approval signature.
+  if (result.decision === 'REJECT') {
+    if (result.status !== 'PQC_RELEASE_REJECTED' || !result.rejectReason?.trim() ||
+      !isExactPositiveId(result.decidedBy) ||
+      (result.batchExecutionId != null && !isExactPositiveId(result.batchExecutionId)) ||
+      !isFormalSignedTime(result.decidedAt) || !Number.isSafeInteger(result.version) || result.version <= 0) {
+      throw new Error('当前任务缺少完整且一致的生产放行驳回回执。')
+    }
+    return 'REJECTED'
+  }
   if (result.decision !== 'APPROVE' || !['REPORT_UPLOAD_PENDING', 'MANAGER_RELEASE_PENDING', 'RELEASED'].includes(result.status) ||
     !isExactPositiveId(result.signatureId) || !isExactPositiveId(result.decidedBy) || !isExactPositiveId(result.batchExecutionId) ||
     !isFormalSignedTime(result.decidedAt) || !Number.isSafeInteger(result.version) || result.version <= 0 ||
@@ -520,6 +544,7 @@ const openPqcReleaseFromRoute = async () => {
   const pageContext = JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath])
   const detailSequence = detailRequestSequence
   listRequestSequence++
+  let entryListRequestSequence = listRequestSequence
   loading.value = false
   list.value = []
   total.value = 0
@@ -527,9 +552,7 @@ const openPqcReleaseFromRoute = async () => {
   releaseDialogVisible.value = false
   resetReleaseDialog()
   const dialogGeneration = releaseDialogGeneration
-  const isCurrent = () => pageContext === JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath]) && generation === pqcReleaseRouteGeneration && dialogGeneration === releaseDialogGeneration && detailSequence === detailRequestSequence
-  queryParams.applicationId = undefined
-  queryParams.pqcReleaseWorkTaskId = undefined
+  const isCurrent = () => pageContext === JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath]) && generation === pqcReleaseRouteGeneration && dialogGeneration === releaseDialogGeneration && detailSequence === detailRequestSequence && entryListRequestSequence === listRequestSequence
   queryParams.workOrderCode = typeof route.query.workOrderCode === 'string' ? route.query.workOrderCode : ''
   queryParams.pageNo = 1
   try {
@@ -538,12 +561,17 @@ const openPqcReleaseFromRoute = async () => {
       if (!userStore.permissions.has('mes:pro-production-release:query') && !userStore.permissions.has('*:*:*')) {
         throw new Error('当前账号没有生产放行查询权限。')
       }
-      queryParams.applicationId = context.applicationId
-      queryParams.pqcReleaseWorkTaskId = context.pqcReleaseWorkTaskId
       loading.value = true
       const decision = await getPqcProductionRelease(context.applicationId, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
       if (!isCurrent()) return
       const state = requirePqcReleaseAuthority(decision, context)
+      if (state === 'REJECTED') {
+        detailApplicationId.value = context.applicationId
+        detailReadOnly.value = true
+        rejectedDecision.value = decision
+        detailVisible.value = true
+        return
+      }
       if (state === 'APPROVED') {
         loading.value = false
         await openCompletedPqcReleaseDetail(context, decision, isCurrent)
@@ -551,17 +579,21 @@ const openPqcReleaseFromRoute = async () => {
       }
       activeView.value = PQC_RELEASE_VIEW_PENDING
     }
-    await getList(isCurrent)
+    // A subsequent user query cancels this automatic task entry, including late failures.
+    entryListRequestSequence = listRequestSequence + 1
+    if (!await getList(isCurrent, context)) return
     if (!isCurrent() || loadError.value || !context) return
     const row = list.value[0]
     if (!row || row.viewStatus !== PQC_RELEASE_VIEW_PENDING ||
-      row.applicationStatus !== 'PQC_RELEASE_PENDING' || row.underReview) {
+      row.applicationStatus !== 'PQC_RELEASE_PENDING') {
       throw new Error(row?.approvalBlockerReason || '当前生产放行申请不符合待放行任务状态。')
     }
+    // QA review is a valid pending display state, but cannot open ordinary approval.
+    if (row.underReview) return
     // A configuration blocker keeps the real pending record visible with its disabled action.
     if (row.approvalReady === false) return
     if (!userStore.permissions.has('mes:pro-production-release:pqc-approve') && !userStore.permissions.has('*:*:*')) {
-      throw new Error('当前账号没有生产放行权限。')
+      return
     }
     openReleaseDialog(row)
   } catch (error) {

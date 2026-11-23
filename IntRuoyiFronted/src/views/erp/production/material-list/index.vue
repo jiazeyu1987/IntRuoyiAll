@@ -83,7 +83,7 @@
           >
             <template #default="{ row }">
               <el-link
-                v-if="row.productionOrderCount === 1 && row.productionOrderSummary"
+                v-if="row.productionOrderCount === 1 && row.productionOrderSummary && checkPermi(['mes:pro-work-order:query'])"
                 type="primary"
                 @click="handleOpenGroupWorkOrder(row)"
               >
@@ -253,10 +253,10 @@
             :width="getDetailColumnWidthString('productionOrderLink', 180)"
           >
             <template #default="{ row }">
-              <el-link v-if="row.workOrderId" type="primary" @click="handleOpenWorkOrder(row)">
+              <el-link v-if="row.workOrderId && checkPermi(['mes:pro-work-order:query'])" type="primary" @click="handleOpenWorkOrder(row)">
                 {{ row.workOrderCode || row.productionOrderNo }}
               </el-link>
-              <span v-else>{{ row.productionOrderNo || '无' }}</span>
+              <span v-else>{{ (row.workOrderId ? row.workOrderCode || row.productionOrderNo : row.productionOrderNo) || '无' }}</span>
             </template>
           </el-table-column>
         </el-table>
@@ -265,6 +265,7 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
+import { checkPermi } from '@/utils/permission'
 import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
 import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'
@@ -447,6 +448,7 @@ const getList = () => listRequest.run(
 )
 
 const handleOpenWorkOrder = async (row: ErpProductionMaterialListDetailVO) => {
+  if (!checkPermi(['mes:pro-work-order:query'])) return
   if (!row.workOrderId) {
     return
   }
@@ -457,6 +459,7 @@ const handleOpenWorkOrder = async (row: ErpProductionMaterialListDetailVO) => {
 }
 
 const handleOpenGroupWorkOrder = async (row: ErpProductionMaterialListGroupVO) => {
+  if (!checkPermi(['mes:pro-work-order:query'])) return
   if (row.productionOrderCount !== 1 || !row.productionOrderSummary) {
     return
   }

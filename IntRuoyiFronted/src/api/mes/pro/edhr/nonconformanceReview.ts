@@ -227,6 +227,17 @@ export const getNonconformanceReviewPage = async (params: EdhrNonconformanceRevi
   })
 }
 
+export interface EdhrNonconformanceReviewSummary {
+  review: EdhrNonconformanceReviewRespVO
+  qaReviewerName?: string
+  qaUserName?: string
+  qaTaskId?: string
+  qaTaskStatus?: 'TODO' | 'DONE' | 'CANCELED'
+}
+
+export const getNonconformanceReviewSummary = (id: EdhrRouteId, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean }) =>
+  request.get<EdhrNonconformanceReviewSummary>({ url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/summary`, params: { id }, ...options })
+
 export const getNonconformanceReview = async (id: EdhrRouteId, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrNonconformanceReviewRespVO>({
     ignoreErrorMessage: options?.ignoreErrorMessage,

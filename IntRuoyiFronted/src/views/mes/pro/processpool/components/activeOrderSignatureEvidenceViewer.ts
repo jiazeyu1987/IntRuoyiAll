@@ -10,7 +10,8 @@ export interface SignatureBusinessContext {
 export const createActiveOrderSignatureEvidenceViewer = (
   context: () => SignatureBusinessContext | undefined,
   load: (scope: ActiveOrderSignatureScope, identity: ActiveOrderSignatureIdentity, signatureId: number | string)
-    => Promise<ActiveOrderSignatureEvidence>
+    => Promise<ActiveOrderSignatureEvidence>,
+  validateDisplay: (result: ActiveOrderSignatureEvidence) => void = () => {}
 ) => {
   const state = reactive({ visible: false, loading: false, error: '',
     selected: undefined as ActiveOrderSignatureEvidence | undefined })
@@ -41,6 +42,7 @@ export const createActiveOrderSignatureEvidenceViewer = (
           String(result.verification?.signatureId) !== String(signatureId)) {
         throw new Error('签名证据响应与当前业务记录不一致')
       }
+      validateDisplay(result)
       state.selected = result
     } catch (error) {
       if (!current()) return

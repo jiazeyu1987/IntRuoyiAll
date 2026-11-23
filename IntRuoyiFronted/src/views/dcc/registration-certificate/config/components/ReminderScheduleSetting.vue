@@ -57,7 +57,7 @@
         <div>
           <el-alert
             :title="loaded && recipientsUnconfigured
-              ? '通知接收人尚未配置，请通过通知设置选择实际接收人。'
+              ? '国内或 CE 提醒接收人尚未配置完整，请通过通知设置补齐实际接收人。'
               : '提醒及变更确认接收人通过通知设置维护。'"
             type="info"
             :closable="false"
@@ -70,7 +70,10 @@
       </el-form-item>
       <el-form-item label="到期提醒节点">
         <div v-if="loaded">
-          <el-space wrap><el-tag v-for="day in thresholdDays" :key="day" type="info">到期前 {{ day }} 个自然月</el-tag></el-space>
+          <div>国内注册证</div>
+          <el-space wrap><el-tag v-for="month in domesticThresholdMonths" :key="month" type="info">到期前 {{ month }} 个自然月</el-tag></el-space>
+          <div class="mt-10px">CE 证书</div>
+          <el-space wrap><el-tag v-for="month in ceThresholdMonths" :key="month" type="info">到期前 {{ month }} 个自然月</el-tag></el-space>
           <details class="mt-10px"><summary>配置技术详情</summary><p>业务时区：{{ form.timezone }}</p><p>原始月数配置：{{ form.thresholdDaysJson }}</p></details>
         </div>
       </el-form-item>
@@ -124,17 +127,18 @@ const form = reactive<RegistrationCertificateReminderConfigForm>({
   dailyRunTime: '09:00',
   timezone: 'Asia/Shanghai',
   thresholdDaysJson: '',
-  thresholdRecipientUserIds: { T_30: [], T_8: [], T_2: [], T_1: [] },
+  thresholdRecipientUserIds: { T_30: [], T_8: [], T_2: [], T_1: [], CE_T_18: [], CE_T_12: [], CE_T_3: [] },
   rowVersion: 0
 })
 const recipientsUnconfigured = computed(() =>
-  ['T_30', 'T_8', 'T_2', 'T_1'].every((key) =>
+  ['T_30', 'T_8', 'T_2', 'T_1', 'CE_T_18', 'CE_T_12', 'CE_T_3'].some((key) =>
     form.thresholdRecipientUserIds[key as keyof RegistrationCertificateThresholdRecipientUserIds]?.length === 0
   )
 )
 
 const timezoneLabel = computed(() => form.timezone === 'Asia/Shanghai' ? '北京时间（UTC+8）' : form.timezone)
-const thresholdDays = computed<number[]>(() => loaded.value ? JSON.parse(form.thresholdDaysJson) : [])
+const domesticThresholdMonths = [30, 8, 2, 1]
+const ceThresholdMonths = [18, 12, 3]
 
 const resolveErrorMessage = (error: unknown, defaultMessage: string) => {
   if (error instanceof Error && error.message.trim()) return error.message
@@ -174,6 +178,11 @@ const assertConfigShape = (data: DccRegistrationCertificateReminderConfigRespVO)
       throw new Error(`注册证提醒配置返回格式无效：${key} 收件人必须为数组。`)
     }
   }
+  for (const key of ['CE_T_18', 'CE_T_12', 'CE_T_3'] as const) {
+    if (data.thresholdRecipientUserIds[key] !== undefined && !Array.isArray(data.thresholdRecipientUserIds[key])) {
+      throw new Error(`注册证提醒配置返回格式无效：${key} 收件人必须为数组。`)
+    }
+  }
   if (data.thresholdRecipientUserIds.CHANGE_CONFIRMATION !== undefined
       && !Array.isArray(data.thresholdRecipientUserIds.CHANGE_CONFIRMATION)) {
     throw new Error('注册证配置返回格式无效：变更确认收件人必须为数组。')
@@ -191,6 +200,9 @@ const applyConfig = (data: DccRegistrationCertificateReminderConfigRespVO) => {
     T_8: [...data.thresholdRecipientUserIds.T_8],
     T_2: [...data.thresholdRecipientUserIds.T_2],
     T_1: [...data.thresholdRecipientUserIds.T_1],
+    CE_T_18: data.thresholdRecipientUserIds.CE_T_18 === undefined ? [] : [...data.thresholdRecipientUserIds.CE_T_18],
+    CE_T_12: data.thresholdRecipientUserIds.CE_T_12 === undefined ? [] : [...data.thresholdRecipientUserIds.CE_T_12],
+    CE_T_3: data.thresholdRecipientUserIds.CE_T_3 === undefined ? [] : [...data.thresholdRecipientUserIds.CE_T_3],
     ...(data.thresholdRecipientUserIds.CHANGE_CONFIRMATION === undefined ? {} : {
       CHANGE_CONFIRMATION: [...data.thresholdRecipientUserIds.CHANGE_CONFIRMATION]
     })

@@ -485,6 +485,35 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"CE_RENEWAL_CONTRACT,CE续证合同", "CE_RENEWAL_QUOTATION,CE续证报价单"})
+    void ceSupportingDocumentsDownloadWithTheirOwnNames(String kind, String label) throws Exception {
+        var fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND", "attachment.pdf");
+        jdbcTemplate.update("INSERT INTO dcc_registration_certificate_supporting_document (id,tenant_id,owner_company_id,certificate_id,version_id,business_file_id,document_type,status,uploaded_at,uploaded_by) VALUES (88001,1,10,?,?,?,?,'EFFECTIVE',CURRENT_TIMESTAMP,99)", fixture.certificateId(), fixture.versionId(), fixture.businessFileId(), kind);
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_file SET owner_type='SUPPORTING_DOCUMENT',owner_id=88001,file_kind=? WHERE id=?", kind, fixture.businessFileId());
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_access_request_file SET file_kind=? WHERE business_file_id=?", kind, fixture.businessFileId());
+        when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "attachment.pdf"));
+        when(projectCodeService.getProjectCode(40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE,20L));
+        when(fileService.getFileContent(fixture.infraConfigId(),fixture.infraPath())).thenReturn(new byte[]{1,2});
+        var result = deliveryService.download(1L,99L,fixture.businessFileId(),"ce-support",context("REQ-CE-SUPPORT"));
+        assertEquals(label + "_attachment.pdf", result.fileName());
+        assertArrayEquals(new byte[]{1,2}, result.bytes());
+    }
+
+    @Test
+    void domesticMainCertificateUsesLatestFormalProductNameWithoutChangingBytes() throws Exception {
+        var fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND", "certificate.pdf");
+        var latest = snapshotMapper.selectById(fixture.snapshotId());
+        latest.setId(null); latest.setRevisionNo(2); latest.setProductName("ProductRenamed");
+        snapshotMapper.insert(latest);
+        when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "certificate.pdf"));
+        when(projectCodeService.getProjectCode(40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 20L));
+        when(fileService.getFileContent(fixture.infraConfigId(), fixture.infraPath())).thenReturn(new byte[]{7, 8});
+        var result = deliveryService.download(1L, 99L, fixture.businessFileId(), "domestic-latest", context("REQ-DOMESTIC-LATEST"));
+        assertEquals("PRJ-001_20200201_ProductRenamed_CERT-DL-001.pdf", result.fileName());
+        assertArrayEquals(new byte[]{7, 8}, result.bytes());
+    }
+
     @Test
     void ceDownloadUsesActualApprovalDateRatherThanRevisionIssueDate() throws Exception {
         var fixture=seedGrantedDownload("ACTIVE","CURRENT","BOUND","certificate.pdf");

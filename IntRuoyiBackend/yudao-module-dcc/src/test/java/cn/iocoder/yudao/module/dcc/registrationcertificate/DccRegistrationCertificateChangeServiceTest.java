@@ -105,6 +105,56 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void oversizedNamesAreRejectedBeforeSubmissionOrImmediateChangeWrites() {
+        seedCurrentCertificate();
+        for (var field : Map.of("PRODUCT_NAME", "产品名称", "REGISTRANT_NAME", "注册人名称").entrySet()) {
+            var command = command("long-" + field.getKey(), 3,
+                    Map.of(field.getKey(), "字".repeat(256)), null, null, null, null);
+            var submitted = assertThrows(ServiceException.class, () -> service.submitChangeForApproval(command));
+            assertEquals(400, submitted.getCode());
+            assertEquals(field.getValue() + "长度不能超过255个字符", submitted.getMessage());
+            var immediate = assertThrows(ServiceException.class, () -> service.applyChange(command));
+            assertEquals(submitted.getMessage(), immediate.getMessage());
+        }
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_change"));
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request"));
+        org.mockito.Mockito.verifyNoInteractions(fileService, projectCodeFileAssociationService);
+    }
+
+    @Test
+    void maximumLengthNamesCanBeSubmittedAndApproved() {
+        seedCurrentCertificate();
+        String value = "字".repeat(255);
+        Long requestId = service.submitChangeForApproval(command("name-boundary", 3,
+                Map.of("PRODUCT_NAME", value, "REGISTRANT_NAME", value), null, null, null, null));
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_access_request SET status='APPROVED' WHERE id=?", requestId);
+        service.approveChangeRequest(1L, 55L, requestId, "name-boundary-approval");
+        Long snapshotId = longValue("SELECT current_snapshot_id FROM dcc_registration_certificate WHERE id=1001");
+        assertEquals(value, text("SELECT product_name FROM dcc_registration_certificate_snapshot WHERE id=?", snapshotId));
+        assertEquals(value, text("SELECT registrant_name FROM dcc_registration_certificate_snapshot WHERE id=?", snapshotId));
+    }
+
+    @Test
+    void historicalPendingOversizedNamesHaveSpecificErrorsInsteadOfSqlFailures() {
+        seedCurrentCertificate();
+        Long requestId = service.submitChangeForApproval(command("historical-long-name", 3,
+                Map.of("PRODUCT_NAME", "Valid", "REGISTRANT_NAME", "Valid"), null, null, null, null));
+        Long changeId = longValue("SELECT id FROM dcc_registration_certificate_change WHERE approval_request_id=?", requestId);
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_access_request SET status='APPROVED' WHERE id=?", requestId);
+        for (var field : Map.of("PRODUCT_NAME", "产品名称", "REGISTRANT_NAME", "注册人名称").entrySet()) {
+            jdbcTemplate.update("UPDATE dcc_registration_certificate_change_item SET after_value_json=? WHERE change_id=? AND item_type=?",
+                    JsonUtils.toJsonString(Map.of("value", "字".repeat(256))), changeId, field.getKey());
+            var error = assertThrows(ServiceException.class,
+                    () -> service.approveChangeRequest(1L, 55L, requestId, "historical-approval"));
+            assertEquals(field.getValue() + "长度不能超过255个字符", error.getMessage());
+            assertEquals(3001L, longValue("SELECT current_snapshot_id FROM dcc_registration_certificate WHERE id=1001"));
+            assertEquals("PENDING_APPROVAL", text("SELECT status FROM dcc_registration_certificate_change WHERE id=?", changeId));
+            jdbcTemplate.update("UPDATE dcc_registration_certificate_change_item SET after_value_json=? WHERE change_id=? AND item_type=?",
+                    JsonUtils.toJsonString(Map.of("value", "Valid")), changeId, field.getKey());
+        }
+    }
+
+    @Test
     void structuredChangeUpdatesOnlySelectedFieldsAndKeepsHistoryImmutable() {
         seedCurrentCertificate();
 

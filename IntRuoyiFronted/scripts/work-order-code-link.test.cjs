@@ -45,7 +45,16 @@ async function testLink() {
   const { descriptor } = compiler.parse(read('src/components/WorkOrderCodeLink.vue'))
   const script = compiler.compileScript(descriptor, { id: 'product-link', inlineTemplate: true })
   const exports = {}
-  vm.runInNewContext(transpile(script.content), { exports, require })
+  const permissions = vue.reactive(new Set(['mes:pro-work-order:query']))
+  vm.runInNewContext(transpile(script.content), {
+    exports,
+    require: name => name === '@/utils/permission' ? {
+      checkPermi: required => {
+        assert.deepEqual(Array.from(required), ['mes:pro-work-order:query'])
+        return required.some(permission => permissions.has(permission))
+      }
+    } : require(name)
+  })
   const router = createRouter({ history: createMemoryHistory(), routes: [
     { path: '/source', component: {} }, { path: '/mes/pro/work-order', component: {} }
   ] })
@@ -72,6 +81,30 @@ async function testLink() {
     }
     app.unmount()
   }
+
+  await router.push('/source')
+  permissions.clear()
+  permissions.add('mes:pro-work-order:update')
+  const container = { children: [] }
+  const app = renderer.createApp(exports.default, { code: '881MO085822', workOrderId: 42 })
+  app.use(router).mount(container)
+  const assertPlainText = () => {
+    const node = container.children[0]
+    assert.equal(node.type, 'span', 'Without query permission the code must be plain text')
+    assert.equal(node.text, '881MO085822', 'The order code must remain visible')
+    assert.equal(node.props.href, undefined, 'No address may be offered for opening in another tab')
+    assert.equal(node.props.onClick, undefined, 'Plain text must not have a navigation handler')
+    assert.equal(router.currentRoute.value.path, '/source')
+  }
+  assertPlainText()
+  permissions.add('mes:pro-work-order:query')
+  await vue.nextTick()
+  assert.equal(container.children[0].type, 'a', 'Granting query permission must restore the link')
+  assert.equal(new URL(container.children[0].props.href, 'http://localhost').searchParams.get('openId'), '42')
+  permissions.delete('mes:pro-work-order:query')
+  await vue.nextTick()
+  assertPlainText()
+  app.unmount()
 }
 
 async function testRoute() {

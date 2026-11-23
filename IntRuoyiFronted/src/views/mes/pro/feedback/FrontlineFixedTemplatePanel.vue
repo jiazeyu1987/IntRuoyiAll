@@ -468,7 +468,7 @@
               <span>件</span>
             </div>
             <div class="frontline-pqc-number-field">
-              <label for="frontlinePqcScrapQuantity">损耗</label>
+              <label for="frontlinePqcScrapQuantity">损耗（不影响样本判定）</label>
               <button
                 type="button"
                 aria-label="损耗减少"
@@ -1562,7 +1562,7 @@
     <template v-if="activePqcTaskOption">
       <p>检验任务编号 {{ activePqcTaskOption.pqcTaskId }} · 第 {{ activePqcTaskOption.roundNo }} 轮 · 当前复核状态：{{ pqcReviewLabel }}</p>
       <p v-if="activePqcTaskOption.submittedEventId">正式事件编号：{{ activePqcTaskOption.submittedEventId }}</p>
-      <p>检验结果以正式样本记录为准，复核通过不替代检验结果。</p>
+      <p>样本判定与记录复核分别确认。发现不合格，请人工发起NCR并上传资料，办理让步放行、作废或返工。</p>
       <table v-if="activePqcTaskOption.reviewHistory?.length" data-pqc-review-history>
         <caption>当前正式事件的复核记录（含历次退回）</caption>
         <thead><tr><th>复核编号 / 轮次</th><th>复核状态</th><th>意见</th><th>复核人</th><th>时间 / 更正版本</th></tr></thead>
@@ -1939,10 +1939,11 @@ const showParameterAuditWarning = (submitResult: ProFrontlineFeedbackSubmitRespV
 }
 const route = useRoute()
 const router = useRouter()
+const frontlinePagePath = route.path
 watch(
   [() => returnCorrectionPanel.value, () => JSON.stringify(route.query)],
   async ([panel]) => {
-    if (!isPqcMode.value && panel && route.query.returnTaskId !== undefined) {
+    if (route.path === frontlinePagePath && !isPqcMode.value && panel && route.query.returnTaskId !== undefined) {
       await (panel as InstanceType<typeof FrontlineReturnCorrectionPanel>).openTask(route.query)
     }
   },
@@ -6165,7 +6166,7 @@ const handleConfirmPqcSubmit = async () => {
     const selectedProcess = deviceState.selectedProcess
     try {
       const processes = await ProFeedbackApi.getPqcProcesses(orderId, currentLoginUserId.value)
-      if (deviceState.selectedActiveOrder?.activeOrderId !== orderId ||
+      if (!isCurrent() || deviceState.selectedActiveOrder?.activeOrderId !== orderId ||
           deviceState.selectedProcess !== selectedProcess) return
       deviceState.processOptions = processes
       if (isFrontlinePqcProcess(selectedProcess)) {
@@ -7006,10 +7007,6 @@ const formatLocalDateTime = (date = new Date()) => {
 }
 
 const resolvePqcResultForTask = (taskOption: PqcTaskOptionSnapshot) => {
-  const taskDraft = getPqcTaskDraft(taskOption)
-  if (normalizePqcQuantity(taskDraft.scrapQuantity) > 0) {
-    return FRONTLINE_PQC_RESULTS.DETECTION_FAILED
-  }
   for (const item of taskOption.inspectionItems.map(mapPqcInspectionItem)) {
     const itemKey = item.key
     const values = getPqcCurrentChoiceValuesForTask(itemKey, taskOption)
@@ -7259,8 +7256,10 @@ const formatTemplateName = (templateCode?: FrontlineTemplateCode) => {
 }
 
 const initializeProductionSelection = async () => {
+  const epoch = initialHandoffEpoch
   if (hasReturnNotification.value) return
-  const activeOrders = await loadFrontlineProductionActiveOrders(deviceState)
+  const activeOrders = await loadFrontlineProductionActiveOrders(deviceState, () => epoch === initialHandoffEpoch)
+  if (epoch !== initialHandoffEpoch) return
   const initialActiveOrder = activeOrders.find((order) => !order.readBlocked)
   if (initialActiveOrder) {
     const requestedProcessIdentity = {
@@ -7273,6 +7272,9 @@ const initializeProductionSelection = async () => {
 }
 
 const refreshPqcActiveOrdersAndEnsureSelection = async () => {
+  const epoch = initialHandoffEpoch
+  const isCurrent = () => epoch === initialHandoffEpoch && route.path === frontlinePagePath
+  if (!isCurrent()) return
   if (hasReturnNotification.value) return
   if (!isPqcMode.value) {
     return
@@ -7280,15 +7282,16 @@ const refreshPqcActiveOrdersAndEnsureSelection = async () => {
   if (pqcActiveOrderRefreshPromise) {
     return pqcActiveOrderRefreshPromise
   }
-  pqcActiveOrderRefreshPromise = (async () => {
+  const refreshPromise = (async () => {
     if (hasInitialHandoffQuery.value) { await initializeInitialHandoffSelection(); return }
     if (route.query.returnTaskId !== undefined) { await initializePqcReturnedSelection(); return }
-    const activeOrders = await loadFrontlinePqcActiveOrders(deviceState)
+    const activeOrders = await loadFrontlinePqcActiveOrders(deviceState, isCurrent)
+    if (!isCurrent()) return
     if (deviceState.selectedActiveOrder && !payloadLoading.value && !pqcActionInProgress.value) {
       const selected = deviceState.selectedProcess
       const orderId = deviceState.selectedActiveOrder.activeOrderId
       const processes = await ProFeedbackApi.getPqcProcesses(orderId, currentLoginUserId.value)
-      if (deviceState.selectedActiveOrder?.activeOrderId !== orderId || deviceState.selectedProcess !== selected) return
+      if (!isCurrent() || deviceState.selectedActiveOrder?.activeOrderId !== orderId || deviceState.selectedProcess !== selected) return
       if (isFrontlinePqcProcess(selected)) {
         const refreshed = processes.find(process => process.regulationVersionId === selected.regulationVersionId && process.qaProcessId === selected.qaProcessId)
         const rounds = (process: FrontlinePqcProcessVO) => JSON.stringify(process.pqcTaskOptions.map(task => [task.pqcTaskId, task.taskStatus, task.returnedSubmission?.row.rejectedReviewId]))
@@ -7308,19 +7311,21 @@ const refreshPqcActiveOrdersAndEnsureSelection = async () => {
       }
     }
   })()
+  pqcActiveOrderRefreshPromise = refreshPromise
   try {
-    await pqcActiveOrderRefreshPromise
+    await refreshPromise
   } finally {
-    pqcActiveOrderRefreshPromise = undefined
+    if (pqcActiveOrderRefreshPromise === refreshPromise) pqcActiveOrderRefreshPromise = undefined
   }
 }
 
 const initializePqcReturnedSelection = async () => {
+  clearFrontlineEntryState()
   const epoch = ++initialHandoffEpoch
   deviceState.selectedActiveOrder = undefined
   deviceState.selectedProcess = undefined
   clearPqcExecutionSelection()
-  const activeOrders = await loadFrontlinePqcActiveOrders(deviceState)
+  const activeOrders = await loadFrontlinePqcActiveOrders(deviceState, () => epoch === initialHandoffEpoch && route.path === frontlinePagePath)
   if (epoch !== initialHandoffEpoch) return
   const order = activeOrders.find(candidate => String(candidate.activeOrderId) === String(route.query.activeOrderId))
   if (!order || order.readBlocked) throw new Error('原退回检验订单不可填写，请重新打开订单。')
@@ -7344,7 +7349,13 @@ const initializePqcReturnedSelection = async () => {
   applyPqcTaskOptionToDraft(option)
 }
 
-const isolateOwnReturnNotification = () => {
+const clearFrontlineEntryState = () => {
+  clearFrontlineError()
+  pqcActiveOrderRefreshPromise = undefined
+  deviceState.loadingActiveOrders = false
+  deviceState.loadingProcesses = false
+  deviceState.loadingEmployees = false
+  deviceState.loadingTemplate = false
   ++initialHandoffEpoch
   ++activeOrderSelectionRequestId
   ++processSelectionRequestId
@@ -7381,6 +7392,9 @@ const isolateOwnReturnNotification = () => {
 }
 
 const initializeInitialHandoffSelection = async () => {
+  clearFrontlineEntryState()
+  deviceState.lastError = undefined
+  resetProductionSubmissionDraft()
   const epoch = ++initialHandoffEpoch
   initialHandoffTask.value = undefined; initialHandoffPqcRound.value = undefined; initialHandoffLoading.value = true; initialHandoffInvalid.value = true
   deviceState.selectedActiveOrder = undefined; deviceState.selectedProcess = undefined; deviceState.selectedEmployee = undefined
@@ -7399,7 +7413,7 @@ const initializeInitialHandoffSelection = async () => {
       || Object.keys(route.query).some(key => !Object.hasOwn(target.query,key))
       || (isPqcMode.value ? task.sourceType !== 'PQC_INSPECTION_TASK' : task.sourceType !== 'ACTIVE_ORDER' || String(task.sourceId) !== String(task.activeOrderId)))
       throw new Error('交接入口已失效或与原任务、周期、来源和类型不一致，禁止打开其他工单。')
-    const activeOrders = await (isPqcMode.value ? loadFrontlinePqcActiveOrders(deviceState) : loadFrontlineProductionActiveOrders(deviceState))
+    const activeOrders = await (isPqcMode.value ? loadFrontlinePqcActiveOrders(deviceState, () => epoch === initialHandoffEpoch) : loadFrontlineProductionActiveOrders(deviceState, () => epoch === initialHandoffEpoch))
     if (epoch !== initialHandoffEpoch) return
     const matches = activeOrders.filter(order => String(order.activeOrderId) === String(task.activeOrderId) && String(order.workOrderId) === String(task.workOrderId))
     if (matches.length !== 1 || matches[0].readBlocked) throw new Error('原交接活跃周期不在本人正式可填写订单中。')
@@ -7434,32 +7448,57 @@ const initializeInitialHandoffSelection = async () => {
       || !currentSelection.selectedProcess || !currentSelection.selectedEmployee
       || (isPqcMode.value && String(activePqcTaskOptionId.value) !== String(task.sourceId))) throw new Error('原交接定位未完成，禁止提交。')
     initialHandoffInvalid.value = false
+    return epoch
   } catch (error) {
     if (epoch === initialHandoffEpoch) {
-      initialHandoffTask.value = undefined; deviceState.selectedActiveOrder = undefined; deviceState.selectedProcess = undefined; deviceState.selectedEmployee = undefined
-          showFrontlineError(error)
+      clearFrontlineEntryState()
+      resetProductionSubmissionDraft()
+      showFrontlineError(error)
     }
   } finally { if (epoch === initialHandoffEpoch) initialHandoffLoading.value = false }
 }
-watch(() => JSON.stringify(route.query), async () => {
+watch(() => [route.path, JSON.stringify(route.query)], async () => {
   if (!initialHandoffPageMounted) return
-  if (hasReturnNotification.value) { isolateOwnReturnNotification(); return }
+  if (route.path !== frontlinePagePath) { clearFrontlineEntryState(); return }
+  if (hasReturnNotification.value) { clearFrontlineEntryState(); return }
   if (isPqcMode.value && route.query.returnTaskId !== undefined) {
-    try { await initializePqcReturnedSelection() } catch (error) { showFrontlineError(error) }
+    const pending = initializePqcReturnedSelection()
+    const epoch = initialHandoffEpoch
+    try { await pending } catch (error) {
+      if (epoch === initialHandoffEpoch && route.path === frontlinePagePath) showFrontlineError(error)
+    }
     return
   }
   if (hasInitialHandoffQuery.value) await initializeInitialHandoffSelection()
-  else { ++initialHandoffEpoch; initialHandoffTask.value = undefined; initialHandoffLoading.value = false; initialHandoffInvalid.value = false }
+  else {
+    clearFrontlineEntryState()
+    deviceState.lastError = undefined
+    resetProductionSubmissionDraft()
+    initialHandoffInvalid.value = false
+    hydrateContextFromRoute()
+    const epoch = initialHandoffEpoch
+    try {
+      if (isPqcMode.value) await refreshPqcActiveOrdersAndEnsureSelection()
+      else await initializeProductionSelection()
+    } catch (error) { if (epoch === initialHandoffEpoch && route.path === frontlinePagePath) showFrontlineError(error) }
+  }
 })
 
 const handlePqcForegroundRefresh = () => {
   if (!isPqcMode.value || (document.visibilityState && document.visibilityState !== 'visible')) {
     return
   }
-  refreshPqcActiveOrdersAndEnsureSelection().catch(showFrontlineError)
+  const pending = refreshPqcActiveOrdersAndEnsureSelection()
+  const epoch = initialHandoffEpoch
+  pending.catch(error => {
+    if (epoch === initialHandoffEpoch && route.path === frontlinePagePath) showFrontlineError(error)
+  })
 }
 
 onMounted(async () => {
+  if (hasReturnNotification.value) clearFrontlineEntryState()
+  let epoch = initialHandoffEpoch
+  const isCurrent = () => epoch === initialHandoffEpoch && route.path === frontlinePagePath
   document.addEventListener('fullscreenchange', syncPqcFullscreenState)
   document.addEventListener('visibilitychange', handlePqcForegroundRefresh)
   window.addEventListener('resize', scheduleProductionViewportScaleUpdate)
@@ -7477,19 +7516,30 @@ onMounted(async () => {
     if (!hasInitialHandoffQuery.value && !hasReturnNotification.value) hydrateContextFromRoute()
     const catalogRequest = FrontlineTemplateApi.getCatalog()
     if (hasReturnNotification.value) {
-      isolateOwnReturnNotification()
-      catalog.value = await catalogRequest
+      const loadedCatalog = await catalogRequest
+      if (!isCurrent()) return
+      catalog.value = loadedCatalog
       return
     }
     if (hasInitialHandoffQuery.value) {
-      catalog.value = await catalogRequest
-      await initializeInitialHandoffSelection()
+      const loadedCatalog = await catalogRequest
+      if (!isCurrent()) return
+      catalog.value = loadedCatalog
+      const pending = initializeInitialHandoffSelection()
+      epoch = initialHandoffEpoch
+      const initializedEpoch = await pending
+      if (initializedEpoch !== initialHandoffEpoch || route.path !== frontlinePagePath) return
       Object.assign(draft.fieldValues,isPqcMode.value ? buildPqcFieldValues() : buildProductionFieldValues())
       return
     }
     if (isPqcMode.value) {
-      catalog.value = await catalogRequest
-      await refreshPqcActiveOrdersAndEnsureSelection()
+      const loadedCatalog = await catalogRequest
+      if (!isCurrent()) return
+      catalog.value = loadedCatalog
+      const pending = refreshPqcActiveOrdersAndEnsureSelection()
+      epoch = initialHandoffEpoch
+      await pending
+      if (!isCurrent()) return
       Object.assign(draft.fieldValues, buildPqcFieldValues())
       return
     }
@@ -7497,9 +7547,11 @@ onMounted(async () => {
       catalogRequest,
       initializeProductionSelection()
     ])
+    if (!isCurrent()) return
     catalog.value = loadedCatalog
     Object.assign(draft.fieldValues, buildProductionFieldValues())
   } catch (error) {
+    if (!isCurrent()) return
     // Catalog failures occur before the order query; keep them visible in the order picker.
     if (isPqcMode.value) deviceState.lastError = resolveErrorMessage(error)
     showFrontlineError(error)
@@ -7510,7 +7562,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   releaseProductionSopPreview()
-  ++initialHandoffEpoch; initialHandoffPageMounted = false
+  clearFrontlineEntryState()
+  initialHandoffPageMounted = false
   resolveProductionFormalSubmitConfirmation(false)
   closeProductionSubmitSuccessDialog()
   document.removeEventListener('fullscreenchange', syncPqcFullscreenState)

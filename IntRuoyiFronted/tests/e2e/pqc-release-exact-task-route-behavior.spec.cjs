@@ -27,6 +27,7 @@ function pageHarness(overrides = {}, query = { applicationId: '224', workTaskId:
   const { descriptor } = parse(source)
   const ast = ts.createSourceFile('page.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
   const names = new Set(['loading', 'loadError', 'list', 'total', 'activeView', 'releaseDialogVisible', 'releaseSubmitting', 'releaseError', 'selectedRow', 'releaseResult', 'releaseOutcomeUncertain', 'releaseIdempotencyKeys', 'listRequestSequence', 'queryParams', 'releaseForm', 'resolveErrorMessage', 'getList', 'releaseDialogGeneration', 'openReleaseDialog', 'resetReleaseDialog', 'readPqcReleaseRouteContext', 'openPqcReleaseFromRoute', 'pqcReleaseRouteGeneration', 'detailVisible', 'detailLoading', 'detailError', 'detailRow', 'detailApplicationId', 'detailReadOnly', 'orderDetail', 'detailRequestSequence', 'clearOrderDetail', 'isExactPositiveId', 'isFormalSignedTime', 'requirePqcReleaseAuthority', 'requireCompletedPqcReleaseDetail', 'openCompletedPqcReleaseDetail', 'hasActiveOrderDetail', 'openActiveOrderDetail', 'retryOrderDetail', 'invalidatePqcReleasePage'])
+  for (const name of ['handleTabChange', 'handleQuery', 'resetQuery', 'rejectedDecision']) names.add(name)
   const statements = ast.statements.filter(statement => ts.isVariableStatement(statement)
     ? statement.declarationList.declarations.some(declaration => names.has(declaration.name.getText(ast)) || ['releaseRequestStates', 'releaseRequestScopeKey'].includes(declaration.name.getText(ast)))
     : ts.isExpressionStatement(statement) && /^(onMounted|watch|onBeforeUnmount|onDeactivated)\(/.test(statement.getText(ast)))
@@ -40,12 +41,12 @@ function pageHarness(overrides = {}, query = { applicationId: '224', workTaskId:
     getPqcProductionReleaseOrderDetail: async applicationId => { detailReads.push(applicationId); return formalDetail() },
     getPqcProductionReleasePage: async query => { reads.push(query); return { list: [formalRow()], total: 1 } },
     approvePqcProductionRelease: async request => { writes.push(request); throw Error('route entry must never approve') },
-    PQC_RELEASE_VIEW_PENDING: 'PENDING', PQC_RELEASE_VIEW_RELEASED: 'RELEASED', PQC_RELEASE_VIEW_VOIDED: 'VOIDED', PQC_RELEASE_VIEW_REWORKED: 'REWORKED', PQC_RELEASE_VIEW_CONCESSION_RELEASED: 'CONCESSION_RELEASED',
+    PQC_RELEASE_VIEW_PENDING: 'PENDING', PQC_RELEASE_VIEW_COMPLETED: 'COMPLETED', PQC_RELEASE_VIEW_RELEASED: 'RELEASED', PQC_RELEASE_VIEW_VOIDED: 'VOIDED', PQC_RELEASE_VIEW_REWORKED: 'REWORKED', PQC_RELEASE_VIEW_CONCESSION_RELEASED: 'CONCESSION_RELEASED',
     message: { error() {}, warning() {}, success() {} },
     onMounted: fn => mounted.push(fn), onBeforeUnmount: fn => unmounted.push(fn), onDeactivated() {}, ...overrides
   }
   const code = ts.transpileModule(statements.map(statement => statement.getText(ast)).join('\n'), { compilerOptions: { module: ts.ModuleKind.None, target: ts.ScriptTarget.ES2022 } }).outputText
-  const page = Function(...Object.keys(context), `${code}; return { loading, loadError, list, total, selectedRow, releaseDialogVisible, releaseForm, getList, activeView, detailVisible, detailLoading, detailError, detailApplicationId, detailReadOnly, orderDetail, openPqcReleaseFromRoute, openActiveOrderDetail, retryOrderDetail };`)(...Object.values(context))
+  const page = Function(...Object.keys(context), `${code}; return { loading, loadError, list, total, selectedRow, releaseDialogVisible, releaseForm, getList, activeView, queryParams, handleTabChange, handleQuery, resetQuery, detailVisible, detailLoading, detailError, detailApplicationId, detailReadOnly, rejectedDecision, orderDetail, openPqcReleaseFromRoute, openActiveOrderDetail, retryOrderDetail };`)(...Object.values(context))
   return { page, route, reads, authorityReads, detailReads, writes, mount: async () => { for (const fn of mounted) await fn(); await tick() }, unmount: () => unmounted.forEach(fn => fn()) }
 }
 
@@ -97,7 +98,7 @@ test('PQC query does not select other applications, wrong tasks, duplicate or mi
 })
 
 test('PQC automatic entry retains permission and explicit approval blocker guards', async () => {
-  for (const row of [formalRow({ underReview: true }), formalRow({ viewStatus: 'RELEASED', applicationStatus: 'REPORT_UPLOAD_PENDING' })]) {
+  for (const row of [formalRow({ viewStatus: 'RELEASED', applicationStatus: 'REPORT_UPLOAD_PENDING' })]) {
     const h = pageHarness({ getPqcProductionReleasePage: async () => ({ list: [row], total: 1 }) })
     await h.mount()
     assert.equal(h.page.releaseDialogVisible.value, false)
@@ -107,6 +108,98 @@ test('PQC automatic entry retains permission and explicit approval blocker guard
   await denied.mount()
   assert.equal(denied.page.releaseDialogVisible.value, false)
   assert.ok(denied.page.loadError.value)
+})
+
+test('PQC under-review task stays visible without opening ordinary approval', async () => {
+  const row = formalRow({ underReview: true })
+  const h = pageHarness({ getPqcProductionReleasePage: async () => ({ list: [row], total: 1 }) })
+  await h.mount()
+  assert.equal(h.page.loadError.value, '')
+  assert.equal(h.page.list.value[0].applicationId, '224')
+  assert.equal(h.page.total.value, 1)
+  assert.equal(h.page.releaseDialogVisible.value, false)
+  assert.equal(h.page.selectedRow.value, undefined)
+  assert.equal(h.writes.length, 0)
+})
+
+test('task entry IDs do not leak into tabs, search, reset or pagination', async () => {
+  const reads = []
+  const h = pageHarness({ getPqcProductionReleasePage: async query => {
+    reads.push(query)
+    return query.applicationId ? { list: [formalRow({ underReview: true })], total: 1 } : { list: [], total: 0 }
+  } })
+  await h.mount()
+  assert.equal(reads[0].applicationId, '224')
+  assert.equal(reads[0].pqcReleaseWorkTaskId, '2734')
+  h.page.activeView.value = 'COMPLETED'
+  h.page.handleTabChange()
+  await tick()
+  assert.equal(reads[1].viewStatus, 'COMPLETED')
+  assert.equal(h.page.loadError.value, '')
+  assert.equal(h.page.total.value, 0)
+  assert.deepEqual(h.page.list.value, [])
+  h.page.activeView.value = 'PENDING'
+  h.page.handleTabChange()
+  await tick()
+  h.page.queryParams.workOrderCode = 'OTHER-WO'
+  h.page.queryParams.batchCode = 'OTHER-BATCH'
+  h.page.handleQuery()
+  await tick()
+  assert.equal(reads.at(-1).workOrderCode, 'OTHER-WO')
+  assert.equal(reads.at(-1).batchCode, 'OTHER-BATCH')
+  h.page.resetQuery()
+  await tick()
+  assert.equal(reads.at(-1).workOrderCode, undefined)
+  assert.equal(reads.at(-1).batchCode, undefined)
+  h.page.queryParams.pageNo = 2
+  await h.page.getList()
+  assert.equal(reads.at(-1).pageNo, 2)
+  for (const query of reads.slice(1)) {
+    assert.equal(query.applicationId, undefined)
+    assert.equal(query.pqcReleaseWorkTaskId, undefined)
+  }
+  assert.equal(h.page.loadError.value, '')
+  assert.equal(h.page.releaseDialogVisible.value, false)
+  assert.equal(h.writes.length, 0)
+})
+
+test('browsing cancels late automatic task entry results and failures', async () => {
+  for (const phase of ['authority', 'list']) {
+    for (const fails of [false, true]) {
+      const old = deferred()
+      const h = pageHarness({
+        getPqcProductionRelease: async () => phase === 'authority' ? old.promise : { applicationId: '224', pqcReleaseWorkTaskId: '2734', status: 'PQC_RELEASE_PENDING' },
+        getPqcProductionReleasePage: async query => phase === 'list' && query.applicationId ? old.promise : { list: [], total: 0 }
+      })
+      const mounted = h.mount()
+      await tick()
+      h.page.activeView.value = 'COMPLETED'
+      h.page.handleTabChange()
+      await tick()
+      if (fails) old.reject(new Error('old task failed'))
+      else old.resolve(phase === 'authority'
+        ? { applicationId: '224', pqcReleaseWorkTaskId: '2734', status: 'PQC_RELEASE_PENDING' }
+        : { list: [formalRow()], total: 1 })
+      await mounted
+      assert.equal(h.page.activeView.value, 'COMPLETED')
+      assert.equal(h.page.loadError.value, '')
+      assert.equal(h.page.loading.value, false)
+      assert.equal(h.page.total.value, 0)
+      assert.equal(h.page.releaseDialogVisible.value, false)
+      assert.equal(h.writes.length, 0)
+    }
+  }
+})
+
+test('ordinary list service failures remain visible after task entry', async () => {
+  const h = pageHarness({ getPqcProductionReleasePage: async query => {
+    if (query.applicationId) return { list: [formalRow({ underReview: true })], total: 1 }
+    throw new Error('列表读取被拒绝')
+  } })
+  await h.mount()
+  await assert.rejects(h.page.getList(), /列表读取被拒绝/)
+  assert.equal(h.page.loadError.value, '列表读取被拒绝')
+  assert.equal(h.page.releaseDialogVisible.value, false)
 })
 
 test('PQC fast page omitted approvalReady keeps existing entry behavior', async () => {
@@ -205,14 +298,77 @@ test('DONE candidate may read a different candidate signer without approval perm
   assert.equal(h.writes.length, 0)
 })
 
-test('query-only permission does not authorize the original PENDING approval dialog', async () => {
+test('query-only permission retains the exact pending row without opening the approval dialog', async () => {
   const h = pageHarness({ userStore: { permissions: new Set(['mes:pro-production-release:query']) } })
   await h.mount()
   assert.deepEqual(h.authorityReads, ['224'])
   assert.equal(h.reads.length, 1)
   assert.equal(h.page.releaseDialogVisible.value, false)
-  assert.match(h.page.loadError.value, /没有生产放行权限/)
+  assert.equal(h.page.loadError.value, '')
+  assert.equal(h.page.list.value.length, 1)
+  assert.equal(h.page.list.value[0].applicationId, '224')
+  assert.equal(h.page.total.value, 1)
+  assert.equal(h.page.selectedRow.value, undefined)
   assert.equal(h.detailReads.length, 0)
+  assert.equal(h.writes.length, 0)
+})
+
+const rejectedReceipt = (overrides = {}) => formalDecision({
+  decision: 'REJECT', status: 'PQC_RELEASE_REJECTED', rejectReason: '检验未通过，需补正',
+  signatureId: undefined, batchExecutionId: undefined, ...overrides
+})
+
+test('DONE rejected task displays its own read-only receipt without an approval signature or a list query', async () => {
+  const receipt = rejectedReceipt()
+  const h = pageHarness({
+    userStore: { permissions: new Set(['mes:pro-production-release:query']) },
+    getPqcProductionRelease: async () => receipt
+  })
+  await h.mount()
+  assert.equal(h.page.loadError.value, '')
+  assert.equal(h.page.detailVisible.value, true)
+  assert.equal(h.page.detailReadOnly.value, true)
+  assert.equal(h.page.detailApplicationId.value, '224')
+  assert.equal(h.page.rejectedDecision.value.rejectReason, receipt.rejectReason)
+  assert.equal(h.page.rejectedDecision.value.decidedBy, receipt.decidedBy)
+  assert.equal(h.page.rejectedDecision.value.decidedAt, receipt.decidedAt)
+  assert.equal(h.page.rejectedDecision.value.signatureId, undefined)
+  assert.equal(h.page.orderDetail.value, undefined)
+  assert.equal(h.page.releaseDialogVisible.value, false)
+  assert.equal(h.page.selectedRow.value, undefined)
+  assert.equal(h.reads.length, 0)
+  assert.equal(h.detailReads.length, 0)
+  assert.equal(h.writes.length, 0)
+})
+
+test('rejected receipt still requires exact task identity and complete actual rejection facts', async () => {
+  for (const invalid of [
+    { applicationId: '225' }, { pqcReleaseWorkTaskId: '2735' },
+    { status: 'PQC_RELEASE_PENDING' }, { status: 'MANAGER_RELEASE_PENDING' },
+    { rejectReason: '' }, { rejectReason: '  ' }, { rejectReason: undefined },
+    { decidedBy: undefined }, { decidedBy: 0 }, { batchExecutionId: 0 },
+    { decidedAt: null }, { decidedAt: 'not-a-time' }, { version: 0 }, { version: '4' }
+  ]) {
+    const h = pageHarness({ getPqcProductionRelease: async () => rejectedReceipt(invalid) })
+    await h.mount()
+    assert.ok(h.page.loadError.value, JSON.stringify(invalid))
+    assert.equal(h.page.detailVisible.value, false)
+    assert.equal(h.page.rejectedDecision.value, undefined)
+    assert.equal(h.page.releaseDialogVisible.value, false)
+    assert.equal(h.reads.length, 0)
+    assert.equal(h.writes.length, 0)
+  }
+})
+
+test('changing task route clears the previous rejection receipt before authorizing another task', async () => {
+  const h = pageHarness({ getPqcProductionRelease: async () => rejectedReceipt() })
+  await h.mount()
+  assert.ok(h.page.rejectedDecision.value)
+  h.route.query = { applicationId: '225', workTaskId: '2735' }
+  await tick()
+  assert.equal(h.page.rejectedDecision.value, undefined)
+  assert.equal(h.page.detailVisible.value, false)
+  assert.ok(h.page.loadError.value)
   assert.equal(h.writes.length, 0)
 })
 

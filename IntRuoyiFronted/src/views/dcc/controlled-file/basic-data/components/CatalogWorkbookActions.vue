@@ -19,6 +19,12 @@
     :before-close="beforeClose"
     @closed="resetFile"
   >
+    <el-alert
+      title="工作簿仅含项目代码、产品目录、产品与项目关系三个工作表。关系填写项目代码和产品名称；同名产品请补充产品编码、数据来源或原行号。请保留文本格式。注册证及其绑定不参与迁移。"
+      type="info"
+      :closable="false"
+      class="mb-12px"
+    />
     <el-upload
       ref="uploadRef"
       v-model:file-list="fileList"
@@ -66,28 +72,12 @@ const file = computed(() => fileList.value[0]?.raw)
 const canExport = computed(
   () =>
     checkRole(['super_admin', 'tenant_admin', 'dcc_project_code_admin']) ||
-    [
-      'mdm:product:query',
-      'dcc:project-code:query',
-      'mdm:enterprise:query',
-      'mdm:company-scope:query',
-      'dcc:registration-certificate:query-current'
-    ].every((p) => checkPermi([p]))
+    checkPermi(['dcc:project-code:query'])
 )
 const canImport = computed(
   () =>
     checkRole(['super_admin', 'tenant_admin', 'dcc_project_code_admin']) ||
-    [
-      'mdm:product:create',
-      'mdm:product:update',
-      'dcc:project-code:create',
-      'dcc:project-code:update',
-      'mdm:enterprise:create',
-      'mdm:enterprise:update',
-      'mdm:company-scope:create',
-      'mdm:company-scope:update',
-      'dcc:registration-certificate:config:update'
-    ].every((p) => checkPermi([p]))
+    ['dcc:project-code:create', 'dcc:project-code:update'].every((p) => checkPermi([p]))
 )
 const resetFile = () => {
   fileList.value = []
@@ -112,7 +102,7 @@ const exportWorkbook = async () => {
   exporting.value = true
   try {
     const data = await request.download({ url: '/dcc/product-catalog/workbook/export' })
-    download.excel(data, '产品目录及绑定关系.xlsx')
+    download.excel(data, '项目代码、产品目录及关系.xlsx')
   } finally {
     exporting.value = false
   }
@@ -126,7 +116,6 @@ const importWorkbook = async () => {
     const result = await request.post<{
       created: number
       updated: number
-      localReferences: number
     }>({
       url: '/dcc/product-catalog/workbook/import',
       data,
@@ -134,7 +123,7 @@ const importWorkbook = async () => {
       headersType: 'multipart/form-data'
     })
     message.success(
-      `导入成功：新增 ${result.created} 条，更新 ${result.updated} 条（含绑定明细）${result.localReferences ? `；${result.localReferences} 项源租户人员或流程引用未迁移` : ''}`
+      `导入成功：新增 ${result.created} 条，更新 ${result.updated} 条（含产品与项目关系）`
     )
     dialogVisible.value = false
     resetFile()

@@ -194,7 +194,6 @@ const canImportRole = computed(() =>
   [
     'system:role:create',
     'system:role:update',
-    'system:role-category:create',
     'system:permission:assign-role-menu',
     'system:permission:assign-role-data-scope',
     'bpm:business-approval-policy:create',

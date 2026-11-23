@@ -87,6 +87,14 @@ import static org.mockito.Mockito.when;
 
 class MesFrontlinePqcContextServiceTest {
 
+    private int submissionScrapQuantity;
+
+    @Test
+    void initialSubmissionKeepsPassingInspectionWithPositiveScrap() {
+        submissionScrapQuantity = 1;
+        submitPqcInspectionPermitsAdjustedActualQuantityForEveryInspectionType("FIRST", "FIRST", "FIRST", "confirmed");
+    }
+
     @Test
     void inspectionQuantityCannotExceedWorkOrderTotal() {
         MesFrontlinePqcContextServiceImpl.assertPqcInspectionWithinOrderQuantity(9, new BigDecimal("10"));
@@ -830,7 +838,7 @@ class MesFrontlinePqcContextServiceTest {
                 .qaProcessId(QA_PROCESS_ID)
                 .actualEmployeeId(actualEmployeeId)
                 .actualInspectionQuantity(2)
-                .scrapQuantity(0)
+                .scrapQuantity(submissionScrapQuantity)
                 .signaturePassword("sign-123")
                 .itemResults(List.of(MesFrontlinePqcSubmitCommand.ItemResult.builder()
                         .itemCode("ID-001")
@@ -885,9 +893,11 @@ class MesFrontlinePqcContextServiceTest {
         verify(eventService).createPqcInspectionEvent(requestCaptor.capture());
         MesProcessPoolCreatePqcInspectionReqDTO request = requestCaptor.getValue();
         assertNull(request.getProductionSubmitEventId());
+        assertEquals("SUCCESS", request.getInspectionResult());
         assertNotNull(request.getRawPayload());
         Map<String, Object> rawPayload = JsonUtils.parseObject(request.getRawPayload(), Map.class);
         assertNull(rawPayload.get("productionSubmitEventId"));
+        assertEquals(submissionScrapQuantity, rawPayload.get("scrapQuantity"));
         assertNull(rawPayload.get("nonconformanceDescription"));
         assertNull(rawPayload.get("defectDescription"));
         Map<String, Object> pqcDraft = JsonUtils.parseObject(

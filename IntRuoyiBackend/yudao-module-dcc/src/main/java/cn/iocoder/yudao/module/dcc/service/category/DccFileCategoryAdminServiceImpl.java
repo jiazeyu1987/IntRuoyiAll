@@ -27,6 +27,8 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteMappe
 import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryLifecycleStageEnum;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DuplicateKeyException;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
@@ -88,13 +90,18 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
     public Long createCategory(DccFileCategorySaveReqVO reqVO) {
         DccFileCategoryDO.requireApprovalSourceMode(reqVO.getApprovalSourceMode());
         DccFileCategoryDO category = BeanUtils.toBean(reqVO, DccFileCategoryDO.class);
+        validateCodeAvailable(category.getCode(), null);
         applyLocalSourceDefault(category);
         applyLifecycleStageFromFileTypeTaxonomy(category);
         applyRequirementDefaults(category);
         fileTypeTaxonomyAdminService.validateCategoryMapping(category.getFileTypeTaxonomyId(), null,
                 Boolean.TRUE.equals(category.getActive()));
-        if (categoryMapper.insert(category) != 1 || category.getId() == null) {
-            throw exception(DccFileCategoryAdminErrors.WRITE_INCOMPLETE, "新增类别");
+        try {
+            if (categoryMapper.insert(category) != 1 || category.getId() == null) {
+                throw exception(DccFileCategoryAdminErrors.WRITE_INCOMPLETE, "新增类别");
+            }
+        } catch (DuplicateKeyException ex) {
+            rethrowCodeConflict(category.getCode(), null, ex);
         }
         if (reqVO.getDirectoryBinding() != null) {
             bindDirectory(category.getId(), reqVO.getDirectoryBinding());
@@ -107,6 +114,7 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
     public void updateCategory(DccFileCategorySaveReqVO reqVO) {
         DccFileCategoryDO.requireApprovalSourceMode(reqVO.getApprovalSourceMode());
         DccFileCategoryDO existing = validateCategoryExists(reqVO.getId());
+        validateCodeAvailable(reqVO.getCode(), reqVO.getId());
         if (!Objects.equals(existing.getFileTypeTaxonomyId(), reqVO.getFileTypeTaxonomyId())
                 && (controlledFileMapper.selectCount(DccControlledFileDO::getCategoryId, existing.getId()) > 0
                 || controlledFileMasterMapper.selectCount(DccControlledFileMasterDO::getCategoryId, existing.getId()) > 0)) {
@@ -116,8 +124,12 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
         applyLifecycleStageFromFileTypeTaxonomy(category);
         fileTypeTaxonomyAdminService.validateCategoryMapping(category.getFileTypeTaxonomyId(), category.getId(),
                 Boolean.TRUE.equals(category.getActive()));
-        if (categoryMapper.updateById(category) != 1) {
-            throw exception(DccFileCategoryAdminErrors.WRITE_INCOMPLETE, "修改类别");
+        try {
+            if (categoryMapper.updateById(category) != 1) {
+                throw exception(DccFileCategoryAdminErrors.WRITE_INCOMPLETE, "修改类别");
+            }
+        } catch (DuplicateKeyException ex) {
+            rethrowCodeConflict(category.getCode(), category.getId(), ex);
         }
         if (reqVO.getDirectoryBinding() != null) {
             bindDirectory(category.getId(), reqVO.getDirectoryBinding());
@@ -433,6 +445,20 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
             return DccFileCategoryLifecycleStageEnum.TRANSFER.getCode();
         }
         throw exception(FILE_CATEGORY_LIFECYCLE_STAGE_INVALID, code + "/" + name);
+    }
+
+    private void rethrowCodeConflict(String code, Long excludeId, DuplicateKeyException ex) {
+        if (!categoryMapper.selectReservedCodeForUpdate(
+                TenantContextHolder.getRequiredTenantId(), code, excludeId).isEmpty()) {
+            throw exception(DccFileCategoryAdminErrors.CODE_EXISTS);
+        }
+        throw ex;
+    }
+
+    private void validateCodeAvailable(String code, Long excludeId) {
+        if (categoryMapper.countReservedCode(TenantContextHolder.getRequiredTenantId(), code, excludeId) > 0) {
+            throw exception(DccFileCategoryAdminErrors.CODE_EXISTS);
+        }
     }
 
     private void applyRequirementDefaults(DccFileCategoryDO category) {

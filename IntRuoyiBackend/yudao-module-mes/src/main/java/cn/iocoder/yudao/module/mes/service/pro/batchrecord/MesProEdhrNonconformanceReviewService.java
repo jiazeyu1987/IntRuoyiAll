@@ -14,6 +14,8 @@ import java.util.List;
 
 public interface MesProEdhrNonconformanceReviewService {
 
+    cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewSummaryRespVO getSummary(Long id);
+
     String SOURCE_TYPE_PQC_SUBMISSION = "PQC_SUBMISSION";
     String SOURCE_TYPE_PQC_RELEASE = "PQC_RELEASE";
     String SOURCE_TYPE_ACTIVE_ORDER = "ACTIVE_ORDER";

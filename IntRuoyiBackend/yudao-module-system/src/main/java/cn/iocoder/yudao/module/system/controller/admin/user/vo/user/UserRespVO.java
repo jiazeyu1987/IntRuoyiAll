@@ -41,6 +41,14 @@ public class UserRespVO{
     @ExcelProperty("部门名称")
     private String deptName;
 
+    @Schema(description = "从根部门到所属部门的完整路径")
+    @ExcelProperty("部门路径")
+    private String deptPath;
+
+    @Schema(description = "本人负责的部门完整路径，JSON 字符串数组；与所属部门独立")
+    @ExcelProperty("负责部门路径")
+    private String leaderDeptPaths;
+
     @Schema(description = "岗位编号数组", example = "1")
     private Set<Long> postIds;
 

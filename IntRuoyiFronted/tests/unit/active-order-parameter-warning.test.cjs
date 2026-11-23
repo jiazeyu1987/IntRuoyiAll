@@ -22,41 +22,27 @@ const compiled = ts.transpileModule(declarations.map(statement => statement.getT
 const handlers = {}
 Function('exports', 'handoffReadOnly', 'isActiveOrderProgressComplete', compiled)(handlers, { value: false }, value => Number(value) === 100)
 
-test('parameter warnings color the row and coexist with quantity warnings', () => {
+test('parameter warnings leave list rows unchanged while quantity warnings retain their color', () => {
   assert.equal(handlers.resolveActiveOrderRowClassName({ row: {} }), '')
-  assert.match(handlers.resolveActiveOrderRowClassName({ row: { hasParameterAbnormal: true } }), /parameter-abnormal/)
+  assert.equal(handlers.resolveActiveOrderRowClassName({ row: { hasParameterAbnormal: true } }), '')
   for (const quantityFlag of ['hasQuantityConflict', 'quantityConflict']) {
     assert.match(handlers.resolveActiveOrderRowClassName({ row: { hasParameterAbnormal: true, [quantityFlag]: true } }), /quantity-conflict/)
   }
-  assert.match(source, /:deep\(\.team-leader-workbench__active-order-row--parameter-abnormal > td\)/)
 })
 
 test('parameter warning is advisory and leaves formal abnormal and release prerequisites intact', () => {
-  const complete = { productionProgressPercent: 100, inspectionProgressPercent: 100, hasParameterAbnormal: true }
+  const complete = { productionProgressPercent: 100, inspectionProgressPercent: 100, formalProductionReviewComplete: true, hasParameterAbnormal: true }
   assert.equal(handlers.canApplyActiveOrderRelease(complete), true)
   assert.equal(handlers.canApplyActiveOrderRelease({ ...complete, abnormal: true }), false)
   assert.equal(handlers.canApplyActiveOrderRelease({ ...complete, readBlocked: true }), false)
   assert.equal(handlers.canApplyActiveOrderRelease({ ...complete, productionProgressPercent: 50 }), false)
 })
 
-test('saved parameter flag renders an explicit red warning and hides it for normal orders', async () => {
-  const marker = descriptor.template.content.indexOf('data-team-leader-active-order-parameter-abnormal')
-  assert.ok(marker >= 0)
-  const start = descriptor.template.content.lastIndexOf('<el-tag', marker)
-  const end = descriptor.template.content.indexOf('</el-tag>', marker) + '</el-tag>'.length
-  const template = descriptor.template.content.slice(start, end)
-  assert.match(template, /type="danger"/)
-  const render = Vue.compile(template)
-  for (const flag of [true, false]) {
-    const app = Vue.createSSRApp({ data: () => ({ row: { hasParameterAbnormal: flag } }), render })
-    app.component('ElTag', { setup: (_, { slots }) => () => Vue.h('span', slots.default()) })
-    const html = await renderToString(app)
-    assert.equal(html.includes('参数异常（仅提示）'), flag)
-  }
+test('workbench template compiles after removing the list parameter warning', () => {
   assert.deepEqual(compileTemplate({ source: descriptor.template.content, filename, id: 'parameter-warning' }).errors, [])
 })
 
-test('order identity and both advisory labels render together for every warning combination', async () => {
+test('order identity and quantity warnings render without parameter labels for every warning combination', async () => {
   const marker = descriptor.template.content.indexOf('class="team-leader-workbench__active-order-code-cell"')
   const start = descriptor.template.content.lastIndexOf('<div', marker)
   const end = descriptor.template.content.indexOf('</div>', marker) + '</div>'.length
@@ -70,6 +56,6 @@ test('order identity and both advisory labels render together for every warning 
     const html = await renderToString(app)
     assert.ok(html.includes('WO-627'))
     assert.equal(html.includes('数量超限（仅提示）'), quantity)
-    assert.equal(html.includes('参数异常（仅提示）'), parameter)
+    assert.equal(html.includes('参数异常（仅提示）'), false)
   }
 })

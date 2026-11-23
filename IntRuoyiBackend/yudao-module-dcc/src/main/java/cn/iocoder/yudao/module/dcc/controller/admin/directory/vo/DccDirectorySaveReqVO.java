@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.dcc.controller.admin.directory.vo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Schema(description = "管理后台 - DCC 目录新增/修改 Request VO")
@@ -17,10 +18,12 @@ public class DccDirectorySaveReqVO {
 
     @Schema(description = "目录编码", requiredMode = Schema.RequiredMode.REQUIRED, example = "SOP_LIBRARY")
     @NotBlank(message = "目录编码不能为空")
+    @Size(max = 64, message = "目录编码长度不能超过64个字符")
     private String code;
 
     @Schema(description = "目录名称", requiredMode = Schema.RequiredMode.REQUIRED, example = "SOP库")
     @NotBlank(message = "目录名称不能为空")
+    @Size(max = 128, message = "目录名称长度不能超过128个字符")
     private String name;
 
     @Schema(description = "是否启用", requiredMode = Schema.RequiredMode.REQUIRED, example = "true")
@@ -32,5 +35,6 @@ public class DccDirectorySaveReqVO {
     private Integer sort;
 
     @Schema(description = "备注", example = "质量体系目录")
+    @Size(max = 255, message = "备注长度不能超过255个字符")
     private String remark;
 }

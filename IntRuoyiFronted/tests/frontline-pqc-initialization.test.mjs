@@ -22,7 +22,7 @@ const deferred = () => {
 const harness = () => {
   const catalog = deferred(), refresh = deferred(), errors = [], opened = []
   const runtime = {
-    computed, frontlineInitializing: ref(true), isPqcMode: ref(true), frontlinePanelRef: ref(undefined),
+    initialHandoffEpoch: 0, frontlinePagePath: '/fill', route: { path: '/fill' }, computed, frontlineInitializing: ref(true), isPqcMode: ref(true), frontlinePanelRef: ref(undefined),
     payloadLoading: ref(false), pqcSignatureDialogVisible: ref(false), pqcSubmitResultUncertain: ref(false), pqcPatrolRoundCreating: ref(false),
     deviceState: { loadingActiveOrders: false, loadingProcesses: false, loadingEmployees: false, loadingTemplate: false },
     activePicker: ref(undefined), activeOrderKeyword: ref('previous'), activeOrderSearchInputRef: ref({ focus: () => opened.push('focus') }),
@@ -98,4 +98,40 @@ test('real PQC template binds order controls to the loading guard without a prod
   assert.deepEqual(template.errors, [])
   assert.match(source, /data-pqc-order-summary-card\s+:disabled="isPqcProcessNavigationBlocked"/)
   assert.doesNotMatch(source, /data-pqc-production-process-select/)
+})
+
+for(const failure of [false,true])test(`mount late catalog ${failure?'failure':'success'} cannot pollute departed page`,async()=>{
+ const h=harness(),r=h.runtime,pending=r.mount()
+ r.initialHandoffEpoch++;r.route.path='/qa';r.catalog.value=[{code:'new-page'}]
+ if(failure)h.catalog.reject(Error('old catalog failed'));else h.catalog.resolve([{code:'old-page'}])
+ await pending
+ assert.equal(r.catalog.value[0].code,'new-page');assert.deepEqual(h.errors,[]);assert.deepEqual(r.draft.fieldValues,{})
+})
+
+for(const departed of [false,true])test(`mount refresh synchronous epoch advance preserves ${departed?'stale isolation':'current errors'}`,async()=>{
+ const h=harness(),r=h.runtime,started=deferred()
+ r.refreshPqcActiveOrdersAndEnsureSelection=()=>{r.initialHandoffEpoch+=2;started.resolve();return h.refresh.promise}
+ const pending=r.mount();h.catalog.resolve([])
+ await started.promise
+ if(departed){r.initialHandoffEpoch++;r.route.path='/qa'}
+ h.refresh.reject(Error('returned unavailable'));await pending
+ assert.equal(h.errors.length,departed?0:1)
+ if(!departed)assert.equal(h.errors[0].message,'returned unavailable')
+})
+for(const departed of [false,true])test(`foreground refresh epoch advance preserves ${departed?'stale isolation':'current errors'}`,async()=>{
+ const h=harness(),r=h.runtime
+ r.document.visibilityState='visible';r.refreshPqcActiveOrdersAndEnsureSelection=()=>{r.initialHandoffEpoch+=2;return h.refresh.promise}
+ const script=between('const handlePqcForegroundRefresh =', 'onMounted(async () => {')+';globalThis.runForeground=handlePqcForegroundRefresh'
+ runInNewContext(stripTypeScriptTypes(script),r);r.runForeground()
+ if(departed){r.initialHandoffEpoch++;r.route.path='/qa'}
+ h.refresh.reject(Error('returned unavailable'));await Promise.resolve();await Promise.resolve()
+ assert.equal(h.errors.length,departed?0:1)
+})
+
+test('current handoff build error remains visible after initializer advances epoch',async()=>{
+ const h=harness(),r=h.runtime;r.hasInitialHandoffQuery.value=true
+ r.initializeInitialHandoffSelection=async()=>{r.initialHandoffEpoch+=2;return r.initialHandoffEpoch}
+ r.buildPqcFieldValues=()=>{throw Error('current build failed')}
+ const pending=r.mount();h.catalog.resolve([]);await pending
+ assert.equal(h.errors.length,1);assert.equal(h.errors[0].message,'current build failed')
 })

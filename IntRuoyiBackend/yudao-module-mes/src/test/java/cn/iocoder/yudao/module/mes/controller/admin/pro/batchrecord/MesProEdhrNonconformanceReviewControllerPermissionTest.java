@@ -27,10 +27,10 @@ class MesProEdhrNonconformanceReviewControllerPermissionTest {
 
     @Test
     void reviewReadsRequireLoginWithoutRolePermissions() {
-        var readMethods = java.util.Set.of("getPage", "getPendingPage", "get", "getActiveOrderDetail", "getBatchList");
+        var readMethods = java.util.Set.of("getPage", "getPendingPage", "get", "getSummary", "getActiveOrderDetail", "getBatchList");
         var methods = java.util.Arrays.stream(MesProEdhrNonconformanceReviewController.class.getDeclaredMethods())
                 .filter(method -> readMethods.contains(method.getName())).toList();
-        assertEquals(5, methods.size());
+        assertEquals(6, methods.size());
         for (var method : methods) {
             assertEquals("isAuthenticated()", method.getAnnotation(PreAuthorize.class).value(), method.getName());
         }

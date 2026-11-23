@@ -1104,6 +1104,18 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
         validatePasswordStrength(initPassword);
 
+        // 同一部门只能有一名负责人；在写入账号和组织之前拒绝文件内相互冲突的声明。
+        Map<String, String> requestedLeaders = new LinkedHashMap<>();
+        for (UserImportExcelVO row : importUsers) {
+            for (String path : UserDepartmentPath.parseLeaderPaths(row.getLeaderDeptPaths())) {
+                String username = canonicalizeUsername(row.getUsername());
+                String previous = requestedLeaders.putIfAbsent(path, username);
+                if (previous != null && !previous.equals(username)) {
+                    throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
+                            "部门[" + path + "]在文件中配置了多名负责人");
+                }
+            }
+        }
         // 2. 遍历，逐个创建 or 更新
         importUsers.stream().map(row -> userMapper.selectByCanonicalUsernameIncludingDeleted(
                         TenantContextHolder.getRequiredTenantId(), canonicalizeUsername(row.getUsername())))
@@ -1112,13 +1124,18 @@ public class AdminUserServiceImpl implements AdminUserService {
         var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
         approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
         // 在租户组织锁内解析名称，避免并发导入重复创建；只查当前租户，不沿用源部门编号。
-        Map<String, List<DeptDO>> importDepartments = importUsers.stream()
-                .anyMatch(row -> StrUtil.isNotBlank(row.getDeptName()))
+        Map<String, List<DeptDO>> importDepartments = !requestedLeaders.isEmpty() || importUsers.stream()
+                .anyMatch(row -> StrUtil.isNotBlank(row.getDeptName()) || StrUtil.isNotBlank(row.getDeptPath()))
                 ? DataPermissionUtils.executeIgnore(() -> deptService.getDeptList(
                         new cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptListReqVO()))
                     .stream().collect(java.util.stream.Collectors.groupingBy(DeptDO::getName))
                 : new HashMap<>();
         for (UserImportExcelVO row : importUsers) {
+            if (StrUtil.isNotBlank(row.getDeptPath())) {
+                row.setDeptId(UserDepartmentPath.resolve(row.getDeptPath(), row.getDeptName(),
+                        importDepartments, deptService, false));
+                continue;
+            }
             if (StrUtil.isBlank(row.getDeptName())) continue;
             List<DeptDO> matches = importDepartments.getOrDefault(row.getDeptName(), List.of());
             if (matches.size() > 1) {
@@ -1126,10 +1143,16 @@ public class AdminUserServiceImpl implements AdminUserService {
                         "用户[" + row.getUsername() + "]的部门[" + row.getDeptName()
                                 + "]在目标租户中存在重名，请使用导入模板明确填写目标部门编号");
             }
-            row.setDeptId(matches.isEmpty() ? null : matches.get(0).getId());
+            if (matches.isEmpty()) {
+                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
+                        "用户[" + row.getUsername() + "]的部门[" + row.getDeptName()
+                                + "]不存在，文件缺少部门路径，无法恢复组织层级，请从源租户重新导出");
+            }
+            row.setDeptId(matches.get(0).getId());
         }
         UserImportRespVO respVO = UserImportRespVO.builder().createUsernames(new ArrayList<>())
                 .updateUsernames(new ArrayList<>()).failureUsernames(new LinkedHashMap<>()).build();
+        Map<Long, UserImportExcelVO> successfulRows = new LinkedHashMap<>();
         AtomicInteger index = new AtomicInteger(1);
         importUsers.forEach(importUser -> {
             int currentIndex = index.getAndIncrement();
@@ -1162,14 +1185,16 @@ public class AdminUserServiceImpl implements AdminUserService {
             }
             if (existUser == null) {
                 validateAccountQuota();
-                createMissingImportDepartment(importUser, importDepartments);
-                userMapper.insert(BeanUtils.toBean(importUser, AdminUserDO.class)
+                resolveImportDepartment(importUser, importDepartments);
+                AdminUserDO createdUser = BeanUtils.toBean(importUser, AdminUserDO.class)
                         .setCanonicalUsername(canonicalizeUsername(importUser.getUsername()))
                         .setPassword(encodePassword(initPassword))
                         .setPasswordUpdateTime(LocalDateTime.now())
                         .setPasswordCredentialStatus("RESET_REQUIRED")
-                        .setPostIds(new HashSet<>())); // 设置默认密码及空岗位编号数组
+                        .setPostIds(new HashSet<>()); // 设置默认密码及空岗位编号数组
+                if (userMapper.insert(createdUser) != 1) throw new IllegalStateException("USER_IMPORT_CREATE_ROW_COUNT");
                 respVO.getCreateUsernames().add(importUser.getUsername());
+                successfulRows.put(createdUser.getId(), importUser);
                 return;
             }
             // 2.2.2 如果存在，判断是否允许更新
@@ -1177,7 +1202,7 @@ public class AdminUserServiceImpl implements AdminUserService {
                 respVO.getFailureUsernames().put(importUser.getUsername(), USER_USERNAME_EXISTS.getMsg());
                 return;
             }
-            createMissingImportDepartment(importUser, importDepartments);
+            resolveImportDepartment(importUser, importDepartments);
             AdminUserDO updateUser = BeanUtils.toBean(importUser, AdminUserDO.class);
             updateUser.setId(existUser.getId());
             updateUser.setCanonicalUsername(canonicalizeUsername(importUser.getUsername()));
@@ -1187,27 +1212,47 @@ public class AdminUserServiceImpl implements AdminUserService {
                 oauth2TokenService.removeAccessToken(updateUser.getId(), UserTypeEnum.ADMIN.getValue());
             }
             respVO.getUpdateUsernames().add(importUser.getUsername());
+            successfulRows.put(updateUser.getId(), importUser);
         });
+        restoreImportedDepartmentLeaders(successfulRows, importDepartments, isUpdateSupport);
         return respVO;
     }
 
-    private void createMissingImportDepartment(UserImportExcelVO row, Map<String, List<DeptDO>> departments) {
-        if (StrUtil.isBlank(row.getDeptName()) || row.getDeptId() != null) return;
-        List<DeptDO> existing = departments.get(row.getDeptName());
-        if (CollUtil.isNotEmpty(existing)) {
-            row.setDeptId(existing.get(0).getId());
-            return;
+    private void restoreImportedDepartmentLeaders(Map<Long, UserImportExcelVO> successfulRows,
+                                                   Map<String, List<DeptDO>> departments,
+                                                   boolean updateSupport) {
+        // 先完成用户写入，再用目标租户的账号和部门路径建立关系；跳过或失败的账号不修改组织。
+        for (var entry : successfulRows.entrySet()) {
+            Long leaderId = entry.getKey();
+            UserImportExcelVO row = entry.getValue();
+            List<String> paths = UserDepartmentPath.parseLeaderPaths(row.getLeaderDeptPaths());
+            if (paths.isEmpty()) continue;
+            supervisorService.validateSupervisor(leaderId);
+            for (String path : paths) {
+                Long id = UserDepartmentPath.resolve(path, null, departments, deptService, true);
+                DeptDO dept = departments.values().stream().flatMap(Collection::stream)
+                        .filter(value -> id.equals(value.getId())).findFirst().orElseThrow();
+                if (leaderId.equals(dept.getLeaderUserId())) continue;
+                if (dept.getLeaderUserId() != null && !updateSupport) {
+                    throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
+                            "部门[" + path + "]已有其他负责人，请核对后勾选更新已有用户再导入");
+                }
+                var request = BeanUtils.toBean(dept,
+                        cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptSaveReqVO.class);
+                request.setLeaderUserId(leaderId);
+                ValidationUtils.validate(request);
+                deptService.updateDept(request);
+                dept.setLeaderUserId(leaderId);
+            }
         }
-        // 用户导出文件只有部门名称，没有层级信息，缺失部门统一建在根级。
-        var request = new cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptSaveReqVO();
-        request.setName(row.getDeptName());
-        request.setParentId(DeptDO.PARENT_ID_ROOT);
-        request.setSort(0);
-        request.setStatus(CommonStatusEnum.ENABLE.getStatus());
-        ValidationUtils.validate(request);
-        Long deptId = deptService.createDept(request);
-        row.setDeptId(deptId);
-        departments.put(row.getDeptName(), List.of(new DeptDO().setId(deptId).setName(row.getDeptName())));
+    }
+
+    private void resolveImportDepartment(UserImportExcelVO row, Map<String, List<DeptDO>> departments) {
+        if (StrUtil.isNotBlank(row.getDeptPath())) {
+            row.setDeptId(UserDepartmentPath.resolve(row.getDeptPath(), row.getDeptName(),
+                    departments, deptService, true));
+            deptService.validateDeptList(java.util.Collections.singleton(row.getDeptId()));
+        }
     }
 
     @Override

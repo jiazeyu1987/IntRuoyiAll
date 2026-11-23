@@ -558,6 +558,43 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void ceReminderFiltersAndDetailsUseCeThresholdsAndOnlyTheirOwnVersionMaterials() {
+        LocalDate today = LocalDate.now(DccRegistrationCertificateBusinessClock.BUSINESS_ZONE);
+        FormalFixture warning = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CE-WARNING", true, 20L);
+        FormalFixture urgent = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CE-URGENT", true, 21L);
+        FormalFixture notice = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CE-NOTICE", true, 22L);
+        for (FormalFixture fixture : List.of(warning, urgent, notice)) {
+            updateExpiryDate(fixture.versionId(), today.plusMonths(fixture == warning ? 10 : fixture == urgent ? 2 : 15));
+            var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts
+                    .parse(snapshotMapper.selectById(fixture.snapshotId()).getFactsJson());
+            facts.setCertificateType("CE");
+            jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=?",
+                    facts.toJson(), fixture.snapshotId());
+        }
+        FormalFixture oldWarningVersion = seedOldVersionOnCertificate(warning, "CE-WARNING-OLD");
+        seedSupportingDocument(warning, "CE_RENEWAL_CONTRACT");
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_supporting_document SET version_id=? WHERE certificate_id=?",
+                oldWarningVersion.versionId(), warning.certificateId());
+        seedSupportingDocument(urgent, "CE_RENEWAL_QUOTATION");
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+        var page = queryService.getPage(1L, 99L, DccRegistrationCertificatePageQuery.builder()
+                .sortField("reminder").sortOrder("desc").build(), context("CE-REMINDER-SORT"));
+        assertEquals(List.of("CE_T_3", "CE_T_12", "CE_T_18"),
+                page.getList().stream().map(DccRegistrationCertificatePageItem::getVisualState).toList());
+        var filter = DccRegistrationCertificatePageQuery.builder().reminderState("CE_T_12").build();
+        assertEquals(1L, queryService.getPage(1L, 99L, filter, context("CE-REMINDER-FILTER")).getTotal());
+        assertEquals("CE_T_12", queryService.getDetail(1L, 99L, warning.certificateId(), null,
+                context("CE-REMINDER-DETAIL")).getVisualState());
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_supporting_document SET version_id=? WHERE certificate_id=?",
+                warning.versionId(), warning.certificateId());
+        assertEquals(0L, queryService.getPage(1L, 99L, filter, context("CE-REMINDER-CLEARED-FILTER")).getTotal());
+        assertEquals("CLEARED", queryService.getDetail(1L, 99L, warning.certificateId(), null,
+                context("CE-REMINDER-CLEARED-DETAIL")).getVisualState());
+    }
+
+    @Test
     void oldIndexAppliesServerSortFieldAndDirection() {
         FormalFixture lower = seedFormal(1L, 10L, "EXPIRED_UNRENEWED", "OLD", "CERT-A-OLD-SORT", true, 20L);
         FormalFixture higher = seedFormal(1L, 10L, "EXPIRED_UNRENEWED", "OLD", "CERT-Z-OLD-SORT", true, 21L);
@@ -772,7 +809,7 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void currentPageShowsApprovedPendingRenewalAsTheSingleCurrentRow() {
+    void currentPageShowsCurrentAndApprovedPendingRenewal() {
         FormalFixture current = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-CURRENT", true, 20L);
         FormalFixture renewal = seedPendingRenewal(current.certificateId(), current.snapshotId());
         when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
@@ -783,9 +820,10 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 1L, 99L, DccRegistrationCertificatePageQuery.builder().pageNo(1).pageSize(10).build(),
                 context("REQ-CURRENT-PAGE-PENDING-RENEWAL"));
 
-        assertEquals(1L, page.getTotal());
-        assertEquals(1, page.getList().size());
-        DccRegistrationCertificatePageItem item = page.getList().get(0);
+        assertEquals(2L, page.getTotal());
+        assertEquals(2, page.getList().size());
+        assertTrue(page.getList().stream().anyMatch(row -> row.getVersionId().equals(current.versionId()) && "CURRENT".equals(row.getStatus())));
+        DccRegistrationCertificatePageItem item = page.getList().stream().filter(row -> row.getVersionId().equals(renewal.versionId())).findFirst().orElseThrow();
         assertEquals(current.certificateId(), item.getCertificateId());
         assertEquals(renewal.versionId(), item.getVersionId());
         assertEquals("PENDING_EFFECTIVE", item.getStatus());
@@ -905,25 +943,17 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void detailPrefersPendingEffectiveVersionAttachmentWhenCurrentVersionHasOnlyStagedFile() {
-        FormalFixture current = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-PENDING-FILE", false, 20L);
+    void defaultDetailKeepsCurrentWhilePendingVersionCanBeSelectedExplicitly() {
+        FormalFixture current = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-PENDING-FILE", true, 20L);
         FormalFixture pending = seedPendingRenewal(current.certificateId(), current.snapshotId());
-        Long pendingRegistrationFileId = seedRegistrationFile(1L, pending.versionId(), "CERT-PENDING-FILE", "BOUND");
+        Long pendingFileId = seedRegistrationFile(1L, pending.versionId(), "CERT-PENDING-FILE", "BOUND");
         when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
-        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
-                .thenReturn(List.of(owner(10L, "Owner A")));
-
-        DccRegistrationCertificateDetail detail = queryService.getDetail(
-                1L, 99L, current.certificateId(), null, context("REQ-DETAIL-PENDING-FILE"));
-
-        assertEquals(pending.versionId(), detail.getVersionId(),
-                "detail must prefer the pending-effective version when it carries the attached registration file");
-        assertEquals(pendingRegistrationFileId, detail.getRegistrationFileId(),
-                "detail must return the formal business-file id from the same pending-effective version");
-        assertEquals("sensitive-CERT-PENDING-FILE.pdf", detail.getRegistrationFileName(),
-                "detail must return the original attachment name from the same pending-effective version");
-        assertTrue(detail.getHasRegistrationFile(),
-                "detail must report the pending-effective registration attachment as present");
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any())).thenReturn(List.of(owner(10L, "Owner A")));
+        var detail = queryService.getDetail(1L, 99L, current.certificateId(), null, context("REQ-DEFAULT-CURRENT"));
+        assertEquals(current.versionId(), detail.getVersionId());
+        var selected = queryService.getDetail(1L, 99L, current.certificateId(), pending.versionId(), context("REQ-SELECT-PENDING"));
+        assertEquals(pending.versionId(), selected.getVersionId());
+        assertEquals(pendingFileId, selected.getRegistrationFileId());
     }
 
     @Test

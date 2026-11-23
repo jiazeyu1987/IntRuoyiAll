@@ -583,7 +583,10 @@ export interface TeamLeaderActiveOrderSubmissionDetailRespVO {
   lossDetails?: TeamLeaderActiveOrderLossDetail[]
   eventId: number
   originalBusinessIdentityJson?: string
+  /** 当前订单分配数量，用于进度；不等于事件原始生产数量。 */
   submittedQuantity: number | string
+  originalOutputQuantity: number | string
+  originalLossQuantity: number | string
   submitterName: string
   reviewerName?: string
   submittedAt: string | number

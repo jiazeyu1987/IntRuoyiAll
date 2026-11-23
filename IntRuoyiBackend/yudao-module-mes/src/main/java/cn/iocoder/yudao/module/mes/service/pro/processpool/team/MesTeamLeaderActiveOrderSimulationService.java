@@ -997,7 +997,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
         List<MesPqcInspectionPieceDetailDO> pieceDetails = pqcPieceDetailMapper.selectListByTaskId(task.getId());
         validateConfirmedPqcPieceDetails(record, task, pieceDetails, submittedEventId);
         Integer scrapQuantity = simulatedPqcScrapQuantity(actualInspectionQuantity);
-        String inspectionResult = simulatedPqcInspectionResult(scrapQuantity, pieceDetails);
+        String inspectionResult = simulatedPqcInspectionResult(pieceDetails);
         String normalizedPayload = normalizePqcSimulationPayload(event.getRawPayload(), scrapQuantity, inspectionResult,
                 simulationStage, simulationRunId);
         int eventUpdated = processPoolEventMapper.updateById(new MesProProcessPoolEventDO()
@@ -1064,7 +1064,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcPieceDetails");
         }
         Integer scrapQuantity = simulatedPqcScrapQuantity(actualInspectionQuantity);
-        String inspectionResult = simulatedPqcInspectionResult(scrapQuantity, pieceDetails);
+        String inspectionResult = simulatedPqcInspectionResult(pieceDetails);
         String contentHash = "SIMULATED:" + task.getId() + ":" + actualInspectionQuantity
                 + ":scrapQuantity:" + scrapQuantity + ":inspectionResult:" + inspectionResult;
         int updated = pqcInspectionTaskMapper.updateSubmittedIfPending(task.getId(), actualInspectionQuantity,
@@ -1198,10 +1198,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
         return SIMULATED_PQC_SCRAP_QUANTITY;
     }
 
-    private String simulatedPqcInspectionResult(Integer scrapQuantity,
-                                                List<MesPqcInspectionPieceDetailDO> pieceDetails) {
-        int safeScrapQuantity = scrapQuantity == null ? 0 : scrapQuantity;
-        if (safeScrapQuantity > 0 || pieceDetails.stream().anyMatch(detail ->
+    private String simulatedPqcInspectionResult(List<MesPqcInspectionPieceDetailDO> pieceDetails) {
+        if (pieceDetails.stream().anyMatch(detail ->
                 MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE.equals(detail.getJudgement()))) {
             return MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE;
         }

@@ -1,6 +1,15 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.web.core.handler.GlobalExceptionHandler;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.web.method.HandlerMethod;
+import cn.iocoder.yudao.framework.apilog.core.annotation.ApiAccessLog;
+import java.util.Map;
+import static cn.iocoder.yudao.framework.apilog.core.interceptor.ApiAccessLogInterceptor.ATTRIBUTE_HANDLER_METHOD;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.*;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseApproveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseCheckItemPageReqVO;
@@ -38,6 +47,32 @@ public class MesProEdhrReleaseController {
 
     @Resource
     private MesProEdhrReleaseService releaseService;
+    @Resource
+    private GlobalExceptionHandler globalExceptionHandler;
+
+    // 仅公开固定业务提示；不得使用异常原文，其中可能带有签名密码或请求内容。
+    private static final Map<Integer, String> SAFE_DECISION_MESSAGES = Map.ofEntries(
+            Map.entry(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS.getCode(), PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS.getMsg()),
+            Map.entry(PRO_EDHR_RELEASE_PRECHECK_REQUIRED.getCode(), PRO_EDHR_RELEASE_PRECHECK_REQUIRED.getMsg()),
+            Map.entry(PRO_EDHR_RELEASE_STATUS_INVALID.getCode(), PRO_EDHR_RELEASE_STATUS_INVALID.getMsg()),
+            Map.entry(PRO_EDHR_RELEASE_REASON_REQUIRED.getCode(), PRO_EDHR_RELEASE_REASON_REQUIRED.getMsg()),
+            Map.entry(PRO_EDHR_RELEASE_SIGNOFF_REQUIRED.getCode(), PRO_EDHR_RELEASE_SIGNOFF_REQUIRED.getMsg()),
+            Map.entry(PRO_EDHR_RELEASE_IDEMPOTENCY_KEY_REQUIRED.getCode(), PRO_EDHR_RELEASE_IDEMPOTENCY_KEY_REQUIRED.getMsg()),
+            Map.entry(PRO_EDHR_RELEASE_SIGNATURE_PASSWORD_REQUIRED.getCode(), PRO_EDHR_RELEASE_SIGNATURE_PASSWORD_REQUIRED.getMsg()),
+            Map.entry(PRO_EDHR_RELEASE_OWNER_INVALID.getCode(), "放行责任人未配置或当前用户不是放行责任人，请核对后重试"));
+
+    @ExceptionHandler(ServiceException.class)
+    public CommonResult<?> handleServiceException(ServiceException exception, HttpServletRequest request) {
+        CommonResult<?> result = globalExceptionHandler.serviceExceptionHandler(exception);
+        if (request.getAttribute(ATTRIBUTE_HANDLER_METHOD) instanceof HandlerMethod handler) {
+            ApiAccessLog privacy = handler.getMethodAnnotation(ApiAccessLog.class);
+            String safeMessage = SAFE_DECISION_MESSAGES.get(exception.getCode());
+            if (privacy != null && !privacy.requestEnable() && safeMessage != null) {
+                result.setMsg(safeMessage);
+            }
+        }
+        return result;
+    }
 
     @GetMapping("/page")
     @Operation(summary = "分页查询 eDHR 放行候选")

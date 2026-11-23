@@ -69,7 +69,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
             "T_30",
             "T_8",
             "T_2",
-            "T_1");
+            "T_1", "CE_T_18", "CE_T_12", "CE_T_3");
 
     private final DccRegistrationCertificateQueryMapper queryMapper;
     private final MdmCompanyScopeApi companyScopeApi;
@@ -311,21 +311,23 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
 
     private DccRegistrationCertificateReminderEvaluation reminderState(
             Long tenantId, DccRegistrationCertificateQueryRecord row) {
-        if (row.getExpiryDate() == null && "FDA".equals(
-                cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(row.getFactsJson()).getCertificateType())) {
+        String certificateType = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts
+                .parse(row.getFactsJson()).getCertificateType();
+        if ("FDA".equals(certificateType)) {
             return new DccRegistrationCertificateReminderEvaluation("NONE", "NORMAL", 0);
         }
         DccRegistrationCertificateReminderEvaluation evaluation = reminderService.evaluateThreshold(
-                businessClock.businessDate(), row.getExpiryDate(), false);
-        if (!"T_8".equals(evaluation.thresholdLevel())) {
+                certificateType, businessClock.businessDate(), row.getExpiryDate(), false);
+        if (!"LIGHT".equals(evaluation.colorCode())) {
             return evaluation;
         }
+        boolean ce = "CE".equals(certificateType);
         boolean cleared = reminderService.isSupportingDocumentCleared(
-                tenantId, row.getCertificateId(), "RENEWAL_ACCEPTANCE_RECEIPT")
+                tenantId, row.getCertificateId(), row.getVersionId(), ce ? "CE_RENEWAL_CONTRACT" : "RENEWAL_ACCEPTANCE_RECEIPT")
                 || reminderService.isSupportingDocumentCleared(
-                tenantId, row.getCertificateId(), "RENEWAL_SUPPLEMENT_NOTICE");
+                tenantId, row.getCertificateId(), row.getVersionId(), ce ? "CE_RENEWAL_QUOTATION" : "RENEWAL_SUPPLEMENT_NOTICE");
         return cleared ? reminderService.evaluateThreshold(
-                businessClock.businessDate(), row.getExpiryDate(), true) : evaluation;
+                certificateType, businessClock.businessDate(), row.getExpiryDate(), true) : evaluation;
     }
 
     private static DccRegistrationCertificateOldIndexItem oldIndexItem(

@@ -26,16 +26,17 @@
         </el-tag>
       </div>
 
-      <el-alert v-if="detail.status === 'OLD'" title="已被替换的旧版本；以下证载状态为历史记录" type="info" :closable="false" class="mb-16px" />
+      <el-alert v-if="detail.status === 'OLD'" title="已被替换的旧版本，已停止使用；原有效期至仅为证载日期，以下证载状态为历史记录" type="info" :closable="false" class="mb-16px" />
       <el-form label-width="140px"><FactsFields :model-value="parseFacts(detail.factsJson)" :historical-record="detail.status === 'OLD'" readonly/></el-form>
       <EvidencePanel :certificate-id="detail.certificateId" :version-id="detail.versionId" :authorized-file-ids="downloadAuthorizedFileIds" :pending-file-ids="requestPendingFileIds" @files-loaded="handleEvidenceFilesLoaded" @preview="openAttachmentPreview" @download="downloadAttachment" @request-download="openDownloadRequest"/>
+      <SupportingDocumentPanel v-if="detail.status === 'CURRENT'" :certificate-id="detail.certificateId" :version-id="detail.versionId" :certificate-type="parseFacts(detail.factsJson).certificateType" :visual-state="detail.visualState" @uploaded="loadDetail" />
       <el-descriptions :column="detailDescriptionColumns" border>
         <el-descriptions-item label="版本号">第 {{ detail.versionNo }} 版</el-descriptions-item>
         <el-descriptions-item label="分类">{{ displayText(detail.classification) }}</el-descriptions-item>
         <el-descriptions-item label="首次获证日">{{ formatRegistrationCertificateDate(detail.firstObtainedDate) }}</el-descriptions-item>
         <el-descriptions-item label="批准日">{{ formatRegistrationCertificateDate(detail.approvalDate) }}</el-descriptions-item>
         <el-descriptions-item label="生效日">{{ formatRegistrationCertificateDate(detail.effectiveDate) }}</el-descriptions-item>
-        <el-descriptions-item label="有效期至">{{ formatRegistrationCertificateDate(detail.expiryDate) }}</el-descriptions-item>
+        <el-descriptions-item :label="detail.status === 'OLD' ? '原有效期至' : '有效期至'">{{ formatRegistrationCertificateDate(detail.expiryDate) }}</el-descriptions-item>
         <el-descriptions-item label="项目代码">{{ displayText(detail.projectCode) }}</el-descriptions-item>
         <el-descriptions-item label="上传人">
           {{ displayOperationName(detail.uploadOperatorName) }}
@@ -374,6 +375,7 @@
 <script setup lang="ts">
 import FactsFields from '../shared/FactsFields.vue'
 import EvidencePanel from '../history/EvidencePanel.vue'
+import SupportingDocumentPanel from '../supporting-document/SupportingDocumentPanel.vue'
 import { parseFacts } from '../shared/facts'
 import { formatRegistrationCertificateChangeType, formatRegistrationCertificateChangeValue } from '../shared/changeDisplay'
 import ChangeConfirmationsPanel from '../components/ChangeConfirmationsPanel.vue'

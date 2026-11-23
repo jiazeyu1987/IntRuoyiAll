@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Schema(description = "管理后台 - DCC 文件类别新增/修改 Request VO")
@@ -15,9 +16,11 @@ public class DccFileCategorySaveReqVO {
     private Long parentId;
 
     @NotBlank(message = "类别编码不能为空")
+    @Size(max = 64, message = "类别编码长度不能超过64个字符")
     private String code;
 
     @NotBlank(message = "类别名称不能为空")
+    @Size(max = 128, message = "类别名称长度不能超过128个字符")
     private String name;
 
     @NotBlank(message = "请明确文件类别审批来源")
@@ -30,8 +33,11 @@ public class DccFileCategorySaveReqVO {
     @NotNull(message = "类别排序不能为空")
     private Integer sort;
 
+    @Size(max = 32, message = "类别来源长度不能超过32个字符")
     private String source;
+    @Size(max = 255, message = "备注长度不能超过255个字符")
     private String remark;
+    @Size(max = 255, message = "类别说明长度不能超过255个字符")
     private String description;
 
     private String lifecycleStage;

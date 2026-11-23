@@ -217,7 +217,7 @@ public class DccRegistrationCertificateAccessPolicyService {
                 && java.util.Set.of(FILE_KIND_REGISTRATION_CERTIFICATE, "CERTIFICATE_ATTACHMENT", "FDA_PRODUCT_DESCRIPTION").contains(file.getFileKind()))
                 || ("CHANGE".equals(file.getOwnerType())
                 && java.util.Set.of("CHANGE_APPROVAL","CERTIFICATE_ATTACHMENT","FDA_PRODUCT_DESCRIPTION").contains(file.getFileKind()))
-                || ("SUPPORTING_DOCUMENT".equals(file.getOwnerType()) && java.util.Set.of("RENEWAL_ACCEPTANCE_RECEIPT", "RENEWAL_SUPPLEMENT_NOTICE").contains(file.getFileKind()));
+                || ("SUPPORTING_DOCUMENT".equals(file.getOwnerType()) && java.util.Set.of("RENEWAL_ACCEPTANCE_RECEIPT", "RENEWAL_SUPPLEMENT_NOTICE", "CE_RENEWAL_CONTRACT", "CE_RENEWAL_QUOTATION").contains(file.getFileKind()));
     }
 
     private boolean isRegistrationDepartment(Long tenantId, Long actorId) {

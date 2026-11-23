@@ -166,7 +166,7 @@
                   <template #default="{ row }">
                     <div class="schedule-order-pool__work-order-ref">
                       <el-button
-                        v-if="row.erpWorkOrderCode"
+                        v-if="row.erpWorkOrderCode && checkPermi(['mes:pro-work-order:query'])"
                         link
                         type="primary"
                         class="schedule-order-pool__inline-link"
@@ -174,7 +174,7 @@
                       >
                         {{ getScheduleOrderSourceCodeText(row) }}
                       </el-button>
-                      <span v-else>--</span>
+                      <span v-else>{{ row.erpWorkOrderCode ? getScheduleOrderSourceCodeText(row) : '--' }}</span>
                       <el-tooltip
                         v-if="Number(row.blockingIssueCount || 0) > 0"
                         effect="dark"
@@ -327,7 +327,7 @@
                 >
                   <template #default="{ row }">
                     <el-link
-                      v-if="row.productionMaterialListCount > 0"
+                      v-if="row.productionMaterialListCount > 0 && checkPermi(['erp:production-material-list:query'])"
                       type="primary"
                       @click="handleOpenProductionMaterialList(row)"
                     >
@@ -336,6 +336,7 @@
                         `共 ${row.productionMaterialListCount} 张`
                       }}
                     </el-link>
+                    <span v-else-if="row.productionMaterialListCount > 0">{{ row.productionMaterialListSummary || `共 ${row.productionMaterialListCount} 张` }}</span>
                     <el-tooltip
                       v-else
                       :content="MISSING_MATERIAL_LIST_HINT"
@@ -4366,6 +4367,7 @@ const openCurrentProcessRouteDetail = (row: MesProScheduleOrderVO) => {
 }
 
 const openWorkOrder = (row: MesProScheduleOrderVO) => {
+  if (!checkPermi(['mes:pro-work-order:query'])) return
   if (!row.erpWorkOrderCode) {
     return
   }
@@ -4376,6 +4378,7 @@ const openWorkOrder = (row: MesProScheduleOrderVO) => {
 }
 
 const handleOpenProductionMaterialList = (row: MesProScheduleOrderVO) => {
+  if (!checkPermi(['erp:production-material-list:query'])) return
   router.push({
     path: '/erp/production/material-list',
     query: { productionOrderNo: row.erpWorkOrderCode || row.code }

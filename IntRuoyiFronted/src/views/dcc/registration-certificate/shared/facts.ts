@@ -47,6 +47,14 @@ export const factOptions = (field: string, type: CertificateType): Array<{label:
   return []
 }
 export const validateFacts = (facts: CertificateFacts) => {
+  for (const [field, max] of [['certificateNo', 128], ['classification', 64], ['remark', 1024]] as const) {
+    if (facts[field]?.length > max) throw new Error(`${factLabels[field]}长度不能超过${max}个字符`)
+  }
+  if (facts.certificateType === 'CE') {
+    facts.ceCertificates?.forEach((row, index) => {
+      if (row.certificateNo && row.certificateNo.length > 128) throw new Error(`第${index + 1}条CE证书编号长度不能超过128个字符`)
+    })
+  }
   const required = ['classification', ...(facts.certificateType === 'DOMESTIC' ? ['certificateNo','firstObtainedDate','effectiveDate','expiryDate'] : []), ...(facts.certificateType === 'CE' ? ['expiryDate'] : []), ...(facts.certificateType === 'FDA' ? ['submissionType','customerHeld','approvalLetterStatus','factoryRegistrationStatus'] : ['certificateStatus'])]
   for (const field of required) if (facts[field] === undefined || facts[field] === null || facts[field] === '') throw new Error(`请填写${factLabels[field]}`)
   if (facts.certificateType === 'CE' && facts.modelSpecifications) {

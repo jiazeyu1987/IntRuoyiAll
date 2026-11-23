@@ -10,7 +10,8 @@
             <Icon icon="ep:arrow-left" class="mr-5px" />
             返回
           </el-button>
-          <el-button @click="openExecution">执行表单</el-button>
+          <el-button v-if="checkPermi(['mes:pro-batch-record-execution:query'])" @click="openExecution">执行表单</el-button>
+          <span v-else>执行表单</span>
           <el-button
             v-hasPermi="[EDHR_DOMAIN_TRACE_VERIFY_PERMISSION]"
             type="primary"
@@ -275,6 +276,7 @@
 </template>
 
 <script setup lang="ts">
+import { checkPermi } from '@/utils/permission'
 import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
 import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { traceItemLabel, traceBlockerMessage } from './traceDisplay'
@@ -476,6 +478,7 @@ const backToPage = async () => {
 }
 
 const openExecution = async () => {
+  if (!checkPermi(['mes:pro-batch-record-execution:query'])) return
   const executionId = detail.value?.executionId || parseExecutionId()
   if (!executionId) {
     message.error('缺少执行ID，无法打开执行表单。')

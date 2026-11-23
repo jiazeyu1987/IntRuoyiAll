@@ -16,6 +16,9 @@ export interface RegistrationCertificateThresholdRecipientUserIds {
   T_8: number[]
   T_2: number[]
   T_1: number[]
+  CE_T_18: number[]
+  CE_T_12: number[]
+  CE_T_3: number[]
 }
 
 export interface DccRegistrationCertificateReminderConfigUpdateReqVO {

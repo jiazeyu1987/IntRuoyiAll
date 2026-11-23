@@ -34,7 +34,7 @@ public class DccRegistrationCertificateConfigService {
     private static final String DEFAULT_TIMEZONE = "Asia/Shanghai";
     private static final String DEFAULT_THRESHOLDS = "[30,8,2,1]";
     private static final String DEFAULT_THRESHOLD_RECIPIENTS = "{}";
-    private static final List<String> REQUIRED_THRESHOLD_LEVELS = List.of("T_30", "T_8", "T_2", "T_1");
+    private static final List<String> REQUIRED_THRESHOLD_LEVELS = List.of("T_30", "T_8", "T_2", "T_1", "CE_T_18", "CE_T_12", "CE_T_3");
     private static final String ENTITLEMENT_POLICY_CODE = "DCC_REGISTRATION_CERTIFICATE_REMINDER_VIEW";
     private static final String ENTITLEMENT_SOURCE_TYPE = "DCC_REGISTRATION_CERTIFICATE_REMINDER_RECIPIENT";
     private static final String ENTITLEMENT_SOURCE_KEY = "REGISTRATION_CERTIFICATE_REMINDER_CONFIG";

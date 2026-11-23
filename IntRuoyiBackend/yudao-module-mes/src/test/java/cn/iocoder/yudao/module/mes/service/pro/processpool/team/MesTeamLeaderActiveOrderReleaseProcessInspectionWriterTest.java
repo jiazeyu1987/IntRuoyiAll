@@ -220,10 +220,10 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
     }
 
     @Test
-    void scrapQuantityRequiresFailedInspectionResultEvenWhenAllSamplesPass() {
+    void scrapQuantityDoesNotRequireFailedInspectionResultWhenAllSamplesPass() {
         MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source = source();
         source.getPqcRecord()
-                .setInspectionResult(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE)
+                .setInspectionResult(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)
                 .setRawPayload("{\"scrapQuantity\":1,\"pqcDraft\":{\"scrapQuantity\":1}}");
         when(reader.read(any())).thenReturn(bundle(source));
         when(bindingMapper.selectListByRouteIdAndUseType(any(), any())).thenReturn(List.of(binding()));

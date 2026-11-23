@@ -89,6 +89,51 @@ class DccFileCategoryAdminServiceImplTest extends BaseDbUnitTest {
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
 
     @Test
+    void duplicateCodeOnCreateAndUpdateHasBusinessMessage() {
+        createCategory("TAKEN", "Existing", "LOCAL", true, 1);
+        DccFileCategoryDO other = createCategory("OTHER", "Other", "LOCAL", true, 2);
+        var request = validCodeRequest("TAKEN");
+        assertServiceException(() -> categoryAdminService.createCategory(request), DccFileCategoryAdminErrors.CODE_EXISTS);
+        request.setId(other.getId());
+        assertServiceException(() -> categoryAdminService.updateCategory(request), DccFileCategoryAdminErrors.CODE_EXISTS);
+        assertEquals("OTHER", categoryMapper.selectById(other.getId()).getCode());
+    }
+
+    @Test
+    void deletedCategoryStillReservesUniqueCode() {
+        var category = createCategory("DELETED", "Deleted", "LOCAL", true, 1);
+        categoryMapper.deleteById(category.getId());
+        assertServiceException(() -> categoryAdminService.createCategory(validCodeRequest("DELETED")),
+                DccFileCategoryAdminErrors.CODE_EXISTS);
+    }
+
+    @Test
+    void reservedCodeQueryExcludesSelfAndOtherTenantsAndSupportsCurrentRead() {
+        var category = createCategory("TENANT-CODE", "Tenant", "LOCAL", true, 1);
+        assertEquals(1, categoryMapper.countReservedCode(1L, "TENANT-CODE", null));
+        assertEquals(0, categoryMapper.countReservedCode(1L, "TENANT-CODE", category.getId()));
+        assertEquals(0, categoryMapper.countReservedCode(2L, "TENANT-CODE", null));
+        assertEquals(List.of(category.getId()), categoryMapper.selectReservedCodeForUpdate(1L, "TENANT-CODE", null));
+        assertTrue(categoryMapper.selectReservedCodeForUpdate(2L, "TENANT-CODE", null).isEmpty());
+        var request = validCodeRequest("TENANT-CODE");
+        request.setId(category.getId());
+        mockTaxonomyPath(8801L, "设计和开发策划阶段");
+        categoryAdminService.updateCategory(request);
+        assertEquals("TENANT-CODE", categoryMapper.selectById(category.getId()).getCode());
+    }
+
+    private DccFileCategorySaveReqVO validCodeRequest(String code) {
+        var request = new DccFileCategorySaveReqVO();
+        request.setCode(code);
+        request.setName("测试类别");
+        request.setApprovalSourceMode("PUBLIC_MATRIX");
+        request.setActive(true);
+        request.setSort(1);
+        request.setFileTypeTaxonomyId(8801L);
+        return request;
+    }
+
+    @Test
     void getCategoryList_readsLocalTableWithoutCallingIntAuth() {
         createCategory("LOCAL-SOP", "SOP", "LOCAL", true, 1);
 

@@ -133,7 +133,7 @@ class UserImportControllerTest {
         ReflectionTestUtils.setField(controller, "userService", service);
         ReflectionTestUtils.setField(controller, "deptService", departments);
         var result = controller.previewImport(new MockMultipartFile("file", output.toByteArray())).getData();
-        assertEquals(List.of("部门名称：来料检IQC（不存在时创建为根级部门）"), result.getOrganizations());
+        assertEquals(List.of("部门名称：来料检IQC（仅匹配现有部门，新建需完整部门路径）"), result.getOrganizations());
         assertEquals(List.of("tangyan / 唐彦"), result.getPersonnel());
         verifyNoInteractions(service, departments);
     }

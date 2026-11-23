@@ -18,6 +18,9 @@ export type DccRegistrationCertificateReminderVisualState =
   | 'T_8'
   | 'T_2'
   | 'T_1'
+  | 'CE_T_18'
+  | 'CE_T_12'
+  | 'CE_T_3'
 
 export type DccRegistrationCertificateReminderFilterState =
   | 'NORMAL'
@@ -25,6 +28,9 @@ export type DccRegistrationCertificateReminderFilterState =
   | 'T_8'
   | 'T_2'
   | 'T_1'
+  | 'CE_T_18'
+  | 'CE_T_12'
+  | 'CE_T_3'
 
 export type RegistrationCertificateSortField =
   | 'certificateHolder' | 'registrationLink' | 'tradeName' | 'notifiedBodyCode' | 'regulationCode' | 'listingNumber' | 'customerHeld' | 'ownProduct' | 'changeDescription' | 'firstObtainedDate' | 'approvalDate' | 'effectiveDate' | 'expiryDate' | 'remark' | 'ceRevision' | 'ceCertificateNo' | 'ceIssueDate' | 'registrantName' | 'modelSpecification' | 'structureComposition' | 'intendedUse' | 'technicalRequirements' | 'residenceAddress' | 'productionAddress' | 'entrustedProduction' | 'selfProduction' | 'entrustedEnterpriseName'

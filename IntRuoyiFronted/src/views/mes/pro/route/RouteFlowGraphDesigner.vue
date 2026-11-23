@@ -1140,9 +1140,9 @@
               v-if="selectedProcessDetailField.links?.length"
               class="route-flow-graph-designer__selected-detail-links"
             >
+              <template v-for="link in selectedProcessDetailField.links" :key="link.key">
               <el-button
-                v-for="link in selectedProcessDetailField.links"
-                :key="link.key"
+                v-if="!link.permission || checkPermi([link.permission])"
                 :title="link.label"
                 data-flow-action="open-process-detail-link"
                 :data-flow-detail-link-field="selectedProcessDetailField.key"
@@ -1154,6 +1154,8 @@
               >
                 {{ link.label }}
               </el-button>
+              <span v-else>{{ link.label }}</span>
+              </template>
             </div>
                 <div
                   v-if="selectedProcessDetailField.key === 'workstation'"
@@ -2167,6 +2169,7 @@
 </template>
 
 <script setup lang="ts">
+import { checkPermi } from '@/utils/permission'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import RouteLossReasonBinding from './components/RouteLossReasonBinding.vue'
 import RouteDeviceGroups from './components/RouteDeviceGroups.vue'
@@ -2321,6 +2324,7 @@ type ProcessDetailFieldSelectOption = ProcessDetailFieldOption & {
 type ProcessDetailLinkItem = {
   key: string
   label: string
+  permission?: string
   onClick: () => void | Promise<void>
 }
 type FormSlotViewSummaryItem = {
@@ -3107,10 +3111,11 @@ const isProcessDetailLinkLabelVisible = (label: string) => {
 const buildProcessDetailTextLink = (
   key: string,
   label: string,
-  onClick: ProcessDetailLinkItem['onClick']
+  onClick: ProcessDetailLinkItem['onClick'],
+  permission?: string
 ): ProcessDetailLinkItem[] => {
   if (!isProcessDetailLinkLabelVisible(label)) return []
-  return [{ key, label, onClick }]
+  return [{ key, label, onClick, permission }]
 }
 
 const normalizePositiveProcessId = (value?: number | string | null) => {
@@ -3128,6 +3133,7 @@ const buildWorkstationProcessQuery = (processId?: number | string | null) => {
 }
 
 const openProcessTargetLink = async () => {
+  if (!checkPermi(['mes:pro-process:query'])) return
   const processId = selectedNode.value?.processId || selectedRouteProcess.value?.processId
   if (!processId) {
     throw new Error(`工序跳转缺少工序编号: routeProcessId=${selectedRouteProcessId.value}`)
@@ -3159,6 +3165,7 @@ const openLegacyBatchRecordTargetLink = async (report: RouteFlowLegacyBatchRecor
   })
 }
 const openWorkstationTargetLink = async () => {
+  if (!checkPermi(['mes:md-workstation:query'])) return
   const row = selectedRouteProcess.value
   const workstationCode = row?.workstationCode?.trim()
   if (!row?.workstationId || !workstationCode) {
@@ -3178,6 +3185,7 @@ const openWorkstationTargetLink = async () => {
 }
 
 const openMachineryTargetLink = async (machinery: ProcessDetailMachineryTarget) => {
+  if (!checkPermi(['mes:dv-machinery:query'])) return
   if (!machinery.machineryId) {
     throw new Error(`设备跳转缺少设备编号: routeProcessId=${selectedRouteProcessId.value}`)
   }
@@ -3196,6 +3204,7 @@ const buildProcessDetailMachineryLinks = (): ProcessDetailLinkItem[] =>
       label:
         [machinery.machineryCode, machinery.machineryName].filter(Boolean).join(' / ') ||
         String(machinery.machineryId),
+      permission: 'mes:dv-machinery:query',
       onClick: () => openMachineryTargetLink(machinery)
     }))
 
@@ -3211,7 +3220,8 @@ const buildWorkstationTargetLink = (row?: ProRouteProcessVO) =>
   buildProcessDetailTextLink(
     'workstation-target',
     `工作站：${formatRouteProcessWorkstation(row)}`,
-    () => openWorkstationConfigOrDetailLink()
+    () => openWorkstationConfigOrDetailLink(),
+    row?.workstationId ? 'mes:md-workstation:query' : undefined
   )
 
 const formatMachineryTargetLabel = (machinery: ProcessDetailMachineryTarget) =>
@@ -3228,6 +3238,7 @@ const buildWorkstationMachineryLinks = (row?: ProRouteProcessVO): ProcessDetailL
   return machineryList.map((machinery, index) => ({
     key: `workstation-machinery-${machinery.machineryId || index}`,
     label: `设备：${formatMachineryTargetLabel(machinery)}`,
+    permission: 'mes:dv-machinery:query',
     onClick: () => openMachineryTargetLink(machinery)
   }))
 }
@@ -3246,6 +3257,7 @@ const buildWorkstationDetailLinks = (row?: ProRouteProcessVO): ProcessDetailLink
 ]
 
 const handleProcessDetailLinkClick = async (link: ProcessDetailLinkItem) => {
+  if (link.permission && !checkPermi([link.permission])) return
   try {
     await link.onClick()
   } catch (error) {
@@ -5107,8 +5119,11 @@ const buildSelectedProcessTargetLinks = (
   fieldKey: ProcessDetailFieldKey,
   value?: string | number | boolean | null
 ) =>
-  buildProcessDetailTextLink(`process-${fieldKey}`, formatProcessDetailText(value), () =>
-    openProcessTargetLink()
+  buildProcessDetailTextLink(
+    `process-${fieldKey}`,
+    formatProcessDetailText(value),
+    () => openProcessTargetLink(),
+    'mes:pro-process:query'
   )
 
 const buildProcessDetailFocusLinks = (

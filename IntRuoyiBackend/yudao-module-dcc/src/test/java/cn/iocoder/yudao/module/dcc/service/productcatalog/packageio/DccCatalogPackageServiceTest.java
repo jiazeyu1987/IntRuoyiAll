@@ -1,540 +1,182 @@
 package cn.iocoder.yudao.module.dcc.service.productcatalog.packageio;
 
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
-import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
-import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentRegistrationProjectionService;
+import cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRowNumberAllocator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.*;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 class DccCatalogPackageServiceTest {
     JdbcTemplate jdbc;
     DccCatalogPackageService service;
-    List<DccCatalogPackageService.Spec> specs;
-    MdmCompanyScopeApi scope;
-    cn.iocoder.yudao.framework.security.core.service.SecurityFrameworkService security;
-    cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectConfigurationAuditService configurationAudit;
+    List<DccCatalogWorkbook.SheetData> schema;
     @BeforeEach @SuppressWarnings("unchecked") void setup() {
         TenantContextHolder.setTenantId(10L);
         var ds = new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
         jdbc = new JdbcTemplate(ds);
         var target = new DccCatalogPackageService();
-        specs = (List<DccCatalogPackageService.Spec>) ReflectionTestUtils.getField(DccCatalogPackageService.class, "SPECS");
-        Set<String> tables = new HashSet<>();
-        for (var spec : specs) {
-            if (!tables.add(spec.table())) continue;
-            StringBuilder ddl = new StringBuilder("CREATE TABLE " + spec.table() + " (id BIGINT AUTO_INCREMENT PRIMARY KEY");
-            for (var field : spec.columns()) if (!field.equals("id") && !Set.of("certificate_key", "deleted").contains(field)) {
-                ddl.append(",").append(field).append(" VARCHAR(10000)");
-                if (field.equals("facts_json")) ddl.append(" NOT NULL");
-            }
-            ddl.append(",tenant_id BIGINT,deleted INT DEFAULT 0,creator VARCHAR(64),updater VARCHAR(64),update_time TIMESTAMP)");
-            jdbc.execute(ddl.toString());
+        ReflectionTestUtils.setField(target,"jdbc",jdbc); ReflectionTestUtils.setField(target,"json",new ObjectMapper());
+        var transactions = new TransactionInterceptor(new DataSourceTransactionManager(ds),new AnnotationTransactionAttributeSource());
+        var allocator = new DccProductCatalogRowNumberAllocator(); ReflectionTestUtils.setField(allocator,"jdbc",jdbc);
+        var ap = new ProxyFactory(allocator); ap.setProxyTargetClass(true); ap.addAdvice(transactions);
+        ReflectionTestUtils.setField(target,"rowNumbers",ap.getProxy());
+        var factory = new ProxyFactory(target); factory.setProxyTargetClass(true); factory.addAdvice(transactions);
+        service=(DccCatalogPackageService)factory.getProxy();
+        schema=(List<DccCatalogWorkbook.SheetData>)ReflectionTestUtils.invokeMethod(target,"schema");
+        for (String name:List.of("PROJECT","PRODUCT")) {
+            var spec=(DccCatalogPackageService.Spec)ReflectionTestUtils.getField(DccCatalogPackageService.class,name);
+            var ddl=new StringBuilder("CREATE TABLE "+spec.table()+" (id BIGINT AUTO_INCREMENT PRIMARY KEY");
+            for(String field:spec.columns()) ddl.append(",").append(field).append(" VARCHAR(10000)");
+            ddl.append(",tenant_id BIGINT,deleted INT DEFAULT 0,creator VARCHAR(64),updater VARCHAR(64),update_time TIMESTAMP");
+            if(name.equals("PROJECT")) ddl.append(",library_scope VARCHAR(16) DEFAULT 'PROJECT',project_leader_user_id BIGINT,product_master_id BIGINT,last_import_batch_id BIGINT");
+            else ddl.append(",project_name VARCHAR(255),project_code VARCHAR(64),UNIQUE(data_source,original_row_no)");
+            jdbc.execute(ddl.append(")").toString());
         }
-        // Local responsibility remains in the database, independently of the workbook schema.
-        jdbc.execute("ALTER TABLE dcc_project_code ADD project_leader VARCHAR(128)");
-        jdbc.execute("ALTER TABLE dcc_project_code ADD project_leader_user_id BIGINT");
-        jdbc.execute("ALTER TABLE dcc_folder_template ADD edited_by_user_id BIGINT NOT NULL DEFAULT 0");
-        jdbc.execute("ALTER TABLE dcc_folder_template ADD ever_used BIT NOT NULL DEFAULT 0");
-        jdbc.execute("ALTER TABLE dcc_folder_template ALTER COLUMN active BIT NOT NULL");
-        jdbc.execute("CREATE TABLE dcc_folder_template_history(id BIGINT AUTO_INCREMENT PRIMARY KEY,template_id BIGINT NOT NULL,operator_user_id BIGINT NOT NULL,operation VARCHAR(16),before_json VARCHAR(10000),after_json VARCHAR(10000),tenant_id BIGINT,creator VARCHAR(64),updater VARCHAR(64))");
-        jdbc.execute("CREATE UNIQUE INDEX catalog_source_row ON dcc_product_catalog(tenant_id,data_source,original_row_no)");
-        jdbc.execute("CREATE TABLE system_users(id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0)");
-        jdbc.execute("CREATE TABLE dcc_product_catalog_source_sequence(data_source VARCHAR(64) PRIMARY KEY,last_row_no INT)");
-        jdbc.update("INSERT INTO dcc_product_catalog_source_sequence VALUES('W01',2)");
-        ReflectionTestUtils.setField(target, "jdbc", jdbc);
-        scope = mock(MdmCompanyScopeApi.class);
-        security = mock(cn.iocoder.yudao.framework.security.core.service.SecurityFrameworkService.class);
-        ReflectionTestUtils.setField(target, "security", security);
-        ReflectionTestUtils.setField(target, "companyScope", scope);
-        ReflectionTestUtils.setField(target, "json", new ObjectMapper());
-        configurationAudit = mock(cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectConfigurationAuditService.class);
-        ReflectionTestUtils.setField(target, "configurationAudit", configurationAudit);
-        ReflectionTestUtils.setField(target, "catalogSync", mock(cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRegistrationSyncService.class));
-        ReflectionTestUtils.setField(target, "projection", mock(ControlledContentRegistrationProjectionService.class));
-        var factory = new ProxyFactory(target);
-        factory.setProxyTargetClass(true);
-        factory.addAdvice(new TransactionInterceptor(new DataSourceTransactionManager(ds), new AnnotationTransactionAttributeSource()));
-        service = (DccCatalogPackageService) factory.getProxy();
-        jdbc.update("INSERT INTO mdm_enterprise(id,enterprise_code,name,type,status,tenant_id) VALUES(1,'C1','关联公司','ENTRUSTED_PARTY','ENABLE',10),(2,'C2','授权公司','OWNED_COMPANY','ENABLE',10),(3,'OTHER','其他租户','OWNED_COMPANY','ENABLE',11)");
-        jdbc.update("INSERT INTO mdm_product(id,product_code,tenant_id) VALUES(1,'P1',10)");
-        jdbc.update("INSERT INTO dcc_project_code(id,project_name,project_code,product_master_id,tenant_id) VALUES(1,'项目一','PR1','1',10)");
-        jdbc.update("INSERT INTO dcc_product_catalog(id,data_source,original_row_no,project_code,product,tenant_id) VALUES(1,'W01','2','PR1','产品',10)");
-        jdbc.update("INSERT INTO dcc_registration_certificate(id,owner_company_id,product_master_id,project_code_id,current_version_id,current_snapshot_id,status,tenant_id) VALUES(1,'2','1','1','1','1','ACTIVE',10)");
-        jdbc.update("INSERT INTO dcc_registration_certificate_version(id,certificate_id,version_no,certificate_no,status,tenant_id) VALUES(1,'1','1','REG001','CURRENT',10)");
-        jdbc.update("INSERT INTO dcc_registration_certificate_snapshot(id,version_id,revision_no,entrusted_enterprises_json,facts_json,tenant_id) VALUES(1,'1','1','[{\"enterpriseId\":1,\"enterpriseName\":\"关联公司\"}]','{\"certificateType\":\"DOMESTIC\",\"certificateNo\":\"REG001\",\"ownProduct\":true}',10)");
-        jdbc.update("UPDATE dcc_registration_certificate_snapshot SET product_name='产品' WHERE tenant_id=10");
-        jdbc.update("INSERT INTO dcc_registration_certificate_snapshot_entrusted(id,snapshot_id,enterprise_id,tenant_id) VALUES(1,'1','1',10)");
-        jdbc.update("INSERT INTO dcc_data_relation(id,product_catalog_id,project_code_id,registration_certificate_id,tenant_id) VALUES(1,'1','1','1',10)");
+        jdbc.execute("CREATE TABLE dcc_data_relation(id BIGINT AUTO_INCREMENT PRIMARY KEY,product_catalog_id BIGINT,project_code_id BIGINT,registration_certificate_id BIGINT,relation_status VARCHAR(32),relation_source VARCHAR(32),confirmed_by BIGINT,confirmed_time TIMESTAMP,tenant_id BIGINT,creator VARCHAR(64),updater VARCHAR(64),deleted INT DEFAULT 0)");
+        jdbc.execute("CREATE TABLE dcc_project_product_relation(id BIGINT AUTO_INCREMENT PRIMARY KEY,request_id BIGINT NOT NULL,product_catalog_id BIGINT,project_code_id BIGINT,relation_status VARCHAR(32),tenant_id BIGINT,deleted INT DEFAULT 0)");
+        jdbc.execute("CREATE TABLE dcc_product_catalog_source_sequence(data_source VARCHAR(64) PRIMARY KEY,last_row_no BIGINT)");
+        jdbc.update("INSERT INTO dcc_product_catalog_source_sequence VALUES('瑛泰产品',3),('子公司产品',1)");
+        jdbc.update("INSERT INTO dcc_project_code(id,project_name,project_code,status,project_leader_user_id,product_master_id,last_import_batch_id,tenant_id) VALUES(1,'项目一','001','ENABLE',77,88,99,10)");
+        jdbc.update("INSERT INTO dcc_product_catalog(id,data_source,original_row_no,product,product_code,registration_certificate_number,project_code,tenant_id) VALUES(1,'瑛泰产品','2','导管','00001','REG1','001',10)");
+        jdbc.update("INSERT INTO dcc_data_relation(id,product_catalog_id,project_code_id,registration_certificate_id,relation_status,relation_source,tenant_id) VALUES(1,1,1,888,'CONFIRMED','MANUAL',10)");
     }
-    @AfterEach void clear() {
-        TenantContextHolder.clear();
-        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    @AfterEach void clear(){TenantContextHolder.clear();}
+    List<DccCatalogWorkbook.SheetData> read(byte[] bytes)throws Exception{return DccCatalogWorkbook.read(bytes,schema);}
+    Map<String,String> first(List<DccCatalogWorkbook.SheetData> data,int sheet){return data.get(sheet).rows().get(0);}
+    int count(String table,long tenant){return jdbc.queryForObject("SELECT COUNT(*) FROM "+table+" WHERE tenant_id=?",Integer.class,tenant);}
+    @Test void exportsExactlyThreeReadableSheetsWithoutCertificateOrMasterTables()throws Exception{
+        var data=read(service.exportWorkbook());
+        assertEquals(List.of("项目代码","产品目录","产品与项目关系"),data.stream().map(DccCatalogWorkbook.SheetData::name).toList());
+        assertEquals("001",first(data,2).get("项目代码")); assertEquals("导管",first(data,2).get("产品名称"));assertEquals("00001",first(data,2).get("产品编码"));
+        for(var sheet:data)assertFalse(sheet.columns().contains("id"));
+        assertEquals("REG1",first(data,1).get("注册证号"));
+        // The fixture has no certificate, company, master-product or template tables.
     }
-    private void loginTemplateImporter() {
-        cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.setLoginUser(
-            new cn.iocoder.yudao.framework.security.core.LoginUser().setId(7L).setTenantId(TenantContextHolder.getRequiredTenantId()).setUserType(2),
-            new org.springframework.mock.web.MockHttpServletRequest());
+    @Test void roundTripUpdatesMetadataPreservesCertificateBindingAndLocalReferences()throws Exception{
+        var data=read(service.exportWorkbook());first(data,0).put("存放位置","新位置");first(data,1).put("备注","新备注");
+        assertEquals(0,service.importWorkbook(DccCatalogWorkbook.write(data)).get("created"));
+        assertEquals("新位置",jdbc.queryForObject("SELECT storage_location FROM dcc_project_code WHERE id=1",String.class));
+        assertEquals("新备注",jdbc.queryForObject("SELECT remark FROM dcc_product_catalog WHERE id=1",String.class));
+        assertEquals(888L,jdbc.queryForObject("SELECT registration_certificate_id FROM dcc_data_relation WHERE id=1",Long.class));
+        assertEquals("MANUAL",jdbc.queryForObject("SELECT relation_source FROM dcc_data_relation WHERE id=1",String.class));
+        assertEquals(77L,jdbc.queryForObject("SELECT project_leader_user_id FROM dcc_project_code WHERE id=1",Long.class));
+        assertEquals(88L,jdbc.queryForObject("SELECT product_master_id FROM dcc_project_code WHERE id=1",Long.class));
+        assertEquals(99L,jdbc.queryForObject("SELECT last_import_batch_id FROM dcc_project_code WHERE id=1",Long.class));
     }
-    private static final String TEMPLATE_STRUCTURE = "{\"nodes\":[{\"key\":\"root\",\"parentKey\":null,\"name\":\"研发资料\",\"sortOrder\":0},{\"key\":\"child\",\"parentKey\":\"root\",\"name\":\"设计输入\",\"sortOrder\":1}]}";
-    private void seedTemplate() {
-        jdbc.update("INSERT INTO dcc_folder_template(id,name,description,active,structure_json,edited_by_user_id,ever_used,tenant_id) VALUES(700,'产品研发模板','含两级目录',1,?,77,1,10)", TEMPLATE_STRUCTURE);
+    @Test void crossTenantAllocatesIndependentRowsAndRepeatedImportIsIdempotent()throws Exception{
+        byte[] bytes=service.exportWorkbook();TenantContextHolder.setTenantId(11L);
+        assertEquals(3,service.importWorkbook(bytes).get("created"));assertEquals(0,service.importWorkbook(bytes).get("created"));
+        assertEquals(1,count("dcc_project_code",11));assertEquals(1,count("dcc_product_catalog",11));assertEquals(1,count("dcc_data_relation",11));
+        assertEquals("4",jdbc.queryForObject("SELECT original_row_no FROM dcc_product_catalog WHERE tenant_id=11",String.class));
+        assertNull(jdbc.queryForObject("SELECT registration_certificate_id FROM dcc_data_relation WHERE tenant_id=11",Long.class));
+        assertNull(jdbc.queryForObject("SELECT project_leader_user_id FROM dcc_project_code WHERE tenant_id=11",Long.class));
+        assertEquals("001",jdbc.queryForObject("SELECT project_code FROM dcc_product_catalog WHERE tenant_id=11",String.class));
+        assertEquals(1,read(service.exportWorkbook()).get(2).rows().size());
     }
-    @Test void transfersTemplatesAcrossTenantsWithIndependentIdsAndLocalMetadata() throws Exception {
-        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
-        seedTemplate();
-        jdbc.update("INSERT INTO dcc_folder_template(id,name,active,structure_json,edited_by_user_id,ever_used,tenant_id) VALUES(701,'其他租户模板',0,?,88,0,11)", TEMPLATE_STRUCTURE);
-        byte[] workbook = service.exportWorkbook();
-        var sheet = read(workbook).stream().filter(s -> s.name().equals("目录模板")).findFirst().orElseThrow();
-        assertEquals(1, sheet.rows().size());
-        assertEquals(TEMPLATE_STRUCTURE, sheet.rows().get(0).get("structure_json"));
-        assertFalse(sheet.columns().contains("edited_by_user_id"));
-        assertFalse(sheet.columns().contains("ever_used"));
-        TenantContextHolder.setTenantId(11L);
-        loginTemplateImporter();
-        assertEquals(11, service.importWorkbook(workbook).get("created"));
-        Long id = jdbc.queryForObject("SELECT id FROM dcc_folder_template WHERE tenant_id=11 AND name='产品研发模板'", Long.class);
-        assertNotEquals(700L, id);
-        assertEquals(TEMPLATE_STRUCTURE, jdbc.queryForObject("SELECT structure_json FROM dcc_folder_template WHERE id=?", String.class, id));
-        assertEquals("含两级目录", jdbc.queryForObject("SELECT description FROM dcc_folder_template WHERE id=?", String.class, id));
-        assertEquals(7L, jdbc.queryForObject("SELECT edited_by_user_id FROM dcc_folder_template WHERE id=?", Long.class, id));
-        assertFalse(jdbc.queryForObject("SELECT ever_used FROM dcc_folder_template WHERE id=?", Boolean.class, id));
-        assertTrue(jdbc.queryForObject("SELECT active FROM dcc_folder_template WHERE id=?", Boolean.class, id));
-        assertEquals(0, service.importWorkbook(workbook).get("created"));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_folder_template_history WHERE tenant_id=11", Integer.class));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_folder_template WHERE tenant_id=11 AND name='其他租户模板'", Integer.class));
-        verify(configurationAudit).append(eq("dcc.folder-template.save"), eq(id), anyString(), anyString(), isNull(), anyString());
+    @Test void sameNameRequiresDisambiguationAndReadableCodeResolvesIt()throws Exception{
+        jdbc.update("INSERT INTO dcc_product_catalog(id,data_source,original_row_no,product,product_code,tenant_id) VALUES(2,'瑛泰产品','3','导管','00002',10)");
+        var data=read(service.exportWorkbook());for(String col:List.of("产品编码","数据来源","原行号"))first(data,2).put(col,null);
+        assertTrue(assertThrows(IllegalArgumentException.class,()->service.importWorkbook(DccCatalogWorkbook.write(data))).getMessage().contains("重名"));
+        first(data,2).put("产品编码","00001");assertEquals(0,service.importWorkbook(DccCatalogWorkbook.write(data)).get("created"));
     }
-    @Test void mergesTemplateByNameAndPreservesLocalUsageHistory() throws Exception {
-        seedTemplate();
-        loginTemplateImporter();
-        var workbook = read(service.exportWorkbook());
-        var template = row(workbook, "目录模板");
-        template.put("id", "999"); template.put("description", "更新说明"); template.put("active", "0");
-        template.put("structure_json", TEMPLATE_STRUCTURE.replace("设计输入", "设计输出"));
-        service.importWorkbook(DccCatalogWorkbook.write(workbook));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_folder_template WHERE tenant_id=10", Integer.class));
-        assertEquals("更新说明", jdbc.queryForObject("SELECT description FROM dcc_folder_template WHERE id=700", String.class));
-        assertTrue(jdbc.queryForObject("SELECT ever_used FROM dcc_folder_template WHERE id=700", Boolean.class));
-        assertFalse(jdbc.queryForObject("SELECT active FROM dcc_folder_template WHERE id=700", Boolean.class));
-        assertTrue(jdbc.queryForObject("SELECT structure_json FROM dcc_folder_template WHERE id=700", String.class).contains("设计输出"));
-        assertEquals(7L, jdbc.queryForObject("SELECT edited_by_user_id FROM dcc_folder_template WHERE id=700", Long.class));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_folder_template_history WHERE template_id=700 AND operator_user_id=7", Integer.class));
-        verify(configurationAudit).append(eq("dcc.folder-template.save"), eq(700L), anyString(), anyString(), contains("含两级目录"), contains("更新说明"));
+    @Test void uniqueNameBindsUsingOnlyProjectCodeAndProductName()throws Exception{
+        var data=read(service.exportWorkbook());for(String col:List.of("产品编码","数据来源","原行号"))first(data,2).put(col,null);
+        jdbc.update("DELETE FROM dcc_data_relation");assertEquals(1,service.importWorkbook(DccCatalogWorkbook.write(data)).get("created"));
     }
-    @Test void rejectsInvalidTemplateBeforeWritingOtherData() throws Exception {
-        seedTemplate();
-        loginTemplateImporter();
-        for (String structure : List.of("{", "null", "{\"nodes\":[]}", TEMPLATE_STRUCTURE.replace("\"parentKey\":null", "\"parentKey\":\"child\""), TEMPLATE_STRUCTURE.replace("\"root\",\"name\":\"设计输入\"", "\"missing\",\"name\":\"设计输入\""))) {
-            var workbook = read(service.exportWorkbook());
-            row(workbook, "目录模板").put("structure_json", structure);
-            row(workbook, "关联公司").put("name", "不得写入");
-            assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(workbook)));
-        }
-        assertEquals("关联公司", jdbc.queryForObject("SELECT name FROM mdm_enterprise WHERE id=1", String.class));
-        verifyNoInteractions(configurationAudit);
-    }
-    @Test void duplicateTemplateNamesAndInvalidActiveFlagAreRejected() throws Exception {
-        seedTemplate(); loginTemplateImporter();
-        var workbook = read(service.exportWorkbook());
-        row(workbook, "目录模板").put("active", "true");
-        assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(workbook)));
-        row(workbook, "目录模板").put("active", "1");
-        var duplicate = new LinkedHashMap<>(row(workbook, "目录模板")); duplicate.put("id", "999");
-        workbook.stream().filter(s -> s.name().equals("目录模板")).findFirst().orElseThrow().rows().add(duplicate);
-        assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(workbook)));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_folder_template", Integer.class));
-    }
-    @Test void templateAuditFailureRollsBackWorkbookChanges() throws Exception {
-        seedTemplate(); loginTemplateImporter();
-        var workbook = read(service.exportWorkbook());
-        row(workbook, "目录模板").put("description", "不得保存");
-        doThrow(new IllegalStateException("audit unavailable")).when(configurationAudit).append(anyString(), anyLong(), anyString(), anyString(), anyString(), anyString());
-        assertThrows(IllegalStateException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(workbook)));
-        assertEquals("含两级目录", jdbc.queryForObject("SELECT description FROM dcc_folder_template WHERE id=700", String.class));
-        assertEquals(77L, jdbc.queryForObject("SELECT edited_by_user_id FROM dcc_folder_template WHERE id=700", Long.class));
-        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_folder_template_history", Integer.class));
-    }
-    @Test void transfersCompleteRegulatoryFactsAndRejectsMissingFactsBeforeWriting() throws Exception {
-        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
-        String facts = "{\"certificateType\":\"FDA\",\"ownProduct\":false,\"kpNumber\":\"K012345\",\"listingNumber\":\"D123456\",\"customerHeld\":true}";
-        jdbc.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=1", facts);
-        byte[] workbook = service.exportWorkbook();
-        TenantContextHolder.setTenantId(11L);
-        assertEquals(10, service.importWorkbook(workbook).get("created"));
-        assertEquals(facts, jdbc.queryForObject("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE tenant_id=11", String.class));
-        var changed = read(workbook);
-        row(changed, "注册证快照").put("facts_json", null);
-        TenantContextHolder.setTenantId(12L);
-        assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(changed)));
-        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_project_code WHERE tenant_id=12", Integer.class));
-    }
-    @SuppressWarnings("unchecked") List<DccCatalogWorkbook.SheetData> read(byte[] data) throws Exception {
-        var schema = (List<DccCatalogWorkbook.SheetData>) ReflectionTestUtils.invokeMethod(new DccCatalogPackageService(), "schema", 10L);
-        return DccCatalogWorkbook.read(data, schema);
-    }
-    Map<String,String> row(List<DccCatalogWorkbook.SheetData> sheets, String name) {
-        return sheets.stream().filter(s -> s.name().equals(name)).findFirst().orElseThrow().rows().get(0);
-    }
-    @Test void exportExcludesProjectLeaderNameAndAccount() throws Exception {
-        jdbc.update("UPDATE dcc_project_code SET project_leader='仅本地负责人',project_leader_user_id=77 WHERE id=1");
-        byte[] workbook = service.exportWorkbook();
-        var project = read(workbook).stream().filter(s -> s.name().equals("DCC项目代码")).findFirst().orElseThrow();
-        assertFalse(project.columns().contains("project_leader"));
-        assertFalse(project.columns().contains("project_leader_user_id"));
-        assertFalse(project.rows().get(0).containsValue("仅本地负责人"));
-        try (var xlsx = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(workbook))) {
-            var sheet = xlsx.getSheet("DCC项目代码");
-            for (var record : sheet) for (var cell : record) {
-                assertFalse(Set.of("project_leader", "project_leader_user_id", "仅本地负责人", "77").contains(cell.getStringCellValue()));
-            }
+    @Test void missingOrMismatchedSelectorsFailBeforeChanges()throws Exception{
+        for(String col:List.of("项目代码","产品名称","产品编码")){
+            var data=read(service.exportWorkbook());first(data,0).put("存放位置","不得写入");first(data,2).put(col,"不存在");
+            assertThrows(IllegalArgumentException.class,()->service.importWorkbook(DccCatalogWorkbook.write(data)));
+            assertNull(jdbc.queryForObject("SELECT storage_location FROM dcc_project_code WHERE id=1",String.class));
         }
     }
-    @Test void importsPreserveExistingLeaderAndLeaveNewProjectsWithoutLeader() throws Exception {
-        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
-        jdbc.update("UPDATE dcc_project_code SET project_leader='源负责人',project_leader_user_id=77 WHERE id=1");
-        var data = read(service.exportWorkbook());
-        var projects = data.stream().filter(s -> s.name().equals("DCC项目代码")).findFirst().orElseThrow().rows();
-        projects.get(0).put("storage_location", "导入的新位置");
-        var added = new LinkedHashMap<>(projects.get(0));
-        added.put("id", "999"); added.put("project_code", "PR2"); projects.add(added);
-        byte[] workbook = DccCatalogWorkbook.write(data);
-        jdbc.update("UPDATE dcc_project_code SET project_leader='目标负责人',project_leader_user_id=88 WHERE id=1");
-        jdbc.update("INSERT INTO dcc_project_code(project_name,project_code,project_leader,project_leader_user_id,tenant_id) VALUES('项目一','PR1','跨租户目标负责人',99,11)");
-        for (long tenant : List.of(10L, 11L)) {
-            TenantContextHolder.setTenantId(tenant);
-            service.importWorkbook(workbook);
-            service.importWorkbook(workbook);
-            assertEquals(tenant == 10 ? "目标负责人" : "跨租户目标负责人", jdbc.queryForObject(
-                "SELECT project_leader FROM dcc_project_code WHERE project_code='PR1' AND tenant_id=?", String.class, tenant));
-            assertEquals(tenant == 10 ? 88L : 99L, jdbc.queryForObject(
-                "SELECT project_leader_user_id FROM dcc_project_code WHERE project_code='PR1' AND tenant_id=?", Long.class, tenant));
-            assertEquals("导入的新位置", jdbc.queryForObject(
-                "SELECT storage_location FROM dcc_project_code WHERE project_code='PR1' AND tenant_id=?", String.class, tenant));
-            assertNull(jdbc.queryForObject("SELECT project_leader FROM dcc_project_code WHERE project_code='PR2' AND tenant_id=?", String.class, tenant));
-            assertNull(jdbc.queryForObject("SELECT project_leader_user_id FROM dcc_project_code WHERE project_code='PR2' AND tenant_id=?", Long.class, tenant));
+    @Test void duplicateCodesAndRelationshipsAreRejected()throws Exception{
+        var data=read(service.exportWorkbook());data.get(0).rows().add(new LinkedHashMap<>(first(data,0)));
+        assertThrows(IllegalArgumentException.class,()->service.importWorkbook(DccCatalogWorkbook.write(data)));
+        var relations=read(service.exportWorkbook());relations.get(2).rows().add(new LinkedHashMap<>(first(relations,2)));
+        assertThrows(IllegalArgumentException.class,()->service.importWorkbook(DccCatalogWorkbook.write(relations)));
+    }
+    @Test void approvedRelationshipsAreExportedDeduplicatedAndPreserved()throws Exception{
+        jdbc.update("INSERT INTO dcc_project_product_relation(request_id,product_catalog_id,project_code_id,relation_status,tenant_id) VALUES(123,1,1,'ACTIVE',10)");
+        var data=read(service.exportWorkbook());assertEquals(1,data.get(2).rows().size());jdbc.update("DELETE FROM dcc_data_relation");
+        assertEquals(0,service.importWorkbook(DccCatalogWorkbook.write(data)).get("created"));assertEquals(0,count("dcc_data_relation",10));
+        assertEquals(123L,jdbc.queryForObject("SELECT request_id FROM dcc_project_product_relation",Long.class));
+    }
+    @Test void conflictingTargetRelationshipRollsBackWholeImport()throws Exception{
+        byte[] bytes=service.exportWorkbook();
+        jdbc.update("INSERT INTO dcc_project_code(id,project_name,project_code,status,tenant_id) VALUES(2,'其他项目','002','ENABLE',11)");
+        jdbc.update("INSERT INTO dcc_product_catalog(id,data_source,original_row_no,product,product_code,tenant_id) VALUES(2,'瑛泰产品','3','导管','00001',11)");
+        jdbc.update("INSERT INTO dcc_data_relation(product_catalog_id,project_code_id,relation_status,tenant_id) VALUES(2,2,'CONFIRMED',11)");
+        TenantContextHolder.setTenantId(11L);assertThrows(IllegalArgumentException.class,()->service.importWorkbook(bytes));
+        assertEquals(1,count("dcc_project_code",11));assertNull(jdbc.queryForObject("SELECT registration_certificate_number FROM dcc_product_catalog WHERE tenant_id=11",String.class));
+    }
+    @Test void missingSequenceFailsAndRollsBack()throws Exception{
+        byte[] bytes=service.exportWorkbook();TenantContextHolder.setTenantId(11L);jdbc.update("DELETE FROM dcc_product_catalog_source_sequence");
+        assertThrows(IllegalStateException.class,()->service.importWorkbook(bytes));assertEquals(0,count("dcc_project_code",11));
+    }
+    @Test void omittedRelationshipsPreserveBindingsAndNoRelationIsInferredFromText()throws Exception{
+        var data=read(service.exportWorkbook());data.get(2).rows().clear();service.importWorkbook(DccCatalogWorkbook.write(data));assertEquals(1,count("dcc_data_relation",10));
+        jdbc.update("DELETE FROM dcc_data_relation");assertTrue(read(service.exportWorkbook()).get(2).rows().isEmpty());
+    }
+    @Test void excludesOtherTenantsAndLibraries()throws Exception{
+        jdbc.update("INSERT INTO dcc_project_code(project_name,project_code,status,library_scope,tenant_id) VALUES('公共库','','ENABLE','GENERAL',10),('其他租户','OTHER','ENABLE','PROJECT',11)");
+        assertEquals(1,read(service.exportWorkbook()).get(0).rows().size());
+    }
+    @Test void oldWorkbookIsRejectedBeforeWrites()throws Exception{
+        var old=List.of(new DccCatalogWorkbook.SheetData("导入说明",List.of("format"),List.of(Map.of("format","v8"))));
+        assertThrows(IllegalArgumentException.class,()->service.importWorkbook(DccCatalogWorkbook.write(old)));assertEquals(1,count("dcc_project_code",10));
+    }
+    @Test void invalidConfigurationAndDisabledProjectCannotBeImportedAsBindings()throws Exception{
+        for(String value:List.of("{", "[]", "null")){
+            var data=read(service.exportWorkbook());first(data,0).put("默认属性配置",value);
+            assertThrows(IllegalArgumentException.class,()->service.importWorkbook(DccCatalogWorkbook.write(data)));
         }
+        var disabled=read(service.exportWorkbook());first(disabled,0).put("状态","DISABLE");
+        assertThrows(IllegalArgumentException.class,()->service.importWorkbook(DccCatalogWorkbook.write(disabled)));
+        assertEquals("ENABLE",jdbc.queryForObject("SELECT status FROM dcc_project_code WHERE id=1",String.class));
     }
-    @Test void rejectsOldWorkbookBeforeWriting() throws Exception {
-        var data = read(service.exportWorkbook());
-        row(data, "导入说明").put("format", "dcc-catalog-workbook.v6");
-        row(data, "关联公司").put("name", "不得写入");
-        var error = assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(data)));
-        assertTrue(error.getMessage().contains("重新导出"));
-        assertEquals("关联公司", jdbc.queryForObject("SELECT name FROM mdm_enterprise WHERE id=1", String.class));
+    @Test void inactiveTargetLinkCannotBeSilentlyReactivated()throws Exception{
+        byte[] bytes=service.exportWorkbook();jdbc.update("UPDATE dcc_data_relation SET relation_status='PENDING' WHERE id=1");
+        assertThrows(IllegalArgumentException.class,()->service.importWorkbook(bytes));
+        assertEquals("PENDING",jdbc.queryForObject("SELECT relation_status FROM dcc_data_relation WHERE id=1",String.class));
     }
-    @Test void exportsTenantWithNoCertificatesWithoutCallingNonEmptyCompanyValidator() throws Exception {
-        TenantContextHolder.setTenantId(11L);
-        doThrow(new IllegalArgumentException("companyIds不能为空")).when(scope).validateUserCompanyAccessBatch(any(), any());
-        byte[] workbook = service.exportWorkbook();
-        assertTrue(workbook.length > 0);
-        verifyNoInteractions(scope);
+    @Test void sequenceAllocationIsRolledBackWhenLaterRelationshipConflicts()throws Exception{
+        jdbc.update("INSERT INTO dcc_product_catalog(id,data_source,original_row_no,product,product_code,tenant_id) VALUES(2,'瑛泰产品','3','新产品','00002',10)");
+        byte[] bytes=service.exportWorkbook();
+        jdbc.update("INSERT INTO dcc_project_code(id,project_name,project_code,status,tenant_id) VALUES(2,'其他项目','002','ENABLE',11)");
+        jdbc.update("INSERT INTO dcc_product_catalog(id,data_source,original_row_no,product,product_code,tenant_id) VALUES(3,'瑛泰产品','4','导管','00001',11)");
+        jdbc.update("UPDATE dcc_product_catalog_source_sequence SET last_row_no=4 WHERE data_source='瑛泰产品'");
+        jdbc.update("INSERT INTO dcc_data_relation(product_catalog_id,project_code_id,relation_status,tenant_id) VALUES(3,2,'CONFIRMED',11)");
+        TenantContextHolder.setTenantId(11L);assertThrows(IllegalArgumentException.class,()->service.importWorkbook(bytes));
+        assertEquals(4L,jdbc.queryForObject("SELECT last_row_no FROM dcc_product_catalog_source_sequence WHERE data_source='瑛泰产品'",Long.class));
+        assertEquals(1,count("dcc_product_catalog",11));assertEquals(1,count("dcc_project_code",11));
     }
-    @Test void exportStillEnforcesCompanyScopeWhenCertificatesExist() {
-        doThrow(new IllegalArgumentException("公司无权访问")).when(scope).validateUserCompanyAccessBatch(any(), eq(List.of(2L)));
-        assertThrows(IllegalArgumentException.class, () -> service.exportWorkbook());
-        verify(scope).validateUserCompanyAccessBatch(any(), eq(List.of(2L)));
-    }
-    @Test void projectCodeAdministratorExportsAllCompaniesOnlyWithinCurrentTenantWithoutCompanyGrants() throws Exception {
-        when(security.hasAnyRoles("dcc_project_code_admin")).thenReturn(true);
-        doThrow(new IllegalArgumentException("当前账号未配置可用授权公司")).when(scope).validateUserCompanyAccessBatch(any(), any());
-        jdbc.update("INSERT INTO mdm_enterprise(id,enterprise_code,name,type,status,tenant_id) VALUES(4,'C4','第二家公司','OWNED_COMPANY','ENABLE',10)");
-        jdbc.update("INSERT INTO dcc_project_code(id,project_name,project_code,tenant_id) VALUES(2,'项目二','PR2',10),(3,'其他租户项目','OTHER',11)");
-        jdbc.update("INSERT INTO dcc_registration_certificate(id,owner_company_id,project_code_id,current_version_id,status,tenant_id) VALUES(2,'4','2','2','ACTIVE',10),(3,'3','3','3','ACTIVE',11)");
-        jdbc.update("INSERT INTO dcc_registration_certificate_version(id,certificate_id,version_no,certificate_no,status,tenant_id) VALUES(2,'2','1','REG002','CURRENT',10),(3,'3','1','OTHER','CURRENT',11)");
 
-        jdbc.update("INSERT INTO dcc_registration_certificate_snapshot(id,version_id,revision_no,product_name,facts_json,tenant_id) VALUES(2,'2','1','产品二','{\"certificateType\":\"DOMESTIC\"}',10)");
-        var data = read(service.exportWorkbook());
-        assertEquals(Set.of("2", "4"), data.stream().filter(s -> s.name().equals("授权公司")).findFirst().orElseThrow().rows().stream()
-            .map(row -> row.get("id")).collect(java.util.stream.Collectors.toSet()));
-        assertEquals(Set.of("PR1", "PR2"), data.stream().filter(s -> s.name().equals("DCC项目代码")).findFirst().orElseThrow().rows().stream()
-            .map(row -> row.get("project_code")).collect(java.util.stream.Collectors.toSet()));
-        assertEquals(Set.of("2", "4"), data.stream().filter(s -> s.name().equals("注册证")).findFirst().orElseThrow().rows().stream()
-            .map(row -> row.get("owner_company_id")).collect(java.util.stream.Collectors.toSet()));
-        verifyNoInteractions(scope);
+    @Test void productsWithoutCodesKeepDistinctCatalogFactsAcrossRepeatedImports()throws Exception{
+        jdbc.update("UPDATE dcc_product_catalog SET product_code=NULL WHERE id=1");
+        jdbc.update("INSERT INTO dcc_product_catalog(id,data_source,original_row_no,product,registration_certificate_number,tenant_id) VALUES(2,'瑛泰产品','3','导管','REG2',10)");
+        byte[] bytes=service.exportWorkbook();TenantContextHolder.setTenantId(11L);
+        assertEquals(4,service.importWorkbook(bytes).get("created"));
+        assertEquals(0,service.importWorkbook(bytes).get("created"));
+        assertEquals(2,count("dcc_product_catalog",11));
+        assertEquals("REG1",jdbc.queryForObject("SELECT p.registration_certificate_number FROM dcc_product_catalog p JOIN dcc_data_relation r ON r.product_catalog_id=p.id AND r.tenant_id=p.tenant_id WHERE p.tenant_id=11",String.class));
     }
-    @Test void projectCodeAdministratorCannotExportWithTenantIsolationDisabled() {
-        when(security.hasAnyRoles("dcc_project_code_admin")).thenReturn(true);
-        TenantContextHolder.setIgnore(true);
-        var error = assertThrows(IllegalArgumentException.class, () -> service.exportWorkbook());
-        assertEquals("导入导出必须指定业务租户", error.getMessage());
-        verifyNoInteractions(scope);
+
+    @Test void projectCodeMatchingUsesDatabaseCaseInsensitiveBusinessIdentity()throws Exception{
+        jdbc.update("UPDATE dcc_project_code SET project_code='AbC' WHERE id=1");
+        var data=read(service.exportWorkbook());first(data,0).put("项目代码","ABC");first(data,2).put("项目代码","abc");
+        assertEquals(0,service.importWorkbook(DccCatalogWorkbook.write(data)).get("created"));
+        assertEquals(1,count("dcc_project_code",10));
+        var duplicate=new LinkedHashMap<>(first(data,0));duplicate.put("项目代码","abc");data.get(0).rows().add(duplicate);
+        assertThrows(IllegalArgumentException.class,()->service.importWorkbook(DccCatalogWorkbook.write(data)));
     }
-    @Test void administratorCanExportAndImportWithoutCompanyGrantsWithinCurrentTenant() throws Exception {
-        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
-        doThrow(new IllegalArgumentException("未授权公司")).when(scope).validateUserCompanyAccessBatch(any(), any());
-        doThrow(new IllegalArgumentException("未授权公司")).when(scope).validateUserCompanyAccess(any(), any());
-        byte[] workbook = service.exportWorkbook();
-        var data = read(workbook);
-        assertEquals(1, data.stream().filter(s -> s.name().equals("授权公司")).findFirst().orElseThrow().rows().size());
-        assertEquals(10, service.importWorkbook(workbook).get("updated"));
-        assertEquals("其他租户", jdbc.queryForObject("SELECT name FROM mdm_enterprise WHERE id=3", String.class));
-        verifyNoInteractions(scope);
-    }
-    @Test void roundTripMergesFiveDatasetsAndPreservesBindingsAndOtherTenants() throws Exception {
-        var data = read(service.exportWorkbook());
-        row(data,"关联公司").put("name", "更新公司");
-        assertEquals(10, service.importWorkbook(DccCatalogWorkbook.write(data)).get("updated"));
-        assertEquals("更新公司", jdbc.queryForObject("SELECT name FROM mdm_enterprise WHERE id=1", String.class));
-        assertEquals("其他租户", jdbc.queryForObject("SELECT name FROM mdm_enterprise WHERE id=3", String.class));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_data_relation WHERE project_code_id='1' AND registration_certificate_id='1'", Integer.class));
-        assertEquals(0, service.importWorkbook(service.exportWorkbook()).get("created"));
-    }
-    @Test void remapsNewProjectIdentityInsteadOfTrustingWorkbookId() throws Exception {
-        var data = read(service.exportWorkbook());
-        var projects = data.stream().filter(s -> s.name().equals("DCC项目代码")).findFirst().orElseThrow().rows();
-        var added = new LinkedHashMap<>(projects.get(0)); added.put("id","999"); added.put("project_code","PR2"); projects.add(added);
-        var result = service.importWorkbook(DccCatalogWorkbook.write(data));
-        assertEquals(1, result.get("created"));
-        assertNotEquals(999L, jdbc.queryForObject("SELECT id FROM dcc_project_code WHERE project_code='PR2'", Long.class));
-        assertEquals(0, service.importWorkbook(service.exportWorkbook()).get("created"));
-    }
-    @Test void createsCompleteLinkedGraphAndRepeatedImportKeepsIdentity() throws Exception {
-        var data = read(service.exportWorkbook());
-        for (String name : List.of("产品主数据", "DCC项目代码", "DCC产品目录", "注册证", "注册证版本", "注册证快照", "受托公司绑定", "目录项目注册证绑定")) {
-            var sheet = data.stream().filter(item -> item.name().equals(name)).findFirst().orElseThrow();
-            var added = new LinkedHashMap<>(sheet.rows().get(0)); added.put("id", "999");
-            for (String field : List.of("product_master_id", "project_code_id", "product_catalog_id", "registration_certificate_id", "certificate_id", "version_id", "snapshot_id", "current_version_id", "current_snapshot_id"))
-                if (added.get(field) != null) added.put(field,"999");
-            if (added.containsKey("product_code")) added.put("product_code", "P2");
-            if (added.containsKey("project_code")) added.put("project_code", "PR2");
-            if (added.containsKey("original_row_no")) { added.put("original_row_no", "3"); }
-            if (added.containsKey("certificate_key")) added.put("certificate_key", "REG002");
-            if (added.containsKey("certificate_no")) added.put("certificate_no", "REG002");
-            sheet.rows().add(added);
-        }
-        byte[] bytes = DccCatalogWorkbook.write(data);
-        assertEquals(8, service.importWorkbook(bytes).get("created"));
-        Long projectId = jdbc.queryForObject("SELECT id FROM dcc_project_code WHERE project_code='PR2'", Long.class);
-        assertNotEquals(999L, projectId);
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_data_relation r JOIN dcc_registration_certificate c ON r.registration_certificate_id=c.id WHERE r.project_code_id=? AND c.project_code_id=?", Integer.class, projectId, projectId));
-        assertEquals(0, service.importWorkbook(bytes).get("created"));
-    }
-    @Test void administratorTransfersAcrossTenantsAndRepeatsWithoutDuplicatesOrForeignUserReferences() throws Exception {
-        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
-        jdbc.update("UPDATE dcc_project_code SET project_leader_user_id='77',last_import_batch_id='99' WHERE tenant_id=10");
-        jdbc.update("UPDATE dcc_registration_certificate_version SET formalized_by='77' WHERE tenant_id=10");
-        byte[] source = service.exportWorkbook();
-        TenantContextHolder.setTenantId(11L);
-        var first = service.importWorkbook(source);
-        assertEquals(10, first.get("created"));
-        assertEquals(0, first.get("updated"));
-        assertEquals(2, first.get("localReferences"));
-        assertNull(jdbc.queryForObject("SELECT project_leader_user_id FROM dcc_project_code WHERE tenant_id=11", String.class));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_product_catalog WHERE tenant_id=11", Integer.class));
-        assertEquals("2", jdbc.queryForObject("SELECT original_row_no FROM dcc_product_catalog WHERE tenant_id=10", String.class));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_data_relation r JOIN dcc_registration_certificate c ON r.registration_certificate_id=c.id JOIN dcc_project_code p ON p.id=r.project_code_id JOIN dcc_product_catalog d ON d.id=r.product_catalog_id WHERE r.tenant_id=11 AND c.tenant_id=11 AND p.tenant_id=11 AND d.tenant_id=11", Integer.class));
-        assertEquals(0, service.importWorkbook(source).get("created"));
-        assertEquals(0, service.importWorkbook(service.exportWorkbook()).get("created"));
-        // Each tenant retains its own catalog identity in both directions.
-        byte[] destination = service.exportWorkbook();
-        TenantContextHolder.setTenantId(10L);
-        jdbc.update("INSERT INTO system_users(id,tenant_id) VALUES(77,10)");
-        assertEquals(1, service.importWorkbook(destination).get("created")); // The destination-only company is new.
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_product_catalog WHERE tenant_id=10", Integer.class));
-        assertEquals("77", jdbc.queryForObject("SELECT project_leader_user_id FROM dcc_project_code WHERE tenant_id=10", String.class));
-    }
-    @Test void projectCodeAdministratorImportsIntoCurrentTenantWithoutCompanyGrants() throws Exception {
-        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
-        jdbc.update("UPDATE dcc_project_code SET project_leader_user_id='77' WHERE tenant_id=10");
-        byte[] workbook = service.exportWorkbook();
-        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(false);
-        when(security.hasAnyRoles("dcc_project_code_admin")).thenReturn(true);
-        doThrow(new IllegalArgumentException("公司无权访问")).when(scope).validateUserCompanyAccess(any(), any());
-        doThrow(new IllegalArgumentException("公司无权访问")).when(scope).validateUserCompanyAccessBatch(any(), any());
-        TenantContextHolder.setTenantId(11L);
-        assertEquals(10, service.importWorkbook(workbook).get("created"));
-        assertEquals(0, service.importWorkbook(workbook).get("created"));
-        assertNull(jdbc.queryForObject("SELECT project_leader_user_id FROM dcc_project_code WHERE tenant_id=11", String.class));
-        assertEquals("77", jdbc.queryForObject("SELECT project_leader_user_id FROM dcc_project_code WHERE tenant_id=10", String.class));
-        assertEquals("其他租户", jdbc.queryForObject("SELECT name FROM mdm_enterprise WHERE id=3", String.class));
-        assertTrue(service.exportWorkbook().length > 0);
-        verifyNoInteractions(scope);
-    }
-    @Test void exportsAndReimportsCeAndFdaWithoutDomesticCertificateNumber() throws Exception {
-        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
-        for (String type : List.of("CE", "FDA")) {
-            TenantContextHolder.setTenantId(10L);
-            jdbc.update("UPDATE dcc_registration_certificate SET status='DRAFT',current_version_id=NULL,current_snapshot_id=NULL WHERE tenant_id=10");
-            jdbc.update("UPDATE dcc_registration_certificate_version SET status='DRAFT',certificate_no=NULL WHERE tenant_id=10");
-            String facts = type.equals("CE")
-                ? "{\"certificateType\":\"CE\",\"ceCertificates\":[{\"revision\":\"Rev.1\",\"certificateNo\":null}]}"
-                : "{\"certificateType\":\"FDA\",\"submissionType\":\"EXEMPT\",\"kpNumber\":null}";
-            jdbc.update("UPDATE dcc_registration_certificate_snapshot SET product_name='海外产品',facts_json=? WHERE tenant_id=10", facts);
-            byte[] workbook = service.exportWorkbook();
-            var sheets = read(workbook);
-            assertTrue(row(sheets, "注册证").get("certificate_key").contains(type));
-            assertNull(row(sheets, "注册证版本").get("certificate_no"));
-            assertEquals(0, service.importWorkbook(workbook).get("created"));
-            long destination = type.equals("CE") ? 12L : 13L;
-            TenantContextHolder.setTenantId(destination);
-            assertEquals(10, service.importWorkbook(workbook).get("created"));
-            assertEquals(0, service.importWorkbook(workbook).get("created"));
-            assertNull(jdbc.queryForObject("SELECT certificate_no FROM dcc_registration_certificate_version WHERE tenant_id=?", String.class, destination));
-            assertEquals(facts, jdbc.queryForObject("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE tenant_id=?", String.class, destination));
-            assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_data_relation WHERE tenant_id=?", Integer.class, destination));
-            row(sheets, "注册证").put("certificate_key", "forged-key");
-            assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(sheets)));
-        }
-    }
-    @Test void rejectsDomesticCertificateWithoutNumber() {
-        jdbc.update("UPDATE dcc_registration_certificate_version SET certificate_no=NULL WHERE tenant_id=10");
-        assertTrue(assertThrows(IllegalArgumentException.class, () -> service.exportWorkbook()).getMessage().contains("国内注册证"));
-    }
-    @Test void preservesBitFlagsOnCrossTenantInsertAndRepeatedUpdate() throws Exception {
-        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
-        jdbc.update("UPDATE dcc_registration_certificate SET status='DRAFT',current_version_id=NULL,current_snapshot_id=NULL WHERE tenant_id=10");
-        jdbc.update("UPDATE dcc_registration_certificate_version SET status='DRAFT' WHERE tenant_id=10");
-        jdbc.update("UPDATE dcc_registration_certificate_version SET category_changed='1' WHERE tenant_id=10");
-        jdbc.update("UPDATE dcc_registration_certificate_snapshot SET entrusted_production='1',self_production='0' WHERE tenant_id=10");
-        byte[] workbook = service.exportWorkbook();
-        TenantContextHolder.setTenantId(11L);
-        assertEquals(10, service.importWorkbook(workbook).get("created"));
-        assertEquals("1", jdbc.queryForObject("SELECT category_changed FROM dcc_registration_certificate_version WHERE tenant_id=11", String.class));
-        assertEquals("1", jdbc.queryForObject("SELECT entrusted_production FROM dcc_registration_certificate_snapshot WHERE tenant_id=11", String.class));
-        assertEquals("0", jdbc.queryForObject("SELECT self_production FROM dcc_registration_certificate_snapshot WHERE tenant_id=11", String.class));
-        jdbc.update("UPDATE dcc_registration_certificate_snapshot SET entrusted_production='0',self_production='1' WHERE tenant_id=11");
-        assertEquals(0, service.importWorkbook(workbook).get("created"));
-        assertEquals("1", jdbc.queryForObject("SELECT entrusted_production FROM dcc_registration_certificate_snapshot WHERE tenant_id=11", String.class));
-        assertEquals("0", jdbc.queryForObject("SELECT self_production FROM dcc_registration_certificate_snapshot WHERE tenant_id=11", String.class));
-    }
-    @Test void exportsOnlyCurrentTenantsCatalogAndBindings() throws Exception {
-        jdbc.update("INSERT INTO dcc_product_catalog(id,data_source,original_row_no,product,tenant_id) VALUES(2,'W01','3','其他租户目录',12)");
-        var source = read(service.exportWorkbook());
-        assertEquals(1, source.stream().filter(s -> s.name().equals("DCC产品目录")).findFirst().orElseThrow().rows().size());
-        TenantContextHolder.setTenantId(11L);
-        var target = read(service.exportWorkbook());
-        assertTrue(target.stream().filter(s -> s.name().equals("DCC产品目录")).findFirst().orElseThrow().rows().isEmpty());
-        assertTrue(target.stream().filter(s -> s.name().equals("DCC项目代码") || s.name().equals("目录项目注册证绑定")).allMatch(s -> s.rows().isEmpty()));
-    }
-    @Test void crossTenantMergeUpdatesOnlyDestinationCatalogAndPreservesSourceBindings() throws Exception {
-        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
-        byte[] source = service.exportWorkbook();
-        TenantContextHolder.setTenantId(11L);
-        service.importWorkbook(source);
-        var changed = read(source);
-        row(changed, "DCC产品目录").put("remark", "目标目录更新");
-        assertEquals(0, service.importWorkbook(DccCatalogWorkbook.write(changed)).get("created"));
-        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_product_catalog", Integer.class));
-        assertNull(jdbc.queryForObject("SELECT remark FROM dcc_product_catalog WHERE id=1 AND tenant_id=10", String.class));
-        assertEquals("目标目录更新", jdbc.queryForObject("SELECT remark FROM dcc_product_catalog WHERE tenant_id=11", String.class));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_data_relation WHERE product_catalog_id='1'", Integer.class));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_data_relation r JOIN dcc_product_catalog d ON d.id=r.product_catalog_id WHERE r.tenant_id=11 AND d.tenant_id=11 AND d.id<>1", Integer.class));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_data_relation WHERE product_catalog_id='1' AND tenant_id=10", Integer.class));
-        row(changed, "DCC产品目录").put("remark", "失败应回滚");
-        row(changed, "注册证").put("status", "VOIDED");
-        assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(changed)));
-        assertEquals("目标目录更新", jdbc.queryForObject("SELECT remark FROM dcc_product_catalog WHERE tenant_id=11", String.class));
-    }
-    @Test void importsFormalHistoryWithBaseSnapshotsAndRepeatsUnderDatabaseImmutabilityGuards() throws Exception {
-        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
-        jdbc.update("UPDATE dcc_registration_certificate_version SET status='OLD' WHERE id=1");
-        jdbc.update("INSERT INTO dcc_registration_certificate_version(id,certificate_id,version_no,certificate_no,status,base_snapshot_id,tenant_id) VALUES(2,'1','2','REG001','CURRENT','1',10)");
-        jdbc.update("INSERT INTO dcc_registration_certificate_snapshot(id,version_id,revision_no,entrusted_enterprises_json,facts_json,tenant_id) VALUES(2,'2','1','[]','{\"certificateType\":\"DOMESTIC\",\"certificateNo\":\"REG001\",\"ownProduct\":true}',10)");
-        jdbc.update("UPDATE dcc_registration_certificate SET current_version_id='2',current_snapshot_id='2' WHERE id=1");
-        for (String table : List.of("dcc_registration_certificate_version", "dcc_registration_certificate_snapshot", "dcc_registration_certificate_snapshot_entrusted"))
-            jdbc.execute("CREATE TRIGGER guard_" + table + " BEFORE UPDATE ON " + table + " FOR EACH ROW CALL '" + FormalFactTrigger.class.getName() + "'");
-        byte[] workbook = service.exportWorkbook();
-        TenantContextHolder.setTenantId(11L);
-        assertEquals(12, service.importWorkbook(workbook).get("created"));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_registration_certificate_version v JOIN dcc_registration_certificate_snapshot s ON s.id=v.base_snapshot_id WHERE v.tenant_id=11 AND s.tenant_id=11 AND v.version_no='2'", Integer.class));
-        assertEquals(0, service.importWorkbook(workbook).get("created"));
-        var changed = read(workbook);
-        row(changed, "注册证快照").put("product_name", "禁止覆盖正式快照");
-        assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(changed)));
-        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_registration_certificate_snapshot WHERE tenant_id=11", Integer.class));
-    }
-    public static class FormalFactTrigger implements org.h2.api.Trigger {
-        String table;
-        Map<String, Integer> columns = new HashMap<>();
-        public void init(java.sql.Connection connection, String schema, String trigger, String tableName, boolean before, int type) throws java.sql.SQLException {
-            table = tableName.toLowerCase(Locale.ROOT);
-            try (var statement = connection.createStatement(); var result = statement.executeQuery("SELECT * FROM " + table + " WHERE 1=0")) {
-                var metadata = result.getMetaData();
-                for (int i=1; i<=metadata.getColumnCount(); i++) columns.put(metadata.getColumnName(i).toLowerCase(Locale.ROOT), i-1);
-            }
-        }
-        public void fire(java.sql.Connection connection, Object[] old, Object[] next) throws java.sql.SQLException {
-            if (table.equals("dcc_registration_certificate_version")) {
-                if (!"DRAFT".equals(old[columns.get("status")]) && !Objects.equals(old[columns.get("base_snapshot_id")], next[columns.get("base_snapshot_id")]))
-                    throw new java.sql.SQLException("Formal version facts are immutable", "45000");
-                return;
-            }
-            String sql = table.equals("dcc_registration_certificate_snapshot")
-                ? "SELECT status FROM dcc_registration_certificate_version WHERE id=?"
-                : "SELECT v.status FROM dcc_registration_certificate_snapshot s JOIN dcc_registration_certificate_version v ON v.id=s.version_id WHERE s.id=?";
-            try (var statement = connection.prepareStatement(sql)) {
-                statement.setObject(1, old[columns.get(table.equals("dcc_registration_certificate_snapshot") ? "version_id" : "snapshot_id")]);
-                try (var result = statement.executeQuery()) {
-                    if (!result.next() || !"DRAFT".equals(result.getString(1))) throw new java.sql.SQLException("Formal snapshot is append-only", "45000");
-                }
-            }
-        }
-    }
-    @Test void transfersVoidedCertificateWithoutPublishingItAsActive() throws Exception {
-        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
-        jdbc.update("UPDATE dcc_registration_certificate SET status='VOIDED' WHERE tenant_id=10");
-        jdbc.update("UPDATE dcc_registration_certificate_version SET status='VOIDED' WHERE tenant_id=10");
-        byte[] workbook = service.exportWorkbook();
-        TenantContextHolder.setTenantId(11L);
-        assertEquals(10, service.importWorkbook(workbook).get("created"));
-        assertEquals("VOIDED", jdbc.queryForObject("SELECT status FROM dcc_registration_certificate WHERE tenant_id=11", String.class));
-        verifyNoInteractions((ControlledContentRegistrationProjectionService) ReflectionTestUtils.getField(service, "projection"));
-    }
-    @Test void distinctProjectsWithSameCodeKeepTheirOwnBindings() throws Exception {
-        var data = read(service.exportWorkbook());
-        var projects = data.stream().filter(s -> s.name().equals("DCC项目代码")).findFirst().orElseThrow().rows();
-        var added = new LinkedHashMap<>(projects.get(0)); added.put("id", "999"); added.put("project_name", "项目二"); projects.add(added);
-        assertEquals(1, service.importWorkbook(DccCatalogWorkbook.write(data)).get("created"));
-        assertEquals(0, service.importWorkbook(service.exportWorkbook()).get("created"));
-    }
-    @Test void transfersArchivedDependenciesAndHistoricalBindingRowsExactly() throws Exception {
-        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
-        jdbc.update("UPDATE mdm_enterprise SET deleted=1 WHERE id=2");
-        jdbc.update("UPDATE mdm_product SET deleted=1 WHERE id=1");
-        jdbc.update("DELETE FROM dcc_registration_certificate_snapshot_entrusted WHERE tenant_id=10");
-        jdbc.update("INSERT INTO mdm_enterprise(enterprise_code,name,type,deleted,tenant_id) VALUES('UNUSED','未引用历史公司','OWNED_COMPANY',1,10)");
-        byte[] source = service.exportWorkbook();
-        assertEquals("1", row(read(source), "授权公司").get("deleted"));
-        assertEquals(1, read(source).stream().filter(v -> v.name().equals("授权公司")).findFirst().orElseThrow().rows().size());
-        TenantContextHolder.setTenantId(11L);
-        service.importWorkbook(source);
-        assertEquals(1, jdbc.queryForObject("SELECT deleted FROM mdm_enterprise WHERE tenant_id=11 AND enterprise_code='C2'", Integer.class));
-        assertEquals(1, jdbc.queryForObject("SELECT deleted FROM mdm_product WHERE tenant_id=11 AND product_code='P1'", Integer.class));
-        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_registration_certificate_snapshot_entrusted WHERE tenant_id=11", Integer.class));
-        assertTrue(jdbc.queryForObject("SELECT entrusted_enterprises_json FROM dcc_registration_certificate_snapshot WHERE tenant_id=11", String.class).contains("enterpriseId"));
-        assertEquals(0, service.importWorkbook(source).get("created"));
-        assertEquals(0, service.importWorkbook(service.exportWorkbook()).get("created"));
-    }
-    @Test void preventsStateChangeAndRollsBackCompanyUpdate() throws Exception {
-        var data = read(service.exportWorkbook()); row(data,"关联公司").put("name","不应保存");
-        row(data,"注册证").put("status","VOIDED");
-        assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(data)));
-        assertEquals("关联公司", jdbc.queryForObject("SELECT name FROM mdm_enterprise WHERE id=1", String.class));
-    }
-    @Test void rollsBackEarlierUpdatesWhenLaterBusinessKeyDuplicates() throws Exception {
-        var data = read(service.exportWorkbook()); row(data,"关联公司").put("name","不应保存");
-        var projects = data.stream().filter(s -> s.name().equals("DCC项目代码")).findFirst().orElseThrow().rows();
-        var duplicate = new LinkedHashMap<>(projects.get(0)); duplicate.put("id","999"); projects.add(duplicate);
-        assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(data)));
-        assertEquals("关联公司", jdbc.queryForObject("SELECT name FROM mdm_enterprise WHERE id=1", String.class));
-    }
-    @Test void rejectsDanglingRelationTenantMismatchAndCompanyDenial() throws Exception {
-        var data = read(service.exportWorkbook()); row(data,"目录项目注册证绑定").put("project_code_id","999");
-        assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(data)));
-        byte[] original = service.exportWorkbook(); TenantContextHolder.setTenantId(11L);
-        assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(original));
-        TenantContextHolder.setTenantId(10L);
-        doThrow(new IllegalArgumentException("公司无权访问")).when(scope).validateUserCompanyAccess(any(), eq(2L));
-        assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(original));
-    }
+
 }

@@ -2,6 +2,12 @@
   <ContentWrap :class="{ 'edhr-record-viewport': !orderDetailVisible && activeTab !== 'review', 'edhr-ncr-review-viewport': !orderDetailVisible && activeTab === 'review' }">
     <ActiveOrderDetailLayout v-if="orderDetailVisible" data-edhr-ncr-active-order-detail>
       <el-button data-edhr-ncr-active-order-detail-back @click="closeOrderDetail">返回</el-button>
+      <NonconformanceReviewSummary
+        v-if="orderDetailSummary && !orderDetailLoading && !orderDetailError"
+        :summary="orderDetailSummary"
+        :status-label="resolveReviewStatusLabel(orderDetailSummary.review.reviewStatus)"
+        :disposition-label="resolveDispositionLabel(orderDetailSummary.review.disposition)"
+      />
       <ActiveOrderSubmissionDetailPanel
         :detail="orderDetail"
         :loading="orderDetailLoading"
@@ -223,6 +229,7 @@ import ActiveOrderSubmissionDetailPanel from '../processpool/components/ActiveOr
 import { useUserStore } from '@/store/modules/user'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import NonconformanceReviewWorkspace from './NonconformanceReviewWorkspace.vue'
+import NonconformanceReviewSummary from './NonconformanceReviewSummary.vue'
 import type { ReviewUploadAttempt } from './reviewWorkspace'
 import { useUserTableColumns } from '@/hooks/web/useUserTableColumns'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
@@ -244,6 +251,7 @@ import {
   uploadNonconformanceReviewMaterial,
   getNonconformanceReviewActiveOrderList,
   getNonconformanceReviewActiveOrderDetail,
+  getNonconformanceReviewSummary,
   getNonconformanceReviewPage,
   getNonconformanceReview,
   type EdhrNonconformanceReviewActiveOrderRespVO,
@@ -269,6 +277,7 @@ const orderDetailLoading = ref(false)
 const orderDetailError = ref('')
 const orderDetail = ref<Awaited<ReturnType<typeof getNonconformanceReviewActiveOrderDetail>>>()
 const orderDetailReview = ref<EdhrNonconformanceReviewRespVO>()
+const orderDetailSummary = ref<Awaited<ReturnType<typeof getNonconformanceReviewSummary>>>()
 let orderDetailSequence = 0
 
 const closeOrderDetail = () => {
@@ -277,6 +286,7 @@ const closeOrderDetail = () => {
   orderDetailLoading.value = false
   orderDetail.value = undefined
   orderDetailReview.value = undefined
+  orderDetailSummary.value = undefined
   orderDetailError.value = ''
 }
 
@@ -289,12 +299,19 @@ const openActiveOrderDetail = async (review: EdhrNonconformanceReviewRespVO) => 
   orderDetailVisible.value = true
   orderDetailLoading.value = true
   try {
-    const result = await getNonconformanceReviewActiveOrderDetail(review.id, {
-      ignoreErrorMessage: true, isRequestContextCurrent: current
-    })
+    const options = { ignoreErrorMessage: true, isRequestContextCurrent: current }
+    const [result, summary] = await Promise.all([
+      getNonconformanceReviewActiveOrderDetail(review.id, options),
+      getNonconformanceReviewSummary(review.id, options)
+    ])
     if (!current()) return
     if (!result) throw new Error('关联活跃工单详情为空。')
+    if (!summary?.review || String(summary.review.id) !== String(review.id) ||
+      String(summary.review.activeOrderId) !== String(result.activeOrderId)) {
+      throw new Error('评审摘要与原周期生产证据不一致。')
+    }
     orderDetail.value = result
+    orderDetailSummary.value = summary
   } catch (error) {
     if (current()) orderDetailError.value = resolveErrorMessage(error, '活跃工单详情加载失败。')
   } finally {

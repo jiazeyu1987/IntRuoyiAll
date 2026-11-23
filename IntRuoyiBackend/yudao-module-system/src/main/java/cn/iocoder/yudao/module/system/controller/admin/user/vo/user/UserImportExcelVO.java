@@ -31,6 +31,13 @@ public class UserImportExcelVO {
     @cn.idev.excel.annotation.ExcelIgnore
     private String deptName;
 
+    @ExcelProperty("部门路径")
+    private String deptPath;
+
+    /** JSON 字符串数组；以本行账号作为部门负责人，不使用源租户用户编号。 */
+    @ExcelProperty("负责部门路径")
+    private String leaderDeptPaths;
+
     @ExcelProperty("用户邮箱")
     private String email;
 

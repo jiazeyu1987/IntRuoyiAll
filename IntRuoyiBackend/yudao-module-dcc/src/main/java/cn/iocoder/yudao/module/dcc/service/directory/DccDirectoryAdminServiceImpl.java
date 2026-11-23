@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.dcc.service.directory;
 
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import cn.iocoder.yudao.module.dcc.controller.admin.directory.vo.DccDirectoryAccessRuleSaveReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.directory.vo.DccDirectorySaveReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccCategoryDirectoryBindingDO;
@@ -50,6 +51,7 @@ import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
@@ -153,10 +155,16 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
     public Long createDirectory(DccDirectorySaveReqVO reqVO) {
         storageMappingGuard.requireParentNotMappedLeaf(reqVO.getParentId());
         validateParentHierarchy(null, reqVO.getParentId());
+        validateCodeAvailable(reqVO.getParentId(), reqVO.getCode(), null);
         DccFileDirectoryDO directory = BeanUtils.toBean(reqVO, DccFileDirectoryDO.class);
         directory.setTenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         directory.setAccessRuleManuallyBound(Boolean.FALSE);
-        directoryMapper.insert(directory);
+        try {
+            directoryMapper.insert(directory);
+        } catch (DuplicateKeyException ex) {
+            validateCodeAvailable(reqVO.getParentId(), reqVO.getCode(), null);
+            throw ex;
+        }
         return directory.getId();
     }
 
@@ -166,7 +174,18 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
         storageMappingGuard.requireDirectoriesUnmapped(java.util.List.of(reqVO.getId()));
         storageMappingGuard.requireParentNotMappedLeaf(reqVO.getParentId());
         validateParentHierarchy(reqVO.getId(), reqVO.getParentId());
-        directoryMapper.updateById(BeanUtils.toBean(reqVO, DccFileDirectoryDO.class));
+        validateCodeAvailable(reqVO.getParentId(), reqVO.getCode(), reqVO.getId());
+        DccFileDirectoryDO update = BeanUtils.toBean(reqVO, DccFileDirectoryDO.class);
+        // parentId 为 NULL 表示根目录，实际写入必须与上面的层级、编码校验使用同一父目录。
+        update.setParentId(null);
+        try {
+            directoryMapper.update(update, new LambdaUpdateWrapper<DccFileDirectoryDO>()
+                    .eq(DccFileDirectoryDO::getId, reqVO.getId())
+                    .set(DccFileDirectoryDO::getParentId, reqVO.getParentId()));
+        } catch (DuplicateKeyException ex) {
+            validateCodeAvailable(reqVO.getParentId(), reqVO.getCode(), reqVO.getId());
+            throw ex;
+        }
     }
 
     @Override
@@ -380,6 +399,13 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
             DccFileDirectoryDO parent = byId.get(currentId);
             if (parent == null) throw exception(FILE_DIRECTORY_PARENT_NOT_EXISTS);
             currentId = parent.getParentId();
+        }
+    }
+
+    private void validateCodeAvailable(Long parentId, String code, Long excludeId) {
+        // MySQL 唯一索引允许 parent_id 为 NULL 时重复，不将 NULL 与 0 合并。
+        if (parentId != null && !directoryMapper.selectReservedCodeForUpdate(parentId, code, excludeId).isEmpty()) {
+            throw exception(DccDirectoryAdminErrors.CODE_EXISTS);
         }
     }
 

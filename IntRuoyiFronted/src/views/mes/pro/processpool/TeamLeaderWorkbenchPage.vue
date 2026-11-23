@@ -1468,7 +1468,7 @@
             {{ resolveSubmissionLossQuantity(detail) }}
           </el-descriptions-item>
           
-          <el-descriptions-item v-if="detail.pqcResult || detail.pqcSummary" label="PQC检验内容">
+          <el-descriptions-item v-if="detail.pqcResult || detail.pqcSummary" label="本条记录的检验结论">
             <el-tag :type="resolvePqcTagType(detail.pqcResult)" effect="plain">
               {{ formatPqcJudgement(detail.pqcSummary || detail.pqcResult) }}
             </el-tag>
@@ -1799,15 +1799,6 @@
                   @keydown.space.prevent.stop="openActiveOrderConflictDrawer(row)"
                 >
                   数量超限（仅提示）{{ row.overageQuantity ? ` +${formatTraceQuantity(row.overageQuantity)}` : '' }}
-                </el-tag>
-                <el-tag
-                  v-if="row.hasParameterAbnormal"
-                  type="danger"
-                  effect="plain"
-                  data-team-leader-active-order-parameter-abnormal
-                  title="生产记录存在异常参数，请在详情中查看对应工序及原始数值"
-                >
-                  参数异常（仅提示）
                 </el-tag>
               </div>
             </template>
@@ -5931,9 +5922,7 @@ const isActiveOrderReleaseApplicationLocked = (activeOrderId: number | string) =
 const resolveActiveOrderRowClassName = ({ row }: { row: TeamLeaderActiveOrderRespVO }) =>
   row.hasQuantityConflict || row.quantityConflict
     ? 'team-leader-workbench__active-order-row--quantity-conflict'
-    : row.hasParameterAbnormal
-      ? 'team-leader-workbench__active-order-row--parameter-abnormal'
-      : ''
+    : ''
 
 const canApplyActiveOrderRelease = (row: TeamLeaderActiveOrderRespVO) => {
   if (handoffReadOnly.value || row.readBlocked || row.abnormal) return false
@@ -8055,7 +8044,7 @@ const resolveSubmissionLossBreakdownItems = (
     return [
       {
         key: 'pqc-loss',
-        label: '不良/损耗',
+        label: '损耗数量',
         valueText: formatSubmissionQuantity(lossQuantity)
       }
     ]
@@ -9461,41 +9450,6 @@ const buildProductionCorrectionRequest = () => {
   }
 }
 
-const isPqcCorrectionFailedSampleValue = (
-  item: PqcInspectionCorrectionItemRow,
-  value: string
-) => {
-  const normalizedValue = value.trim()
-  const resultType = String(item.resultType || '').trim().toUpperCase()
-  if (resultType === 'BOOLEAN') {
-    return normalizedValue === '不合格'
-  }
-  if (resultType === 'NUMERIC') {
-    return isValueOutOfRange(normalizedValue, item.standardLowerLimit, item.standardUpperLimit)
-  }
-  return false
-}
-
-const resolvePqcCorrectionFailedSampleNos = (
-  items: PqcInspectionCorrectionItemRow[],
-  sampleValuesByItem: Map<string, string[]>
-) => {
-  const failedSampleNos = new Set<number>()
-  items.forEach((item) => {
-    const itemCode = item.itemCode.trim()
-    if (!itemCode) {
-      return
-    }
-    const sampleValues = sampleValuesByItem.get(itemCode) || []
-    sampleValues.forEach((value, index) => {
-      if (isPqcCorrectionFailedSampleValue(item, value)) {
-        failedSampleNos.add(index + 1)
-      }
-    })
-  })
-  return failedSampleNos
-}
-
 const getPqcCorrectionActualQuantity = () => Math.max(0, ...correctionForm.pqcItemResults.map(item =>
   parsePqcSampleText(item.sampleValuesText).length))
 
@@ -9512,7 +9466,6 @@ const buildPqcCorrectionRequest = () => {
     throw new Error('PQC损耗数量不能大于检验数量')
   }
   const auditFields = requireCorrectionAuditFields()
-  const sampleValuesByItem = new Map<string, string[]>()
   const itemResults = correctionForm.pqcItemResults.map((item) => {
     const itemCode = item.itemCode.trim()
     if (!itemCode) {
@@ -9522,7 +9475,6 @@ const buildPqcCorrectionRequest = () => {
     if (sampleValues.length < item.sampleQuantity) {
       throw new Error(`PQC项目 ${item.itemName || itemCode} 的样本数量不能少于规程要求的${item.sampleQuantity}件`)
     }
-    sampleValuesByItem.set(itemCode, sampleValues)
     return {
       itemCode,
       selectedEquipmentId: normalizePositiveNumber(item.selectedEquipmentId),
@@ -9532,13 +9484,6 @@ const buildPqcCorrectionRequest = () => {
   })
   if (!itemResults.length) {
     throw new Error('PQC检验项目不能为空')
-  }
-  const failedSampleCount = resolvePqcCorrectionFailedSampleNos(
-    correctionForm.pqcItemResults,
-    sampleValuesByItem
-  ).size
-  if (scrapQuantity < failedSampleCount) {
-    throw new Error(`PQC损耗数量不能小于逐件不合格数量（${failedSampleCount}）`)
   }
   return {
     eventId: requirePositiveNumber(correctionForm.eventId, '工序池提交事件编号不能为空'),
@@ -12104,8 +12049,7 @@ const allColumnDisplayFilters1: ListColumnFilterDefinition[] = [
   border-radius: 6px;
 }
 
-:deep(.team-leader-workbench__active-order-row--quantity-conflict > td),
-:deep(.team-leader-workbench__active-order-row--parameter-abnormal > td) {
+:deep(.team-leader-workbench__active-order-row--quantity-conflict > td) {
   background: var(--el-color-danger-light-9) !important;
 }
 

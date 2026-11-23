@@ -54,7 +54,19 @@ class DccRegistrationCertificateConfigServiceTest extends BaseDbUnitTest {
 
     private static Map<String, List<Long>> recipients() {
         return Map.of("T_30", List.of(101L, 102L), "T_8", List.of(102L),
-                "T_2", List.of(103L), "T_1", List.of(104L), "CHANGE_CONFIRMATION", List.of(104L));
+                "T_2", List.of(103L), "T_1", List.of(104L),
+                "CE_T_18", List.of(101L), "CE_T_12", List.of(102L), "CE_T_3", List.of(103L), "CHANGE_CONFIRMATION", List.of(104L));
+    }
+
+    @Test
+    void ceRecipientsAreIndependentFromDomesticRecipients() {
+        var current = service.getOrCreate(1L);
+        var groups = new java.util.LinkedHashMap<>(recipients());
+        groups.put("CE_T_12", List.of(901L, 902L));
+        var updated = service.update(1L, 99L, new DccRegistrationCertificateReminderConfigUpdateCommand(
+                true, "09:00", groups, current.rowVersion()));
+        assertEquals(List.of(901L, 902L), service.getRecipientUserIds(updated, "CE_T_12"));
+        assertEquals(List.of(102L), service.getRecipientUserIds(updated, "T_8"));
     }
 
     @Test

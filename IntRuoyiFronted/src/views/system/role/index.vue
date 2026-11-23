@@ -270,14 +270,6 @@
                     菜单权限
                   </el-button>
                   <el-button
-                    v-hasPermi="['system:permission:assign-role-data-scope']"
-                    link
-                    type="primary"
-                    @click="openDataPermissionForm(scope.row)"
-                  >
-                    数据权限
-                  </el-button>
-                  <el-button
                     v-hasPermi="['system:permission:assign-user-role']"
                     link
                     type="primary"
@@ -321,7 +313,6 @@
   <RoleCategoryForm ref="categoryFormRef" @success="refreshCategories" />
   <!-- 表单弹窗：菜单权限 -->
   <RoleAssignMenuForm ref="assignMenuFormRef" @success="getList" />
-  <RoleDataPermissionForm ref="dataPermissionFormRef" @success="getList" />
 
   <input ref="importInputRef" accept=".json" class="hidden" type="file" @change="handleImportFileChange" />
 </template>
@@ -345,7 +336,6 @@ import RoleAssignedUsers from './RoleAssignedUsers.vue'
 import RoleAssignUserForm from './RoleAssignUserForm.vue'
 import RoleCategoryForm from './RoleCategoryForm.vue'
 import RoleAssignMenuForm from './RoleAssignMenuForm.vue'
-import RoleDataPermissionForm from './RoleDataPermissionForm.vue'
 import EdhrPermissionTransfer from './EdhrPermissionTransfer.vue'
 
 
@@ -526,11 +516,6 @@ const handleDeleteBatch = async () => {
   } finally {
     batchDeleteLoading.value = false
   }
-}
-
-const dataPermissionFormRef = ref<InstanceType<typeof RoleDataPermissionForm>>()
-const openDataPermissionForm = (row: RoleApi.RoleVO) => {
-  dataPermissionFormRef.value?.open(row)
 }
 
 const handleRoleExcelExport = async () => {

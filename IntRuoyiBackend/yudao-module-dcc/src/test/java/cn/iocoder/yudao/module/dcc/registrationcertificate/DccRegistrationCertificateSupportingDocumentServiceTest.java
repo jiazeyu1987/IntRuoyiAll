@@ -22,7 +22,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_NOT_STAGED;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -41,8 +40,13 @@ class DccRegistrationCertificateSupportingDocumentServiceTest extends BaseDbUnit
 
     @jakarta.annotation.Resource
     private DccRegistrationCertificateSupportingDocumentService service;
-    @jakarta.annotation.Resource
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
     private JdbcTemplate jdbcTemplate;
+
+    @MockitoBean
+    private cn.iocoder.yudao.module.infra.service.file.FileService fileService;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateFileMapper registrationCertificateFileMapper;
 
     @MockitoBean
     private MdmCompanyScopeApi companyScopeApi;
@@ -50,6 +54,51 @@ class DccRegistrationCertificateSupportingDocumentServiceTest extends BaseDbUnit
 
     @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.dcc.registrationcertificate.service.reference.DccRegistrationCertificateFileReferenceService referenceService;
+
+    @Test
+    void rejectsUndeliverableFileNameBeforeStorage() {
+        seedCurrentCertificate();
+        var file = new org.springframework.mock.web.MockMultipartFile("file", "receipt", "application/pdf", new byte[]{1});
+        var error = org.junit.jupiter.api.Assertions.assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.uploadFile(1L,99L,"bad-name",1001L,2001L,"RENEWAL_ACCEPTANCE_RECEIPT",file));
+        org.junit.jupiter.api.Assertions.assertEquals(400, error.getCode());
+        org.mockito.Mockito.verifyNoInteractions(fileService);
+    }
+
+    @Test
+    void fileUploadPersistsBytesBindsAndReplaysOnlyMatchingContent() throws Exception {
+        Fixture fixture = seedCurrentCertificate();
+        org.mockito.Mockito.doAnswer(call -> {
+            int affected = (int) call.callRealMethod();
+            org.springframework.jdbc.support.KeyHolder keyHolder = call.getArgument(1);
+            Number generatedId = keyHolder.getKey();
+            keyHolder.getKeyList().set(0, java.util.Map.of("GENERATED_KEY", generatedId));
+            return affected;
+        }).when(jdbcTemplate).update(org.mockito.ArgumentMatchers.any(org.springframework.jdbc.core.PreparedStatementCreator.class),
+                org.mockito.ArgumentMatchers.any(org.springframework.jdbc.support.KeyHolder.class));
+        byte[] content = "real-support-material".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        org.mockito.Mockito.when(fileService.createFileAndReturnId(org.mockito.ArgumentMatchers.any(byte[].class),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString())).thenReturn(9201L);
+        var file = new org.springframework.mock.web.MockMultipartFile("file", "receipt.pdf", "application/pdf", content);
+        var result = service.uploadFile(1L, 99L, "upload-bytes", fixture.certificateId(), fixture.versionId(), "RENEWAL_ACCEPTANCE_RECEIPT", file);
+        assertEquals("BOUND", text("SELECT status FROM dcc_registration_certificate_file WHERE infra_file_id=9201"));
+        assertEquals("EFFECTIVE", result.status());
+        assertEquals(result, service.uploadFile(1L, 99L, "upload-bytes", fixture.certificateId(), fixture.versionId(), "RENEWAL_ACCEPTANCE_RECEIPT", file));
+        org.mockito.Mockito.verify(fileService).createFileAndReturnId(org.mockito.AdditionalMatchers.aryEq(content), org.mockito.ArgumentMatchers.eq("receipt.pdf"), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq("application/pdf"));
+        org.junit.jupiter.api.Assertions.assertThrows(ServiceException.class, () -> service.uploadFile(1L,99L,"upload-bytes",1001L,2001L,"RENEWAL_ACCEPTANCE_RECEIPT",new org.springframework.mock.web.MockMultipartFile("file","receipt.pdf","application/pdf",new byte[]{1})));
+        org.junit.jupiter.api.Assertions.assertThrows(ServiceException.class, () -> service.uploadFile(2L,99L,"other",1001L,2001L,"RENEWAL_ACCEPTANCE_RECEIPT",file));
+        org.junit.jupiter.api.Assertions.assertThrows(ServiceException.class, () -> service.uploadFile(1L,99L,"other",1001L,2002L,"RENEWAL_ACCEPTANCE_RECEIPT",file));
+    }
+
+    @Test
+    void domesticCertificateRejectsCeSupportingMaterial() {
+        Fixture fixture = seedCurrentCertificate();
+        var command = new DccRegistrationCertificateSupportingDocumentCommand(1L, 99L, "wrong-kind", null,
+                fixture.certificateId(), fixture.versionId(), fixture.businessFileId(), null, null,
+                "CE_RENEWAL_CONTRACT", null);
+        org.junit.jupiter.api.Assertions.assertThrows(ServiceException.class, () -> service.upload(command));
+        assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dcc_registration_certificate_supporting_document", Integer.class));
+    }
 
     @Test
     void effectiveUploadIsVisibleAndResolvableOnlyThroughItsOwnTenantCertificateAndVersion() {
@@ -92,7 +141,7 @@ class DccRegistrationCertificateSupportingDocumentServiceTest extends BaseDbUnit
         assertEquals(null, objectValue("SELECT open_unique_flag FROM dcc_registration_certificate_supporting_document WHERE id = ?", result.supportingDocumentId()));
         assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1 AND certificate_id = ? AND event_type = 'SUPPORTING_DOCUMENT_EFFECTIVE'", fixture.certificateId()));
         assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1 AND certificate_id = ? AND event_type IN ('SUPPORTING_DOCUMENT_CONFIRMED', 'SUPPORTING_DOCUMENT_REJECTED')", fixture.certificateId()));
-        org.mockito.Mockito.verify(companyScopeApi).validateUserCompanyAccess(99L, 10L);
+        org.mockito.Mockito.verifyNoInteractions(companyScopeApi);
     }
 
     @Test
@@ -124,11 +173,17 @@ class DccRegistrationCertificateSupportingDocumentServiceTest extends BaseDbUnit
     }
 
     @Test
-    void uploadValidatesDataOwnerCompanyMembership() {
+    void uploadSucceedsWithoutCompanyAuthorizationButRejectsOtherTenant() {
         Fixture fixture = seedCurrentCertificate();
+        doThrow(new ServiceException(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED))
+                .when(companyScopeApi).validateUserCompanyAccess(99L, 10L);
+        org.junit.jupiter.api.Assertions.assertThrows(ServiceException.class, () -> service.upload(
+                new DccRegistrationCertificateSupportingDocumentCommand(2L,99L,"cross-tenant",null,
+                        fixture.certificateId(),fixture.versionId(),fixture.businessFileId(),null,null,"RENEWAL_ACCEPTANCE_RECEIPT",null)));
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_supporting_document"));
         assertDoesNotThrow(() -> service.upload(uploadCommand(fixture)));
         assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_supporting_document WHERE tenant_id = 1 AND certificate_id = ?", fixture.certificateId()));
-        org.mockito.Mockito.verify(companyScopeApi).validateUserCompanyAccess(99L, 10L);
+        org.mockito.Mockito.verifyNoInteractions(companyScopeApi);
     }
 
     @Test

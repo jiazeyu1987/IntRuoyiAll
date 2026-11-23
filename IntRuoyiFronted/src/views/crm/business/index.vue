@@ -65,12 +65,16 @@
       <el-table-column align="center" fixed="left" label="客户名称" prop="customerName" width="120">
         <template #default="scope">
           <el-link
+            v-if="checkPermi(['crm:customer:query'])"
             :underline="false"
             type="primary"
             @click="openCustomerDetail(scope.row.customerId)"
           >
             {{ scope.row.customerName }}
           </el-link>
+          <span v-else>
+            {{ scope.row.customerName }}
+          </span>
         </template>
       </el-table-column>
       <el-table-column
@@ -239,6 +243,7 @@ const openDetail = (id: number) => {
 
 /** 打开客户详情 */
 const openCustomerDetail = (id: number) => {
+  if (!checkPermi(['crm:customer:query'])) return
   push({ name: 'CrmCustomerDetail', params: { id } })
 }
 

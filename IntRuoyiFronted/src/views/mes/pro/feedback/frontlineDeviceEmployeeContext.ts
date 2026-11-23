@@ -178,28 +178,30 @@ export const loadFrontlineDeviceProcesses = async (state: FrontlineDeviceEmploye
   }
 }
 
-export const loadFrontlinePqcActiveOrders = async (state: FrontlineDeviceEmployeeState) => {
+export const loadFrontlinePqcActiveOrders = async (state: FrontlineDeviceEmployeeState, isCurrent: () => boolean = () => true) => {
   state.loadingActiveOrders = true
   state.lastError = undefined
   try {
     const activeOrders = await ProFeedbackApi.getFrontlinePqcActiveOrders()
+    if (!isCurrent()) return activeOrders
     state.activeOrderOptions = activeOrders
     pruneFrontlinePqcProcessCache(state, activeOrders)
     clearFrontlinePqcSelectionIfUnavailable(state, activeOrders)
     return activeOrders
   } catch (error) {
-    state.lastError = resolveFrontlineErrorMessage(error)
+    if (isCurrent()) state.lastError = resolveFrontlineErrorMessage(error)
     throw error
   } finally {
-    state.loadingActiveOrders = false
+    if (isCurrent()) state.loadingActiveOrders = false
   }
 }
 
-export const loadFrontlineProductionActiveOrders = async (state: FrontlineDeviceEmployeeState) => {
+export const loadFrontlineProductionActiveOrders = async (state: FrontlineDeviceEmployeeState, isCurrent: () => boolean = () => true) => {
   state.loadingActiveOrders = true
   state.lastError = undefined
   try {
     const activeOrders = await ProFeedbackApi.getFrontlineProductionActiveOrders()
+    if (!isCurrent()) return activeOrders
     state.activeOrderOptions = activeOrders
     if (
       state.selectedActiveOrder &&
@@ -217,10 +219,10 @@ export const loadFrontlineProductionActiveOrders = async (state: FrontlineDevice
     }
     return activeOrders
   } catch (error) {
-    state.lastError = resolveFrontlineErrorMessage(error)
+    if (isCurrent()) state.lastError = resolveFrontlineErrorMessage(error)
     throw error
   } finally {
-    state.loadingActiveOrders = false
+    if (isCurrent()) state.loadingActiveOrders = false
   }
 }
 
@@ -527,6 +529,8 @@ export const selectFrontlinePqcProcess = async (
   state: FrontlineDeviceEmployeeState,
   process: FrontlinePqcProcessVO
 ) => {
+  const requestToken = ++state.processSelectionRequestToken
+  const isCurrent = () => requestToken === state.processSelectionRequestToken
   const cachedEmployees = state.pqcEmployeeOptionsCache
   state.selectedProcess = process
   state.selectedEmployee = undefined
@@ -542,13 +546,14 @@ export const selectFrontlinePqcProcess = async (
   state.lastError = undefined
   try {
     const employees = await getFrontlinePqcEmployeeCandidatesWithCache(state)
+    if (!isCurrent()) return []
     state.employeeOptions = employees
     return employees
   } catch (error) {
-    state.lastError = resolveFrontlineErrorMessage(error)
+    if (isCurrent()) state.lastError = resolveFrontlineErrorMessage(error)
     throw error
   } finally {
-    state.loadingEmployees = false
+    if (isCurrent()) state.loadingEmployees = false
   }
 }
 

@@ -122,7 +122,7 @@ const resolveProfileActiveTab = () => {
 }
 
 const activeName = ref(resolveProfileActiveTab())
-const handoffTasks = ref<HandoffApi.HandoffTask[]>([])
+const handoffTasks = ref<HandoffApi.OwnHandoffTask[]>([])
 const handoffLoadError = ref('')
 const handoffPanelRef = ref<{ refreshLayout: () => Promise<void> }>()
 const canReadActiveOrderHandoffs = computed(() =>
@@ -134,7 +134,7 @@ const canReadActiveOrderHandoffs = computed(() =>
   ])
 )
 const hasHandoffs = computed(() => canReadActiveOrderHandoffs.value && handoffTasks.value.length > 0)
-const handleHandoffsLoaded = (rows: HandoffApi.HandoffTask[]) => {
+const handleHandoffsLoaded = (rows: HandoffApi.OwnHandoffTask[]) => {
   handoffTasks.value = rows
   if (!rows.length && activeName.value === 'handoffs') activeName.value = 'notifyMessage'
 }

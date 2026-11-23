@@ -156,7 +156,7 @@
           <el-table-column v-if="isSignatureColumnVisible('execution')" label="业务记录" prop="execution" :width="getSignatureColumnWidthString('execution', 170)" v-bind="sortColumnAttrs('execution')">
             <template #default="{ row }">
               <el-button
-                v-if="row.executionId"
+                v-if="row.executionId && checkPermi(['mes:pro-batch-record-execution:query'])"
                 link
                 type="primary"
                 class="edhr-signature__execution-link"
@@ -164,7 +164,7 @@
               >
                 {{ row.executionCode || `执行 #${row.executionId}` }}
               </el-button>
-              <span v-else class="edhr-signature-muted">{{ row.executionCode || '--' }}</span>
+              <span v-else class="edhr-signature-muted">{{ row.executionCode || (row.executionId ? `执行 #${row.executionId}` : '--') }}</span>
             </template>
           </el-table-column>
           <el-table-column v-if="isSignatureColumnVisible('actionType')" label="动作结果" prop="actionType" :width="getSignatureColumnWidthString('actionType', 110)" v-bind="sortColumnAttrs('actionType')">
@@ -227,6 +227,7 @@
 </template>
 
 <script setup lang="ts">
+import { checkPermi } from '@/utils/permission'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { ContentWrap } from '@/components/ContentWrap'
@@ -425,6 +426,7 @@ const signatureQuickFilter = useTableQuickFilter(
 )
 
 const openExecution = async (row: EdhrSignatureSummaryVO) => {
+  if (!checkPermi(['mes:pro-batch-record-execution:query'])) return
   if (!row.executionId) return
   await router.push({
     path: '/mes/pro/feedback/edhr-execution/form',

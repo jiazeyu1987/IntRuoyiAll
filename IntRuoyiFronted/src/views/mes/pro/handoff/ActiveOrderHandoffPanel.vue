@@ -54,7 +54,7 @@
               >
                 {{ isNcrNotice(row.taskType) ? '查看通知' : row.status === 'TODO' ? '处理原轮次' : '查看原轮次' }}
               </el-button>
-              <el-button link type="primary" @click="showReceipts(row)">通知回执</el-button>
+              <el-button v-if="row.notificationReceiptAvailable" link type="primary" @click="showReceipts(row)">通知回执</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -106,10 +106,11 @@
           <template #default="{ row }">{{ formatNotificationSentAt(row.sentAt) }}</template>
         </el-table-column>
       </el-table>
-      <el-input v-model="retryReason" type="textarea" maxlength="1000" placeholder="填写通知重试原因" class="mt-4" />
+      <el-alert v-if="selected && !selected.notificationDeliveryEnabled" title="此类任务已停止发送站内信，仅供查看历史通知回执。" type="info" :closable="false" class="mt-4" />
+      <el-input v-if="selected?.notificationDeliveryEnabled" v-model="retryReason" type="textarea" maxlength="1000" placeholder="填写通知重试原因" class="mt-4" />
       <template #footer>
         <el-button :loading="receiptLoading" @click="refreshReceipts">刷新回执</el-button>
-        <el-button type="primary" :loading="retrying" :disabled="!retryable || !retryReason.trim() || receiptLoading" @click="retry">重试本人通知</el-button>
+        <el-button v-if="selected?.notificationDeliveryEnabled" type="primary" :loading="retrying" :disabled="!retryable || !retryReason.trim() || receiptLoading" @click="retry">重试本人通知</el-button>
       </template>
     </el-dialog>
   </el-card>
@@ -122,8 +123,8 @@ import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { ref, computed, nextTick, onMounted, onActivated, onDeactivated, onBeforeUnmount, watch } from 'vue'
 import type { TableInstance } from 'element-plus'
-const props = withDefaults(defineProps<{ hideWhenEmpty?: boolean; initialTasks?: api.HandoffTask[]; resultOnly?: boolean }>(), { hideWhenEmpty: false, resultOnly: false })
-const emit = defineEmits<{ (e: 'loaded', rows: api.HandoffTask[]): void }>()
+const props = withDefaults(defineProps<{ hideWhenEmpty?: boolean; initialTasks?: api.OwnHandoffTask[]; resultOnly?: boolean }>(), { hideWhenEmpty: false, resultOnly: false })
+const emit = defineEmits<{ (e: 'loaded', rows: api.OwnHandoffTask[]): void }>()
 import { useRouter, useRoute } from 'vue-router'
 import * as api from '@/api/mes/pro/handoff'
 import { resolveActiveOrderHandoffTarget, navigateToActiveOrderHandoff, isClosedHandoffCompletion } from '@/utils/activeOrderHandoffNavigation'
@@ -148,7 +149,7 @@ const completedResultOpen = ref(false), completedResult = ref<api.HandoffTask>()
 const completedResultLoading = ref(false), completedResultError = ref('')
 const completionSnapshot = ref<{ workOrderCode: string; processName: string }>()
 let completionEpoch = 0
-const tasks = ref<api.HandoffTask[]>([]), loading = ref(false), error = ref('')
+const tasks = ref<api.OwnHandoffTask[]>([]), loading = ref(false), error = ref('')
 const PAGE_SIZE = 100
 const page = ref(1)
 const handoffPageSize = ref(PAGE_SIZE)
@@ -160,7 +161,7 @@ const changePageSize = (size: number) => {
   handoffPageSize.value = size
   changePage(1)
 }
-const selected = ref<api.HandoffTask>(), receipts = ref<api.HandoffReceipt[]>([])
+const selected = ref<api.OwnHandoffTask>(), receipts = ref<api.HandoffReceipt[]>([])
 const receiptResponsibility = computed(() => {
   if (!selected.value) return { ids: [] as string[], error: '' }
   try { return { ids: readHandoffReceiptCandidates(selected.value), error: '' } }
@@ -198,8 +199,8 @@ const refreshReceipts = async () => {
   catch (e) { if (epoch === receiptEpoch) receiptError.value = failure(e) }
   finally { if (epoch === receiptEpoch) receiptLoading.value = false }
 }
-const showReceipts = async (task: api.HandoffTask) => { selected.value = task; retryReason.value = ''; receiptOpen.value = true; await refreshReceipts() }
-const retryable = computed(() => selected.value?.status !== 'CANCELED' && receipts.value.length === 1 && ['PENDING', 'FAILED'].includes(receipts.value[0].status))
+const showReceipts = async (task: api.OwnHandoffTask) => { selected.value = task; retryReason.value = ''; receiptOpen.value = true; await refreshReceipts() }
+const retryable = computed(() => selected.value?.notificationDeliveryEnabled === true && selected.value.status !== 'CANCELED' && receipts.value.length === 1 && ['PENDING', 'FAILED'].includes(receipts.value[0].status))
 const retry = async () => {
   if (!retryable.value || !retryReason.value.trim() || retrying.value) return
   const task = selected.value!, row = receipts.value[0], epoch = receiptEpoch

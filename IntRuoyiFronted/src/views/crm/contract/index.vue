@@ -93,23 +93,31 @@
       <el-table-column align="center" label="客户名称" prop="customerName" width="120">
         <template #default="scope">
           <el-link
+            v-if="checkPermi(['crm:customer:query'])"
             :underline="false"
             type="primary"
             @click="openCustomerDetail(scope.row.customerId)"
           >
             {{ scope.row.customerName }}
           </el-link>
+          <span v-else>
+            {{ scope.row.customerName }}
+          </span>
         </template>
       </el-table-column>
       <el-table-column align="center" label="商机名称" prop="businessName" width="130">
         <template #default="scope">
           <el-link
+            v-if="checkPermi(['crm:business:query'])"
             :underline="false"
             type="primary"
             @click="openBusinessDetail(scope.row.businessId)"
           >
             {{ scope.row.businessName }}
           </el-link>
+          <span v-else>
+            {{ scope.row.businessName }}
+          </span>
         </template>
       </el-table-column>
       <el-table-column
@@ -143,12 +151,16 @@
       <el-table-column align="center" label="客户签约人" prop="contactName" width="130">
         <template #default="scope">
           <el-link
+            v-if="checkPermi(['crm:contact:query'])"
             :underline="false"
             type="primary"
             @click="openContactDetail(scope.row.signContactId)"
           >
             {{ scope.row.signContactName }}
           </el-link>
+          <span v-else>
+            {{ scope.row.signContactName }}
+          </span>
         </template>
       </el-table-column>
       <el-table-column align="center" label="公司签约人" prop="signUserName" width="130" />
@@ -385,16 +397,19 @@ const openDetail = (id: number) => {
 
 /** 打开客户详情 */
 const openCustomerDetail = (id: number) => {
+  if (!checkPermi(['crm:customer:query'])) return
   push({ name: 'CrmCustomerDetail', params: { id } })
 }
 
 /** 打开联系人详情 */
 const openContactDetail = (id: number) => {
+  if (!checkPermi(['crm:contact:query'])) return
   push({ name: 'CrmContactDetail', params: { id } })
 }
 
 /** 打开商机详情 */
 const openBusinessDetail = (id: number) => {
+  if (!checkPermi(['crm:business:query'])) return
   push({ name: 'CrmBusinessDetail', params: { id } })
 }
 

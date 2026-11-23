@@ -11,6 +11,7 @@ test('historical facts label distinguishes recorded state without changing the r
   const context = { historicalRecord, field: 'certificateStatus', model: facts, factLabels: { certificateStatus: '证件状态' } }
   assert.equal(vm.runInNewContext(expression, context), historicalRecord ? '证载状态（历史记录）' : '证件状态')
   assert.equal(facts.certificateStatus, 'VALID')
+  assert.equal(vm.runInNewContext(expression, { ...context, field: 'expiryDate', factLabels: { expiryDate: '有效期至' } }), historicalRecord ? '原有效期至' : '有效期至')
  }
 })
 test('old detail shows replacement notice and historical facts; evidence snapshots are marked historical', () => {

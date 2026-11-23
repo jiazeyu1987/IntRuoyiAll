@@ -439,8 +439,8 @@
                       <th>输出物料编码</th>
                       <th>输出物料名称</th>
                       <th>规格型号</th>
-                      <th>生产数量</th>
-                      <th>损耗数量</th>
+                      <th>原始生产数量</th>
+                      <th>原始损耗数量</th>
                       <th>总数量</th>
                       <th>清场确认</th>
                       <th>物料确认</th>
@@ -456,10 +456,10 @@
                     >
                       <tr data-active-order-production-record-main-row>
                         <td>{{ formatDateTime(row.submittedAt) }}</td>
-                        <td><MaterialCodeLink :code="row.materialCode" empty-text="未记录" /></td>
-                        <td>{{ row.materialName || '未记录' }}</td>
-                        <td>{{ row.materialSpecification || '未记录' }}</td>
-                        <td>{{ formatTraceQuantity(row.outputQuantity) }}</td>
+                        <td><template v-if="row.materials.length"><div v-for="(material, index) in row.materials" :key="index"><MaterialCodeLink :code="material.materialCode" empty-text="未记录" /></div></template><span v-else>未记录</span></td>
+                        <td><template v-if="row.materials.length"><div v-for="(material, index) in row.materials" :key="index">{{ material.materialName || '未记录' }}</div></template><span v-else>未记录</span></td>
+                        <td><template v-if="row.materials.length"><div v-for="(material, index) in row.materials" :key="index">{{ material.materialSpecification || '未记录' }}</div></template><span v-else>未记录</span></td>
+                        <td>{{ formatTraceQuantity(row.outputQuantity) }}<small class="block">本单分配：{{ formatTraceQuantity(row.submittedQuantity) }}</small></td>
                         <td>{{ formatTraceQuantity(row.lossQuantity) }}</td>
                         <td>{{ formatTraceQuantity(row.totalQuantity) }}</td>
                         <td>{{ formatProductionRecordClearanceConfirmation(row.clearanceConfirmations, 'workplace') }}</td>
@@ -486,6 +486,13 @@
                           >
                             {{ formatActiveOrderSignatureCellText(row.reviewerSignature) }}
                           </button>
+                        </td>
+                      </tr>
+                      <tr v-for="(material, materialIndex) in buildProductionRecordEvidenceRows(row)" :key="`${row.key}-material-${materialIndex}`">
+                        <td colspan="12">物料核查：{{ material.materialCode }} {{ material.materialName }}；
+                          场地：{{ formatProductionRecordClearanceConfirmation(material.clearanceConfirmations ?? [], 'workplace') }}；
+                          物料：{{ formatProductionRecordClearanceConfirmation(material.clearanceConfirmations ?? [], 'material') }}；
+                          清洁：{{ formatProductionRecordClearanceConfirmation(material.clearanceConfirmations ?? [], 'cleaning') }}
                         </td>
                       </tr>
                       <tr data-active-order-production-record-device-row>
@@ -518,6 +525,7 @@
                                       v-for="parameter in deviceGroup.parameters"
                                       :key="`${parameter.key}-name`"
                                       :colspan="2"
+                                      :class="{ 'team-leader-workbench__production-record-warning': parameter.outOfRange }"
                                     >
                                       {{ parameter.parameterNameText }}
                                     </th>
@@ -562,13 +570,13 @@
                 <el-empty v-else :image-size="56" description="暂无可生成的生产提交记录" />
                 <div class="team-leader-workbench__production-record-totals">
                   <span>
-                    生产数量合计：{{ formatTraceQuantity(buildProductionRecordTotals(buildProductionRecordRows(process)).outputQuantity) }}
+                    原始生产数量合计：{{ formatTraceQuantity(buildProductionRecordTotals(buildProductionRecordRows(process)).outputQuantity) }}
                   </span>
                   <span>
-                    损耗数量合计：{{ formatTraceQuantity(buildProductionRecordTotals(buildProductionRecordRows(process)).lossQuantity) }}
+                    原始损耗数量合计：{{ formatTraceQuantity(buildProductionRecordTotals(buildProductionRecordRows(process)).lossQuantity) }}
                   </span>
                   <strong>
-                    总数量合计：{{ formatTraceQuantity(buildProductionRecordTotals(buildProductionRecordRows(process)).totalQuantity) }}
+                    原始总数量合计：{{ formatTraceQuantity(buildProductionRecordTotals(buildProductionRecordRows(process)).totalQuantity) }}
                   </strong>
                 </div>
               </section>
@@ -768,7 +776,7 @@
                 <strong>{{ pqcInspectionRecordSummary.itemCount }} 项</strong>
               </div>
               <div>
-                <span>检验结论</span>
+                <span>样本检验结论</span>
                 <strong>{{ pqcInspectionRecordSummary.judgementText }}</strong>
               </div>
               <div>
@@ -947,9 +955,10 @@
                     v-for="link in renderActiveOrderDocumentLinks([document.billNo], [document.id], 'pick')"
                     :key="link.key"
                   >
-                    <el-button link type="primary" :disabled="handoffReadOnly" @click="openActiveOrderDocument(link)">
+                    <el-button v-if="canOpenActiveOrderDocument(link)" link type="primary" :disabled="handoffReadOnly" @click="openActiveOrderDocument(link)">
                       {{ link.no }}
                     </el-button>
+                    <span v-else>{{ link.no }}</span>
                   </template>
                 </div>
                 <div>
@@ -1029,9 +1038,10 @@
                     v-for="link in renderActiveOrderDocumentLinks(material.sourceReplenishmentListNos, material.sourceReplenishmentListIds, 'replenishment')"
                     :key="link.key"
                   >
-                    <el-button link type="primary" :disabled="handoffReadOnly" @click="openActiveOrderDocument(link)">
+                    <el-button v-if="canOpenActiveOrderDocument(link)" link type="primary" :disabled="handoffReadOnly" @click="openActiveOrderDocument(link)">
                       {{ link.no }}
                     </el-button>
+                    <span v-else>{{ link.no }}</span>
                   </template>
                   <span v-if="!renderActiveOrderDocumentLinks(material.sourceReplenishmentListNos, material.sourceReplenishmentListIds, 'replenishment').length">
                     -
@@ -1170,6 +1180,7 @@
             <div>
               <span>工单编号</span>
               <el-button
+                v-if="checkPermi(['mes:pro-work-order:query'])"
                 link
                 type="primary"
                 data-active-order-work-order-link
@@ -1178,6 +1189,7 @@
               >
                 {{ activeOrderWorkOrderDisplay.workOrderCode }}
               </el-button>
+                  <span v-else>{{ activeOrderWorkOrderDisplay.workOrderCode }}</span>
             </div>
             <div>
               <span>批次号</span>
@@ -1230,6 +1242,7 @@
               <el-table-column label="工单编号">
                 <template #default="{ row }">
                   <el-button
+                v-if="checkPermi(['mes:pro-work-order:query'])"
                     link
                     type="primary"
                     class="team-leader-workbench__work-order-list-link"
@@ -1239,6 +1252,7 @@
                   >
                     {{ row.workOrderCode }}
                   </el-button>
+                  <span v-else>{{ row.workOrderCode }}</span>
                 </template>
               </el-table-column>
               <el-table-column label="数量">
@@ -1431,14 +1445,14 @@
                 </tr>
                 <tr>
                   <th colspan="8" class="team-leader-workbench__pqc-loss-description">
-                    损耗描述：
+                    损耗描述（损耗不代表不合格）：
                   </th>
                 </tr>
                 <tr>
-                  <th>不合格日期</th>
+                  <th>损耗日期</th>
                   <th>工序名称</th>
-                  <th>不合格数量</th>
-                  <th>不合格原因</th>
+                  <th>损耗数量</th>
+                  <th>损耗原因</th>
                   <th>处置方式</th>
                   <th>生产人员/日期</th>
                   <th>检验人员确认日期</th>
@@ -1748,8 +1762,8 @@
                 <th>输出物料编码</th>
                 <th>输出物料名称</th>
                 <th>规格型号</th>
-                <th>生产数量</th>
-                <th>损耗数量</th>
+                <th>原始生产数量</th>
+                <th>原始损耗数量</th>
                 <th>总数量</th>
                 <th>清场确认</th>
                 <th>物料确认</th>
@@ -1765,10 +1779,10 @@
               >
                 <tr data-active-order-production-record-main-row>
                   <td>{{ formatDateTime(row.submittedAt) }}</td>
-                  <td><MaterialCodeLink :code="row.materialCode" empty-text="未记录" /></td>
-                  <td>{{ row.materialName || '未记录' }}</td>
-                  <td>{{ row.materialSpecification || '未记录' }}</td>
-                  <td>{{ formatTraceQuantity(row.outputQuantity) }}</td>
+                  <td><template v-if="row.materials.length"><div v-for="(material, index) in row.materials" :key="index"><MaterialCodeLink :code="material.materialCode" empty-text="未记录" /></div></template><span v-else>未记录</span></td>
+                  <td><template v-if="row.materials.length"><div v-for="(material, index) in row.materials" :key="index">{{ material.materialName || '未记录' }}</div></template><span v-else>未记录</span></td>
+                  <td><template v-if="row.materials.length"><div v-for="(material, index) in row.materials" :key="index">{{ material.materialSpecification || '未记录' }}</div></template><span v-else>未记录</span></td>
+                  <td>{{ formatTraceQuantity(row.outputQuantity) }}<small class="block">本单分配：{{ formatTraceQuantity(row.submittedQuantity) }}</small></td>
                   <td>{{ formatTraceQuantity(row.lossQuantity) }}</td>
                   <td>{{ formatTraceQuantity(row.totalQuantity) }}</td>
                   <td>{{ formatProductionRecordClearanceConfirmation(row.clearanceConfirmations, 'workplace') }}</td>
@@ -1797,7 +1811,14 @@
                     </button>
                   </td>
                 </tr>
-                <tr data-active-order-production-record-device-row>
+                <tr v-for="(material, materialIndex) in buildProductionRecordEvidenceRows(row)" :key="`${row.key}-material-${materialIndex}`">
+                        <td colspan="12">物料核查：{{ material.materialCode }} {{ material.materialName }}；
+                          场地：{{ formatProductionRecordClearanceConfirmation(material.clearanceConfirmations ?? [], 'workplace') }}；
+                          物料：{{ formatProductionRecordClearanceConfirmation(material.clearanceConfirmations ?? [], 'material') }}；
+                          清洁：{{ formatProductionRecordClearanceConfirmation(material.clearanceConfirmations ?? [], 'cleaning') }}
+                        </td>
+                      </tr>
+                      <tr data-active-order-production-record-device-row>
                   <td colspan="12">
                     <div
                       v-if="buildProductionRecordRowDeviceGroups(row).length"
@@ -1827,6 +1848,7 @@
                                 v-for="parameter in deviceGroup.parameters"
                                 :key="`${parameter.key}-name`"
                                 :colspan="2"
+                                :class="{ 'team-leader-workbench__production-record-warning': parameter.outOfRange }"
                               >
                                 {{ parameter.parameterNameText }}
                               </th>
@@ -1870,9 +1892,9 @@
           </table>
           <el-empty v-else :image-size="56" description="暂无可生成的生产提交记录" />
           <div class="team-leader-workbench__production-record-totals">
-            <span>生产数量合计：{{ formatTraceQuantity(productionRecordTotals.outputQuantity) }}</span>
-            <span>损耗数量合计：{{ formatTraceQuantity(productionRecordTotals.lossQuantity) }}</span>
-            <strong>总数量合计：{{ formatTraceQuantity(productionRecordTotals.totalQuantity) }}</strong>
+            <span>原始生产数量合计：{{ formatTraceQuantity(productionRecordTotals.outputQuantity) }}</span>
+            <span>原始损耗数量合计：{{ formatTraceQuantity(productionRecordTotals.lossQuantity) }}</span>
+            <strong>原始总数量合计：{{ formatTraceQuantity(productionRecordTotals.totalQuantity) }}</strong>
           </div>
         </section>
       </el-dialog>
@@ -1914,7 +1936,7 @@
               <strong>{{ pqcInspectionRecordSummary.itemCount }} 项</strong>
             </div>
             <div>
-              <span>检验结论</span>
+              <span>样本检验结论</span>
               <strong>{{ pqcInspectionRecordSummary.judgementText }}</strong>
             </div>
             <div>
@@ -2092,7 +2114,7 @@
         <div v-else-if="signatureEvidenceViewer.state.selected" class="signature-detail" data-active-order-signature-evidence>
           <div class="signature-detail__summary">
             <div class="signature-detail__person"><span class="signature-detail__avatar"><Icon icon="ep:user" :size="26" /></span><div><span>签署人</span><strong>{{ signatureEvidenceViewer.state.selected.signerName || '未记录' }}</strong></div></div>
-            <div><span>业务动作</span><strong>{{ signatureActionLabel(signatureEvidenceViewer.state.selected.evidence.actionCode) }}</strong></div>
+            <div><span>业务动作</span><strong>{{ signatureActionLabel(signatureEvidenceViewer.state.selected.evidence) }}</strong></div>
             <div><span>签署时间</span><strong>{{ signatureEvidenceViewer.state.selected.evidence.signedAt == null ? '签署时间未记录' : formatDateTime(signatureEvidenceViewer.state.selected.evidence.signedAt) }}</strong></div>
           </div>
           <el-alert
@@ -2146,6 +2168,7 @@
 </template>
 
 <script setup lang="ts">
+import { checkPermi } from '@/utils/permission'
 import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
 import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
@@ -2198,6 +2221,7 @@ import {
   type ActiveOrderSignatureScope,
   type ActiveOrderSignatureIdentity
 } from '@/api/mes/pro/edhr/activeOrderSignature'
+import type { ActiveOrderSignatureEvidence } from '@/api/mes/pro/edhr/activeOrderSignature'
 import { signatureVerificationDisplay } from './activeOrderSignatureVerificationDisplay'
 import { verificationStatusLabel, nonconformanceDispositionLabel, pickDocumentStatusLabel } from './activeOrderDisplayLabels'
 import { createActiveOrderSignatureEvidenceViewer, type SignatureBusinessContext } from './activeOrderSignatureEvidenceViewer'
@@ -2352,7 +2376,12 @@ const signatureEvidenceContext = computed<SignatureBusinessContext | undefined>(
   if (identity === undefined) return undefined
   return { scope, identity, activeOrderId: props.detail.activeOrderId }
 })
-const signatureActionLabel = (code: string) => {
+const signatureActionLabel = (evidence: ActiveOrderSignatureEvidence['evidence']) => {
+  const code = evidence.actionCode
+  if (code === 'APPROVE' && evidence.moduleCode === 'BPM' &&
+      evidence.subjectType === 'BPM_APPROVAL_TASK' && /^EDHR_RELEASE:[1-9]\d*$/.test(evidence.subjectId)) {
+    return '批准上市放行'
+  }
   const labels: Record<string, string> = {
     PRODUCTION_SUBMIT: '生产提交', TEAM_LEADER_REVIEW: '组长复核',
     PQC_SUBMIT: 'PQC检验提交', PQC_RELEASE: '生产放行', MARKET_RELEASE: '上市放行',
@@ -2376,7 +2405,14 @@ const signatureAuthenticationLabel = (method?: string) => {
 }
 
 const signatureEvidenceViewer = createActiveOrderSignatureEvidenceViewer(
-  () => signatureEvidenceContext.value, getActiveOrderSignatureEvidence
+  () => signatureEvidenceContext.value, getActiveOrderSignatureEvidence,
+  (result) => {
+    signatureActionLabel(result.evidence)
+    signatureAuthenticationLabel(result.evidence.authenticationMethod)
+    verificationStatusLabel(result.evidence.verificationStatus)
+    signatureVerificationDisplay(result.verification)
+    if (result.evidence.signedAt != null) formatDateTime(result.evidence.signedAt)
+  }
 )
 watch(signatureEvidenceContext, () => signatureEvidenceViewer.close())
 onBeforeUnmount(() => signatureEvidenceViewer.close())
@@ -2661,7 +2697,11 @@ const renderActiveOrderDocumentLinks = (
     .filter((link) => link.no)
 }
 
+const canOpenActiveOrderDocument = (link: ActiveOrderDocumentLink) =>
+  checkPermi([link.type === 'pick' ? 'erp:production-pick-list:query' : 'erp:production-replenishment-list:query'])
+
 const openActiveOrderDocument = (link: ActiveOrderDocumentLink) => {
+  if (!canOpenActiveOrderDocument(link)) return
   if (props.handoffReadOnly) { ElMessage.warning('当前为原轮次只读查看，请返回正常业务入口查看单据。'); return }
   if (link.type === 'pick') {
     router.push({
@@ -2681,6 +2721,7 @@ const openActiveOrderDocument = (link: ActiveOrderDocumentLink) => {
 }
 
 const openWorkOrderList = (workOrderCode: string) => {
+  if (!checkPermi(['mes:pro-work-order:query'])) return
   if (props.handoffReadOnly) { ElMessage.warning('当前为原轮次只读查看，请返回正常业务入口查看生产工单。'); return }
   router.push({
     path: '/mes/pro/work-order',
@@ -2965,6 +3006,7 @@ interface ActiveOrderProductionSubmissionRow {
 }
 
 interface ActiveOrderProductionRecordRow extends ActiveOrderProductionSubmissionRow {
+  materials: TeamLeaderActiveOrderSubmissionMaterialDetailRespVO[]
   deviceParameters: TeamLeaderActiveOrderSubmissionDeviceParameterRespVO[]
   clearanceConfirmations: TeamLeaderActiveOrderClearanceConfirmationRespVO[]
   totalQuantity?: number | string
@@ -2993,30 +3035,6 @@ interface ActiveOrderProductionRecordMaterialDeviceGroup {
   materialText: string
   devices: ActiveOrderProductionRecordDeviceGroup[]
 }
-
-const toActiveOrderProductionMaterialSubmissionRow = (
-  submission: TeamLeaderActiveOrderSubmissionDetailRespVO,
-  material: TeamLeaderActiveOrderSubmissionMaterialDetailRespVO,
-  materialIndex: number
-): ActiveOrderProductionSubmissionRow => ({
-  key: `${submission.eventId}-${materialIndex}-${material.materialId}-${material.materialCode}`,
-  eventId: submission.eventId,
-  originalBusinessIdentityJson: submission.originalBusinessIdentityJson,
-  materialId: material.materialId,
-  materialCode: material.materialCode,
-  materialName: material.materialName,
-  materialSpecification: material.materialSpecification,
-  submittedQuantity: submission.submittedQuantity,
-  outputQuantity: material.outputQuantity,
-  lossQuantity: material.lossQuantity,
-  submitterName: submission.submitterName,
-  reviewerName: submission.reviewerName,
-  submittedAt: submission.submittedAt,
-  submitterSignature: submission.submitterSignature,
-  reviewerSignature: submission.reviewerSignature,
-  quantityConflict: submission.quantityConflict,
-  devices: material.devices?.length ? material.devices : submission.devices
-})
 
 const toActiveOrderProductionEventSubmissionRow = (
   submission: TeamLeaderActiveOrderSubmissionDetailRespVO
@@ -3078,12 +3096,6 @@ const toNumberOrUndefined = (value?: number | string) => {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
-const normalizeProductionRecordLossQuantity = (value?: number | string) => {
-  const parsed = toNumberOrUndefined(value)
-  if (parsed === undefined) return 0
-  return parsed
-}
-
 const sumProductionRecordQuantities = (...values: Array<number | string | undefined>) =>
   values.reduce<number>((total, value) => total + (toNumberOrUndefined(value) ?? 0), 0)
 
@@ -3094,31 +3106,17 @@ const buildProductionRecordRows = (
   const rows: ActiveOrderProductionRecordRow[] = []
   for (const submission of process.submissions ?? []) {
     const submissionDeviceParameters = submission.deviceParameters ?? []
-    if (submission.materials?.length) {
-      for (const [materialIndex, material] of submission.materials.entries()) {
-        const outputQuantity = material.outputQuantity ?? submission.submittedQuantity
-        const lossQuantity = normalizeProductionRecordLossQuantity(material.lossQuantity)
-        const deviceParameters = material.deviceParameters?.length
-          ? material.deviceParameters
-          : submissionDeviceParameters
-        rows.push({
-          ...toActiveOrderProductionMaterialSubmissionRow(submission, material, materialIndex),
-          outputQuantity,
-          lossQuantity,
-          totalQuantity: sumProductionRecordQuantities(outputQuantity, lossQuantity),
-          deviceParameters,
-          clearanceConfirmations: material.clearanceConfirmations?.length
-            ? material.clearanceConfirmations
-            : submission.clearanceConfirmations ?? []
-        })
-      }
-      continue
+    const outputQuantity = toNumberOrUndefined(submission.originalOutputQuantity)
+    const lossQuantity = toNumberOrUndefined(submission.originalLossQuantity)
+    if (outputQuantity === undefined || lossQuantity === undefined) {
+      throw new Error(`生产事件 ${submission.eventId} 缺少正式提交数量`)
     }
     rows.push({
       ...toActiveOrderProductionEventSubmissionRow(submission),
-      outputQuantity: submission.submittedQuantity,
-      lossQuantity: 0,
-      totalQuantity: sumProductionRecordQuantities(submission.submittedQuantity, 0),
+      materials: submission.materials ?? [],
+      outputQuantity,
+      lossQuantity,
+      totalQuantity: sumProductionRecordQuantities(outputQuantity, lossQuantity),
       deviceParameters: submissionDeviceParameters,
       clearanceConfirmations: submission.clearanceConfirmations ?? []
     })
@@ -3299,8 +3297,27 @@ const buildProductionRecordMaterialDeviceGroups = (
   return result
 }
 
-const buildProductionRecordRowDeviceGroups = (row: ActiveOrderProductionRecordRow) =>
-  buildProductionRecordMaterialDeviceGroups([row])[0]?.devices ?? []
+const buildProductionRecordEvidenceRows = (row: ActiveOrderProductionRecordRow) =>
+  row.materials.map((material, index) => ({
+    ...row, ...material, key: `${row.key}-material-${index}`,
+    devices: material.devices?.length ? material.devices : row.devices,
+    deviceParameters: material.deviceParameters?.length ? material.deviceParameters : row.deviceParameters,
+    clearanceConfirmations: material.clearanceConfirmations?.length
+      ? material.clearanceConfirmations
+      : row.clearanceConfirmations
+  }))
+
+const buildProductionRecordRowDeviceGroups = (row: ActiveOrderProductionRecordRow) => {
+  const materialGroups = buildProductionRecordMaterialDeviceGroups(buildProductionRecordEvidenceRows(row))
+  const materialDeviceKeys = new Set(materialGroups.flatMap(group => group.devices.map(device => device.key.slice(group.key.replace(/-device-group$/, "").length + 1))))
+  const eventGroups = buildProductionRecordMaterialDeviceGroups([row])
+  return [
+    ...materialGroups.flatMap(group => group.devices.map(device => ({
+      ...device, deviceNameText: `${group.materialText} / ${device.deviceNameText}`
+    }))),
+    ...eventGroups.flatMap(group => group.devices).filter(device => !materialDeviceKeys.has(device.key.slice(row.key.length + 1)))
+  ]
+}
 
 const formatProductionInputMaterialPickListEvidence = (
   material: TeamLeaderActiveOrderInputMaterialDetailRespVO

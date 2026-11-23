@@ -1399,7 +1399,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 task, command, regulationDccProjectCodeId);
         List<MesPqcInspectionPieceDetailDO> pieceDetails = buildPieceDetails(task, command,
                 inspectionItems);
-        String inspectionResult = resolvePqcInspectionResult(command.getScrapQuantity(), pieceDetails);
+        String inspectionResult = resolvePqcInspectionResult(pieceDetails);
         signatureService.validatePqcSubmitSignature(command.getActualEmployeeId(), command.getSignaturePassword());
         String contentHash = CanonicalPqcSubmissionV2.hash(task, command, pieceDetails);
         if (PQC_TASK_STATUS_SUBMITTED.equals(task.getTaskStatus())) {
@@ -1942,10 +1942,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         return events.get(0);
     }
 
-    private String resolvePqcInspectionResult(Integer scrapQuantity,
-                                              List<MesPqcInspectionPieceDetailDO> pieceDetails) {
-        int safeScrapQuantity = scrapQuantity == null ? 0 : scrapQuantity;
-        if (safeScrapQuantity > 0 || pieceDetails.stream().anyMatch(detail ->
+    private String resolvePqcInspectionResult(List<MesPqcInspectionPieceDetailDO> pieceDetails) {
+        if (pieceDetails.stream().anyMatch(detail ->
                 MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE.equals(detail.getJudgement()))) {
             return MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE;
         }

@@ -1,6 +1,9 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewSummaryRespVO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.handoff.MesActiveOrderHandoffTaskMapper;
+import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand;
@@ -156,6 +159,10 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Resource
     private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
+
+    @Resource private MesActiveOrderHandoffTaskMapper summaryHandoffTaskMapper;
+    @Resource private AdminUserService summaryUserService;
+    @Resource private MesMarketReleaseAccess summaryMarketReleaseAccess;
     @Resource
     private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     @Resource
@@ -1179,6 +1186,39 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
             throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_NOT_EXISTS);
         }
         return toResp(review);
+    }
+
+    @Override
+    public MesProEdhrNonconformanceReviewSummaryRespVO getSummary(Long id) {
+        Long activeOrderId = requireReviewActiveOrder(id);
+        summaryMarketReleaseAccess.requireActiveOrderReadable(activeOrderId);
+        var review = reviewMapper.selectById(id);
+        var result = new MesProEdhrNonconformanceReviewSummaryRespVO().setReview(toResp(review))
+                .setQaReviewerName(summaryUserName(review.getQaReviewerUserId()))
+                .setQaUserName(summaryUserName(review.getQaUserId()));
+        var task = summaryHandoffTaskMapper.byIdentity(activeOrderId, "QA_REVIEW", "NONCONFORMANCE_REVIEW", id, id);
+        if (task == null) {
+            if (review.getQaReviewerUserId() != null) throw new IllegalStateException("评审缺少原周期正式QA交接任务");
+            return result;
+        }
+        if (!Objects.equals(task.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || !Objects.equals(task.getActiveOrderId(), activeOrderId)
+                || !Objects.equals(task.getWorkOrderId(), review.getWorkOrderId())
+                || !Objects.equals(task.getSourceId(), id) || !Objects.equals(task.getRoundId(), id)
+                || !"QA_REVIEW".equals(task.getTaskType()) || !"NONCONFORMANCE_REVIEW".equals(task.getSourceType())
+                || task.getId() == null || Boolean.TRUE.equals(task.getNotificationOnly())
+                || !java.util.Set.of("TODO", "DONE", "CANCELED").contains(task.getStatus() == null ? "" : task.getStatus())) {
+            throw new IllegalStateException("评审QA交接任务身份或状态不一致");
+        }
+        return result.setQaTaskId(task.getId()).setQaTaskStatus(task.getStatus());
+    }
+
+    private String summaryUserName(Long userId) {
+        if (userId == null) return null;
+        var user = summaryUserService.getUser(userId);
+        if (user == null || !Objects.equals(user.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || StrUtil.isBlank(user.getNickname())) throw new IllegalStateException("评审关联QA人员资料缺失");
+        return user.getNickname();
     }
 
     @Override

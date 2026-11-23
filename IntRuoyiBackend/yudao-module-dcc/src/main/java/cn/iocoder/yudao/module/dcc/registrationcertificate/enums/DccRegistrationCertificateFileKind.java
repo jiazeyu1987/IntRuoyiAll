@@ -9,7 +9,9 @@ public enum DccRegistrationCertificateFileKind {
     FDA_PRODUCT_DESCRIPTION,
     CHANGE_APPROVAL,
     RENEWAL_ACCEPTANCE_RECEIPT,
-    RENEWAL_SUPPLEMENT_NOTICE;
+    RENEWAL_SUPPLEMENT_NOTICE,
+    CE_RENEWAL_CONTRACT,
+    CE_RENEWAL_QUOTATION;
 
     public static DccRegistrationCertificateFileKind fromCode(String code) {
         return Arrays.stream(values())

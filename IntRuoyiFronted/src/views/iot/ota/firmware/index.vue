@@ -76,11 +76,11 @@
         <template #default="scope">
           <el-link
             @click="openProductDetail(scope.row.productId)"
-            v-if="getProductName(scope.row.productId)"
+            v-if="getProductName(scope.row.productId) && checkPermi(['iot:product:query'])"
           >
             {{ getProductName(scope.row.productId) }}
           </el-link>
-          <span v-else>加载中...</span>
+          <span v-else>{{ getProductName(scope.row.productId) || '加载中...' }}</span>
         </template>
       </el-table-column>
       <el-table-column label="固件文件" align="center" prop="fileUrl">
@@ -140,6 +140,7 @@
 </template>
 
 <script setup lang="ts">
+import { checkPermi } from '@/utils/permission'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { dateFormatter } from '@/utils/formatTime'
 import { IoTOtaFirmwareApi, IoTOtaFirmware } from '@/api/iot/ota/firmware'
@@ -186,6 +187,7 @@ const getProductName = (productId: number) => {
 
 /** 打开产品详情 */
 const openProductDetail = (productId: number) => {
+  if (!checkPermi(['iot:product:query'])) return
   push({ name: 'IoTProductDetail', params: { id: productId } })
 }
 

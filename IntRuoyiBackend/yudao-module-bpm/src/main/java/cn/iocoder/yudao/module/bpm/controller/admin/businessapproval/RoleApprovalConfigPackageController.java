@@ -44,7 +44,6 @@ public class RoleApprovalConfigPackageController {
     @PostMapping("/import")
     @Operation(summary = "整包导入权限角色授权、审批策略及依赖流程")
     @PreAuthorize("@ss.hasPermission('system:role:create') && @ss.hasPermission('system:role:update')"
-            + " && @ss.hasPermission('system:role-category:create')"
             + " && @ss.hasPermission('system:permission:assign-role-menu')"
             + " && @ss.hasPermission('system:permission:assign-role-data-scope')"
             + " && @ss.hasPermission('bpm:business-approval-policy:create')"

@@ -53,7 +53,10 @@ export const REGISTRATION_CERTIFICATE_REMINDER_FILTER_OPTIONS: Array<{
   { value: 'T_30', label: '到期前 30 个月' },
   { value: 'T_8', label: '到期前 8 个月' },
   { value: 'T_2', label: '到期前 2 个月' },
-  { value: 'T_1', label: '到期前 1 个月' }
+  { value: 'T_1', label: '到期前 1 个月' },
+  { value: 'CE_T_18', label: 'CE 到期前 18 个月' },
+  { value: 'CE_T_12', label: 'CE 到期前 12 个月' },
+  { value: 'CE_T_3', label: 'CE 到期前 3 个月' }
 ]
 
 const REGISTRATION_CERTIFICATE_REMINDER_LABELS: Record<string, string> = {
@@ -63,7 +66,10 @@ const REGISTRATION_CERTIFICATE_REMINDER_LABELS: Record<string, string> = {
   T_30: '到期前 30 个月',
   T_8: '到期前 8 个月',
   T_2: '到期前 2 个月',
-  T_1: '到期前 1 个月'
+  T_1: '到期前 1 个月',
+  CE_T_18: 'CE 到期前 18 个月',
+  CE_T_12: 'CE 到期前 12 个月',
+  CE_T_3: 'CE 到期前 3 个月'
 }
 
 const REGISTRATION_CERTIFICATE_WORKFLOW_STATUS_LABELS: Record<string, string> = {

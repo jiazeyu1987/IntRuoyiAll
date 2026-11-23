@@ -76,7 +76,7 @@
             <template #default="{ row }">
               <div>
                 <el-button
-                  v-if="row.workOrderId"
+                  v-if="row.workOrderId && checkPermi(['mes:pro-work-order:query'])"
                   link
                   type="primary"
                   class="edhr-tracking__link"
@@ -89,7 +89,7 @@
               <div class="edhr-tracking__muted">
                 批次：
                 <el-button
-                  v-if="row.batchId"
+                  v-if="row.batchId && checkPermi(['mes:wm-batch:query'])"
                   link
                   type="primary"
                   class="edhr-tracking__inline-link"
@@ -143,6 +143,7 @@
 </template>
 
 <script setup lang="ts">
+import { checkPermi } from '@/utils/permission'
 import { EDHR_EXECUTION_STATUS } from '@/api/mes/pro/edhr/approval'
 import {
   getEdhrTrackingPage,
@@ -305,6 +306,7 @@ const openTrackingDetail = async (row: EdhrTrackingRowVO) => {
 }
 
 const openWorkOrder = async (row: EdhrTrackingRowVO) => {
+  if (!checkPermi(['mes:pro-work-order:query'])) return
   if (!row.workOrderId) {
     throw new Error(`追踪行缺少工单ID：executionId=${row.executionId}`)
   }
@@ -318,6 +320,7 @@ const openWorkOrder = async (row: EdhrTrackingRowVO) => {
 }
 
 const openBatch = (row: EdhrTrackingRowVO) => {
+  if (!checkPermi(['mes:wm-batch:query'])) return
   if (!row.batchId) {
     throw new Error(`追踪行缺少批次ID：executionId=${row.executionId}`)
   }

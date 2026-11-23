@@ -137,6 +137,115 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testImportLeaderWithoutHomeDepartment_usesTargetIdentityAndPreservesHierarchy() {
+        mockImportedDepartmentWrites();
+        when(passwordEncoder.encode(TEST_INIT_PASSWORD)).thenReturn("encoded-password");
+        var row = UserImportExcelVO.builder().username("xujianhai").nickname("徐建海").status(0)
+                .leaderDeptPaths("[\"瑛泰医疗 / 质量体系中心\",\"瑛泰医疗 / 质量体系中心 / QA\"]").build();
+        var result = userService.importUserList(List.of(row), false);
+        assertEquals(List.of("xujianhai"), result.getCreateUsernames());
+        var user = userMapper.selectByUsername("xujianhai");
+        assertNull(user.getDeptId());
+        var departments = deptMapper.selectList();
+        assertEquals(3, departments.size());
+        var center = departments.stream().filter(d -> d.getName().equals("质量体系中心")).findFirst().orElseThrow();
+        var qa = departments.stream().filter(d -> d.getName().equals("QA")).findFirst().orElseThrow();
+        assertEquals(user.getId(), center.getLeaderUserId());
+        assertEquals(user.getId(), qa.getLeaderUserId());
+        assertEquals(center.getId(), qa.getParentId());
+        verify(supervisorService).validateSupervisor(user.getId());
+        verify(deptService, times(2)).updateDept(argThat(request -> request.isLeaderUserIdPresent()
+                && user.getId().equals(request.getLeaderUserId())));
+    }
+
+    @Test
+    public void testImportLeader_existingAccountRequiresUpdateAndRetainsPassword() {
+        mockImportedDepartmentWrites();
+        var existing = randomAdminUserDO(user -> {
+            user.setUsername("xujianhai"); user.setCanonicalUsername("xujianhai"); user.setTenantId(1L);
+            user.setDeptId(null); user.setPassword("original-password");
+        });
+        userMapper.insert(existing);
+        var row = UserImportExcelVO.builder().username("xujianhai").nickname("徐建海").status(0)
+                .leaderDeptPaths("[\"瑛泰医疗 / 质量体系中心\"]").build();
+        var skipped = userService.importUserList(List.of(row), false);
+        assertTrue(skipped.getFailureUsernames().containsKey("xujianhai"));
+        verify(deptService, never()).createDept(any());
+        verify(deptService, never()).updateDept(any());
+        var updated = userService.importUserList(List.of(row), true);
+        assertEquals(List.of("xujianhai"), updated.getUpdateUsernames());
+        assertEquals("original-password", userMapper.selectById(existing.getId()).getPassword());
+        assertEquals(existing.getId(), deptMapper.selectList().stream()
+                .filter(d -> d.getName().equals("质量体系中心")).findFirst().orElseThrow().getLeaderUserId());
+    }
+
+    @Test
+    public void testImportLeader_conflictingFileAndInvalidSupervisorDoNotLeavePartialWrites() {
+        var first = UserImportExcelVO.builder().username("leader01").nickname("主管甲").status(0)
+                .leaderDeptPaths("[\"公司 / 中心\"]").build();
+        var second = UserImportExcelVO.builder().username("leader02").nickname("主管乙").status(0)
+                .leaderDeptPaths("[\"公司 / 中心\"]").build();
+        assertThrows(ServiceException.class, () -> userService.importUserList(List.of(first, second), false));
+        assertTrue(userMapper.selectList().isEmpty());
+        verify(deptService, never()).createDept(any());
+        when(passwordEncoder.encode(TEST_INIT_PASSWORD)).thenReturn("encoded-password");
+        doThrow(new IllegalStateException("invalid supervisor")).when(supervisorService).validateSupervisor(anyLong());
+        assertThrows(IllegalStateException.class, () -> userService.importUserList(List.of(first), false));
+        assertTrue(userMapper.selectList().isEmpty());
+        assertTrue(deptMapper.selectList().isEmpty());
+    }
+
+    private void mockImportedDepartmentWrites() {
+        when(deptService.createDept(any())).thenAnswer(invocation -> {
+            var request = invocation.getArgument(0,
+                    cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptSaveReqVO.class);
+            var dept = new DeptDO().setName(request.getName()).setParentId(request.getParentId())
+                    .setSort(request.getSort()).setStatus(request.getStatus());
+            deptMapper.insert(dept);
+            return dept.getId();
+        });
+        doAnswer(invocation -> {
+            var request = invocation.getArgument(0,
+                    cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptSaveReqVO.class);
+            deptMapper.updateById(new DeptDO().setId(request.getId()).setLeaderUserId(request.getLeaderUserId()));
+            return null;
+        }).when(deptService).updateDept(any());
+    }
+
+    @Test
+    public void testImportExportedUsers_restoresHierarchyAndNewUser() throws Exception {
+        when(deptService.createDept(any())).thenAnswer(invocation -> {
+            var request = invocation.getArgument(0,
+                    cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptSaveReqVO.class);
+            DeptDO dept = new DeptDO().setName(request.getName()).setParentId(request.getParentId())
+                    .setStatus(request.getStatus()).setSort(request.getSort());
+            deptMapper.insert(dept);
+            return dept.getId();
+        });
+        when(passwordEncoder.encode(TEST_INIT_PASSWORD)).thenReturn("encoded-password");
+        var output = new ByteArrayOutputStream();
+        cn.idev.excel.FastExcelFactory.write(output).sheet("数据").doWrite(List.of(
+                List.of("用户名称", "用户昵称", "部门名称", "部门路径"),
+                List.of("xujianhai", "徐建海", "质量体系中心", "瑛泰医疗 / 质量体系中心"),
+                List.of("operator02", "操作员", "质量体系中心", "瑛泰医疗 / 质量体系中心")));
+        var controller = new cn.iocoder.yudao.module.system.controller.admin.user.UserController();
+        ReflectionTestUtils.setField(controller, "userService", userService);
+        var result = controller.importExcel(new org.springframework.mock.web.MockMultipartFile(
+                "file", output.toByteArray()), false).getData();
+        assertEquals(List.of("xujianhai", "operator02"), result.getCreateUsernames());
+        assertTrue(result.getFailureUsernames().isEmpty());
+        var departments = deptMapper.selectList();
+        assertEquals(2, departments.size());
+        var root = departments.stream().filter(d -> d.getParentId().equals(0L)).findFirst().orElseThrow();
+        var leaf = departments.stream().filter(d -> d.getParentId().equals(root.getId())).findFirst().orElseThrow();
+        assertEquals("瑛泰医疗", root.getName());
+        assertEquals("质量体系中心", leaf.getName());
+        assertEquals(leaf.getId(), userMapper.selectByUsername("xujianhai").getDeptId());
+        assertEquals(leaf.getId(), userMapper.selectByUsername("operator02").getDeptId());
+        verify(deptService, times(2)).createDept(any());
+    }
+
+    @Test
     public void testImportExportedUsers_persistsTargetDepartmentAndHonorsUpdateSupport() throws Exception {
         var controller = new cn.iocoder.yudao.module.system.controller.admin.user.UserController();
         ReflectionTestUtils.setField(controller, "userService", userService);
@@ -190,14 +299,15 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         assertEquals(List.of("departmentuser01", "departmentuser02"), result.getCreateUsernames());
         assertTrue(result.getFailureUsernames().isEmpty());
         var departments = deptMapper.selectList();
-        assertEquals(1, departments.size());
-        var dept = departments.get(0);
+        assertEquals(2, departments.size());
+        var root = departments.stream().filter(d -> d.getParentId().equals(0L)).findFirst().orElseThrow();
+        var dept = departments.stream().filter(d -> d.getParentId().equals(root.getId())).findFirst().orElseThrow();
         assertEquals("来料检IQC", dept.getName());
-        assertEquals(DeptDO.PARENT_ID_ROOT, dept.getParentId());
+        assertEquals(root.getId(), dept.getParentId());
         assertEquals(CommonStatusEnum.ENABLE.getStatus(), dept.getStatus());
         assertEquals(dept.getId(), userMapper.selectByUsername("departmentuser01").getDeptId());
         assertEquals(dept.getId(), userMapper.selectByUsername("departmentuser02").getDeptId());
-        verify(deptService, times(1)).createDept(any());
+        verify(deptService, times(2)).createDept(any());
     }
 
     @Test
@@ -223,7 +333,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         var controller = new cn.iocoder.yudao.module.system.controller.admin.user.UserController();
         ReflectionTestUtils.setField(controller, "userService", userService);
         var error = assertThrows(ServiceException.class,
-                () -> controller.importExcel(exportedDepartmentFile(), false));
+                () -> controller.importExcel(flatDepartmentFile(), false));
         assertTrue(error.getMessage().contains("存在重名"));
         verify(deptService, never()).createDept(any());
         assertTrue(userMapper.selectList().isEmpty());
@@ -238,19 +348,37 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         });
         userMapper.insert(existing);
         var row = UserImportExcelVO.builder().username("departmentuser01").nickname("操作员")
-                .deptName("新部门").build();
+                .deptName("新部门").deptPath("瑛泰医疗 / 新部门").build();
         var result = userService.importUserList(List.of(row), false);
         assertEquals(USER_USERNAME_EXISTS.getMsg(), result.getFailureUsernames().get("departmentuser01"));
         verify(deptService, never()).createDept(any());
         assertEquals(existing.getDeptId(), userMapper.selectById(existing.getId()).getDeptId());
     }
 
+    @Test
+    public void testImportExportedUsers_missingPathRejectsBeforeCreatingFlatDepartments() {
+        var controller = new cn.iocoder.yudao.module.system.controller.admin.user.UserController();
+        ReflectionTestUtils.setField(controller, "userService", userService);
+        var error = assertThrows(ServiceException.class, () -> controller.importExcel(flatDepartmentFile(), false));
+        assertTrue(error.getMessage().contains("缺少部门路径"));
+        verify(deptService, never()).createDept(any());
+        assertTrue(userMapper.selectList().isEmpty());
+    }
+
+    private org.springframework.mock.web.MockMultipartFile flatDepartmentFile() {
+        var output = new ByteArrayOutputStream();
+        cn.idev.excel.FastExcelFactory.write(output).sheet("数据").doWrite(List.of(
+                List.of("用户名称", "用户昵称", "部门名称"),
+                List.of("departmentuser01", "操作员甲", "来料检IQC")));
+        return new org.springframework.mock.web.MockMultipartFile("file", output.toByteArray());
+    }
+
     private org.springframework.mock.web.MockMultipartFile exportedDepartmentFile() {
         var output = new ByteArrayOutputStream();
         cn.idev.excel.FastExcelFactory.write(output).sheet("数据").doWrite(List.of(
-                List.of("用户名称", "用户昵称", "部门名称", "用户编号"),
-                List.of("departmentuser01", "操作员甲", "来料检IQC", "9908100250"),
-                List.of("departmentuser02", "操作员乙", "来料检IQC", "9908100251")));
+                List.of("用户名称", "用户昵称", "部门名称", "用户编号", "部门路径"),
+                List.of("departmentuser01", "操作员甲", "来料检IQC", "9908100250", "瑛泰医疗 / 来料检IQC"),
+                List.of("departmentuser02", "操作员乙", "来料检IQC", "9908100251", "瑛泰医疗 / 来料检IQC")));
         return new org.springframework.mock.web.MockMultipartFile("file", output.toByteArray());
     }
 
@@ -1441,6 +1569,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         // 准备参数
         UserImportExcelVO importUser = randomPojo(UserImportExcelVO.class, o -> {
             o.setDeptName(null); // 编号模板不携带部门名称
+            o.setDeptPath(null);
+            o.setLeaderDeptPaths(null);
             o.setEmail(randomEmail());
             o.setMobile(randomMobile());
         });
@@ -1464,6 +1594,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         // 准备参数
         UserImportExcelVO importUser = randomPojo(UserImportExcelVO.class, o -> {
             o.setDeptName(null); // 编号模板不携带部门名称
+            o.setDeptPath(null);
+            o.setLeaderDeptPaths(null);
             o.setStatus(randomEle(CommonStatusEnum.values()).getStatus()); // 保证 status 的范围
             o.setSex(randomEle(SexEnum.values()).getSex()); // 保证 sex 的范围
             o.setEmail(randomEmail());
@@ -1501,6 +1633,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         // 准备参数
         UserImportExcelVO importUser = randomPojo(UserImportExcelVO.class, o -> {
             o.setDeptName(null); // 编号模板不携带部门名称
+            o.setDeptPath(null);
+            o.setLeaderDeptPaths(null);
             o.setStatus(randomEle(CommonStatusEnum.values()).getStatus()); // 保证 status 的范围
             o.setSex(randomEle(SexEnum.values()).getSex()); // 保证 sex 的范围
             o.setUsername(dbUser.getUsername());
@@ -1537,6 +1671,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         // 准备参数
         UserImportExcelVO importUser = randomPojo(UserImportExcelVO.class, o -> {
             o.setDeptName(null); // 编号模板不携带部门名称
+            o.setDeptPath(null);
+            o.setLeaderDeptPaths(null);
             o.setStatus(randomEle(CommonStatusEnum.values()).getStatus()); // 保证 status 的范围
             o.setSex(randomEle(SexEnum.values()).getSex()); // 保证 sex 的范围
             o.setUsername(dbUser.getUsername());
@@ -1569,6 +1705,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         userMapper.insert(dbUser);
         UserImportExcelVO importUser = randomPojo(UserImportExcelVO.class, o -> {
             o.setDeptName(null); // 编号模板不携带部门名称
+            o.setDeptPath(null);
+            o.setLeaderDeptPaths(null);
             o.setStatus(randomEle(CommonStatusEnum.values()).getStatus());
             o.setSex(randomEle(SexEnum.values()).getSex());
             o.setUsername("caseuser");

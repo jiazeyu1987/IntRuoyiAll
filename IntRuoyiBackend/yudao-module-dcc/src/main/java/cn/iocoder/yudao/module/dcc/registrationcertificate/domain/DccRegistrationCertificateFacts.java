@@ -65,6 +65,9 @@ public class DccRegistrationCertificateFacts {
             throw invalidParamException("请选择国内、CE或FDA注册证类型");
         if (ownProduct == null) throw invalidParamException("请选择是否为瑛泰产品");
         if (blank(classification)) throw invalidParamException("请填写产品分类");
+        validateLength(certificateNo, 128, "注册证号");
+        validateLength(classification, 64, "产品分类");
+        validateLength(remark, 1024, "备注");
         if ("FDA".equals(certificateType)) {
             if (certificateStatus != null || expiryDate != null || effectiveDate != null || firstObtainedDate != null)
                 throw invalidParamException("FDA请使用批准信函及工厂登记状态，不得携带国内证件状态或有效期字段");
@@ -90,9 +93,11 @@ public class DccRegistrationCertificateFacts {
         }
         if ("CE".equals(certificateType) && ceCertificates != null) {
             Set<String> revisions = new java.util.HashSet<>();
-            for (CeCertificate certificate : ceCertificates) {
+            for (int index = 0; index < ceCertificates.size(); index++) {
+                CeCertificate certificate = ceCertificates.get(index);
                 if (certificate == null || blank(certificate.revision) || !revisions.add(certificate.revision.trim()))
                     throw invalidParamException("CE证书记录须填写不重复的Rev.版本；编号及签发日期可单独留空");
+                validateLength(certificate.certificateNo, 128, "第" + (index + 1) + "条CE证书编号");
             }
         }
         if (effectiveDate != null && expiryDate != null && !effectiveDate.isBefore(expiryDate)) throw invalidParamException("生效日期必须早于有效期至");
@@ -110,5 +115,10 @@ public class DccRegistrationCertificateFacts {
     public boolean isFda() { return "FDA".equals(certificateType); }
     public boolean isExpired(LocalDate at) { return !isFda() && ("EXPIRED".equals(certificateStatus) || (expiryDate != null && expiryDate.isBefore(at))); }
     public String toJson() { return JsonUtils.toJsonString(this); }
+    private static void validateLength(String value, int max, String label) {
+        if (value != null && value.length() > max) {
+            throw invalidParamException(label + "长度不能超过" + max + "个字符");
+        }
+    }
     private static boolean blank(String text) { return text == null || text.isBlank(); }
 }

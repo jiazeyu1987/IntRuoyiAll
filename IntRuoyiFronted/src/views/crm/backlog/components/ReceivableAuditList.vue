@@ -40,23 +40,31 @@
       <el-table-column align="center" label="客户名称" prop="customerName" width="120">
         <template #default="scope">
           <el-link
+            v-if="checkPermi(['crm:customer:query'])"
             :underline="false"
             type="primary"
             @click="openCustomerDetail(scope.row.customerId)"
           >
             {{ scope.row.customerName }}
           </el-link>
+          <span v-else>
+            {{ scope.row.customerName }}
+          </span>
         </template>
       </el-table-column>
       <el-table-column align="center" label="合同编号" prop="contractNo" width="180">
         <template #default="scope">
           <el-link
+            v-if="checkPermi(['crm:contract:query'])"
             :underline="false"
             type="primary"
             @click="openContractDetail(scope.row.contractId)"
           >
             {{ scope.row.contract.no }}
           </el-link>
+          <span v-else>
+            {{ scope.row.contract.no }}
+          </span>
         </template>
       </el-table-column>
       <el-table-column
@@ -132,6 +140,7 @@
 </template>
 
 <script setup lang="ts">
+import { checkPermi } from '@/utils/permission'
 import { DICT_TYPE } from '@/utils/dict'
 import { dateFormatter, dateFormatter2 } from '@/utils/formatTime'
 import * as ReceivableApi from '@/api/crm/receivable'
@@ -181,11 +190,13 @@ const openDetail = (id: number) => {
 
 /** 打开客户详情 */
 const openCustomerDetail = (id: number) => {
+  if (!checkPermi(['crm:customer:query'])) return
   push({ name: 'CrmCustomerDetail', params: { id } })
 }
 
 /** 打开合同详情 */
 const openContractDetail = (id: number) => {
+  if (!checkPermi(['crm:contract:query'])) return
   push({ name: 'CrmContractDetail', params: { id } })
 }
 

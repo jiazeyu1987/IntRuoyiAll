@@ -24,7 +24,7 @@ import static org.mockito.Mockito.*;
 class RoleApprovalConfigPackagePermissionTest {
     private static final Set<String> REQUIRED = Set.of("system:role:create", "system:role:update",
             "system:permission:assign-role-menu", "system:permission:assign-role-data-scope",
-            "system:role-category:create", "bpm:business-approval-policy:create", "bpm:business-approval-policy:publish",
+            "bpm:business-approval-policy:create", "bpm:business-approval-policy:publish",
             "bpm:business-approval-policy:disable", "bpm:model:create", "bpm:model:deploy", "bpm:category:create");
     private AnnotationConfigApplicationContext context;
 
@@ -72,8 +72,9 @@ class RoleApprovalConfigPackagePermissionTest {
     }
 
     @Test
-    void allRequiredPermissionsAllowOriginalFileToReachImporter() throws Exception {
+    void requiredPermissionsWithoutRoleCategoryCreateAllowOriginalFileToReachImporter() throws Exception {
         context.getBean(PermissionProbe.class).granted = REQUIRED;
+        assertFalse(context.getBean(PermissionProbe.class).hasPermission("system:role-category:create"));
         assertEquals(0, context.getBean(RoleApprovalConfigPackageController.class).importConfigPackage(file()).getData());
         verify(context.getBean(RoleApprovalConfigPackageService.class)).importPackage(new byte[]{1, 2});
     }

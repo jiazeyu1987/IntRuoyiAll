@@ -50,7 +50,6 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_NEGATIVE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_EXCEEDS_ACTUAL;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_BELOW_FAILED_SAMPLES;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -1435,76 +1434,54 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
     }
 
     @Test
-    void rejectsScrapQuantityBelowFailedPieceDetailFloorBeforeWrite() {
-        Fixture fixture = new Fixture("BOOLEAN", null, null, null);
-        fixture.freezeSamplePlan(5);
-
-        ServiceException error = assertThrows(ServiceException.class,
-                () -> fixture.service.correct(fixture.command(
-                        List.of("不合格", "不合格", "合格", "合格", "合格"), 1)));
-
-        assertEquals(PRO_PQC_SCRAP_QUANTITY_BELOW_FAILED_SAMPLES.getCode(), error.getCode());
-        assertEquals("PQC 损耗数量（1）不能小于不合格样本数（2，按样本序号去重），请核对检验结果和损耗数量后提交",
-                error.getMessage());
-        verify(fixture.signatureService, never()).recordFieldChangeSignature(any());
-        verify(fixture.revisionService, never()).updatePqcInspectionRecord(any());
-        verify(fixture.taskMapper, never()).updateById(any(MesPqcInspectionTaskDO.class));
-        verify(fixture.pieceDetailMapper, never()).deleteByTaskId(any());
-        verify(fixture.pieceDetailMapper, never()).insertBatch(any());
-        verify(fixture.pqcRecordMapper, never()).updateById(any(MesProProcessPoolPqcRecordDO.class));
+    void failedSamplesDoNotRequireScrapQuantity() {
+        for (int scrap : List.of(0, 1)) {
+            Fixture fixture = new Fixture("BOOLEAN", null, null, null);
+            fixture.freezeSamplePlan(5);
+            assertEquals(701L, fixture.service.correct(fixture.command(
+                    List.of("不合格", "不合格", "合格", "合格", "合格"), scrap)));
+            var record = ArgumentCaptor.forClass(MesProProcessPoolPqcRecordDO.class);
+            verify(fixture.pqcRecordMapper).updateById(record.capture());
+            assertEquals("FAILURE", record.getValue().getInspectionResult());
+            assertTrue(record.getValue().getRawPayload().contains("\"scrapQuantity\":" + scrap));
+        }
     }
 
     @Test
-    void ownReturnRejectsScrapBelowFailedSampleCountBeforeSignatureAndCompletion() {
-        Fixture fixture = new Fixture("BOOLEAN", null, null, null);
-        fixture.freezeSamplePlan(2);
+    void ownReturnedFailedSamplesDoNotRequireScrap() {
+        Fixture f = new Fixture("BOOLEAN", null, null, null);
+        f.freezeSamplePlan(2);
         var rejected = MesProcessPoolSubmissionReviewDO.builder().id(91L).eventId(Fixture.EVENT_ID)
                 .leaderType("PQC").reviewStatus("REJECTED").build();
         rejected.setTenantId(1L);
-        when(fixture.reviewMapper.selectLatestByEventIdForUpdate(Fixture.EVENT_ID)).thenReturn(rejected);
+        when(f.reviewMapper.selectLatestByEventIdForUpdate(Fixture.EVENT_ID)).thenReturn(rejected);
         var context = new MesFrontlineReturnCorrectionService.ReturnContext(
-                fixture.eventMapper.selectById(Fixture.EVENT_ID), rejected, 5001L, 0L, "return-task");
+                f.eventMapper.selectById(Fixture.EVENT_ID), rejected, 5001L, 0L, "1900000000000000001");
         var own = mock(MesFrontlineReturnCorrectionService.class);
-        ReflectionTestUtils.setField(fixture.service, "ownReturnService", own);
+        ReflectionTestUtils.setField(f.service, "ownReturnService", own);
         when(own.requireOwnReturned(Fixture.EVENT_ID, 5001L, 91L, 0L, Fixture.ACTOR_ID, "PQC"))
                 .thenReturn(context);
-
-        var error = assertThrows(ServiceException.class, () -> fixture.service.correctOwnReturned(
-                fixture.command(List.of("不合格", "不合格"), 1), 5001L, 91L, 0L));
-
-        assertEquals(PRO_PQC_SCRAP_QUANTITY_BELOW_FAILED_SAMPLES.getCode(), error.getCode());
-        assertTrue(error.getMessage().contains("损耗数量（1）不能小于不合格样本数（2"));
-        verifyNoInteractions(fixture.signatureService, fixture.revisionService);
-        verify(fixture.pieceDetailMapper, never()).deleteByTaskId(any());
-        verify(own, never()).complete(any(), any(), any());
+        var result = new MesFrontlineReturnCorrectionService.CorrectionResult(Fixture.EVENT_ID, 701L, List.of());
+        when(own.complete(context, 701L, Fixture.ACTOR_ID)).thenReturn(result);
+        assertEquals(result, f.service.correctOwnReturned(
+                f.command(List.of("不合格", "不合格"), 0), 5001L, 91L, 0L));
+        var record = ArgumentCaptor.forClass(MesProProcessPoolPqcRecordDO.class);
+        verify(f.pqcRecordMapper).updateById(record.capture());
+        assertEquals("FAILURE", record.getValue().getInspectionResult());
+        verify(own).complete(context, 701L, Fixture.ACTOR_ID);
     }
 
     @Test
-    void failedSampleFloorCountsEachSampleNumberOnlyOnceAcrossItems() {
-        Fixture fixture = new Fixture("BOOLEAN", null, null, null);
-        var command = fixture.command(List.of("合格"), 1);
-        List<MesPqcInspectionPieceDetailDO> details = List.of(
-                MesPqcInspectionPieceDetailDO.builder().sampleNo(1).itemCode("A").judgement("FAILURE").build(),
-                MesPqcInspectionPieceDetailDO.builder().sampleNo(1).itemCode("B").judgement("FAILURE").build());
-        ReflectionTestUtils.invokeMethod(fixture.service, "validateScrapQuantityAgainstPieceDetails", command, details);
-        command.setScrapQuantity(0);
-        var error = assertThrows(ServiceException.class, () -> ReflectionTestUtils.invokeMethod(
-                fixture.service, "validateScrapQuantityAgainstPieceDetails", command, details));
-        assertEquals("PQC 损耗数量（0）不能小于不合格样本数（1，按样本序号去重），请核对检验结果和损耗数量后提交",
-                error.getMessage());
-    }
-
-    @Test
-    void positiveScrapStillMakesInspectionFailWhenAllSamplesPass() {
+    void positiveScrapDoesNotMakeInspectionFailWhenAllSamplesPass() {
         Fixture fixture = new Fixture("BOOLEAN", null, null, null);
         assertEquals(701L, fixture.service.correct(fixture.command(List.of("合格"), 1)));
         var record = ArgumentCaptor.forClass(MesProProcessPoolPqcRecordDO.class);
         verify(fixture.pqcRecordMapper).updateById(record.capture());
-        assertEquals("FAILURE", record.getValue().getInspectionResult());
+        assertEquals("SUCCESS", record.getValue().getInspectionResult());
     }
 
     @Test
-    void permitsScrapQuantityEqualFailedPieceDetailFloor() {
+    void preservesScrapAndFailedSamplesAsIndependentFacts() {
         Fixture fixture = new Fixture("BOOLEAN", null, null, null);
         fixture.freezeSamplePlan(5);
 
@@ -1558,7 +1535,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
                                          String expectedJudgement, String expectedStoredValue) {
         Fixture fixture = new Fixture(resultType, lower, upper, precision);
 
-        int scrapQuantity = MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE.equals(expectedJudgement) ? 1 : 0;
+        int scrapQuantity = 0;
         assertEquals(701L, fixture.service.correct(fixture.command(List.of(requestedValue), scrapQuantity)));
 
         @SuppressWarnings("unchecked")

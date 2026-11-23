@@ -134,7 +134,7 @@ test('卸载失效列表请求，后页原任务回执仍精确读取原字符�
  }
 })
 test('真实回执失败可见，重试只发送准确本人通知版本及原因',async()=>{
- let writes=[];let failed=true;const task=returnTask();const p=panel({handoffReceipts:async()=>[{id:'44',status:failed?'FAILED':'SENT',rowVersion:2,attemptCount:1,lastErrorSummary:'ServiceException'}],retryHandoff:async data=>{writes.push(data);failed=false}})
+ let writes=[];let failed=true;const task={...returnTask(),taskType:'PRODUCTION_HANDOFF',notificationDeliveryEnabled:true,notificationReceiptAvailable:true};const p=panel({handoffReceipts:async()=>[{id:'44',status:failed?'FAILED':'SENT',rowVersion:2,attemptCount:1,lastErrorSummary:'ServiceException'}],retryHandoff:async data=>{writes.push(data);failed=false}})
  await p.showReceipts(task);assert.equal(p.receipts.value[0].status,'FAILED');assert.equal(p.retryable.value,true);await p.retry();assert.equal(writes.length,0);p.retryReason.value='恢复本人投递';await p.retry();assert.deepEqual(writes,[{id:'44',rowVersion:2,reason:'恢复本人投递'}]);assert.equal(p.receipts.value[0].status,'SENT');assert.equal(task.status,'TODO');assert.equal(p.retryable.value,false)
 })
 test('作废面板展示原任务冻结结果和完成者，改周期入口显式失效',async()=>{
@@ -143,6 +143,27 @@ test('作废面板展示原任务冻结结果和完成者，改周期入口显�
 })
 test('回执和列表读失败保留明确错误，取消周期无重试入口',async()=>{
  const p=panel({myHandoffs:async()=>{throw Error('formal list failed')},handoffReceipts:async()=>{throw Error('formal receipt failed')}});await p.load();assert.equal(p.error.value,'formal list failed');await p.showReceipts({...returnTask(),status:'CANCELED'});assert.equal(p.receiptError.value,'formal receipt failed');assert.equal(p.retryable.value,false)
+})
+
+test('停发任务无回执时隐藏按钮，已有历史回执或仍发送通知时保留入口',()=>{
+ const descriptor=parse(fs.readFileSync(path.join(root,'src/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue'),'utf8')).descriptor
+ const find=node=>node.tag==='el-button'&&node.children?.some(child=>child.content==='通知回执')?node:(node.children||[]).map(find).find(Boolean)
+ const button=find(descriptor.template.ast);assert.ok(button)
+ const compiled=compileTemplate({source:button.loc.source,filename:'receipt-button.vue',id:'receipt-button',compilerOptions:{mode:'function',prefixIdentifiers:false,cacheHandlers:false}})
+ assert.deepEqual(compiled.errors,[])
+ const render=Function('Vue',compiled.code)({...vue,resolveComponent:()=> 'receipt-button'})
+ for(const row of [
+  {notificationDeliveryEnabled:false,notificationReceiptAvailable:false},
+  {notificationDeliveryEnabled:false,notificationReceiptAvailable:true},
+  {notificationDeliveryEnabled:true,notificationReceiptAvailable:true}
+ ])assert.equal(render({row,showReceipts(){}},[]).type,row.notificationReceiptAvailable?'receipt-button':vue.Comment)
+})
+
+test('停发任务历史失败回执可读，但不能从页面触发重试',async()=>{
+ const task={...returnTask(),notificationDeliveryEnabled:false,notificationReceiptAvailable:true}
+ const p=panel({handoffReceipts:async()=>[{id:'44',status:'FAILED',rowVersion:2}],retryHandoff:async()=>assert.fail('停发任务禁止重试')})
+ await p.showReceipts(task);assert.equal(p.receipts.value[0].id,'44');assert.equal(p.retryable.value,false)
+ p.retryReason.value='不应发送';await p.retry();assert.equal(task.status,'TODO')
 })
 
 function completedTask(type='PQC_REVIEW',sourceType='PROCESS_POOL_EVENT',roundId='176',completionSourceId='700'){

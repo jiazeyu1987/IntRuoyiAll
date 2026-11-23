@@ -37,7 +37,7 @@ public final class DccCatalogWorkbook {
     public static List<SheetData> read(byte[] bytes, List<SheetData> schema) throws IOException {
         if (bytes.length == 0 || bytes.length > 20 * 1024 * 1024) throw new IllegalArgumentException("请选择 20MB 以内的 Excel 工作簿");
         try (var workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
-            if (workbook.getNumberOfSheets() != schema.size()) throw new IllegalArgumentException("工作表数量不符，请使用产品目录导出的完整工作簿");
+            if (workbook.getNumberOfSheets() != schema.size()) throw new IllegalArgumentException("工作表数量不符，请重新导出当前三表工作簿后再导入");
             List<SheetData> result = new ArrayList<>();
             int total = 0;
             for (var expected : schema) {
@@ -61,9 +61,6 @@ public final class DccCatalogWorkbook {
                     }
                     if (values.values().stream().anyMatch(Objects::nonNull)) rows.add(values);
                 }
-                if ("导入说明".equals(expected.name()) && (rows.size() != 1
-                    || !Objects.equals(expected.rows().get(0).get("format"), rows.get(0).get("format"))))
-                    throw new IllegalArgumentException("工作簿版本不符，请在当前系统重新导出完整工作簿后再导入");
                 result.add(new SheetData(expected.name(), expected.columns(), rows));
             }
             return result;

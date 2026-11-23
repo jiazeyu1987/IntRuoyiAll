@@ -1848,10 +1848,17 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             if (row.getSubmittedAt() == null) {
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
             }
+            Map<?, ?> originalPayload = parseOriginalPayload(row.getOriginalPayloadJson(), activeOrderId);
+            if (originalPayload == null || originalPayload.get("outputQuantity") == null
+                    || originalPayload.get("lossQuantity") == null) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+            }
             submissions.add(new MesTeamLeaderActiveOrderDetail.SubmissionDetail()
                     .setEventId(row.getEventId())
                     .setOriginalBusinessIdentityJson(new MesSubmissionBusinessIdentityReader(eventMapper, businessReviewMapper).read(row.getEventId(), row.getReviewerSignatureId()))
                     .setSubmittedQuantity(row.getSubmittedQuantity())
+                    .setOriginalOutputQuantity(bigDecimalValue(originalPayload.get("outputQuantity"), activeOrderId))
+                    .setOriginalLossQuantity(bigDecimalValue(originalPayload.get("lossQuantity"), activeOrderId))
                     .setSubmitterName(row.getSubmitterName())
                     .setReviewerName(row.getReviewerName())
                     .setSubmittedAt(row.getSubmittedAt())

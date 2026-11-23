@@ -28,6 +28,10 @@ public class DccRegistrationCertificateReminderService {
             new Threshold("T_8", 8, "LIGHT", 2),
             new Threshold("T_2", 2, "BRIGHT", 3),
             new Threshold("T_1", 1, "BRIGHT", 4));
+    private static final List<Threshold> CE_THRESHOLDS = List.of(
+            new Threshold("CE_T_18", 18, "NORMAL", 1),
+            new Threshold("CE_T_12", 12, "LIGHT", 2),
+            new Threshold("CE_T_3", 3, "BRIGHT", 3));
     private static final String TYPE_CERTIFICATE_EXPIRY = "CERTIFICATE_EXPIRY";
     private static final String STATUS_PENDING = "PENDING_DELIVERY";
     private static final String STATUS_SUPPRESSED = "SUPPRESSED";
@@ -44,15 +48,15 @@ public class DccRegistrationCertificateReminderService {
     }
 
     public DccRegistrationCertificateReminderEvaluation evaluateThreshold(
-            LocalDate businessDate, LocalDate dueDate, boolean cleared) {
-        if (businessDate == null || dueDate == null) {
+            String certificateType, LocalDate businessDate, LocalDate dueDate, boolean cleared) {
+        if (certificateType == null || businessDate == null || dueDate == null) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_THRESHOLD_INVALID);
         }
         int daysUntilDue = Math.toIntExact(ChronoUnit.DAYS.between(businessDate, dueDate));
-        if (cleared) {
+        Threshold threshold = selectThreshold(certificateType, businessDate, dueDate);
+        if (cleared && threshold != null && "LIGHT".equals(threshold.colorCode())) {
             return new DccRegistrationCertificateReminderEvaluation("CLEARED", "CLEARED", daysUntilDue);
         }
-        Threshold threshold = selectThreshold(businessDate, dueDate);
         if (threshold == null) {
             return new DccRegistrationCertificateReminderEvaluation("NONE", "NORMAL", daysUntilDue);
         }
@@ -70,7 +74,7 @@ public class DccRegistrationCertificateReminderService {
         int suppressed = 0;
         for (CertificateExpiry expiry : selectCertificateExpiries(tenantId)) {
             int daysUntilDue = Math.toIntExact(ChronoUnit.DAYS.between(businessDate, expiry.dueDate()));
-            List<Threshold> crossed = crossedThresholds(businessDate, expiry.dueDate());
+            List<Threshold> crossed = crossedThresholds(expiry.certificateType(), businessDate, expiry.dueDate());
             if (crossed.isEmpty()) {
                 continue;
             }
@@ -107,8 +111,9 @@ public class DccRegistrationCertificateReminderService {
         return new DccRegistrationCertificateReminderRunResult(pending, suppressed);
     }
 
-    public boolean isSupportingDocumentCleared(Long tenantId, Long certificateId, String documentType) {
+    public boolean isSupportingDocumentCleared(Long tenantId, Long certificateId, Long versionId, String documentType) {
         if (tenantId == null || tenantId <= 0 || certificateId == null || certificateId <= 0
+                || versionId == null || versionId <= 0
                 || documentType == null || documentType.trim().isEmpty()) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_THRESHOLD_INVALID);
         }
@@ -117,10 +122,11 @@ public class DccRegistrationCertificateReminderService {
                   FROM dcc_registration_certificate_supporting_document
                  WHERE tenant_id = ?
                    AND certificate_id = ?
+                   AND version_id = ?
                    AND document_type = ?
                    AND status = 'EFFECTIVE'
                    AND deleted = 0
-                """, Integer.class, tenantId, certificateId, documentType.trim());
+                """, Integer.class, tenantId, certificateId, versionId, documentType.trim());
         return confirmed != null && confirmed > 0;
     }
 
@@ -128,6 +134,7 @@ public class DccRegistrationCertificateReminderService {
         return jdbcTemplate.query("""
                 SELECT c.id AS certificate_id,
                        c.owner_company_id,
+                       JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateType')) AS certificate_type,
                        c.current_version_id,
                        c.pending_version_id,
                        CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE) AS expiry_date
@@ -140,6 +147,7 @@ public class DccRegistrationCertificateReminderService {
                    AND v.deleted = 0
                   JOIN dcc_registration_certificate_snapshot s ON s.id=c.current_snapshot_id AND s.tenant_id=c.tenant_id AND s.deleted=0
                  WHERE c.tenant_id = ?
+                   AND JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateType')) IN ('DOMESTIC', 'CE')
                    AND c.status = 'ACTIVE'
                    AND c.deleted = 0
                    AND NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')), 'null') IS NOT NULL
@@ -149,7 +157,8 @@ public class DccRegistrationCertificateReminderService {
                 rs.getLong("owner_company_id"),
                 rs.getLong("current_version_id"),
                 rs.getObject("pending_version_id", Long.class),
-                rs.getObject("expiry_date", LocalDate.class)), tenantId);
+                rs.getObject("expiry_date", LocalDate.class),
+                rs.getString("certificate_type")), tenantId);
     }
 
     private InsertOutcome insertOccurrence(Long tenantId, Long runId, CertificateExpiry expiry,
@@ -239,15 +248,20 @@ public class DccRegistrationCertificateReminderService {
                 + "\",\"reason\":\"" + Objects.toString(reason, "") + "\"}";
     }
 
-    private static Threshold selectThreshold(LocalDate businessDate, LocalDate dueDate) {
-        return crossedThresholds(businessDate, dueDate).stream()
+    private static Threshold selectThreshold(String certificateType, LocalDate businessDate, LocalDate dueDate) {
+        return crossedThresholds(certificateType, businessDate, dueDate).stream()
                 .max(Comparator.comparingInt(Threshold::urgency))
                 .orElse(null);
     }
 
-    private static List<Threshold> crossedThresholds(LocalDate businessDate, LocalDate dueDate) {
+    private static List<Threshold> crossedThresholds(String certificateType, LocalDate businessDate, LocalDate dueDate) {
         List<Threshold> crossed = new ArrayList<>();
-        for (Threshold threshold : THRESHOLDS) {
+        List<Threshold> thresholds = switch (certificateType) {
+            case "DOMESTIC" -> THRESHOLDS;
+            case "CE" -> CE_THRESHOLDS;
+            default -> throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_THRESHOLD_INVALID);
+        };
+        for (Threshold threshold : thresholds) {
             if (!businessDate.isBefore(dueDate.minusMonths(threshold.months()))) {
                 crossed.add(threshold);
             }
@@ -259,7 +273,7 @@ public class DccRegistrationCertificateReminderService {
     }
 
     private record CertificateExpiry(Long certificateId, Long ownerCompanyId, Long versionId,
-                                     Long pendingVersionId, LocalDate dueDate) {
+                                     Long pendingVersionId, LocalDate dueDate, String certificateType) {
         boolean hasRenewalCandidate() {
             return pendingVersionId != null && pendingVersionId > 0;
         }

@@ -71,6 +71,78 @@ class DccDirectoryAdminServiceImplTest extends BaseDbUnitTest {
 
 
     @Test
+    void duplicateSiblingCodeIsRejectedOnCreateAndUpdate() {
+        var parent = insertDirectory("PARENT", "Parent", null);
+        insertDirectory("TAKEN", "Existing", parent.getId());
+        var candidate = insertDirectory("OTHER", "Other", parent.getId());
+        var request = directoryRequest("TAKEN", parent.getId());
+        assertServiceException(() -> directoryAdminService.createDirectory(request), DccDirectoryAdminErrors.CODE_EXISTS);
+        request.setId(candidate.getId());
+        assertServiceException(() -> directoryAdminService.updateDirectory(request), DccDirectoryAdminErrors.CODE_EXISTS);
+        assertEquals("OTHER", directoryMapper.selectById(candidate.getId()).getCode());
+    }
+
+    @Test
+    void sameCodeInDifferentParentsAndUnchangedOwnCodeRemainAllowed() {
+        var first = insertDirectory("FIRST", "First", null);
+        var second = insertDirectory("SECOND", "Second", null);
+        insertDirectory("SAME", "Existing", first.getId());
+        var request = directoryRequest("SAME", second.getId());
+        Long id = directoryAdminService.createDirectory(request);
+        request.setId(id);
+        request.setName("Updated");
+        directoryAdminService.updateDirectory(request);
+        assertEquals("Updated", directoryMapper.selectById(id).getName());
+    }
+
+    @Test
+    void deletedDirectoryCodeRemainsReservedByTheDatabaseIndex() {
+        var parent = insertDirectory("PARENT", "Parent", null);
+        var old = insertDirectory("TAKEN", "Old", parent.getId());
+        directoryMapper.deleteById(old.getId());
+        assertServiceException(() -> directoryAdminService.createDirectory(directoryRequest("TAKEN", parent.getId())),
+                DccDirectoryAdminErrors.CODE_EXISTS);
+    }
+
+    @Test
+    void globalReservationMatchesTheExistingIndexWithoutTenantOrDeletionFiltering() {
+        var old = insertDirectory("GLOBAL", "Old", 0L);
+        old.setTenantId(2L);
+        directoryMapper.updateById(old);
+        assertEquals(List.of(old.getId()), directoryMapper.selectReservedCodeForUpdate(0L, "GLOBAL", null));
+        assertEquals(List.of(), directoryMapper.selectReservedCodeForUpdate(0L, "GLOBAL", old.getId()));
+    }
+
+    @Test
+    void movingToNullableRootChecksAndPersistsTheSameParent() {
+        var parent = insertDirectory("PARENT", "Parent", null);
+        insertDirectory("TAKEN", "Sibling", parent.getId());
+        var candidate = insertDirectory("OTHER", "Candidate", parent.getId());
+        var request = directoryRequest("TAKEN", null);
+        request.setId(candidate.getId());
+        directoryAdminService.updateDirectory(request);
+        var updated = directoryMapper.selectById(candidate.getId());
+        assertNull(updated.getParentId());
+        assertEquals("TAKEN", updated.getCode());
+    }
+
+    @Test
+    void nullableRootParentRetainsExistingMysqlUniqueIndexSemantics() {
+        insertDirectory("ROOT", "Existing", null);
+        assertNotNull(directoryAdminService.createDirectory(directoryRequest("ROOT", null)));
+    }
+
+    private DccDirectorySaveReqVO directoryRequest(String code, Long parentId) {
+        var request = new DccDirectorySaveReqVO();
+        request.setCode(code);
+        request.setName("Directory");
+        request.setParentId(parentId);
+        request.setActive(true);
+        request.setSort(1);
+        return request;
+    }
+
+    @Test
     void nameOnlyDirectoryGrantIsNotPromotedToContentWhenSavedOrRead() {
         var directory = insertDirectory("NAME_ONLY", "Name only", null);
         var request = new DccDirectoryAccessRuleSaveReqVO();

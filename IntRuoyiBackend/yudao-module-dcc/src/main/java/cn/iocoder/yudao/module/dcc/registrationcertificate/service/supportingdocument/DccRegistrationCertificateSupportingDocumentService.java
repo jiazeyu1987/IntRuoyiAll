@@ -4,7 +4,6 @@ import cn.iocoder.yudao.framework.common.exception.ErrorCode;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
-import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -35,16 +34,61 @@ public class DccRegistrationCertificateSupportingDocumentService {
     private static final String EVENT_EFFECTIVE = "SUPPORTING_DOCUMENT_EFFECTIVE";
 
     private final JdbcTemplate jdbcTemplate;
-    private final MdmCompanyScopeApi companyScopeApi;
     private final DccRegistrationCertificateBusinessClock businessClock;
 
     public DccRegistrationCertificateSupportingDocumentService(
             JdbcTemplate jdbcTemplate,
-            MdmCompanyScopeApi companyScopeApi,
             DccRegistrationCertificateBusinessClock businessClock) {
         this.jdbcTemplate = require(jdbcTemplate, "jdbcTemplate");
-        this.companyScopeApi = require(companyScopeApi, "companyScopeApi");
         this.businessClock = require(businessClock, "businessClock");
+    }
+
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.infra.service.file.FileService fileService;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateFileMapper registrationCertificateFileMapper;
+
+    @Transactional(rollbackFor = Exception.class)
+    public DccRegistrationCertificateSupportingDocumentResult uploadFile(Long tenantId, Long actorId,
+            String key, Long certificateId, Long versionId, String documentType,
+            org.springframework.web.multipart.MultipartFile file) throws java.io.IOException {
+        var check = new DccRegistrationCertificateSupportingDocumentCommand(tenantId, actorId, key, null,
+                certificateId, versionId, 1L, null, null, documentType, null);
+        validateCommon(check);
+        validateDocumentType(documentType);
+        requireCertificate(check);
+        if (file == null || file.isEmpty() || file.getOriginalFilename() == null || file.getOriginalFilename().isBlank()) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
+        }
+        String name = file.getOriginalFilename();
+        int dot = name.lastIndexOf('.');
+        if (dot < 0 || !name.substring(dot).toLowerCase(java.util.Locale.ROOT).matches("\\.[a-z0-9]{1,12}")) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
+                    "支持材料文件必须具有有效扩展名（1至12位英文字母或数字）");
+        }
+        byte[] content = file.getBytes();
+        if (content.length == 0) throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
+        ExistingEvent existing = findEvent(tenantId, key);
+        if (existing != null) {
+            EventDetail detail = JsonUtils.parseObject(existing.detailJson(), EventDetail.class);
+            if (detail == null) throw new ServiceException(REGISTRATION_CERTIFICATE_IDEMPOTENCY_CONFLICT);
+            String storedHash = jdbcTemplate.queryForObject("SELECT sha256 FROM dcc_registration_certificate_file WHERE id = ? AND tenant_id = ? AND deleted = 0",
+                    String.class, detail.businessFileId(), tenantId);
+            if (!Objects.equals(storedHash, cn.hutool.crypto.digest.DigestUtil.sha256Hex(content)))
+                throw new ServiceException(REGISTRATION_CERTIFICATE_IDEMPOTENCY_CONFLICT);
+            return replay(new DccRegistrationCertificateSupportingDocumentCommand(tenantId, actorId, key, null,
+                    certificateId, versionId, detail.businessFileId(), null, null, documentType, null), existing, EVENT_EFFECTIVE);
+        }
+        Long infraId = fileService.createFileAndReturnId(content, file.getOriginalFilename(),
+                "dcc/registration-certificate/supporting/" + certificateId, file.getContentType());
+        var businessFile = cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateFileDO.builder()
+                .ownerType("VERSION").ownerId(versionId).fileKind(documentType.trim()).infraFileId(infraId)
+                .originalName(file.getOriginalFilename()).mimeType(file.getContentType()).fileSize((long) content.length)
+                .sha256(cn.hutool.crypto.digest.DigestUtil.sha256Hex(content)).status("STAGED").build();
+        businessFile.setTenantId(tenantId);
+        requireSingle(registrationCertificateFileMapper.insert(businessFile), REGISTRATION_CERTIFICATE_FILE_REQUIRED);
+        return upload(new DccRegistrationCertificateSupportingDocumentCommand(tenantId, actorId, key, null,
+                certificateId, versionId, businessFile.getId(), null, null, documentType, null));
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -52,11 +96,11 @@ public class DccRegistrationCertificateSupportingDocumentService {
             DccRegistrationCertificateSupportingDocumentCommand command) {
         validateCommon(command);
         validateDocumentType(command.documentType());
+        CertificateRef certificate = requireCertificate(command);
         ExistingEvent existing = findEvent(command.tenantId(), command.idempotencyKey());
         if (existing != null) {
             return replay(command, existing, EVENT_EFFECTIVE);
         }
-        CertificateRef certificate = requireCertificate(command);
         requireStagedBusinessFile(command);
         Long supportId = insertEffectiveDocument(command, certificate);
         bindBusinessFile(command, supportId);
@@ -111,7 +155,7 @@ public class DccRegistrationCertificateSupportingDocumentService {
                           (tenant_id, owner_company_id, certificate_id, version_id, business_file_id,
                            document_type, status, row_version, uploaded_at, uploaded_by, creator)
                         VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
-                        """, Statement.RETURN_GENERATED_KEYS);
+                        """, new String[] { "id" });
                 ps.setLong(1, command.tenantId());
                 ps.setLong(2, certificate.ownerCompanyId());
                 ps.setLong(3, command.certificateId());
@@ -128,30 +172,35 @@ public class DccRegistrationCertificateSupportingDocumentService {
         } catch (DuplicateKeyException exception) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_STATUS_INVALID);
         }
-        Number key = keyHolder.getKeyList().isEmpty() ? null
-                : (Number) keyHolder.getKeyList().get(0).get("id");
+        Number key = keyHolder.getKey();
         if (key == null) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_STATUS_INVALID);
+            throw new org.springframework.dao.DataRetrievalFailureException(
+                    "Supporting document insert returned no generated primary key");
         }
         return key.longValue();
     }
 
     private CertificateRef requireCertificate(DccRegistrationCertificateSupportingDocumentCommand command) {
         List<CertificateRef> rows = jdbcTemplate.query("""
-                SELECT c.owner_company_id, c.current_version_id, v.status AS version_status
+                SELECT c.owner_company_id, c.current_version_id, v.status AS version_status, s.facts_json
                   FROM dcc_registration_certificate c
                   JOIN dcc_registration_certificate_version v
                     ON v.id = ? AND v.tenant_id = c.tenant_id AND v.certificate_id = c.id
-                 WHERE c.id = ? AND c.tenant_id = ? AND c.status = 'ACTIVE' AND c.deleted = 0
+                  JOIN dcc_registration_certificate_snapshot s ON s.id = c.current_snapshot_id AND s.tenant_id = c.tenant_id AND s.version_id = v.id
+                 WHERE c.id = ? AND c.tenant_id = ? AND c.status = 'ACTIVE' AND c.deleted = 0 AND v.deleted = 0 AND s.deleted = 0 FOR UPDATE
                 """, (rs, rowNum) -> new CertificateRef(
                 rs.getLong("owner_company_id"),
                 rs.getLong("current_version_id"),
-                rs.getString("version_status")), command.versionId(), command.certificateId(), command.tenantId());
+                rs.getString("version_status"), rs.getString("facts_json")), command.versionId(), command.certificateId(), command.tenantId());
         if (rows.size() != 1 || !Objects.equals(rows.get(0).currentVersionId(), command.versionId())
                 || !"CURRENT".equals(rows.get(0).versionStatus())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REQUIRED);
         }
-        companyScopeApi.validateUserCompanyAccess(command.actorId(), rows.get(0).ownerCompanyId());
+        String type = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(rows.get(0).factsJson()).getCertificateType();
+        boolean domestic = java.util.Set.of("RENEWAL_ACCEPTANCE_RECEIPT", "RENEWAL_SUPPLEMENT_NOTICE").contains(command.documentType().trim());
+        if (!(domestic && "DOMESTIC".equals(type) || !domestic && "CE".equals(type))) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REQUIRED);
+        }
         return rows.get(0);
     }
 
@@ -231,7 +280,9 @@ public class DccRegistrationCertificateSupportingDocumentService {
 
     private void validateDocumentType(String documentType) {
         if (!"RENEWAL_ACCEPTANCE_RECEIPT".equals(trim(documentType))
-                && !"RENEWAL_SUPPLEMENT_NOTICE".equals(trim(documentType))) {
+                && !"RENEWAL_SUPPLEMENT_NOTICE".equals(trim(documentType))
+                && !"CE_RENEWAL_CONTRACT".equals(trim(documentType))
+                && !"CE_RENEWAL_QUOTATION".equals(trim(documentType))) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REQUIRED);
         }
     }
@@ -257,7 +308,7 @@ public class DccRegistrationCertificateSupportingDocumentService {
         return value;
     }
 
-    private record CertificateRef(Long ownerCompanyId, Long currentVersionId, String versionStatus) {
+    private record CertificateRef(Long ownerCompanyId, Long currentVersionId, String versionStatus, String factsJson) {
     }
 
     private record BusinessFile(Long tenantId, String ownerType, Long ownerId, String fileKind, String status) {

@@ -97,6 +97,19 @@ class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
     }
 
     @Test
+    void disabledNotificationsStillActivateDueCandidates() {
+        insertTenantOneDueCandidate();
+        insertReminderConfig(1L, 7001L);
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_reminder_config SET enabled = FALSE WHERE tenant_id = 1");
+        when(tenantFrameworkService.getTenantIds()).thenReturn(List.of(1L));
+
+        assertDoesNotThrow(() -> job.execute(PARAM));
+
+        verify(activationService).activateDueCandidate(any());
+        assertEquals(0, countDailyRuns());
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi);
+    }
+    @Test
     void jobBeanUsesSeededHandlerNameAndFailsFastWithoutRecipientContract() {
         assertInstanceOf(JobHandler.class, job);
 

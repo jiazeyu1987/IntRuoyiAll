@@ -34,19 +34,30 @@ class DccRegistrationCertificateReminderServiceTest extends BaseDbUnitTest {
     @Test
     void thresholdMatrixUsesCalendarBoundariesAndExpiredRemainsBright() {
         List<DccRegistrationCertificateReminderEvaluation> cases = List.of(
-                service.evaluateThreshold(LocalDate.of(2023, 2, 28), LocalDate.of(2025, 8, 28), false),
-                service.evaluateThreshold(LocalDate.of(2024, 2, 29), LocalDate.of(2026, 8, 29), false),
-                service.evaluateThreshold(LocalDate.of(2026, 7, 31), LocalDate.of(2027, 3, 31), false),
-                service.evaluateThreshold(LocalDate.of(2027, 1, 31), LocalDate.of(2027, 3, 31), false),
-                service.evaluateThreshold(LocalDate.of(2027, 2, 28), LocalDate.of(2027, 3, 31), false),
-                service.evaluateThreshold(LocalDate.of(2026, 4, 1), LocalDate.of(2026, 3, 31), false),
-                service.evaluateThreshold(LocalDate.of(2026, 3, 30), LocalDate.of(2026, 3, 31), true));
+                service.evaluateThreshold("DOMESTIC", LocalDate.of(2023, 2, 28), LocalDate.of(2025, 8, 28), false),
+                service.evaluateThreshold("DOMESTIC", LocalDate.of(2024, 2, 29), LocalDate.of(2026, 8, 29), false),
+                service.evaluateThreshold("DOMESTIC", LocalDate.of(2026, 7, 31), LocalDate.of(2027, 3, 31), false),
+                service.evaluateThreshold("DOMESTIC", LocalDate.of(2027, 1, 31), LocalDate.of(2027, 3, 31), false),
+                service.evaluateThreshold("DOMESTIC", LocalDate.of(2027, 2, 28), LocalDate.of(2027, 3, 31), false),
+                service.evaluateThreshold("DOMESTIC", LocalDate.of(2026, 4, 1), LocalDate.of(2026, 3, 31), false),
+                service.evaluateThreshold("DOMESTIC", LocalDate.of(2026, 7, 31), LocalDate.of(2027, 3, 31), true));
 
         assertEquals(List.of("T_30", "T_30", "T_8", "T_2", "T_1", "T_1", "CLEARED"),
                 cases.stream().map(DccRegistrationCertificateReminderEvaluation::thresholdLevel).toList());
         assertEquals(List.of("NORMAL", "NORMAL", "LIGHT", "BRIGHT", "BRIGHT", "BRIGHT", "CLEARED"),
                 cases.stream().map(DccRegistrationCertificateReminderEvaluation::colorCode).toList());
         assertEquals(-1, cases.get(5).daysUntilDue());
+    }
+
+    @Test
+    void ceThresholdsAndMaterialsOnlyClearTheLightWindow() {
+        LocalDate due = LocalDate.of(2028, 3, 31);
+        assertEquals("NONE", service.evaluateThreshold("CE", due.minusMonths(18).minusDays(1), due, false).thresholdLevel());
+        assertEquals("CE_T_18", service.evaluateThreshold("CE", due.minusMonths(18), due, false).thresholdLevel());
+        assertEquals("CE_T_12", service.evaluateThreshold("CE", due.minusMonths(12), due, false).thresholdLevel());
+        assertEquals("CLEARED", service.evaluateThreshold("CE", due.minusMonths(12), due, true).colorCode());
+        assertEquals("BRIGHT", service.evaluateThreshold("CE", due.minusMonths(3), due, true).colorCode());
+        assertEquals("BRIGHT", service.evaluateThreshold("DOMESTIC", due.minusMonths(2), due, true).colorCode());
     }
 
     @Test
@@ -88,11 +99,30 @@ class DccRegistrationCertificateReminderServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void ceOccurrencesUseOnlyCeThresholdsAndEscalateToThreeMonths() {
+        LocalDate due = LocalDate.of(2028, 3, 31);
+        insertActiveCertificate(1L, 104L, 204L, null, 304L, due);
+        String facts = jdbcTemplate.queryForObject("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE id=304", String.class);
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=304",
+                facts.replace("DOMESTIC", "CE"));
+        var first = service.generateOccurrences(1L, 9001L, due.minusMonths(12));
+        assertEquals(1, first.pendingCount());
+        assertEquals(1, first.suppressedCount());
+        assertOccurrence(104L, "CE_T_12", "PENDING_DELIVERY", null);
+        assertOccurrence(104L, "CE_T_18", "SUPPRESSED", "MISSED_BY_CATCH_UP");
+        var escalation = service.generateOccurrences(1L, 9002L, due.minusMonths(3));
+        assertEquals(1, escalation.pendingCount());
+        assertOccurrence(104L, "CE_T_3", "PENDING_DELIVERY", null);
+        assertEquals(3, countOccurrences(104L));
+    }
+
+    @Test
     void effectiveSupportingDocumentClearsSupportingDocumentReminder() {
         insertActiveCertificate(1L, 103L, 203L, null, 303L, LocalDate.of(2026, 5, 31));
-        assertFalse(service.isSupportingDocumentCleared(1L, 103L, "RENEWAL_ACCEPTANCE_RECEIPT"));
+        assertFalse(service.isSupportingDocumentCleared(1L, 103L, 203L, "RENEWAL_ACCEPTANCE_RECEIPT"));
         insertSupportingDocument(1L, 7001L, 103L, 203L, "EFFECTIVE");
-        assertTrue(service.isSupportingDocumentCleared(1L, 103L, "RENEWAL_ACCEPTANCE_RECEIPT"));
+        assertTrue(service.isSupportingDocumentCleared(1L, 103L, 203L, "RENEWAL_ACCEPTANCE_RECEIPT"));
+        assertFalse(service.isSupportingDocumentCleared(1L, 103L, 204L, "RENEWAL_ACCEPTANCE_RECEIPT"));
     }
 
     private void insertActiveCertificate(Long tenantId, Long certificateId, Long currentVersionId,

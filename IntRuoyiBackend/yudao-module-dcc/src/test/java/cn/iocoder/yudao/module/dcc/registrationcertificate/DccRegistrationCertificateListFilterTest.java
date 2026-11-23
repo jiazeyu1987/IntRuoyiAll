@@ -28,12 +28,12 @@ class DccRegistrationCertificateListFilterTest {
     @Test
     void oldIndexFiltersDisplayedExpiryStatusAndBindsThroughNestedWrapper() {
         var query = DccRegistrationCertificatePageQuery.builder()
-                .listFilters("[{\"key\":\"status\",\"operator\":\"contains\",\"value\":\"失效日期 2026\"}]")
+                .listFilters("[{\"key\":\"status\",\"operator\":\"contains\",\"value\":\"原有效期至 2026\"}]")
                 .build();
         query.setListFilterWrapper(DccRegistrationCertificateQueryMapper.SqlProvider.listFilterWrapper(query, true));
         assertSql(DccRegistrationCertificateQueryMapper.SqlProvider.countOldIndex(), query, false);
         assertSql(DccRegistrationCertificateQueryMapper.SqlProvider.selectOldIndexPage(), query, true);
-        assertTrue(query.getListFilterWrapper().getSqlSegment().contains("已失效，失效日期"));
+        assertTrue(query.getListFilterWrapper().getSqlSegment().contains("已被替换，原有效期至"));
     }
 
     private static void assertSql(String script, DccRegistrationCertificatePageQuery query, boolean paged) {

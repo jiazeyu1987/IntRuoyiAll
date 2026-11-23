@@ -8,7 +8,7 @@ const drain = async () => { for (let i = 0; i < 30; i++) await Promise.resolve()
 const defaults = () => ({
   id: 1, enabled: true, dailyRunTime: '09:00', timezone: 'Asia/Shanghai',
   thresholdDaysJson: '[30,8,2,1]', rowVersion: 1,
-  thresholdRecipientUserIds: { T_30: [], T_8: [], T_2: [], T_1: [] }
+  thresholdRecipientUserIds: { T_30: [], T_8: [], T_2: [], T_1: [], CE_T_18: [], CE_T_12: [], CE_T_3: [] }
 })
 function mount(path, api) {
   const descriptor = parse(fs.readFileSync('src/views/dcc/registration-certificate/config/' + path, 'utf8')).descriptor
@@ -64,7 +64,7 @@ test('actual settings dialog allows explicitly choosing recipients after default
     await c.state.open()
     assert.equal(c.state.loaded, true)
     assert.equal(c.state.recipientsUnconfigured, true)
-    for (const key of ['T_30', 'T_8', 'T_2', 'T_1', 'CHANGE_CONFIRMATION']) {
+    for (const key of ['T_30', 'T_8', 'T_2', 'T_1', 'CE_T_18', 'CE_T_12', 'CE_T_3', 'CHANGE_CONFIRMATION']) {
       assert.deepEqual(c.state.formData.thresholdRecipientUserIds[key], [])
       c.state.formData.thresholdRecipientUserIds[key] = [101]
     }
@@ -73,13 +73,13 @@ test('actual settings dialog allows explicitly choosing recipients after default
     assert.equal(writes.length, 1)
     assert.equal(writes[0].expectedRowVersion, 1)
     assert.deepEqual(writes[0].thresholdRecipientUserIds,
-      { T_30: [101], T_8: [101], T_2: [101], T_1: [101], CHANGE_CONFIRMATION: [101] })
+      { T_30: [101], T_8: [101], T_2: [101], T_1: [101], CE_T_18: [101], CE_T_12: [101], CE_T_3: [101], CHANGE_CONFIRMATION: [101] })
     assert.equal(c.state.dialogVisible, false)
   } finally { c.app.unmount() }
 })
 
 test('both actual configuration UIs reject partial and nonarray recipient shapes instead of treating them as defaults', async () => {
-  for (const invalid of [{ T_30: [] }, { T_30: true, T_8: [], T_2: [], T_1: [] }]) {
+  for (const invalid of [{ T_30: [] }, { T_30: true, T_8: [], T_2: [], T_1: [], CE_T_18: [], CE_T_12: [], CE_T_3: [] }]) {
     let writes = 0
     const api = { getRegistrationCertificateReminderConfig: async () => ({ ...defaults(), thresholdRecipientUserIds: invalid }),
       updateRegistrationCertificateReminderConfig: async () => { writes++ } }
@@ -97,4 +97,25 @@ test('both actual configuration UIs reject partial and nonarray recipient shapes
       assert.equal(writes, 0)
     } finally { dialog.app.unmount() }
   }
+})
+
+
+test('schedule shows separate domestic and CE windows and flags missing CE recipients', async () => {
+  const data = defaults()
+  for (const key of ['T_30', 'T_8', 'T_2', 'T_1']) data.thresholdRecipientUserIds[key] = [101]
+  const c = mount('components/ReminderScheduleSetting.vue', {
+    getRegistrationCertificateReminderConfig: async () => data,
+    updateRegistrationCertificateReminderConfig: async () => { throw Error('unexpected write') }
+  })
+  try {
+    await drain()
+    assert.equal(c.state.loaded, true)
+    assert.deepEqual(c.state.domesticThresholdMonths, [30, 8, 2, 1])
+    assert.deepEqual(c.state.ceThresholdMonths, [18, 12, 3])
+    assert.equal(c.state.recipientsUnconfigured, true)
+    for (const key of ['CE_T_18', 'CE_T_12', 'CE_T_3']) c.state.form.thresholdRecipientUserIds[key] = [102]
+    assert.equal(c.state.recipientsUnconfigured, false)
+    c.state.form.thresholdRecipientUserIds.CE_T_12 = []
+    assert.equal(c.state.recipientsUnconfigured, true)
+  } finally { c.app.unmount() }
 })

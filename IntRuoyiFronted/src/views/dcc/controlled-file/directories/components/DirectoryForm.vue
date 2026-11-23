@@ -92,8 +92,15 @@ const formData = ref<ControlledFileDirectoryVO>({
 })
 
 const formRules = reactive<FormRules>({
-  code: [{ required: true, message: '目录编码不能为空', trigger: 'blur' }],
-  name: [{ required: true, message: '目录名称不能为空', trigger: 'blur' }],
+  code: [
+    { required: true, message: '目录编码不能为空', trigger: 'blur' },
+    { max: 64, message: '目录编码长度不能超过64个字符', trigger: 'blur' }
+  ],
+  name: [
+    { required: true, message: '目录名称不能为空', trigger: 'blur' },
+    { max: 128, message: '目录名称长度不能超过128个字符', trigger: 'blur' }
+  ],
+  remark: [{ max: 255, message: '备注长度不能超过255个字符', trigger: 'blur' }],
   active: [{ required: true, message: '启用状态不能为空', trigger: 'change' }],
   sort: [{ required: true, message: '排序不能为空', trigger: 'change' }]
 })

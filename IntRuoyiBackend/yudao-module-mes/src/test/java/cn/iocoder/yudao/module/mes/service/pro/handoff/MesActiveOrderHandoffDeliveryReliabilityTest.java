@@ -140,6 +140,36 @@ class MesActiveOrderHandoffDeliveryReliabilityTest {
   var queued=new ArrayList<Runnable>();ReflectionTestUtils.setField(service,"notificationExecutor",(org.springframework.core.task.TaskExecutor)queued::add);
   commit();task.setStatus("CANCELED");queued.get(0).run();verifyNoInteractions(sender);assertEquals("PENDING",row().getStatus());
  }
+ @Test void receiptLookupIsScopedToOriginalUserTenantTaskAndLiveRows() {
+  jdbc.update("INSERT INTO mes_active_order_handoff_delivery(tenant_id,handoff_task_id,user_id,deleted) VALUES (1,101,343,FALSE),(1,102,344,FALSE),(2,103,343,FALSE),(1,104,343,TRUE),(1,105,343,FALSE)");
+  assertEquals(Set.of(101L),service.ownReceiptTaskIds(List.of(101L,102L,103L,104L),343L));
+  assertTrue(service.ownReceiptTaskIds(List.of(),343L).isEmpty());
+ }
+ @Test void listKeepsOwnHistoricalReceiptButHidesRetiredTasksWithoutOne() {
+  jdbc.update("INSERT INTO mes_active_order_handoff_delivery(tenant_id,handoff_task_id,user_id,deleted) VALUES (1,101,343,FALSE),(1,102,344,FALSE)");
+  var handoff=mock(MesActiveOrderHandoffService.class);
+  var ownRows=List.of(
+    new MesActiveOrderHandoffTaskDO().setId(101L).setTaskType("QA_DECISION_HANDOFF"),
+    new MesActiveOrderHandoffTaskDO().setId(102L).setTaskType("PRODUCTION_REVIEW"),
+    new MesActiveOrderHandoffTaskDO().setId(103L).setTaskType("PRODUCTION_HANDOFF"));
+  when(handoff.listOwnTasks(343L)).thenReturn(ownRows);
+  var controller=new cn.iocoder.yudao.module.mes.controller.admin.pro.handoff.MesActiveOrderHandoffController();
+  ReflectionTestUtils.setField(controller,"handoff",handoff);ReflectionTestUtils.setField(controller,"delivery",service);
+  try(var security=mockStatic(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.class)) {
+   security.when(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils::getLoginUserId).thenReturn(343L);
+   var rows=controller.own().getData();
+   assertEquals(List.of(101L,102L,103L),rows.stream().map(MesActiveOrderHandoffTaskDO::getId).toList());
+   assertFalse(rows.get(0).isNotificationDeliveryEnabled());assertTrue(rows.get(0).isNotificationReceiptAvailable());
+   assertFalse(rows.get(1).isNotificationDeliveryEnabled());assertFalse(rows.get(1).isNotificationReceiptAvailable());
+   assertTrue(rows.get(2).isNotificationDeliveryEnabled());assertTrue(rows.get(2).isNotificationReceiptAvailable());
+  }
+  verifyNoInteractions(sender);
+ }
+ @Test void receiptDeliveryPolicyMatchesAllSupportedHandoffTypes() {
+  for(String type:MesActiveOrderHandoffContract.TYPES)
+   assertEquals("PRODUCTION_HANDOFF".equals(type),service.notificationDeliveryEnabled(type),type);
+  assertThrows(RuntimeException.class,()->service.notificationDeliveryEnabled("UNKNOWN"));
+ }
  MesActiveOrderHandoffTaskDO retiredEdhrTask(String type) {
   if(Set.of("PRODUCTION_RETURN","PQC_RETURN").contains(type)) {
    boolean production="PRODUCTION_RETURN".equals(type);

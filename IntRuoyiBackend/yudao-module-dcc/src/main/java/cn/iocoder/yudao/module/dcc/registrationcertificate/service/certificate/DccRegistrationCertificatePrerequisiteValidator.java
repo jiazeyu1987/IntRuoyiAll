@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_APPROVAL_DATE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_DATE_ORDER_INVALID;
@@ -205,13 +206,19 @@ public class DccRegistrationCertificatePrerequisiteValidator {
     }
 
     private void validateRequiredText(DccRegistrationCertificateDraftData draft) {
-        if (isBlank(draft.classification())
-                || normalizedLengthExceeds(draft.certificateNo(), CERTIFICATE_NO_MAX_LENGTH)
-                || normalizedLengthExceeds(draft.productName(), PRODUCT_NAME_MAX_LENGTH)
-                || normalizedLengthExceeds(draft.classification(), CLASSIFICATION_MAX_LENGTH)
-                || normalizedLengthExceeds(draft.registrantName(), REGISTRANT_NAME_MAX_LENGTH)
-                || normalizedLengthExceeds(draft.remark(), 1024)) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
+        if (isBlank(draft.classification())) {
+            throw invalidParamException("请填写产品分类");
+        }
+        validateTextLength(draft.certificateNo(), CERTIFICATE_NO_MAX_LENGTH, "注册证号");
+        validateTextLength(draft.productName(), PRODUCT_NAME_MAX_LENGTH, "产品名称");
+        validateTextLength(draft.classification(), CLASSIFICATION_MAX_LENGTH, "产品分类");
+        validateTextLength(draft.registrantName(), REGISTRANT_NAME_MAX_LENGTH, "注册人名称");
+        validateTextLength(draft.remark(), 1024, "备注");
+    }
+
+    private void validateTextLength(String value, int max, String label) {
+        if (normalizedLengthExceeds(value, max)) {
+            throw invalidParamException(label + "长度不能超过" + max + "个字符");
         }
     }
 

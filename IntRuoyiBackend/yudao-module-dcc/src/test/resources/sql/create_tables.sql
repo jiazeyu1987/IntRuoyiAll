@@ -2377,7 +2377,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_file` (
   CONSTRAINT `chk_dcc_reg_cert_file_owner_type` CHECK
     (`owner_type` IN ('VERSION', 'CHANGE', 'SUPPORTING_DOCUMENT')),
   CONSTRAINT `chk_dcc_reg_cert_file_kind` CHECK (`file_kind` IN
-    ('REGISTRATION_CERTIFICATE', 'CERTIFICATE_ATTACHMENT', 'FDA_PRODUCT_DESCRIPTION', 'CHANGE_APPROVAL', 'RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')),
+    ('REGISTRATION_CERTIFICATE', 'CERTIFICATE_ATTACHMENT', 'FDA_PRODUCT_DESCRIPTION', 'CHANGE_APPROVAL', 'RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE', 'CE_RENEWAL_CONTRACT', 'CE_RENEWAL_QUOTATION')),
   CONSTRAINT `chk_dcc_reg_cert_file_status` CHECK
     (`status` IN ('STAGED', 'BOUND', 'CLEANUP_REQUIRED', 'VOIDED')),
   UNIQUE KEY `uk_dcc_reg_cert_bound_file` (`tenant_id`, `bound_file_unique_flag`),
@@ -2500,7 +2500,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_supporting_document` (
   `deleted` TINYINT NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   CONSTRAINT `chk_dcc_reg_cert_support_type` CHECK (`document_type` IN
-    ('RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')),
+    ('RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE', 'CE_RENEWAL_CONTRACT', 'CE_RENEWAL_QUOTATION')),
   CONSTRAINT `chk_dcc_reg_cert_support_status` CHECK (`status` IN
     ('EFFECTIVE', 'REJECTED', 'VOIDED')),
   CONSTRAINT `chk_dcc_reg_cert_support_reject_reason` CHECK (
@@ -2638,7 +2638,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_reminder_occurrence` (
   CONSTRAINT `chk_dcc_reg_cert_reminder_occurrence_type` CHECK (`reminder_type` IN
     ('CERTIFICATE_EXPIRY', 'RENEWAL_UPLOAD', 'SUPPORTING_DOCUMENT')),
   CONSTRAINT `chk_dcc_reg_cert_reminder_occurrence_threshold` CHECK (`threshold_level` IN
-    ('T_30', 'T_8', 'T_2', 'T_1')),
+    ('T_30', 'T_8', 'T_2', 'T_1', 'CE_T_18', 'CE_T_12', 'CE_T_3')),
   CONSTRAINT `chk_dcc_reg_cert_reminder_occurrence_status` CHECK (`status` IN
     ('PENDING_DELIVERY', 'SUPPRESSED', 'DELIVERED', 'CLEARED', 'FAILED')),
   CONSTRAINT `chk_dcc_reg_cert_reminder_occurrence_suppression` CHECK (

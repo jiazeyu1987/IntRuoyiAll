@@ -75,8 +75,13 @@ watch(()=>props.modelValue,async show=>{const current=++generation;if(!show)retu
  currentFiles.value=evidence.files
  detail.value=data
 }catch(e){if(current===generation)error.value=e instanceof Error?e.message:String(e)}finally{if(current===generation)loading.value=false}})
+const validateChangeTextValues = (changes: Record<string, string>) => {
+ for (const [field, label] of [['PRODUCT_NAME', '产品名称'], ['REGISTRANT_NAME', '注册人名称']]) {
+  if (changes[field]?.trim().length > 255) throw new Error(`${label}长度不能超过255个字符`)
+ }
+}
 const submit=async()=>{error.value='';try{
- if(!detail.value)throw new Error('当前正式信息未加载');validateFacts(facts.value)
+ if(!detail.value)throw new Error('当前正式信息未加载');validateFacts(facts.value);validateChangeTextValues(values)
  for(const field of fields.value)if(!field.key.startsWith('CE_')&&values[field.key]!==String((detail.value as any)[field.prop]??'')&&!values[field.key]?.trim())throw new Error(`请填写${field.label}变更值`)
  if(facts.value.certificateType==='DOMESTIC'&&selected.value.includes('OTHER_CONTENT')&&!other.value.trim())throw new Error('请填写其他变更说明')
  if(!approvalDate.value)throw new Error('请填写变更批件批准日期');if(!files.value[0]?.raw&&!retainedFiles.value.some(f=>f.retained&&f.fileKind==='CHANGE_APPROVAL'))throw new Error('请上传变更批件文件')

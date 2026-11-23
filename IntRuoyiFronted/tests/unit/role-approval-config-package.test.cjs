@@ -55,7 +55,7 @@ test('export downloads the complete server package without any category filter',
   assert.equal(p.exporting.value, false)
 })
 
-test('combined entry requires every role and approval permission and keeps the eDHR entry independent', () => {
+test('combined entry requires role and approval permissions without category creation and keeps the eDHR entry independent', () => {
   const source = read('src/views/system/role/EdhrPermissionTransfer.vue')
   const script = source.slice(source.indexOf('const canExportRole'), source.indexOf('const canExport ='))
   const granted = new Set()
@@ -65,13 +65,14 @@ test('combined entry requires every role and approval permission and keeps the e
   }).outputText, context)
   const required = [
     ['canExportRole', ['system:role:export', 'bpm:business-approval-policy:query', 'bpm:model:query']],
-    ['canImportRole', ['system:role:create', 'system:role:update', 'system:role-category:create',
+    ['canImportRole', ['system:role:create', 'system:role:update',
       'system:permission:assign-role-menu', 'system:permission:assign-role-data-scope',
       'bpm:business-approval-policy:create', 'bpm:business-approval-policy:publish', 'bpm:business-approval-policy:disable',
       'bpm:model:create', 'bpm:model:deploy', 'bpm:category:create']]
   ]
   for (const [key, rights] of required) {
     granted.clear(); rights.forEach(right => granted.add(right))
+    assert.equal(granted.has('system:role-category:create'), false)
     assert.equal(context.exports.permissions[key].value, true)
     for (const right of rights) {
       granted.delete(right)

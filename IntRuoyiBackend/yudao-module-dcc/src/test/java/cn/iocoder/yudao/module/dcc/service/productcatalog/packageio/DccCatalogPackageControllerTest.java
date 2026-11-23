@@ -27,6 +27,8 @@ class DccCatalogPackageControllerTest {
         when(security.hasPermission(anyString())).thenReturn(true);
         assertTrue(authorized("exportWorkbook", security, jakarta.servlet.http.HttpServletResponse.class));
         when(security.hasPermission("dcc:registration-certificate:query-current")).thenReturn(false);
+        assertTrue(authorized("exportWorkbook", security, jakarta.servlet.http.HttpServletResponse.class));
+        when(security.hasPermission("dcc:project-code:query")).thenReturn(false);
         assertFalse(authorized("exportWorkbook", security, jakarta.servlet.http.HttpServletResponse.class));
     }
     @Test void ordinaryUserCannotImportWithoutAllRequiredPermissions() throws Exception {
@@ -35,6 +37,8 @@ class DccCatalogPackageControllerTest {
         when(security.hasPermission(anyString())).thenReturn(true);
         assertTrue(authorized("importWorkbook", security, org.springframework.web.multipart.MultipartFile.class));
         when(security.hasPermission("dcc:registration-certificate:config:update")).thenReturn(false);
+        assertTrue(authorized("importWorkbook", security, org.springframework.web.multipart.MultipartFile.class));
+        when(security.hasPermission("dcc:project-code:update")).thenReturn(false);
         assertFalse(authorized("importWorkbook", security, org.springframework.web.multipart.MultipartFile.class));
     }
     private boolean authorized(String method, SecurityFrameworkService security, Class<?> parameter) throws Exception {
@@ -48,7 +52,7 @@ class DccCatalogPackageControllerTest {
     }
     @Test void returnsWorkbookValidationMessageToTheImportDialog() throws Exception {
         var service = mock(DccCatalogPackageService.class);
-        when(service.importWorkbook(any())).thenThrow(new IllegalArgumentException("注册证：绑定缺失 owner_company_id=990819001"));
+        when(service.importWorkbook(any())).thenThrow(new IllegalArgumentException("产品与项目关系第 2 行：产品不存在于产品目录表：测试产品"));
         var controller = new DccCatalogPackageController();
         ReflectionTestUtils.setField(controller, "service", service);
         MockMvcBuilders.standaloneSetup(controller).build()
@@ -56,6 +60,6 @@ class DccCatalogPackageControllerTest {
                 .file(new MockMultipartFile("file", "catalog.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", new byte[]{1})))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(400))
-            .andExpect(jsonPath("$.msg").value("注册证：绑定缺失 owner_company_id=990819001"));
+            .andExpect(jsonPath("$.msg").value("产品与项目关系第 2 行：产品不存在于产品目录表：测试产品"));
     }
 }

@@ -85,8 +85,8 @@ public interface DccRegistrationCertificateQueryMapper {
                             + " </otherwise>"
                             + " </choose>",
                     " ORDER BY CASE v.status"
-                            + " WHEN 'PENDING_EFFECTIVE' THEN 1"
-                            + " WHEN 'CURRENT' THEN 2"
+                            + " WHEN 'PENDING_EFFECTIVE' THEN 2"
+                            + " WHEN 'CURRENT' THEN 1"
                             + " WHEN 'OLD' THEN 3"
                             + " ELSE 4 END, v.version_no DESC LIMIT 1");
         }
@@ -141,7 +141,11 @@ public interface DccRegistrationCertificateQueryMapper {
                 "EXISTS (SELECT 1 FROM dcc_registration_certificate_supporting_document sd"
                         + " WHERE sd.tenant_id = c.tenant_id"
                         + " AND sd.certificate_id = c.id"
-                        + " AND sd.document_type IN ('RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')"
+                        + " AND sd.version_id = v.id"
+                        + " AND ((JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateType')) = 'DOMESTIC'"
+                        + " AND sd.document_type IN ('RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE'))"
+                        + " OR (JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateType')) = 'CE'"
+                        + " AND sd.document_type IN ('CE_RENEWAL_CONTRACT', 'CE_RENEWAL_QUOTATION')))"
                         + " AND sd.status = 'EFFECTIVE'"
                         + " AND sd.deleted = 0)";
         private static final String REMINDER_STATE_EXPRESSION = reminderStateExpression();
@@ -303,7 +307,7 @@ public interface DccRegistrationCertificateQueryMapper {
         }
 
         private static String reminderStateExpression() {
-            return "CASE"
+            String domestic = "CASE"
                     + " WHEN " + reminderDateCrossed(1) + " THEN 'T_1'"
                     + " WHEN " + reminderDateCrossed(2) + " THEN 'T_2'"
                     + " WHEN " + reminderDateCrossed(8) + " AND " + REMINDER_CLEARED_EXISTS_EXPRESSION
@@ -311,17 +315,21 @@ public interface DccRegistrationCertificateQueryMapper {
                     + " WHEN " + reminderDateCrossed(8) + " THEN 'T_8'"
                     + " WHEN " + reminderDateCrossed(30) + " THEN 'T_30'"
                     + " ELSE 'NONE' END";
+            String ce = "CASE"
+                    + " WHEN " + reminderDateCrossed(3) + " THEN 'CE_T_3'"
+                    + " WHEN " + reminderDateCrossed(12) + " AND " + REMINDER_CLEARED_EXISTS_EXPRESSION + " THEN 'CLEARED'"
+                    + " WHEN " + reminderDateCrossed(12) + " THEN 'CE_T_12'"
+                    + " WHEN " + reminderDateCrossed(18) + " THEN 'CE_T_18'"
+                    + " ELSE 'NONE' END";
+            return "CASE " + fact("certificateType") + " WHEN 'CE' THEN " + ce
+                    + " WHEN 'DOMESTIC' THEN " + domestic + " ELSE 'NONE' END";
         }
 
         private static String reminderPrioritySortExpression() {
-            return "CASE"
-                    + " WHEN " + reminderDateCrossed(1) + " THEN 4"
-                    + " WHEN " + reminderDateCrossed(2) + " THEN 3"
-                    + " WHEN " + reminderDateCrossed(8) + " AND " + REMINDER_CLEARED_EXISTS_EXPRESSION
-                    + " THEN 0"
-                    + " WHEN " + reminderDateCrossed(8) + " THEN 2"
-                    + " WHEN " + reminderDateCrossed(30) + " THEN 1"
-                    + " ELSE 0 END";
+            return "CASE (" + REMINDER_STATE_EXPRESSION + ")"
+                    + " WHEN 'T_1' THEN 4 WHEN 'T_2' THEN 3 WHEN 'CE_T_3' THEN 3"
+                    + " WHEN 'T_8' THEN 2 WHEN 'CE_T_12' THEN 2"
+                    + " WHEN 'T_30' THEN 1 WHEN 'CE_T_18' THEN 1 ELSE 0 END";
         }
 
         private static String reminderDateCrossed(int months) {
@@ -346,7 +354,7 @@ public interface DccRegistrationCertificateQueryMapper {
             fields.put("productName", ListFilterQueryUtils.text("s.product_name"));
             fields.put("versionNo", ListFilterQueryUtils.text("v.version_no"));
             String status = "CASE v.status WHEN 'DRAFT' THEN '草稿' WHEN 'PENDING_EFFECTIVE' THEN '待生效' WHEN 'CURRENT' THEN '当前有效' WHEN 'OLD' THEN '旧证' WHEN 'VOIDED' THEN '已作废' ELSE '未识别状态' END";
-            if (oldIndex) status = "CONCAT('已失效，失效日期 ', COALESCE(" + fact("expiryDate") + ", '—'))";
+            if (oldIndex) status = "CONCAT('已被替换，原有效期至 ', COALESCE(" + fact("expiryDate") + ", '—'))";
             fields.put("status", ListFilterQueryUtils.text(status));
             for (String key : java.util.List.of("certificateNo", "classification", "remark"))
                 fields.put(key, ListFilterQueryUtils.text(fact(key)));
@@ -477,7 +485,7 @@ public interface DccRegistrationCertificateQueryMapper {
         private static String currentWhere() {
             return commonWhere()
                     + " AND c.status IN ('ACTIVE', 'PENDING_FIRST_EFFECTIVE')"
-                    + " AND v.id = COALESCE(c.pending_version_id, c.current_version_id)"
+                    + " AND (v.id = c.current_version_id OR v.id = c.pending_version_id)"
                     + " AND v.status IN ('CURRENT', 'PENDING_EFFECTIVE')"
                     + " AND ("
                     + " (v.id = c.current_version_id AND s.id = c.current_snapshot_id)"

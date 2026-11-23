@@ -1,6 +1,12 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.web.core.handler.GlobalExceptionHandler;
+import cn.iocoder.yudao.framework.apilog.core.annotation.ApiAccessLog;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.MesProcessPoolTeamLeaderController;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderDetailRespVO;
@@ -30,8 +36,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
+import static cn.iocoder.yudao.framework.apilog.core.interceptor.ApiAccessLogInterceptor.ATTRIBUTE_HANDLER_METHOD;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.*;
 
 @Tag(name = "管理后台 - eDHR 不合格评审")
 @RestController
@@ -41,6 +50,30 @@ public class MesProEdhrNonconformanceReviewController {
 
     @Resource
     private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    @Resource
+    private GlobalExceptionHandler globalExceptionHandler;
+
+    // 只公开经过核对的固定业务提示，不回显异常携带的密码、材料或请求值。
+    private static final Map<Integer, String> SAFE_DISPOSITION_MESSAGES = Map.ofEntries(
+            Map.entry(PRO_EDHR_NONCONFORMANCE_REVIEW_NOT_EXISTS.getCode(), PRO_EDHR_NONCONFORMANCE_REVIEW_NOT_EXISTS.getMsg()),
+            Map.entry(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID.getCode(), "当前批次或评审单状态不允许处置，请刷新后重试"),
+            Map.entry(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID.getCode(), "评审来源或关联数据无效，请核对后重试"),
+            Map.entry(PRO_EDHR_NONCONFORMANCE_REVIEW_DISPOSITION_INVALID.getCode(), PRO_EDHR_NONCONFORMANCE_REVIEW_DISPOSITION_INVALID.getMsg()),
+            Map.entry(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED.getCode(), "请填写处置结论、评审意见和电子签名密码"),
+            Map.entry(PRO_EDHR_NONCONFORMANCE_REVIEW_WORK_ORDER_STATE_REQUIRED.getCode(), PRO_EDHR_NONCONFORMANCE_REVIEW_WORK_ORDER_STATE_REQUIRED.getMsg()));
+
+    @ExceptionHandler(ServiceException.class)
+    public CommonResult<?> handleServiceException(ServiceException exception, HttpServletRequest request) {
+        CommonResult<?> result = globalExceptionHandler.serviceExceptionHandler(exception);
+        if (request.getAttribute(ATTRIBUTE_HANDLER_METHOD) instanceof HandlerMethod handler) {
+            ApiAccessLog privacy = handler.getMethodAnnotation(ApiAccessLog.class);
+            String safeMessage = SAFE_DISPOSITION_MESSAGES.get(exception.getCode());
+            if (privacy != null && !privacy.requestEnable() && safeMessage != null) {
+                result.setMsg(safeMessage);
+            }
+        }
+        return result;
+    }
 
     @Resource
     private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesQaReviewerCandidateService reviewerCandidates;
@@ -134,6 +167,14 @@ public class MesProEdhrNonconformanceReviewController {
     @PreAuthorize("isAuthenticated()")
     public CommonResult<MesProEdhrNonconformanceReviewRespVO> get(@RequestParam("id") Long id) {
         return success(nonconformanceReviewService.get(id));
+    }
+
+    @GetMapping("/summary")
+    @Operation(summary = "获得不合格评审只读摘要及原周期QA任务")
+    @PreAuthorize("isAuthenticated()")
+    public CommonResult<cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewSummaryRespVO> getSummary(
+            @RequestParam("id") Long id) {
+        return success(nonconformanceReviewService.getSummary(id));
     }
 
     @GetMapping("/active-order-detail")

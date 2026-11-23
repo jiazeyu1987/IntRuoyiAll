@@ -588,8 +588,6 @@ public interface ErrorCodeConstants {
             "PQC 损耗数量不能小于 0，当前损耗数量为 {}");
     ErrorCode PRO_PQC_SCRAP_QUANTITY_EXCEEDS_ACTUAL = new ErrorCode(1_040_506_120,
             "PQC 损耗数量（{}）不能大于实际检验数量（{}），请核对后提交");
-    ErrorCode PRO_PQC_SCRAP_QUANTITY_BELOW_FAILED_SAMPLES = new ErrorCode(1_040_506_121,
-            "PQC 损耗数量（{}）不能小于不合格样本数（{}，按样本序号去重），请核对检验结果和损耗数量后提交");
 
     // ========== MES 生产管理-生产流转卡（1-040-507-000） ==========
     ErrorCode PRO_CARD_NOT_EXISTS = new ErrorCode(1_040_507_000, "生产流转卡不存在");

@@ -323,10 +323,10 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
         when(pqcPieceDetailMapper.selectListByTaskId(8301L)).thenReturn(List.of());
         when(pqcPieceDetailMapper.selectListByTaskId(8302L)).thenReturn(List.of());
         when(pqcPieceDetailMapper.insertBatch(any(List.class))).thenReturn(Boolean.TRUE);
-        when(pqcInspectionTaskMapper.updateSubmittedIfPending(8301L, 1, "SIMULATED:8301:1:scrapQuantity:1:inspectionResult:FAILURE",
+        when(pqcInspectionTaskMapper.updateSubmittedIfPending(8301L, 1, "SIMULATED:8301:1:scrapQuantity:1:inspectionResult:SUCCESS",
                 MesPqcInspectionTaskDO.TASK_STATUS_PENDING, MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED))
                 .thenReturn(1);
-        when(pqcInspectionTaskMapper.updateSubmittedIfPending(8302L, 1, "SIMULATED:8302:1:scrapQuantity:1:inspectionResult:FAILURE",
+        when(pqcInspectionTaskMapper.updateSubmittedIfPending(8302L, 1, "SIMULATED:8302:1:scrapQuantity:1:inspectionResult:SUCCESS",
                 MesPqcInspectionTaskDO.TASK_STATUS_PENDING, MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED))
                 .thenReturn(1);
         when(processPoolEventService.createPqcInspectionEvent(any())).thenReturn(8001L, 8002L);
@@ -515,7 +515,7 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                         "第一台PQC设备", "PQC-NO-001", true, 1))));
         when(pqcPieceDetailMapper.selectListByTaskId(8301L)).thenReturn(List.of());
         when(pqcPieceDetailMapper.insertBatch(any(List.class))).thenReturn(Boolean.TRUE);
-        when(pqcInspectionTaskMapper.updateSubmittedIfPending(8301L, 1, "SIMULATED:8301:1:scrapQuantity:1:inspectionResult:FAILURE",
+        when(pqcInspectionTaskMapper.updateSubmittedIfPending(8301L, 1, "SIMULATED:8301:1:scrapQuantity:1:inspectionResult:SUCCESS",
                 MesPqcInspectionTaskDO.TASK_STATUS_PENDING, MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED))
                 .thenReturn(1);
         when(pqcInspectionTaskMapper.updateConfirmedIfSubmitted(8301L,

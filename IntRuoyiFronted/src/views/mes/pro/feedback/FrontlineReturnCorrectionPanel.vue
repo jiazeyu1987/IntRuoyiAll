@@ -93,6 +93,7 @@
           </label>
         </template>
         <template v-if="draft.pqc">
+          <p>损耗仅记录数量，不参与样本合格判定；更正须保留真实检验结果。</p>
           <p>正式检验数量：{{ draft.pqc.actualInspectionQuantity }} 件</p>
           <label
             >损耗数量<input

@@ -38,15 +38,10 @@ assert.match(
   /scrapQuantity > actualInspectionQuantity/,
   'PQC correction request builder must reject scrap quantity above actual inspection quantity.'
 )
-assert.match(
+assert.doesNotMatch(
   requestBuilder,
-  /resolvePqcCorrectionFailedSampleNos/,
-  'PQC correction request builder must derive failed piece sample numbers before submit.'
-)
-assert.match(
-  requestBuilder,
-  /scrapQuantity < failedSampleCount/,
-  'PQC correction request builder must reject scrap quantity below failed piece detail count.'
+  /resolvePqcCorrectionFailedSampleNos|scrapQuantity < failedSampleCount/,
+  'PQC correction must preserve failed samples independently of loss quantity.'
 )
 
 assert.match(
@@ -56,13 +51,17 @@ assert.match(
 )
 assert.match(
   correctionService,
-  /validateScrapQuantityAgainstPieceDetails\(command, updatedDetails\)/,
-  'Backend PQC correction service must validate scrap quantity against updated piece details before writes.'
+  /command\.getScrapQuantity\(\) < 0/,
+  'Backend PQC correction must reject negative loss quantity.'
+)
+assert.doesNotMatch(
+  correctionService,
+  /validateScrapQuantityAgainstPieceDetails|PRO_PQC_SCRAP_QUANTITY_BELOW_FAILED_SAMPLES/,
+  'Backend correction must preserve failed samples independently of loss quantity.'
 )
 assert.match(
   correctionService,
-  /map\(MesPqcInspectionPieceDetailDO::getSampleNo\)[\s\S]*distinct\(\)[\s\S]*count\(\)/,
-  'Backend piece detail floor must count distinct failed sample numbers, not duplicate item rows.'
+  /resolveInspectionResult\(updatedDetails\)/,
+  'Backend correction must derive quality from updated inspection details.'
 )
-
 console.log('PASS PQC correction quantity limit static contract')

@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.system.controller.admin.tenant.vo.tenant;
 
 import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.collection.CollUtil;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
@@ -21,13 +22,16 @@ public class TenantSaveReqVO {
 
     @Schema(description = "租户名", requiredMode = Schema.RequiredMode.REQUIRED, example = "瑛泰")
     @NotNull(message = "租户名不能为空")
+    @Size(max = 30, message = "租户名长度不能超过30个字符")
     private String name;
 
     @Schema(description = "联系人", requiredMode = Schema.RequiredMode.REQUIRED, example = "芋艿")
     @NotNull(message = "联系人不能为空")
+    @Size(max = 30, message = "联系人长度不能超过30个字符")
     private String contactName;
 
     @Schema(description = "联系手机", example = "15601691300")
+    @Pattern(regexp = "^$|^1[3-9]\\d{9}$", message = "联系手机格式不正确，请输入11位手机号码")
     private String contactMobile;
 
     @Schema(description = "租户状态", requiredMode = Schema.RequiredMode.REQUIRED, example = "1")
@@ -36,6 +40,13 @@ public class TenantSaveReqVO {
 
     @Schema(description = "绑定域名数组", example = "https://www.iocoder.cn")
     private List<String> websites;
+
+    @AssertTrue(message = "绑定域名总长度不能超过1024个字符（含分隔逗号）")
+    @JsonIgnore
+    public boolean isWebsitesLengthValid() {
+        // 与 StringListTypeHandler 的实际落库格式一致，分隔逗号也占用字段长度。
+        return websites == null || CollUtil.join(websites, ",").length() <= 1024;
+    }
 
     @Schema(description = "租户套餐编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "1024")
     @NotNull(message = "租户套餐编号不能为空")

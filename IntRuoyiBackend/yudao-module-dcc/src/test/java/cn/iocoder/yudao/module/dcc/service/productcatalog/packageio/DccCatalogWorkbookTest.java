@@ -5,16 +5,14 @@ import java.io.*;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 class DccCatalogWorkbookTest {
-    @Test void reportsOldWorkbookVersionBeforeBusinessColumnMismatch() throws Exception {
+    @Test void rejectsLegacyExtraSheets() throws Exception {
         var oldSheets = List.of(
-            new DccCatalogWorkbook.SheetData("导入说明", List.of("format"), List.of(Map.of("format", "dcc-catalog-workbook.v3"))),
-            new DccCatalogWorkbook.SheetData("DCC产品目录", List.of("id", "origin_tenant_id"), List.of()));
-        var schema = List.of(
-            new DccCatalogWorkbook.SheetData("导入说明", List.of("format"), List.of(Map.of("format", "dcc-catalog-workbook.v4"))),
-            new DccCatalogWorkbook.SheetData("DCC产品目录", List.of("id"), List.of()));
+            new DccCatalogWorkbook.SheetData("导入说明", List.of("format"), List.of(Map.of("format", "v8"))),
+            new DccCatalogWorkbook.SheetData("注册证", List.of("id"), List.of()));
+        var schema = List.of(new DccCatalogWorkbook.SheetData("项目代码", List.of("项目代码"), List.of()));
         var error = assertThrows(IllegalArgumentException.class,
             () -> DccCatalogWorkbook.read(DccCatalogWorkbook.write(oldSheets), schema));
-        assertEquals("工作簿版本不符，请在当前系统重新导出完整工作簿后再导入", error.getMessage());
+        assertTrue(error.getMessage().contains("重新导出"));
     }
     @Test void preservesLongIdsLeadingZeroesNullAndFormulaLikeText() throws Exception {
         Map<String,String> row = new LinkedHashMap<>();

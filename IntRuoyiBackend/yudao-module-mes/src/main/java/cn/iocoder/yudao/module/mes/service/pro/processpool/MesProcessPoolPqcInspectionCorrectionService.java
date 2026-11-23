@@ -63,7 +63,6 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_NEGATIVE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_EXCEEDS_ACTUAL;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_BELOW_FAILED_SAMPLES;
 
 @Service
 public class MesProcessPoolPqcInspectionCorrectionService {
@@ -209,8 +208,7 @@ public class MesProcessPoolPqcInspectionCorrectionService {
                 detail.setSelectedEquipmentNumber(equipment.equipmentNumber());
             }
         }
-        validateScrapQuantityAgainstPieceDetails(command, updatedDetails);
-        String inspectionResult = resolveInspectionResult(command.getScrapQuantity(), updatedDetails);
+        String inspectionResult = resolveInspectionResult(updatedDetails);
         ObjectNode afterPayload = buildAfterPayload(event, task, command, updatedDetails, inspectionResult);
         MesProcessPoolSubmissionReviewDO previousReview = reviewMapper.selectLatestByEventIdForUpdate(event.getId());
         boolean leaderReturnedCorrection = ownReturn == null && previousReview != null
@@ -970,29 +968,11 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         }
     }
 
-    private String resolveInspectionResult(Integer scrapQuantity, List<MesPqcInspectionPieceDetailDO> details) {
-        if (scrapQuantity != null && scrapQuantity > 0) {
-            return MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE;
-        }
+    private String resolveInspectionResult(List<MesPqcInspectionPieceDetailDO> details) {
         return details.stream().anyMatch(detail ->
                 MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE.equals(detail.getJudgement()))
                 ? MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE
                 : MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS;
-    }
-
-    private void validateScrapQuantityAgainstPieceDetails(MesProcessPoolPqcInspectionCorrectionCommand command,
-                                                          List<MesPqcInspectionPieceDetailDO> details) {
-        long failedSampleCount = details.stream()
-                .filter(detail -> MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE.equals(
-                        detail.getJudgement()))
-                .map(MesPqcInspectionPieceDetailDO::getSampleNo)
-                .filter(Objects::nonNull)
-                .distinct()
-                .count();
-        if (command.getScrapQuantity() < failedSampleCount) {
-            throw exception(PRO_PQC_SCRAP_QUANTITY_BELOW_FAILED_SAMPLES,
-                    command.getScrapQuantity(), failedSampleCount);
-        }
     }
 
     private String resolvePieceJudgement(MesPqcInspectionPieceDetailDO detail, String value) {

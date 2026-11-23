@@ -10,7 +10,7 @@
       <el-form-item label="权限角色名称" prop="name">
         <el-input v-model="formData.name" placeholder="请输入权限角色名称" />
       </el-form-item>
-      <el-form-item label="权限角色标识" prop="code">
+      <el-form-item v-if="formType === 'create'" label="权限角色标识" prop="code">
         <el-input v-model="formData.code" placeholder="请输入权限角色标识" />
       </el-form-item>
       <el-form-item v-if="formType === 'create'" label="显示顺序" prop="sort">

@@ -72,7 +72,7 @@
           >
             <template #default="{ row }">
               <el-button
-                v-if="row.batchExecutionId && row.batchCode"
+                v-if="row.batchExecutionId && row.batchCode && checkPermi(['mes:pro-edhr-batch-execution:query'])"
                 link
                 type="primary"
                 @click="openBatchExecutionDetail(row)"
@@ -80,7 +80,8 @@
                 {{ row.batchCode }}
               </el-button>
               <span v-else>
-                <ProductionBatchCodeLink :code="row.batchCode" />
+                <template v-if="row.batchExecutionId">{{ row.batchCode || '--' }}</template>
+                <ProductionBatchCodeLink v-else :code="row.batchCode" />
                 <el-tag v-if="row.contextStatus !== 'COMPLETE'" class="ml-6px" type="warning" size="small">
                   {{ resolveEvidenceLabel(row.contextStatus) }}
                 </el-tag>
@@ -96,7 +97,7 @@
           >
             <template #default="{ row }">
               <el-button
-                v-if="row.batchExecutionId && row.workOrderCode"
+                v-if="row.batchExecutionId && row.workOrderCode && checkPermi(['mes:pro-edhr-batch-execution:query'])"
                 link
                 type="primary"
                 @click="openBatchExecutionWorkOrder(row)"
@@ -406,6 +407,7 @@
 </template>
 
 <script setup lang="ts">
+import { checkPermi } from '@/utils/permission'
 import ExecutionCodeLink from '@/components/ExecutionCodeLink.vue'
 import ProductionBatchCodeLink from '@/components/ProductionBatchCodeLink.vue'
 import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
@@ -699,6 +701,7 @@ const resetProductionReportRevisionQuery = () => {
 }
 
 const openBatchExecutionWorkOrder = (row: FormFillLogPageRespVO) => {
+  if (!checkPermi(['mes:pro-edhr-batch-execution:query'])) return
   if (!row.batchExecutionId) return
   router.push({
     path: '/mes/pro/feedback/edhr-batch-execution/detail',
@@ -707,6 +710,7 @@ const openBatchExecutionWorkOrder = (row: FormFillLogPageRespVO) => {
 }
 
 const openBatchExecutionDetail = (row: FormFillLogPageRespVO) => {
+  if (!checkPermi(['mes:pro-edhr-batch-execution:query'])) return
   if (!row.batchExecutionId) return
   router.push({
     path: '/mes/pro/feedback/edhr-batch-execution/detail',

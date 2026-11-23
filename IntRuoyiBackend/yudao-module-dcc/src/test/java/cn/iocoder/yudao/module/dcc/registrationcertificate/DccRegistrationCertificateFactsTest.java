@@ -43,5 +43,20 @@ class DccRegistrationCertificateFactsTest {
   assertDoesNotThrow(f::validate);assertEquals("CUSTOMER-PRJ-01",DccRegistrationCertificateFacts.parse(f.toJson()).getProjectCode());
   f.setProjectCode(null);assertDoesNotThrow(f::validate);
  }
+ @Test void textLimitsAcceptBoundaryAndReportTheOffendingField() {
+  var facts=base("CE");facts.setExpiryDate(LocalDate.of(2030,1,1));
+  facts.setCertificateNo("字".repeat(128));facts.setClassification("字".repeat(64));facts.setRemark("字".repeat(1024));
+  assertDoesNotThrow(facts::validate);
+  facts.setCertificateNo("字".repeat(129));assertEquals("注册证号长度不能超过128个字符",assertThrows(ServiceException.class,facts::validate).getMessage());facts.setCertificateNo(null);
+  facts.setClassification("字".repeat(65));assertEquals("产品分类长度不能超过64个字符",assertThrows(ServiceException.class,facts::validate).getMessage());facts.setClassification("II");
+  facts.setRemark("字".repeat(1025));assertEquals("备注长度不能超过1024个字符",assertThrows(ServiceException.class,facts::validate).getMessage());
+ }
+ @Test void validatesEveryCeCertificateNumberBeforeProjection() {
+  var facts=base("CE");facts.setExpiryDate(LocalDate.of(2030,1,1));
+  var first=new DccRegistrationCertificateFacts.CeCertificate();first.setRevision("Rev.0");first.setCertificateNo("字".repeat(128));
+  var last=new DccRegistrationCertificateFacts.CeCertificate();last.setRevision("Rev.1");last.setCertificateNo("VALID");facts.setCeCertificates(List.of(first,last));
+  assertDoesNotThrow(facts::validate);first.setCertificateNo("字".repeat(129));
+  assertEquals("第1条CE证书编号长度不能超过128个字符",assertThrows(ServiceException.class,facts::validate).getMessage());
+ }
  private static DccRegistrationCertificateFacts base(String type){var f=new DccRegistrationCertificateFacts();f.setCertificateType(type);f.setOwnProduct(false);f.setClassification("II");if(!"FDA".equals(type))f.setCertificateStatus("VALID");return f;}
 }

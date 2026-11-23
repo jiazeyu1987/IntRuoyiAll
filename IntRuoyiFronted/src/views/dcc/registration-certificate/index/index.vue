@@ -71,7 +71,7 @@
                   :stripe="true"
                   :show-overflow-tooltip="true"
                   scrollbar-always-on
-                  row-key="certificateId"
+                  row-key="versionId"
                   @header-dragend="handleCurrentHeaderDragend"
                   @sort-change="handleTemplateSortChange"
                   @selection-change="handleCertificateSelectionChange"
@@ -230,7 +230,7 @@
                 >
                   <template #default="{ row }">
                     <div class="registration-certificate-row-actions registration-certificate-row-actions--compact">
-                      <el-button link type="primary" @click="openDetail(row.certificateId)">
+                      <el-button link type="primary" @click="openDetail(row.certificateId, row.versionId)">
                         详情
                       </el-button>
                       <el-button
@@ -350,7 +350,7 @@
                 >
                   <template #default="{ row }">
                     <el-tag :type="getRegistrationCertificateStatusTagType(row.status)">
-                      {{ row.status === 'OLD' ? '已失效，失效日期 ' + formatRegistrationCertificateDate(row.expiryDate) : formatRegistrationCertificateStatus(row.status) }}
+                      {{ row.status === 'OLD' ? '已被替换，原有效期至 ' + formatRegistrationCertificateDate(row.expiryDate) : formatRegistrationCertificateStatus(row.status) }}
                     </el-tag>
                   </template>
                 </el-table-column>
@@ -377,6 +377,7 @@
                       <el-button link type="primary" @click="openOldDetail(row.certificateId, row.versionId)">
                         查看
                       </el-button>
+                      <el-button v-hasPermi="['dcc:registration-certificate:access-request:create']" link type="primary" :loading="requestingOldAccessId === String(row.certificateId)" :disabled="!!requestingOldAccessId" @click="requestOldAccess(row.certificateId)">申请查看</el-button>
                     </div>
                   </template>
                 </el-table-column>
@@ -454,10 +455,11 @@ import CategoryFilters from '../shared/CategoryFilters.vue'
 import MyApplications from '../upload/MyApplications.vue'
 const configRouter = useRouter()
 import { computed, onActivated, onMounted, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import {
   deleteRegistrationCertificate,
+  submitRegistrationCertificateAccessRequest,
   getRegistrationCertificateOldIndexPage,
   getRegistrationCertificatePage,
   simulateRegistrationCertificateBusinessTimeDailyRun,
@@ -1017,13 +1019,35 @@ const handleTabChange = (tabName: string | number) => {
   void loadPage()
 }
 
-const openDetail = (certificateId: number | string) => {
-  router.push(`/mdm/registration-certificate/detail/${certificateId}`)
+const openDetail = (certificateId: number | string, versionId: number | string) => {
+  router.push({ path: `/mdm/registration-certificate/detail/${certificateId}`, query: { versionId: String(versionId) } })
 }
 
 const openChange = (row: DccRegistrationCertificatePageItemVO) => {
   selectedChangeCertificate.value = row
   showChangeDialog.value = true
+}
+
+const requestingOldAccessId = ref('')
+const requestOldAccess = async (certificateId: number | string) => {
+  if (requestingOldAccessId.value) return
+  requestingOldAccessId.value = String(certificateId)
+  try {
+    let purpose: string
+    try {
+      const result = await ElMessageBox.prompt('请填写查看旧证的用途', '申请查看旧证', {
+        inputValidator: (value) => !!value?.trim() || '请填写用途'
+      })
+      purpose = result.value.trim()
+    } catch (error) {
+      if (error === 'cancel' || error === 'close') return
+      throw error
+    }
+    await submitRegistrationCertificateAccessRequest({ certificateId, requestType: 'VIEW_OLD_CERTIFICATE', purpose }, `DCC-REG-CERT-ACCESS-SUBMIT-${createSecureUuid()}`)
+    message.success('申请已提交，审批通过后可查看')
+  } finally {
+    requestingOldAccessId.value = ''
+  }
 }
 
 const openOldDetail = (certificateId: number | string, versionId: number | string) => {
@@ -1164,7 +1188,7 @@ const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() =
     getValue: (row) =>
       [
         row.status === 'OLD'
-          ? '已失效，失效日期 ' + formatRegistrationCertificateDate(row.expiryDate)
+          ? '已被替换，原有效期至 ' + formatRegistrationCertificateDate(row.expiryDate)
           : formatRegistrationCertificateStatus(row.status)
       ].join(' ')
   }

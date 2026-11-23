@@ -36,6 +36,7 @@ function harness(permissions, query = {}, apiOverrides = {}) {
     getNonconformanceReviewPage: async request => { lists.push(request); return { list: [review], total: 1 } },
     getNonconformanceReview: async id => { exactReads.push(id); return review },
     getNonconformanceReviewActiveOrderDetail: async id => { orderReads.push(id); return { activeOrderId: 7, workOrderCode: 'WO-7', processes: [] } },
+    getNonconformanceReviewSummary: async id => ({ review: { ...review, id, activeOrderId: 7 }, qaReviewerName: 'QA', qaTaskId: '2124588436506107904', qaTaskStatus: 'TODO' }),
     createNonconformanceReview: async request => { writes.push({ create: request }); throw Error('read entry must not write') },
     disposeNonconformanceReview: async request => { writes.push({ dispose: request }); throw Error('read entry must not dispose') },
     uploadNonconformanceReviewMaterial: async () => { writes.push('upload'); throw Error('read entry must not upload') },

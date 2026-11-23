@@ -1155,6 +1155,73 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"25,1,25", "26,0,22", "26,0,4", "1,1,1"})
+    void productionDisplayKeepsOriginalQuantitiesSeparateFromCurrentOrderAllocation(String values) {
+        String[] quantities = values.split(",");
+        var productionRow = row(9101L, 5001L, 6001L, "粗洗", "100", 7001L,
+                quantities[2], "张三", null, "2026-08-13T08:10:00");
+        productionRow.setOriginalPayloadJson("{\"outputQuantity\":" + quantities[0]
+                + ",\"lossQuantity\":" + quantities[1] + ",\"materialDetails\":[]}");
+        var process = readProductionQuantityFixture(productionRow);
+        var submission = process.getSubmissions().get(0);
+        assertEquals(new BigDecimal(quantities[0]), submission.getOriginalOutputQuantity());
+        assertEquals(new BigDecimal(quantities[1]), submission.getOriginalLossQuantity());
+        assertEquals(new BigDecimal(quantities[2]), submission.getSubmittedQuantity());
+        assertEquals(new BigDecimal(quantities[2]), process.getSubmittedQuantity());
+        assertEquals(List.of(), submission.getMaterials());
+    }
+
+    @Test
+    void productionDisplayAndResponseDoNotReplaceOriginalQuantitiesWithMaterialDetails() {
+        var productionRow = row(9101L, 5001L, 6001L, "粗洗", "100", 7001L,
+                "22", "张三", null, "2026-08-13T08:10:00");
+        productionRow.setOriginalPayloadJson("""
+                {"outputQuantity":25,"lossQuantity":1,
+                 "lossDetails":[{"reasonId":-1,"reasonCode":"SYSTEM_OTHER_LOSS","reasonName":"其他损耗","quantity":1}],
+                 "materialDetails":[
+                   {"materialId":1,"materialCode":"A","materialName":"物料A","outputQuantity":99,"lossQuantity":9},
+                   {"materialId":2,"materialCode":"B","materialName":"物料B","outputQuantity":88,"lossQuantity":8}]}
+                """);
+        var process = readProductionQuantityFixture(productionRow);
+        var submission = process.getSubmissions().get(0);
+        cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderDetailRespVO.SubmissionDetail response =
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                        cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.MesProcessPoolTeamLeaderController.class,
+                        "toActiveOrderSubmissionDetailRespVO", submission);
+        assertEquals(1, process.getSubmissionCount());
+        assertEquals(new BigDecimal("22"), process.getSubmittedQuantity());
+        assertEquals(new BigDecimal("25"), response.getOriginalOutputQuantity());
+        assertEquals(new BigDecimal("1"), response.getOriginalLossQuantity());
+        assertEquals(new BigDecimal("22"), response.getSubmittedQuantity());
+        assertEquals(new BigDecimal("1"), response.getLossDetails().get(0).getQuantity());
+        assertEquals(2, response.getMaterials().size());
+        assertEquals(new BigDecimal("99"), response.getMaterials().get(0).getOutputQuantity());
+        assertEquals(new BigDecimal("9"), response.getMaterials().get(0).getLossQuantity());
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "{}", "{\"outputQuantity\":25}", "{\"lossQuantity\":1}",
+            "{\"rawPayload\":{\"outputQuantity\":25,\"lossQuantity\":1}}"})
+    void productionDisplayRejectsMissingFormalQuantitiesInsteadOfFillingZero(String payload) {
+        var productionRow = row(9101L, 5001L, 6001L, "粗洗", "100", 7001L,
+                "25", "张三", null, "2026-08-13T08:10:00");
+        productionRow.setOriginalPayloadJson(payload);
+        assertThrows(ServiceException.class, () -> readProductionQuantityFixture(productionRow));
+    }
+
+    private MesTeamLeaderActiveOrderDetail.ProcessDetail readProductionQuantityFixture(
+            MesTeamLeaderActiveOrderDetailReadDO productionRow) {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L)
+                .qaRegulationVersionId(5201L).activeStatus("ACTIVE").build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(productionRow));
+        lenient().when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L))
+                .thenReturn(List.of());
+        return service.getDetail(3001L, 8101L).getProcesses().get(0);
+    }
+
     @Test
     void shouldGroupMultipleEmployeesAndSubmissionsByFormalProcessSnapshot() {
         when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
@@ -1558,6 +1625,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 "10.000000", 7001L, "10", "张三", "生产组长甲", "2026-08-13T08:10:00");
         productionRow.setOriginalPayloadJson("""
                 {
+                  "outputQuantity": 10,
+                  "lossQuantity": 0,
                   "materialDetails": [
                     {
                       "materialId": 3102,
@@ -2366,6 +2435,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 .setRequiredQuantity(new BigDecimal(requiredQuantity))
                 .setEventId(eventId)
                 .setSubmittedQuantity(submittedQuantity == null ? null : new BigDecimal(submittedQuantity))
+                .setOriginalPayloadJson(eventId == null ? null : "{\"outputQuantity\":" + submittedQuantity + ",\"lossQuantity\":0}")
                 .setSubmitterName(submitterName)
                 .setReviewerName(reviewerName)
                 .setSubmittedAt(parsedSubmittedAt)

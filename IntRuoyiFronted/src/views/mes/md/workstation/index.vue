@@ -296,16 +296,18 @@
     >
       <el-table-column label="设备编码" align="center" prop="machineryCode" min-width="150">
         <template #default="scope">
-          <el-link type="primary" @click="openMachineryLedger(scope.row.machineryId)">
+          <el-link v-if="checkPermi(['mes:dv-machinery:query'])" type="primary" @click="openMachineryLedger(scope.row.machineryId)">
             {{ scope.row.machineryCode }}
           </el-link>
+          <span v-else>{{ scope.row.machineryCode }}</span>
         </template>
       </el-table-column>
       <el-table-column label="设备名称" align="center" prop="machineryName" min-width="180">
         <template #default="scope">
-          <el-link type="primary" @click="openMachineryLedger(scope.row.machineryId)">
+          <el-link v-if="checkPermi(['mes:dv-machinery:query'])" type="primary" @click="openMachineryLedger(scope.row.machineryId)">
             {{ scope.row.machineryName }}
           </el-link>
+          <span v-else>{{ scope.row.machineryName }}</span>
         </template>
       </el-table-column>
       <el-table-column label="数量" align="center" prop="quantity" width="100" />
@@ -323,6 +325,7 @@
 </template>
 
 <script setup lang="ts">
+import { checkPermi } from '@/utils/permission'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
@@ -545,6 +548,7 @@ const openWorkstationMachineDialog = async (row: MdWorkstationVO) => {
 }
 
 const openMachineryLedger = async (machineryId?: number) => {
+  if (!checkPermi(['mes:dv-machinery:query'])) return
   const normalizedMachineryId = Number(machineryId)
   if (!Number.isFinite(normalizedMachineryId) || normalizedMachineryId <= 0) {
     throw new Error('设备绑定缺少设备编号，无法跳转设备台账。')
@@ -559,6 +563,7 @@ const handleWorkstationMachineDialogClosed = async () => {
     return
   }
   pendingMachineryLedgerId.value = undefined
+  if (!checkPermi(['mes:dv-machinery:query'])) return
   await router.push({ path: '/mes/dv/machinery', query: { openId: String(machineryId) } })
 }
 
