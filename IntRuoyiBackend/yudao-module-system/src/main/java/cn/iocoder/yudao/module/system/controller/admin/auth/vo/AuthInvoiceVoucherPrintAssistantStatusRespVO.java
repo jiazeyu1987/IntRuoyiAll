@@ -16,6 +16,9 @@ public class AuthInvoiceVoucherPrintAssistantStatusRespVO {
     @Schema(description = "助手是否已运行", requiredMode = Schema.RequiredMode.REQUIRED, example = "true")
     private Boolean running;
 
+    @Schema(description = "部署配置的浏览器公开访问地址", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String publicUrl;
+
     @Schema(description = "助手是否允许启动", requiredMode = Schema.RequiredMode.REQUIRED, example = "true")
     private Boolean launchable;
 

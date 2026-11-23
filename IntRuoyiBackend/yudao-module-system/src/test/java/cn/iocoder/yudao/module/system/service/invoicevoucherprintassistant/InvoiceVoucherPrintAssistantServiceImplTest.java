@@ -46,6 +46,7 @@ class InvoiceVoucherPrintAssistantServiceImplTest extends BaseMockitoUnitTest {
         Path nodeCommand = tempDir.resolve("node.exe");
         Files.writeString(nodeCommand, "node", StandardCharsets.UTF_8);
 
+        properties.setPublicUrl("https://assistant.example.test/print");
         properties.setAssistantHost("127.0.0.1");
         properties.setAssistantPort(18733);
         properties.setAssistantRootDir(rootDir.toString());
@@ -68,6 +69,7 @@ class InvoiceVoucherPrintAssistantServiceImplTest extends BaseMockitoUnitTest {
 
         assertTrue(respVO.getRunning());
         assertTrue(respVO.getLaunchable());
+        assertEquals("https://assistant.example.test/print/", respVO.getPublicUrl());
         assertEquals("发票凭证打印助手已启动", respVO.getMessage());
         verify(processStarter, never()).start();
     }
@@ -94,6 +96,7 @@ class InvoiceVoucherPrintAssistantServiceImplTest extends BaseMockitoUnitTest {
 
         assertTrue(respVO.getRunning());
         assertTrue(respVO.getLaunchable());
+        assertEquals("https://assistant.example.test/print/", respVO.getPublicUrl());
         assertEquals("发票凭证打印助手已启动", respVO.getMessage());
         verify(processStarter).start();
     }
@@ -118,6 +121,36 @@ class InvoiceVoucherPrintAssistantServiceImplTest extends BaseMockitoUnitTest {
                 IllegalArgumentException.class, () -> properties.afterPropertiesSet());
 
         assertTrue(exception.getMessage().contains("18733"));
+    }
+
+    @Test
+    void missingPublicUrlBlocksStatusAndStartWithoutProbeOrLaunch() {
+        properties.setPublicUrl("");
+        assertEquals(400, assertThrows(ServiceException.class, service::getStatus).getCode());
+        assertEquals(400, assertThrows(ServiceException.class, service::start).getCode());
+        org.mockito.Mockito.verifyNoInteractions(healthProbe, processStarter);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "javascript:alert(1)", "//assistant.example.test/", "ftp://assistant.example.test/",
+            "https://user:secret@assistant.example.test/", "https://assistant.example.test/?token=x",
+            "https://assistant.example.test/#token", "not a url", "http://assistant.example.test:0/"
+    })
+    void invalidPublicUrlRejectsDeployment(String url) {
+        properties.setPublicUrl(url);
+        assertThrows(IllegalArgumentException.class, properties::afterPropertiesSet);
+    }
+
+    @Test
+    void publicUrlBindsFromFormalDeploymentPropertyWithoutChangingProbeHost() {
+        var source = new org.springframework.boot.context.properties.source.MapConfigurationPropertySource(
+                java.util.Map.of("yudao.erp.invoice-voucher-print-assistant.public-url", "https://public.example.test/print/"));
+        var bound = new org.springframework.boot.context.properties.bind.Binder(source).bind(
+                "yudao.erp.invoice-voucher-print-assistant",
+                org.springframework.boot.context.properties.bind.Bindable.of(InvoiceVoucherPrintAssistantProperties.class)).get();
+        assertEquals("https://public.example.test/print/", bound.getPublicUrl());
+        assertEquals("http://127.0.0.1:18733", bound.getAssistantBaseUrl());
     }
 
 }

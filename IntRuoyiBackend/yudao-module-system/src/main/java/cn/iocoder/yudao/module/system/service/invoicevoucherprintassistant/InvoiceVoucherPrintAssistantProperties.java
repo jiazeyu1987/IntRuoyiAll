@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -17,6 +18,24 @@ import java.nio.file.Path;
 public class InvoiceVoucherPrintAssistantProperties implements InitializingBean {
 
     public static final int FIXED_ASSISTANT_PORT = 18733;
+
+    /** Browser-visible deployment URL, independent of the backend health-probe host. */
+    private String publicUrl = "";
+
+    public String getPublicUrl() {
+        if (publicUrl == null || publicUrl.isBlank()) return "";
+        URI uri;
+        try { uri = URI.create(publicUrl.trim()); }
+        catch (IllegalArgumentException ex) { throw new IllegalArgumentException("Invalid invoice-voucher-print-assistant.public-url"); }
+        if (!("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()))
+                || uri.getHost() == null || uri.getRawUserInfo() != null
+                || uri.getRawQuery() != null || uri.getRawFragment() != null
+                || uri.getPort() > 65535 || uri.getPort() == 0) {
+            throw new IllegalArgumentException("invoice-voucher-print-assistant.public-url requires an absolute HTTP(S) URL without credentials, query or fragment");
+        }
+        String value = uri.toASCIIString();
+        return value.endsWith("/") ? value : value + "/";
+    }
 
     private String assistantHost = "127.0.0.1";
 
@@ -68,6 +87,7 @@ public class InvoiceVoucherPrintAssistantProperties implements InitializingBean 
 
     @Override
     public void afterPropertiesSet() {
+        getPublicUrl(); // Reject explicitly invalid deployment configuration at startup.
         if (assistantPort == null || assistantPort != FIXED_ASSISTANT_PORT) {
             throw new IllegalArgumentException("yudao.erp.invoice-voucher-print-assistant.assistant-port must be fixed at 18733");
         }

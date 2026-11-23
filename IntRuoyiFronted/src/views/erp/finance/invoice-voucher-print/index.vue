@@ -1,14 +1,6 @@
 <template>
   <ContentWrap v-loading="loading" :bodyStyle="{ padding: '0px' }" class="!mb-0">
-    <el-alert
-      v-if="!assistantBaseUrl"
-      title="发票凭证打印助手地址未配置，请配置 VITE_INVOICE_VOUCHER_PRINT_ASSISTANT_URL。"
-      type="error"
-      :closable="false"
-      show-icon
-      class="m-16px"
-    />
-    <div v-else-if="assistantNeedsLaunch" class="invoice-voucher-print-launch">
+    <div v-if="assistantNeedsLaunch" class="invoice-voucher-print-launch">
       <el-alert
         v-if="errorMessage"
         :title="errorMessage"
@@ -63,9 +55,16 @@ const assistantStarting = ref(false)
 const assistantStatusMessage = ref('')
 const assistantAccessUrl = ref('')
 
-const assistantBaseUrl = computed(() => {
-  return import.meta.env.VITE_INVOICE_VOUCHER_PRINT_ASSISTANT_URL?.trim() || ''
-})
+const assistantBaseUrl = ref('')
+
+const applyPublicUrl = (value: string) => {
+  if (!value?.trim()) throw new Error('发票凭证打印助手地址未配置，请联系管理员。')
+  const url = new URL(value)
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
+    throw new Error('发票凭证打印助手公开地址配置无效。')
+  }
+  assistantBaseUrl.value = url.href.endsWith('/') ? url.href : `${url.href}/`
+}
 
 const buildAssistantAccessUrl = (baseUrl: string, ticket: string) => {
   if (!ticket) {
@@ -84,10 +83,7 @@ const openAssistant = async () => {
 }
 
 const loadAssistantEntry = async () => {
-  if (!assistantBaseUrl.value) {
-    assistantAccessUrl.value = ''
-    return
-  }
+  assistantBaseUrl.value = ''
   loading.value = true
   errorMessage.value = ''
   assistantNeedsLaunch.value = false
@@ -95,6 +91,7 @@ const loadAssistantEntry = async () => {
   assistantAccessUrl.value = ''
   try {
     const status = await getInvoiceVoucherPrintAssistantStatus()
+    applyPublicUrl(status.publicUrl)
     assistantStatusMessage.value = status.message || ''
     if (status.running) {
       await openAssistant()
@@ -123,6 +120,7 @@ const handleStartAssistant = async () => {
   try {
     const status = await startInvoiceVoucherPrintAssistant()
     assistantStatusMessage.value = status.message || ''
+    applyPublicUrl(status.publicUrl)
     if (!status.running) {
       throw new Error(status.message || '发票凭证打印助手启动失败。')
     }
