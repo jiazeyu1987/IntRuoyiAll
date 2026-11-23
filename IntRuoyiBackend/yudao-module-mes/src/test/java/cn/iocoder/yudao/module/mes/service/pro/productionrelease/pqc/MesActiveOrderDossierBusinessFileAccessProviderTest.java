@@ -31,8 +31,10 @@ class MesActiveOrderDossierBusinessFileAccessProviderTest {
             context.getBeanFactory().registerSingleton("correctionService", mock(MesPqcReleaseCorrectionService.class));
             context.getBeanFactory().registerSingleton("dossierCompletionService", mock(MesActiveOrderDossierCompletionService.class));
             context.getBeanFactory().registerSingleton("staging", mock(MesDossierUploadStagingService.class));
+            context.getBeanFactory().registerSingleton("attachmentUploads", mock(MesReleaseAttachmentUploadService.class));
             context.getBeanFactory().registerSingleton("transactions", mock(org.springframework.transaction.PlatformTransactionManager.class));
             context.getBeanFactory().registerSingleton("gxpAuditService", mock(GxpAuditService.class));
+            context.getBeanFactory().registerSingleton("permissionApi", mock(cn.iocoder.yudao.module.system.api.permission.PermissionApi.class));
             context.getBeanFactory().registerSingleton("lifecycleGuard", mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
             context.getBeanFactory().registerSingleton("dossierReadScopeService", mock(MesActiveOrderDossierReadScopeService.class));
             context.getBeanFactory().registerSingleton("nonconformanceReviewService", mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));

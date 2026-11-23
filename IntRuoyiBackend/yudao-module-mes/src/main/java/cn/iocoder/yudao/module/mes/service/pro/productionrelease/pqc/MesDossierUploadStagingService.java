@@ -52,7 +52,7 @@ public class MesDossierUploadStagingService {
             requireOwner(current, actor, order);
             if (!"UPLOADING".equals(current.getState()) || !current.getExpiresAt().isAfter(LocalDateTime.now()))
                 throw new IllegalStateException("上传操作已过期或已被清理认领，请重新上传");
-            var file = FileDO.builder().tenantId(current.getTenantId()).configId(intent.getConfigId()).path(intent.getStoragePath())
+            var file = FileDO.builder().configId(intent.getConfigId()).path(intent.getStoragePath())
                     .name(name).type(type).size((long) content.length).url(url).build();
             if (files.insert(file) != 1 || file.getId() == null) throw new IllegalStateException("资料文件登记失败");
             current.setFileId(file.getId()); current.setState("READY");
