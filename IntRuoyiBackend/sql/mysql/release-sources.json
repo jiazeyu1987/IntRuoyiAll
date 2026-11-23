@@ -1235,7 +1235,11 @@
     "20261120_dcc_registration_certificate_neutral_event_notify_template.sql",
     "20261122_dcc_registration_certificate_event_template_params.sql",
     "20261122_mes_qa_review_retention_guard.sql",
-    "20261122_mes_route_version_snapshot_longtext.sql"
+    "20261122_mes_route_version_snapshot_longtext.sql",
+    "20261123_dcc_registration_certificate_ce_release_preflight.sql",
+    "20261123_dcc_registration_certificate_ce_reminder_thresholds.sql",
+    "20261123_dcc_registration_certificate_ce_supporting_materials.sql",
+    "20261123_dcc_registration_certificate_supporting_status_effective.sql"
   ],
   "migrationScopes": [
     {
@@ -1453,6 +1457,30 @@
         "20261022_mes_pqc_c00_empty_history_activation"
       ],
       "reason": "C00 schema activation must follow explicit empty-history validation; non-empty histories require approved maintenance manifests."
+    },
+    {
+      "file": "20261123_dcc_registration_certificate_ce_reminder_thresholds.sql",
+      "sha256": "c7e80d402a4f34a8b4c88c89ff5db78f35584e99b9bc7f24d24e1113e2580881",
+      "dependsOn": [
+        "20261123_dcc_registration_certificate_ce_release_preflight"
+      ],
+      "reason": "Require all-tenant CHECK and data validation before any CE constraint replacement; reject legacy pending/confirmed states without rewriting historical evidence."
+    },
+    {
+      "file": "20261123_dcc_registration_certificate_ce_supporting_materials.sql",
+      "sha256": "09c4ed2b6792d46417cdfde0e3230602c8bdb46bd55ca5ecaf151e388438ef79",
+      "dependsOn": [
+        "20261123_dcc_registration_certificate_ce_release_preflight"
+      ],
+      "reason": "Require all-tenant CHECK and data validation before any CE constraint replacement; reject legacy pending/confirmed states without rewriting historical evidence."
+    },
+    {
+      "file": "20261123_dcc_registration_certificate_supporting_status_effective.sql",
+      "sha256": "a31a1ee78098d79cc73d76a3d1c6f999aa06ddf2bd9b6ed6f471510d14af25f2",
+      "dependsOn": [
+        "20261123_dcc_registration_certificate_ce_release_preflight"
+      ],
+      "reason": "Require all-tenant CHECK and data validation before any CE constraint replacement; reject legacy pending/confirmed states without rewriting historical evidence."
     }
   ],
   "migrationContracts": [
