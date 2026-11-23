@@ -111,12 +111,13 @@ class DccCatalogPackageServiceTest {
         assertEquals(123L,jdbc.queryForObject("SELECT request_id FROM dcc_project_product_relation",Long.class));
     }
     @Test void conflictingTargetRelationshipRollsBackWholeImport()throws Exception{
+        jdbc.update("UPDATE dcc_product_catalog SET remark='不得写入' WHERE id=1");
         byte[] bytes=service.exportWorkbook();
         jdbc.update("INSERT INTO dcc_project_code(id,project_name,project_code,status,tenant_id) VALUES(2,'其他项目','002','ENABLE',11)");
-        jdbc.update("INSERT INTO dcc_product_catalog(id,data_source,original_row_no,product,product_code,tenant_id) VALUES(2,'瑛泰产品','3','导管','00001',11)");
+        jdbc.update("INSERT INTO dcc_product_catalog(id,data_source,original_row_no,product,product_code,registration_certificate_number,tenant_id) VALUES(2,'瑛泰产品','3','导管','00001','REG1',11)");
         jdbc.update("INSERT INTO dcc_data_relation(product_catalog_id,project_code_id,relation_status,tenant_id) VALUES(2,2,'CONFIRMED',11)");
         TenantContextHolder.setTenantId(11L);assertThrows(IllegalArgumentException.class,()->service.importWorkbook(bytes));
-        assertEquals(1,count("dcc_project_code",11));assertNull(jdbc.queryForObject("SELECT registration_certificate_number FROM dcc_product_catalog WHERE tenant_id=11",String.class));
+        assertEquals(1,count("dcc_project_code",11));assertNull(jdbc.queryForObject("SELECT remark FROM dcc_product_catalog WHERE tenant_id=11",String.class));
     }
     @Test void missingSequenceFailsAndRollsBack()throws Exception{
         byte[] bytes=service.exportWorkbook();TenantContextHolder.setTenantId(11L);jdbc.update("DELETE FROM dcc_product_catalog_source_sequence");
@@ -152,7 +153,7 @@ class DccCatalogPackageServiceTest {
         jdbc.update("INSERT INTO dcc_product_catalog(id,data_source,original_row_no,product,product_code,tenant_id) VALUES(2,'瑛泰产品','3','新产品','00002',10)");
         byte[] bytes=service.exportWorkbook();
         jdbc.update("INSERT INTO dcc_project_code(id,project_name,project_code,status,tenant_id) VALUES(2,'其他项目','002','ENABLE',11)");
-        jdbc.update("INSERT INTO dcc_product_catalog(id,data_source,original_row_no,product,product_code,tenant_id) VALUES(3,'瑛泰产品','4','导管','00001',11)");
+        jdbc.update("INSERT INTO dcc_product_catalog(id,data_source,original_row_no,product,product_code,registration_certificate_number,tenant_id) VALUES(3,'瑛泰产品','4','导管','00001','REG1',11)");
         jdbc.update("UPDATE dcc_product_catalog_source_sequence SET last_row_no=4 WHERE data_source='瑛泰产品'");
         jdbc.update("INSERT INTO dcc_data_relation(product_catalog_id,project_code_id,relation_status,tenant_id) VALUES(3,2,'CONFIRMED',11)");
         TenantContextHolder.setTenantId(11L);assertThrows(IllegalArgumentException.class,()->service.importWorkbook(bytes));
@@ -168,6 +169,26 @@ class DccCatalogPackageServiceTest {
         assertEquals(0,service.importWorkbook(bytes).get("created"));
         assertEquals(2,count("dcc_product_catalog",11));
         assertEquals("REG1",jdbc.queryForObject("SELECT p.registration_certificate_number FROM dcc_product_catalog p JOIN dcc_data_relation r ON r.product_catalog_id=p.id AND r.tenant_id=p.tenant_id WHERE p.tenant_id=11",String.class));
+    }
+
+    @Test void sharedCodesKeepDifferentProductsAndRegistrationMarketsAcrossRepeatedImports()throws Exception{
+        jdbc.update("INSERT INTO dcc_product_catalog(id,data_source,original_row_no,product,product_code,registration_certificate_number,registration_place,tenant_id) VALUES(2,'瑛泰产品','3','另一种导管','00001','REG1','中国',10),(3,'瑛泰产品','4','导管','00001','REG2','欧盟',10),(4,'瑛泰产品','5','导管','00001','REG1','中国',10)");
+        jdbc.update("UPDATE dcc_product_catalog_source_sequence SET last_row_no=5 WHERE data_source='瑛泰产品'");
+        byte[] bytes=service.exportWorkbook();TenantContextHolder.setTenantId(11L);
+        assertEquals(6,service.importWorkbook(bytes).get("created"));
+        assertEquals(0,service.importWorkbook(bytes).get("created"));
+        assertEquals(4,count("dcc_product_catalog",11));
+        assertEquals(1,count("dcc_data_relation",11));
+        assertEquals("导管",jdbc.queryForObject("SELECT p.product FROM dcc_product_catalog p JOIN dcc_data_relation r ON r.product_catalog_id=p.id AND r.tenant_id=p.tenant_id WHERE p.tenant_id=11",String.class));
+        assertNull(jdbc.queryForObject("SELECT p.registration_place FROM dcc_product_catalog p JOIN dcc_data_relation r ON r.product_catalog_id=p.id AND r.tenant_id=p.tenant_id WHERE p.tenant_id=11",String.class));
+    }
+
+    @Test void identicalCatalogFactsAreRejectedBeforeAnyWrites()throws Exception{
+        var data=read(service.exportWorkbook());
+        var duplicate=new LinkedHashMap<>(first(data,1));duplicate.put("原行号","3");data.get(1).rows().add(duplicate);
+        TenantContextHolder.setTenantId(11L);
+        assertTrue(assertThrows(IllegalArgumentException.class,()->service.importWorkbook(DccCatalogWorkbook.write(data))).getMessage().contains("产品目录业务标识"));
+        assertEquals(0,count("dcc_project_code",11));assertEquals(0,count("dcc_product_catalog",11));
     }
 
     @Test void projectCodeMatchingUsesDatabaseCaseInsensitiveBusinessIdentity()throws Exception{

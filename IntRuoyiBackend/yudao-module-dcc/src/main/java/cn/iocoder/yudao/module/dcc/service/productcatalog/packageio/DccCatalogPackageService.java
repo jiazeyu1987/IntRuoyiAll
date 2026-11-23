@@ -232,8 +232,9 @@ public class DccCatalogPackageService {
     private List<String> productKey(Map<String, String> row) {
         String source = required(row, "data_source", "产品目录");
         String code = row.get("product_code");
-        if (code != null && !code.isBlank()) return List.of(source, "编码", codeKey(code));
-        return List.of(source, "名称", required(row, "product", "产品目录"),
+        // A catalog code can cover different products and registration-market records.
+        // Use the catalog facts together, never a tenant-local row number, to match imports.
+        return List.of(source, code == null || code.isBlank() ? "" : codeKey(code), required(row, "product", "产品目录"),
             Objects.toString(row.get("registration_certificate_name"), ""), Objects.toString(row.get("registration_certificate_number"), ""), Objects.toString(row.get("registration_place"), ""));
     }
     private Map<List<String>, Map<String, String>> index(List<Map<String, String>> rows,
