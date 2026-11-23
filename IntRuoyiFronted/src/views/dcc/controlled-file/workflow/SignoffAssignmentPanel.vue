@@ -29,8 +29,8 @@
     <Teleport to="body">
       <div class="signoff-assignment-actions" aria-label="当前任务操作" :aria-busy="busy">
         <span>当前任务：部门负责人签名指派</span>
-        <slot name="actions" :disabled="busy || assigned || blocked"></slot>
         <el-button type="primary" :loading="busy" :disabled="assigned || blocked" @click="submit">{{ busy ? '处理中' : '确认指派并签名' }}</el-button>
+        <slot name="actions" :disabled="busy || assigned || blocked"></slot>
       </div>
     </Teleport>
     <p v-if="assigned">指派已保存，等待该部门实际会签人独立签名。</p>
