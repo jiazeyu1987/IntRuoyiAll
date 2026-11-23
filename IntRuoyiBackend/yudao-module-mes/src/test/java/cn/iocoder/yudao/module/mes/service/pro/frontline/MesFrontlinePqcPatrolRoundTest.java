@@ -40,6 +40,7 @@ class MesFrontlinePqcPatrolRoundTest {
         dependencies.put(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderActionLog.class, actionLog);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "actionLog", actionLog);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "roundReleaseStateService", mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationReleaseStateService.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class));
         doReturn(mock(MesFrontlineEmployeeCandidate.class)).when(service).requirePqcEmployee(10L, 10L);
         order = MesProcessPoolActiveOrderDO.builder().id(1L).workOrderId(2L).routeId(3L).routeVersionId(4L)
                 .qaRegulationVersionId(100L).pqcQaSourceVersionIdsJson("[100,200]")
@@ -223,7 +224,9 @@ class MesFrontlinePqcPatrolRoundTest {
                 assertEquals(source, blocked.getPqcQaSourceVersionIdsJson());
             }
         }
-        verify(dependency(MesPqcInspectionTaskMapper.class), never()).selectListByActiveOrderId(anyLong());
+        // Invalid frozen sources must fail before any task-derived evidence can be read.
+        verify(dependency(MesPqcInspectionTaskMapper.class), never()).selectListByActiveOrderId(6L);
+        verify(dependency(MesPqcInspectionTaskMapper.class), times(4)).selectListByActiveOrderId(1L);
     }
 
     @Test
