@@ -89,7 +89,7 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
             }
             try {
                 TenantOutcome[] holder = new TenantOutcome[1];
-                TenantUtils.execute(tenantId, () -> holder[0] = runTenant(tenantId, businessDate, jobParam));
+                TenantUtils.execute(tenantId, () -> holder[0] = runTenant(tenantId, businessDate, jobParam, true));
                 outcomes.add(holder[0]);
             } catch (RuntimeException exception) {
                 failures.add(new TenantFailure(tenantId, safeReason(exception)));
@@ -114,7 +114,9 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
         try {
             TenantOutcome[] holder = new TenantOutcome[1];
             businessClock.runAt(businessDate.atTime(MANUAL_BUSINESS_RUN_HOUR, 0), () -> {
-                TenantUtils.execute(tenantId, () -> holder[0] = runTenant(tenantId, businessDate, jobParam));
+                TenantUtils.execute(tenantId, () -> {
+                    holder[0] = runTenant(tenantId, businessDate, jobParam, false);
+                });
                 return null;
             });
             TenantOutcome outcome = holder[0];
@@ -122,6 +124,9 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
             long skipped = outcome != null && outcome.skipped() ? 1 : 0;
             return "registrationCertificateReminderDailyJob tenantId=%d businessDate=%s successes=%d skipped=%d failures=0"
                     .formatted(tenantId, businessDate, successes, skipped);
+        } catch (ServiceException exception) {
+            // Manual simulation must preserve actionable business errors for the caller.
+            throw exception;
         } catch (RuntimeException exception) {
             throw new IllegalStateException("registration certificate reminder job failed: tenantId="
                     + tenantId + ", businessDate=" + businessDate + ", failures=["
@@ -129,26 +134,46 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
         }
     }
 
-    private TenantOutcome runTenant(Long tenantId, LocalDate businessDate, JobParam jobParam) {
+    private TenantOutcome runTenant(Long tenantId, LocalDate businessDate, JobParam jobParam, boolean scheduled) {
         registrationHandlingTasks.createExpiredTasks(tenantId, businessDate);
         // Certificate activation is a lifecycle action, independent of notification settings.
-        int activated = activateDueCandidates(tenantId, businessDate, jobParam.actorId());
+        ActivationOutcome activation = activateDueCandidates(tenantId, businessDate, jobParam.actorId());
+        int activated = activation.activated();
         DccRegistrationCertificateReminderConfig config = configService.getOrCreate(tenantId);
-        if (!Boolean.TRUE.equals(config.enabled())) {
+        if (!Boolean.TRUE.equals(config.enabled()) && activation.failures().isEmpty()) {
+            return TenantOutcome.skipped(tenantId);
+        }
+        if (scheduled && Boolean.TRUE.equals(config.enabled())
+                && businessClock.now().toLocalTime().isBefore(configuredRunTime(config))) {
+            if (!activation.failures().isEmpty()) throw activationFailure(activation, false);
             return TenantOutcome.skipped(tenantId);
         }
         DccRegistrationCertificateDailyRunStartResult start = dailyRunService.startTenantRun(tenantId, businessDate);
         DccRegistrationCertificateDailyRunRecord run = start.run();
         if (!start.started()) {
+            if (!activation.failures().isEmpty()) {
+                if ("SUCCESS".equals(run.status())) {
+                    dailyRunService.recordActivationFailureAfterSuccess(tenantId, run.id(),
+                            activationFailure(activation, false).getMessage(), JsonUtils.toJsonString(Map.of(
+                                    "activationFailures", activation.failures(), "activated", activated)));
+                }
+                throw activationFailure(activation, false);
+            }
             return TenantOutcome.skipped(tenantId);
         }
         try {
+            if (!Boolean.TRUE.equals(config.enabled())) {
+                throw activationFailure(activation, false);
+            }
             DccRegistrationCertificateReminderRunResult occurrences =
                     reminderService.generateOccurrences(tenantId, run.id(), businessDate);
             int createdDeliveries = createDeliveries(tenantId, run.id(), config);
             int sentDeliveries = sendPendingDeliveries(tenantId, run.id());
             int deliveredOccurrences = markDeliveredOccurrences(tenantId, run.id());
             ensureNoPendingOccurrences(tenantId, run.id());
+            if (!activation.failures().isEmpty()) {
+                throw activationFailure(activation, true);
+            }
             dailyRunService.markSuccess(tenantId, run.id(), JsonUtils.toJsonString(Map.of(
                     "activated", activated,
                     "pendingOccurrences", occurrences.pendingCount(),
@@ -159,9 +184,19 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
             return TenantOutcome.success(tenantId);
         } catch (RuntimeException exception) {
             dailyRunService.markFailed(tenantId, run.id(), safeReason(exception), JsonUtils.toJsonString(Map.of(
-                    "error", safeReason(exception))));
+                    "error", safeReason(exception),
+                    "activationFailures", activation.failures(), "activated", activated)));
             throw exception;
         }
+    }
+
+    private static java.time.LocalTime configuredRunTime(DccRegistrationCertificateReminderConfig config) {
+        String value = config.dailyRunTime();
+        if (value == null || !value.matches("(?:[01][0-9]|2[0-3]):[0-5][0-9]")) {
+            throw new ServiceException(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants
+                    .REGISTRATION_CERTIFICATE_REMINDER_CONFIG_TIME_INVALID);
+        }
+        return java.time.LocalTime.parse(value);
     }
 
     private void ensureNoPendingOccurrences(Long tenantId, Long runId) {
@@ -177,7 +212,7 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
         }
     }
 
-    private int activateDueCandidates(Long tenantId, LocalDate businessDate, Long actorId) {
+    private ActivationOutcome activateDueCandidates(Long tenantId, LocalDate businessDate, Long actorId) {
         List<DueCandidate> candidates = jdbcTemplate.query("""
                 SELECT c.id AS certificate_id,
                        c.current_version_id,
@@ -204,8 +239,10 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
                 rs.getInt("row_version"),
                 rs.getObject("effective_date", LocalDate.class)), tenantId, businessDate);
         int activated = 0;
+        List<ActivationFailure> failures = new ArrayList<>();
         for (DueCandidate candidate : candidates) {
-            activationService.activateDueCandidate(new DccRegistrationCertificateActivationCommand(
+            try {
+                activationService.activateDueCandidate(new DccRegistrationCertificateActivationCommand(
                     tenantId,
                     actorId,
                     "registration-certificate-reminder-activation:%d:%d:%s"
@@ -216,10 +253,23 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
                     candidate.rowVersion(),
                     candidate.currentVersionId(),
                     candidate.pendingVersionId()));
-            activated++;
+                activated++;
+            } catch (RuntimeException exception) {
+                failures.add(new ActivationFailure(candidate.certificateId(), candidate.pendingVersionId(),
+                        safeReason(exception)));
+            }
         }
-        return activated;
+        return new ActivationOutcome(activated, List.copyOf(failures));
     }
+
+    private static ServiceException activationFailure(ActivationOutcome outcome, boolean remindersProcessed) {
+        return new ServiceException(REGISTRATION_CERTIFICATE_DAILY_RUN_FAILED.getCode(),
+                (remindersProcessed ? "提醒已处理，但以下证件自动生效失败：" : "以下证件自动生效失败（本次未执行提醒发送）：")
+                        + outcome.failures());
+    }
+
+    private record ActivationFailure(Long certificateId, Long pendingVersionId, String reason) { }
+    private record ActivationOutcome(int activated, List<ActivationFailure> failures) { }
 
     private int createDeliveries(Long tenantId, Long runId,
                                  DccRegistrationCertificateReminderConfig config) {

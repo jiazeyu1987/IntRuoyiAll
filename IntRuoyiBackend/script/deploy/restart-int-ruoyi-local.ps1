@@ -1,4 +1,4 @@
-param(
+﻿param(
     [ValidateSet('frontend', 'backend', 'full', 'website')]
     [string]$Component,
     [string]$WorktreeName,
@@ -6,7 +6,8 @@ param(
     [string]$PrebuiltBackendJar,
     [string]$PrebuiltBackendSha256,
     [switch]$BackendSchemaReadOnly,
-    [switch]$LocalDevelopmentAuditPolicy
+    [switch]$LocalDevelopmentAuditPolicy,
+    [switch]$RegistrationCertificateDailyAutoRun
 )
 
 $ErrorActionPreference = 'Stop'
@@ -15,6 +16,9 @@ $ErrorActionPreference = 'Stop'
 
 $InitialRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $EffectiveWorktreeName = if ([string]::IsNullOrWhiteSpace($WorktreeName)) { 'int_main' } else { $WorktreeName }
+if ($RegistrationCertificateDailyAutoRun -and ($EffectiveWorktreeName -ne 'int_main' -or $Component -notin @('backend', 'full'))) {
+    throw 'RegistrationCertificateDailyAutoRun is restricted to explicit int_main backend/full startup.'
+}
 $PortContext = Get-IntRuoyiWorktreePortContext -WorktreeName $EffectiveWorktreeName -CurrentBackendRepoRoot $InitialRepoRoot
 $RepoRoot = $PortContext.BackendPath
 $FrontendDir = $PortContext.FrontendPath
@@ -1688,6 +1692,8 @@ Remove-Item -Path 'Env:\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue
   "$runtimeJar"
   "--server.port=$BackendPort"
   "--spring.profiles.active=local"
+  "--yudao.local-job-control.enabled=true"
+$(if ($RegistrationCertificateDailyAutoRun) { '  "--yudao.local-job-control.quartz-auto-run-handler-whitelist=kingdeeProductionOrderSyncJob,kingdeeBomSyncJob,registrationCertificateReminderDailyJob"' })
   "--yudao.gxp-audit.local-development-policy=$($LocalDevelopmentAuditPolicy.IsPresent.ToString().ToLowerInvariant())"
   "--yudao.dcc.preview.onlyoffice.base-url=`$env:DCC_ONLYOFFICE_BASE_URL"
   "--yudao.dcc.preview.onlyoffice.public-file-base-url=`$env:DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL"

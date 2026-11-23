@@ -97,6 +97,128 @@ class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
     }
 
     @Test
+    void brokenCandidatesAreReportedWhileHealthyActivationAndNotificationsContinueWithoutDuplicates() {
+        insertTenantOneDueCandidate();
+        for (long id = 2001; id <= 2004; id++) {
+            long version = id + 10000;
+            insertActiveCertificate(1L, id, version, null, id + 20000, LocalDate.of(2026, 8, 26));
+            insertVersion(1L, id, version + 1000, "PENDING_EFFECTIVE", LocalDate.of(2027, 8, 26), BUSINESS_DATE);
+            jdbcTemplate.update("UPDATE dcc_registration_certificate SET pending_version_id=? WHERE id=?",
+                    version + 1000, id);
+        }
+        insertReminderConfig(1L, 7001L);
+        when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any())).thenReturn(99001L);
+        when(activationService.activateDueCandidate(any())).thenAnswer(invocation -> {
+            DccRegistrationCertificateActivationCommand command = invocation.getArgument(0);
+            if (command.certificateId() != 1001L) throw new ServiceException(400, "缺少原申请审批履历");
+            activateTenantOneCandidate(command);
+            return new DccRegistrationCertificateActivationResult(1001L, 1101L, 1102L, 5102L, true);
+        });
+        for (int attempt = 0; attempt < 2; attempt++) {
+            ServiceException failure = assertThrows(ServiceException.class,
+                    () -> job.executeTenantAtBusinessDate(1L, BUSINESS_DATE, PARAM));
+            for (long id = 2001; id <= 2004; id++) {
+                assertTrue(failure.getMessage().contains("certificateId=" + id));
+                assertEquals(id + 10000, jdbcTemplate.queryForObject(
+                        "SELECT current_version_id FROM dcc_registration_certificate WHERE id=?", Long.class, id));
+                assertEquals(id + 11000, jdbcTemplate.queryForObject(
+                        "SELECT pending_version_id FROM dcc_registration_certificate WHERE id=?", Long.class, id));
+            }
+            assertEquals("FAILED", dailyStatus(1L));
+            String detail = jdbcTemplate.queryForObject("SELECT detail_json FROM dcc_registration_certificate_daily_run WHERE tenant_id=1", String.class);
+            assertTrue(detail.contains("缺少原申请审批履历"));
+            for (long id = 2001; id <= 2004; id++) assertTrue(detail.contains(String.valueOf(id)));
+            assertTrue(failure.getMessage().contains("提醒已处理"));
+            assertEquals(1, sentDeliveryCount(1L));
+        }
+        assertEquals(1102L, jdbcTemplate.queryForObject(
+                "SELECT current_version_id FROM dcc_registration_certificate WHERE id=1001", Long.class));
+        assertEquals(1, dailyRetryCount(1L));
+        verify(notifyMessageSendApi, times(1)).sendSingleMessageIdempotentlyToAdmin(any());
+    }
+
+    @Test
+    void scheduledTimeWaitsWithoutConsumingRunThenCatchesUpOnce() {
+        insertActiveCertificate(1L, 3001L, 3301L, null, 530L, LocalDate.of(2026, 8, 26));
+        insertReminderConfig(1L, 7301L);
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_reminder_config SET daily_run_time='10:30' WHERE tenant_id=1");
+        when(tenantFrameworkService.getTenantIds()).thenReturn(List.of(1L));
+        when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any())).thenReturn(99001L);
+        DccRegistrationCertificateBusinessClock clock =
+                (DccRegistrationCertificateBusinessClock) org.springframework.test.util.ReflectionTestUtils.getField(job, "businessClock");
+        assertDoesNotThrow(() -> clock.runAt(BUSINESS_DATE.atTime(10, 29), () -> job.execute(PARAM)));
+        assertEquals(0, countDailyRuns());
+        assertEquals(0, deliveryCount(1L));
+        clock.runAt(BUSINESS_DATE.atTime(10, 45), () -> {
+            job.execute(PARAM);
+            job.execute(PARAM);
+            return null;
+        });
+        assertEquals("SUCCESS", dailyStatus(1L));
+        assertEquals(1, sentDeliveryCount(1L));
+        verify(notifyMessageSendApi, times(1)).sendSingleMessageIdempotentlyToAdmin(any());
+    }
+
+    @Test
+    void laterActivationFailureChangesSuccessfulAuditToFailedWithoutResending() {
+        insertActiveCertificate(1L, 3001L, 3301L, null, 530L, LocalDate.of(2026, 8, 26));
+        insertReminderConfig(1L, 7301L);
+        when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any())).thenReturn(99001L);
+        job.executeTenantAtBusinessDate(1L, BUSINESS_DATE, PARAM);
+        assertEquals("SUCCESS", dailyStatus(1L));
+        insertTenantOneDueCandidate();
+        when(activationService.activateDueCandidate(any())).thenThrow(new ServiceException(400, "缺少审批履历"));
+
+        ServiceException failure = assertThrows(ServiceException.class,
+                () -> job.executeTenantAtBusinessDate(1L, BUSINESS_DATE, PARAM));
+
+        assertTrue(failure.getMessage().contains("certificateId=1001"));
+        assertEquals("FAILED", dailyStatus(1L));
+        String detail = jdbcTemplate.queryForObject("SELECT detail_json FROM dcc_registration_certificate_daily_run WHERE tenant_id=1", String.class);
+        assertTrue(detail.contains("1001"));
+        assertTrue(detail.contains("缺少审批履历"));
+        verify(notifyMessageSendApi, times(1)).sendSingleMessageIdempotentlyToAdmin(any());
+    }
+
+    @Test
+    void activationFailureDoesNotModifyAnotherRunningAuditAndSuccessCasRejectsIt() {
+        insertTenantOneDueCandidate();
+        insertReminderConfig(1L, 7301L);
+        DccRegistrationCertificateDailyRunService runs =
+                (DccRegistrationCertificateDailyRunService) org.springframework.test.util.ReflectionTestUtils.getField(job, "dailyRunService");
+        var run = runs.startTenantRun(1L, BUSINESS_DATE).run();
+        String before = jdbcTemplate.queryForObject("SELECT detail_json FROM dcc_registration_certificate_daily_run WHERE id=?", String.class, run.id());
+        when(activationService.activateDueCandidate(any())).thenThrow(new ServiceException(400, "缺少审批履历"));
+
+        assertThrows(ServiceException.class, () -> job.executeTenantAtBusinessDate(1L, BUSINESS_DATE, PARAM));
+        assertEquals("RUNNING", dailyStatus(1L));
+        assertEquals(before, jdbcTemplate.queryForObject("SELECT detail_json FROM dcc_registration_certificate_daily_run WHERE id=?", String.class, run.id()));
+        assertThrows(ServiceException.class, () -> runs.recordActivationFailureAfterSuccess(
+                1L, run.id(), "不得接管运行中的任务", "{}"));
+        assertEquals("RUNNING", dailyStatus(1L));
+        assertEquals(0, dailyRetryCount(1L));
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi);
+    }
+
+    @Test
+    void manualSimulationPreservesActionableBusinessError() {
+        LocalDate simulatedDate = LocalDate.of(2026, 11, 23);
+        ServiceException missingConfig = new ServiceException(400,
+                "请先在注册证配置中设置注册证负责人、项目上传期限和失效换证期限");
+        org.mockito.Mockito.doThrow(missingConfig).when(registrationHandlingTasks)
+                .createExpiredTasks(1L, simulatedDate);
+
+        ServiceException actual = assertThrows(ServiceException.class,
+                () -> job.executeTenantAtBusinessDate(1L, simulatedDate, PARAM));
+
+        org.junit.jupiter.api.Assertions.assertSame(missingConfig, actual);
+        assertEquals(400, actual.getCode());
+        assertEquals(missingConfig.getMessage(), actual.getMessage());
+        assertEquals(0, countDailyRuns());
+        org.mockito.Mockito.verifyNoInteractions(activationService, notifyMessageSendApi);
+    }
+
+    @Test
     void disabledNotificationsStillActivateDueCandidates() {
         insertTenantOneDueCandidate();
         insertReminderConfig(1L, 7001L);

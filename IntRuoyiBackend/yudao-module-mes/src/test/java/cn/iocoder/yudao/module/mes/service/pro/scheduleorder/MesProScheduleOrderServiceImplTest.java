@@ -2608,6 +2608,9 @@ class MesProScheduleOrderServiceImplTest {
                 Map.of("total", 1L, "warnCount", 0, "readyCount", 1, "alreadyAdmittedCount", 0, "blockedCount", 0));
         when(admissionListMapper.selectPageIds(eq(1L), any(), any(), any(), any(), eq(reqVO), eq(0L)))
                 .thenReturn(List.of(102L));
+        when(syncRecordMapper.selectByWorkOrderIds(List.of(102L))).thenReturn(List.of(
+                MesKingdeeProductionOrderSyncRecordDO.builder().workOrderId(102L)
+                        .sourceFid("FID-102").sourceBillNo("ERP-MO-102").build()));
         when(workOrderMapper.selectListByIds(List.of(102L))).thenReturn(List.of(readyToAdmit));
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(102L))).thenReturn(List.of());
         when(routeProductMapper.selectListByItemId(22L))

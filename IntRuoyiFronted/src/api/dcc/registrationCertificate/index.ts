@@ -90,6 +90,7 @@ export interface DccRegistrationCertificatePageReqVO extends PageParam {
 }
 
 export interface DccRegistrationCertificatePageItemVO {
+  historicalImport?: boolean
   factsJson?: string
   certificateId: number | string
   rowVersion: number

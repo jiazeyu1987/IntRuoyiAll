@@ -1,5 +1,8 @@
 {
   "changes": [
+    {"source":"IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/historicalimport/DccRegistrationCertificateHistoricalImportController.java","kind":"permission","value":"dcc:registration-certificate:upload:approve","reason":"批量历史导入同时复用已有历史导入和注册证上传审批权限，另校验所属公司范围，无新增菜单、角色或套餐授权。"},
+    {"source":"IntRuoyiFronted/src/views/dcc/registration-certificate/index/index.vue","kind":"permission","value":"dcc:registration-certificate:upload:approve","reason":"批量历史导入同时复用已有历史导入和注册证上传审批权限，另校验所属公司范围，无新增菜单、角色或套餐授权。"},
+    {"source":"IntRuoyiFronted/src/views/dcc/registration-certificate/index/index.vue","kind":"permission","value":"dcc:registration-certificate:historical-import","reason":"批量历史导入同时复用已有历史导入和注册证上传审批权限，另校验所属公司范围，无新增菜单、角色或套餐授权。"},
     {"source":"IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/supportingdocument/DccRegistrationCertificateSupportingDocumentController.java","kind":"permission","value":"dcc:registration-certificate:renewal:upload","reason":"注册证续证支持材料接口复用已有延续上传权限；仅供原有续证办理角色上传当前有效版本材料，不新增权限、菜单或租户套餐授权，无需菜单迁移。"},
     {"source":"IntRuoyiFronted/src/views/dcc/registration-certificate/supporting-document/SupportingDocumentPanel.vue","kind":"permission","value":"dcc:registration-certificate:renewal:upload","reason":"现有注册证详情内的支持材料组件复用延续上传权限，不新增独立页面、路由、菜单或角色和租户套餐授权，无需菜单迁移。"},
     {"source":"IntRuoyiFronted/src/views/dcc/registration-certificate/index/index.vue","kind":"permission","value":"dcc:registration-certificate:access-request:create","reason":"老证列表补充申请查看按钮，复用现有访问申请权限和审批接口，未扩大旧证读取授权，不新增菜单、权限或角色和租户套餐授权，无需菜单迁移。"},

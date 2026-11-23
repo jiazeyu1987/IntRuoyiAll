@@ -5,6 +5,12 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.historicalimport.vo.DccRegistrationCertificateHistoricalImportPageReqVO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.historicalimport.vo.DccRegistrationCertificateHistoricalImportRespVO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.historicalimport.DccRegistrationCertificateHistoricalImportService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.historicalimport.RegistrationCertificateWorkbookImportService;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
@@ -25,6 +31,18 @@ public class DccRegistrationCertificateHistoricalImportController {
 
     @Resource
     private DccRegistrationCertificateHistoricalImportService historicalImportService;
+
+    @Resource
+    private RegistrationCertificateWorkbookImportService workbookImport;
+
+    @PostMapping("/workbook")
+    @Operation(summary = "批量导入注册证 Excel")
+    @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:historical-import') and @ss.hasPermission('dcc:registration-certificate:upload:approve')")
+    public CommonResult<RegistrationCertificateWorkbookImportService.ImportResult> importWorkbook(
+            @RequestParam("file") MultipartFile file) throws IOException {
+        return success(workbookImport.importFile(file,
+                SecurityFrameworkUtils.getLoginUserId()));
+    }
 
     @GetMapping("/page")
     @Operation(summary = "获得注册证历史导入分页")

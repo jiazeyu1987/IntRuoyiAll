@@ -34,8 +34,7 @@ class MesProAdmissionListServiceTest {
                     MesProWorkOrderDO.builder().id(101L).productId(21L).status(1).build(),
                     MesProWorkOrderDO.builder().id(102L).productId(21L).status(1).build()));
             when(fixture.schedule.selectListByWorkOrderIds(any())).thenReturn(List.of());
-            when(fixture.sync.selectByWorkOrderId(anyLong())).thenAnswer(invocation -> MesKingdeeProductionOrderSyncRecordDO.builder()
-                    .workOrderId(invocation.getArgument(0)).sourceFid("ERP-ID").sourceBillNo("ERP-BILL").build());
+            when(fixture.sync.selectByWorkOrderIds(anyCollection())).thenReturn(List.of(sync(101L), sync(102L)));
             var result = fixture.service.getAdmissionDiff(request);
             assertEquals(103L, result.getTotal());
             assertEquals(List.of(102L, 101L), result.getList().stream().map(row -> row.getWorkOrderId()).toList());
@@ -59,12 +58,72 @@ class MesProAdmissionListServiceTest {
             assertThrows(RuntimeException.class, () -> fixture.service.getAdmissionDiff(request));
             verifyNoInteractions(fixture.admission, fixture.workOrder, fixture.routeProduct);
             request.setListFilters(null);
+            request.setAdmissionStatus("BLOCKED");
             when(fixture.admission.selectRouteCheckProductIds(eq(1L), any())).thenReturn(List.of(21L));
             var failure = new IllegalStateException("authoritative configuration failure");
             when(fixture.routeProduct.selectListByItemId(21L)).thenThrow(failure);
             assertSame(failure, assertThrows(IllegalStateException.class, () -> fixture.service.getAdmissionDiff(request)));
             verify(fixture.admission, never()).selectSummary(any(), any(), any(), anyList(), anyList());
         } finally { TenantContextHolder.clear(); }
+    }
+
+    @Test
+    void productCodeSearchChecksOnlyThePageAndBatchesFormalIdentities() {
+        TenantContextHolder.setTenantId(1L);
+        try {
+            var fixture = new Fixture();
+            var request = new MesProScheduleOrderAdmissionDiffPageReqVO();
+            request.setProductCode("YXN.002");
+            request.setPageNo(2);
+            request.setPageSize(3);
+            when(fixture.admission.countBasic(eq(1L), any(), same(request))).thenReturn(24L);
+            when(fixture.admission.selectBasicPageIds(eq(1L), any(), same(request), eq(3L)))
+                    .thenReturn(List.of(103L, 102L, 101L));
+            when(fixture.workOrder.selectListByIds(List.of(103L, 102L, 101L))).thenReturn(List.of(
+                    MesProWorkOrderDO.builder().id(101L).productId(21L).status(1).build(),
+                    MesProWorkOrderDO.builder().id(102L).productId(21L).status(1).build(),
+                    MesProWorkOrderDO.builder().id(103L).productId(21L).status(1).build()));
+            when(fixture.sync.selectByWorkOrderIds(anyCollection())).thenReturn(List.of(sync(102L), sync(101L)));
+
+            var result = fixture.service.getAdmissionDiff(request);
+            assertEquals(24L, result.getTotal());
+            assertEquals(3, result.getSummary().getBlockedCount());
+            assertEquals(List.of("BLOCKED_ERP_SYNC_RECORD_MISSING", "BLOCKED_MISSING_ROUTE", "BLOCKED_MISSING_ROUTE"),
+                    result.getList().stream().map(row -> row.getReasonCode()).toList());
+            verify(fixture.sync).selectByWorkOrderIds(anyCollection());
+            verifyNoMoreInteractions(fixture.sync);
+            verify(fixture.routeProduct).selectListByItemId(21L);
+            verify(fixture.admission, never()).selectRouteCheckProductIds(any(), any());
+        } finally { TenantContextHolder.clear(); }
+    }
+
+    @Test
+    void browserProductColumnFilterUsesPageRowsOnlyWhenTheyCoverTheWholeSummary() {
+        TenantContextHolder.setTenantId(1L);
+        try {
+            var fixture = new Fixture();
+            var request = new MesProScheduleOrderAdmissionDiffPageReqVO();
+            request.setPageSize(20);
+            request.setListFilters("[{\"key\":\"productCode\",\"operator\":\"contains\",\"value\":\"YXN.002.001.2003\"}]");
+            when(fixture.admission.countBasic(eq(1L), any(), same(request))).thenReturn(1L, 21L);
+            when(fixture.admission.selectBasicPageIds(eq(1L), any(), same(request), eq(0L))).thenReturn(List.of(101L));
+            when(fixture.workOrder.selectListByIds(List.of(101L))).thenReturn(List.of(
+                    MesProWorkOrderDO.builder().id(101L).productId(21L).status(1).build()));
+            assertEquals(1, fixture.service.getAdmissionDiff(request).getSummary().getBlockedCount());
+            verify(fixture.admission, never()).selectRouteCheckProductIds(any(), any());
+            when(fixture.admission.selectSummary(eq(1L), any(), any(), anyList(), anyList())).thenReturn(
+                    Map.of("total", 21L, "warnCount", 1, "readyCount", 0, "alreadyAdmittedCount", 0, "blockedCount", 20));
+            request.setPageNo(2);
+            var second = fixture.service.getAdmissionDiff(request);
+            assertEquals(21L, second.getTotal());
+            assertEquals(20, second.getSummary().getBlockedCount());
+            assertEquals(1, second.getSummary().getWarnCount());
+        } finally { TenantContextHolder.clear(); }
+    }
+
+    private static MesKingdeeProductionOrderSyncRecordDO sync(Long workOrderId) {
+        return MesKingdeeProductionOrderSyncRecordDO.builder().workOrderId(workOrderId)
+                .sourceFid("ERP-ID").sourceBillNo("ERP-BILL").build();
     }
 
     private static final class Fixture {

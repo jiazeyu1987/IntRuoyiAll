@@ -77,6 +77,12 @@ public final class ListFilterQueryUtils {
 
     public static <T, W extends AbstractWrapper<T, ?, ?>> W apply(PageParam request, W wrapper,
                                                                Map<String, Field> fields) {
+        return applyMatching(request, wrapper, fields, key -> true);
+    }
+
+    /** Apply the columns owned by this query stage. The other stage must validate every remaining key. */
+    public static <T, W extends AbstractWrapper<T, ?, ?>> W applyMatching(PageParam request, W wrapper,
+            Map<String, Field> fields, java.util.function.Predicate<String> include) {
         if (request == null || request.getListFilters() == null || request.getListFilters().isBlank()) {
             return wrapper;
         }
@@ -85,6 +91,7 @@ public final class ListFilterQueryUtils {
         List<Predicate> predicates = new ArrayList<>();
         for (JsonNode filter : filters) {
             String key = filter.get("key").asText();
+            if (!include.test(key)) continue;
             Field field = fields.get(key);
             if (field == null) {
                 throw invalidParamException("未配置筛选字段：{}", key);

@@ -232,6 +232,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
             Long tenantId, DccRegistrationCertificateQueryRecord row, String ownerCompanyName) {
         DccRegistrationCertificateReminderEvaluation reminder = reminderState(tenantId, row);
         return DccRegistrationCertificatePageItem.builder()
+                .historicalImport(row.getHistoricalImport())
                 .certificateId(row.getCertificateId())
                 .rowVersion(row.getRowVersion())
                 .versionId(row.getVersionId())
@@ -311,9 +312,10 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
 
     private DccRegistrationCertificateReminderEvaluation reminderState(
             Long tenantId, DccRegistrationCertificateQueryRecord row) {
-        String certificateType = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts
-                .parse(row.getFactsJson()).getCertificateType();
-        if ("FDA".equals(certificateType)) {
+        var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts
+                .parse(row.getFactsJson());
+        String certificateType = facts.getCertificateType();
+        if ("FDA".equals(certificateType) || (facts.getHistoricalSheet() != null && row.getExpiryDate() == null)) {
             return new DccRegistrationCertificateReminderEvaluation("NONE", "NORMAL", 0);
         }
         DccRegistrationCertificateReminderEvaluation evaluation = reminderService.evaluateThreshold(

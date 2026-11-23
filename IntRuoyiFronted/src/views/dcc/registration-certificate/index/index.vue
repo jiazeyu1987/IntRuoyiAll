@@ -44,6 +44,10 @@
               >
                 <Icon icon="ep:bell" class="mr-5px" />通知设置
               </el-button>
+              <WorkbookImport
+                v-if="checkPermi(['dcc:registration-certificate:historical-import']) && checkPermi(['dcc:registration-certificate:upload:approve'])"
+                @imported="loadPage"
+              />
               <el-button v-if="canUploadRegistrationCertificate" type="primary" @click="openUploadDialog">
                 <Icon icon="ep:upload" class="mr-5px" />上传注册证
               </el-button>
@@ -100,7 +104,12 @@
                   :min-width="getCurrentColumnMinWidthString('productName', 180)"
                   :width="getCurrentColumnWidthString('productName')"
                   v-bind="sortColumnAttrs('productName')"
-                />
+                >
+                  <template #default="{ row }">
+                    {{ row.productName }}
+                    <el-tag v-if="row.historicalImport" size="small">历史导入</el-tag>
+                  </template>
+                </el-table-column>
                 <el-table-column
                   v-if="isCurrentColumnVisible('classification')"
                   label="分类"
@@ -477,6 +486,7 @@ import {
   useUserTableColumns,
   type UserTableColumnDefinition
 } from '@/hooks/web/useUserTableColumns'
+import WorkbookImport from '../historical-import/WorkbookImport.vue'
 import RegistrationCertificateUploadDialog from '../upload/UploadDialog.vue'
 import { getRegistrationCertificateQueryError } from '../shared/queryValidation'
 import RegistrationCertificateRenewalDialog from '../renewal/RenewalDialog.vue'

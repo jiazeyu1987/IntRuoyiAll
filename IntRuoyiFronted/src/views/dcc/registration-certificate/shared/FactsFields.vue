@@ -1,4 +1,11 @@
 <template>
+  <el-collapse v-if="readonly && model.historicalSheet">
+    <el-collapse-item :title="'历史导入 · ' + model.historicalSheet + ' 第 ' + model.historicalRow + ' 行'">
+      <el-descriptions :column="2" border>
+        <el-descriptions-item v-for="(value, label) in model.historicalValues" :key="label" :label="String(label)">{{ value }}</el-descriptions-item>
+      </el-descriptions>
+    </el-collapse-item>
+  </el-collapse>
   <el-row :gutter="24">
     <el-col :span="12"><el-form-item label="注册证类型" required><el-select v-model="model.certificateType" :disabled="readonly || lockType || lockedFields?.includes('certificateType')"><el-option label="国内" value="DOMESTIC"/><el-option label="CE" value="CE"/><el-option label="FDA" value="FDA"/></el-select></el-form-item></el-col>
     <el-col :span="12"><el-form-item label="产品归属" required><el-select v-model="model.ownProduct" :disabled="readonly || lockType || lockedFields?.includes('ownProduct')"><el-option label="瑛泰产品（关联系统产品）" :value="true"/><el-option label="其他（不关联系统产品）" :value="false"/></el-select></el-form-item></el-col>

@@ -28,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -104,7 +105,50 @@ public class DccRegistrationCertificateMigrationService {
     }
 
     private CommittedRow insertRow(BatchCommand command, RowCommand row, String payloadHash, String eventKey) {
-        boolean immediate = !row.effectiveDate().isAfter(businessClock.businessDate());
+        var facts=new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts();
+        facts.setCertificateType("DOMESTIC");facts.setOwnProduct(row.productMasterId()!=null);
+        facts.setCertificateStatus(row.expiryDate().isBefore(businessClock.businessDate())?"EXPIRED":"VALID");
+        facts.setCertificateNo(trim(row.certificateNo()));facts.setClassification(trim(row.classification()));
+        facts.setFirstObtainedDate(row.firstObtainedDate());facts.setApprovalDate(row.approvalDate());
+        facts.setEffectiveDate(row.effectiveDate());facts.setExpiryDate(row.expiryDate());
+        return insertRow(command, row, payloadHash, eventKey, facts);
+    }
+
+    /** The workbook has no formal attachments. Preserve missing regulatory facts in its snapshot. */
+    @Transactional(rollbackFor = Exception.class)
+    public Result commitWorkbookRows(Long tenantId, Long actorId, String hash, String traceId,
+                                     List<WorkbookRow> rows) {
+        BatchCommand batch = new BatchCommand(tenantId, actorId, hash, traceId,
+                rows.stream().map(WorkbookRow::command).toList());
+        validateBatch(batch);
+        int inserted = 0;
+        for (WorkbookRow entry : rows) {
+            RowCommand row = entry.command();
+            var facts = entry.facts();
+            String key = "DOMESTIC".equals(facts.getCertificateType())
+                    ? eventKey(hash, row.sourceRow())
+                    : "HISTORICAL_IMPORT:" + hash + ":" + facts.getCertificateType() + ":" + row.sourceRow();
+            // Earlier domestic migrations used the identical workbook digest and worksheet row number.
+            var previous = auditMapper.selectByTenantIdAndEventKey(tenantId, key);
+            if (previous != null) {
+                var detail = parseDetail(previous);
+                if (!Objects.equals(previous.getOwnerCompanyId(), row.ownerCompanyId())
+                        || !"SUCCESS".equals(previous.getResult()) || !hash.equalsIgnoreCase(detail.getSourceHash())
+                        || !Objects.equals(row.sourceRow(), detail.getSourceRow()))
+                    throw new ServiceException(REGISTRATION_CERTIFICATE_IDEMPOTENCY_CONFLICT);
+                continue;
+            }
+            insertRow(batch, row, sha256(facts.toJson()), key, facts);
+            inserted++;
+        }
+        return new Result(inserted, rows.size() - inserted, rows.size());
+    }
+
+    public record WorkbookRow(RowCommand command, DccRegistrationCertificateFacts facts) {}
+
+    private CommittedRow insertRow(BatchCommand command, RowCommand row, String payloadHash, String eventKey,
+                                   DccRegistrationCertificateFacts facts) {
+        boolean immediate = row.effectiveDate() == null || !row.effectiveDate().isAfter(businessClock.businessDate());
         String masterStatus = immediate ? "ACTIVE" : "PENDING_FIRST_EFFECTIVE";
         String versionStatus = immediate ? "CURRENT" : "PENDING_EFFECTIVE";
 
@@ -123,11 +167,12 @@ public class DccRegistrationCertificateMigrationService {
                 .certificateId(certificate.getId())
                 .versionNo(1)
                 .versionType("INITIAL_CERTIFICATE")
-                .certificateNo(trim(row.certificateNo()))
+                .certificateNo(row.certificateNo())
+                .remark(facts.getRemark())
                 .approvalDate(row.approvalDate())
                 .effectiveDate(row.effectiveDate())
                 .expiryDate(row.expiryDate())
-                .classification(trim(row.classification()))
+                .classification(row.classification())
                 .categoryChanged(false)
                 .status(versionStatus)
                 .formalizedAt(businessClock.now())
@@ -136,28 +181,22 @@ public class DccRegistrationCertificateMigrationService {
         version.setTenantId(command.tenantId());
         requireSingle("新增迁移注册证版本", versionMapper.insert(version));
 
-        var facts=new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts();
-        facts.setCertificateType("DOMESTIC");facts.setOwnProduct(row.productMasterId()!=null);
-        facts.setCertificateStatus(row.expiryDate().isBefore(businessClock.businessDate())?"EXPIRED":"VALID");
-        facts.setCertificateNo(trim(row.certificateNo()));facts.setClassification(trim(row.classification()));
-        facts.setFirstObtainedDate(row.firstObtainedDate());facts.setApprovalDate(row.approvalDate());
-        facts.setEffectiveDate(row.effectiveDate());facts.setExpiryDate(row.expiryDate());
         DccRegistrationCertificateSnapshotDO snapshot = DccRegistrationCertificateSnapshotDO.builder()
                 .factsJson(facts.toJson())
                 .versionId(version.getId())
                 .revisionNo(1)
                 .productName(trim(row.productName()))
-                .registrantName(trim(row.registrantName()))
+                .registrantName(row.registrantName())
                 .modelSpecification(blankToEmpty(row.modelSpecification()))
                 .structureComposition(blankToEmpty(row.structureComposition()))
                 .intendedUse(blankToEmpty(row.intendedUse()))
                 .technicalRequirements(blankToEmpty(row.technicalRequirements()))
                 .residenceAddress(blankToEmpty(row.residenceAddress()))
                 .productionAddress(blankToEmpty(row.productionAddress()))
-                .entrustedProduction(Boolean.TRUE.equals(row.entrustedProduction()))
-                .selfProduction(Boolean.TRUE.equals(row.selfProduction()))
+                .entrustedProduction(facts.getHistoricalSheet() == null ? Boolean.valueOf(Boolean.TRUE.equals(row.entrustedProduction())) : row.entrustedProduction())
+                .selfProduction(facts.getHistoricalSheet() == null ? Boolean.valueOf(Boolean.TRUE.equals(row.selfProduction())) : row.selfProduction())
                 .entrustedEnterprisesJson(entrustedJson(row.entrustedEnterprises()))
-                .effectiveAt(row.effectiveDate().atStartOfDay())
+                .effectiveAt(row.effectiveDate() == null ? businessClock.now() : row.effectiveDate().atStartOfDay())
                 .build();
         snapshot.setTenantId(command.tenantId());
         requireSingle("新增迁移注册证快照", snapshotMapper.insert(snapshot));

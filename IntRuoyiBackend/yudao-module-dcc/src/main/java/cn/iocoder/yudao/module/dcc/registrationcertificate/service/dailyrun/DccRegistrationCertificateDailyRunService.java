@@ -71,6 +71,19 @@ public class DccRegistrationCertificateDailyRunService {
         return new DccRegistrationCertificateDailyRunStartResult(existingRun, false);
     }
 
+    /** Record a later activation failure without taking over an in-progress run. */
+    @Transactional(rollbackFor = Exception.class)
+    public void recordActivationFailureAfterSuccess(Long tenantId, Long runId, String reason, String detailJson) {
+        requireTenantAndRun(tenantId, runId);
+        if (reason == null || reason.isBlank()) throw new ServiceException(REGISTRATION_CERTIFICATE_DAILY_RUN_FAILED);
+        int affected = jdbcTemplate.update("""
+                UPDATE dcc_registration_certificate_daily_run
+                   SET status = 'FAILED', failure_reason = ?, detail_json = ?, finished_at = ?
+                 WHERE tenant_id = ? AND id = ? AND status = 'SUCCESS'
+                """, reason, validDetailJson(detailJson), businessClock.now(), tenantId, runId);
+        if (affected != 1) throw new ServiceException(REGISTRATION_CERTIFICATE_DAILY_RUN_CONFLICT);
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public DccRegistrationCertificateDailyRunRecord markSuccess(Long tenantId, Long runId, String detailJson) {
         requireTenantAndRun(tenantId, runId);

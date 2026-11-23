@@ -10,6 +10,14 @@ import java.util.Map;
 
 @Mapper
 public interface MesProAdmissionListMapper {
+    @SelectProvider(type = MesProAdmissionListQuery.class, method = "basicCount")
+    long countBasic(@Param("tenantId") Long tenantId, @Param("base") QueryWrapper<Object> base,
+            @Param("req") MesProScheduleOrderAdmissionDiffPageReqVO request);
+
+    @SelectProvider(type = MesProAdmissionListQuery.class, method = "basicPage")
+    List<Long> selectBasicPageIds(@Param("tenantId") Long tenantId, @Param("base") QueryWrapper<Object> base,
+            @Param("req") MesProScheduleOrderAdmissionDiffPageReqVO request, @Param("offset") long offset);
+
     @SelectProvider(type = MesProAdmissionListQuery.class, method = "products")
     List<Long> selectRouteCheckProductIds(@Param("tenantId") Long tenantId, @Param("base") QueryWrapper<Object> base);
 

@@ -1234,6 +1234,11 @@
     "20261120_mes_schedule_order_menu_forward.sql",
     "20261120_dcc_registration_certificate_neutral_event_notify_template.sql",
     "20261122_dcc_registration_certificate_event_template_params.sql",
+    "20261123_dcc_registration_certificate_ce_reminder_thresholds.sql",
+    "20261123_dcc_registration_certificate_ce_supporting_materials.sql",
+    "20261123_dcc_registration_certificate_supporting_status_effective.sql",
+    "20261123_dcc_registration_certificate_reminder_minute_tick.sql",
+    "20261123_registration_workbook_unknown_production.sql",
     "20261122_mes_qa_review_retention_guard.sql",
     "20261122_mes_route_version_snapshot_longtext.sql"
   ],
@@ -1432,6 +1437,11 @@
     }
   ],
   "excludedSources": [
+    {
+      "file": "20261123_local_shared_file_schema_contract.sql",
+      "sha256": "c84d53c73c20bbf77fa862242fc306ae8f372a8b3124ae4cf6a5ef9020639405",
+      "reason": "Local schema drift repair only, requiring explicit operator session confirmation and the exact 2026-11-14 local legacy marker. Current application release excludes file tenant isolation. Never run this repair on server tenants or as an application upgrade."
+    },
     {
       "file": "20261117_tenant_file_ownership_prepare.sql",
       "reason": "Orphan staged file-isolation migration: prerequisite 20261112_tenant_file_configuration and tenant-isolated runtime were deliberately removed by release integration 56a46097a. Preserve this source for that separately scoped feature; it cannot execute against the current unchanged file ownership model or without verified ownership evidence."

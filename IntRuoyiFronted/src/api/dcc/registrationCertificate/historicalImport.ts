@@ -32,3 +32,20 @@ export const getHistoricalImportPage = async (
 ): Promise<PageResult<DccRegistrationCertificateHistoricalImportRespVO[]>> => {
   return await request.get({ url: '/dcc/registration-certificates/historical-import/page', params })
 }
+
+export interface WorkbookImportResult {
+  sheetCounts: Record<string, number>
+  inserted: number
+  existing: number
+}
+
+export const importRegistrationWorkbook = async (file: File) => {
+  const data = new FormData()
+  data.append('file', file)
+  return request.post<WorkbookImportResult>({
+    url: '/dcc/registration-certificates/historical-import/workbook',
+    data,
+    headersType: 'multipart/form-data',
+    timeout: 120000
+  })
+}

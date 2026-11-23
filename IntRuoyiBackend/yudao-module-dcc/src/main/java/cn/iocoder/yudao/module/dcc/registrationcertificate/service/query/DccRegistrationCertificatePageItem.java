@@ -21,6 +21,7 @@ public class DccRegistrationCertificatePageItem {
     private String ownerCompanyName;
     private Long productMasterId;
     private String factsJson;
+    private Boolean historicalImport;
     private String productName;
     private Long projectCodeId;
     private String projectCode;

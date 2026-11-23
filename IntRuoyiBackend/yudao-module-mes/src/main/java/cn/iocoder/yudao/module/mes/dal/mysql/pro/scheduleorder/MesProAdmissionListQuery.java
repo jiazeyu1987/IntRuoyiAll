@@ -39,6 +39,11 @@ public final class MesProAdmissionListQuery {
         return BASE_OUTCOMES.stream().filter(value -> value.reasonCode().equals(reasonCode)).findFirst().orElseThrow();
     }
 
+    private static final Map<String, Field> BASE_COLUMNS = Map.of(
+            "workOrderCode", text("q.code"), "productCode", text("q.product_code"),
+            "productName", text("q.product_name"), "productSpecification", text("q.product_specification"),
+            "quantity", number("FLOOR(COALESCE(q.quantity,0)+0.5)"), "requestDate", dateTime("q.request_date"));
+
     public static QueryWrapper<Object> baseFilter(MesProScheduleOrderAdmissionDiffPageReqVO request) {
         QueryWrapper<Object> query = new QueryWrapper<>();
         query.setParamAlias("base");
@@ -73,7 +78,7 @@ public final class MesProAdmissionListQuery {
                 default -> throw new IllegalArgumentException("非法待同步差异快速过滤字段：" + quick.getFieldKey());
             }
         }
-        return query;
+        return ListFilterQueryUtils.applyMatching(request, query, BASE_COLUMNS, BASE_COLUMNS::containsKey);
     }
 
     public static QueryWrapper<Object> filter(MesProScheduleOrderAdmissionDiffPageReqVO request) {
@@ -88,15 +93,11 @@ public final class MesProAdmissionListQuery {
         if (StrUtil.isNotBlank(request.getMessage()))
             query.apply("LOCATE(CAST({0} AS BINARY),CAST(q.message AS BINARY)) > 0", request.getMessage());
         String reasonText = reasonText("q.reason_code");
-        return ListFilterQueryUtils.apply(request, query, Map.ofEntries(
-                entry("workOrderCode", text("q.code")), entry("productCode", text("q.product_code")),
-                entry("productName", text("q.product_name")), entry("productSpecification", text("q.product_specification")),
+        return ListFilterQueryUtils.applyMatching(request, query, Map.ofEntries(
                 entry("analysis", text("CASE WHEN q.selectable=1 THEN '可加入' ELSE COALESCE(NULLIF(q.message,'')," + reasonText + ") END")),
-                entry("quantity", number("FLOOR(COALESCE(q.quantity,0)+0.5)")),
-                entry("requestDate", dateTime("q.request_date")),
                 entry("admissionStatus", text("CASE q.admission_status WHEN 'READY_TO_ADMIT' THEN '可入池' WHEN 'ALREADY_ADMITTED' THEN '已入池' WHEN 'BLOCKED' THEN '阻断' WHEN 'WARN' THEN '警告' ELSE '未知' END")),
                 entry("message", text("CONCAT(" + reasonText + ",' ',COALESCE(NULLIF(q.message,'')," + reasonText + "))")),
-                entry("ownerRole", text("q.owner_role"))));
+                entry("ownerRole", text("q.owner_role"))), key -> !BASE_COLUMNS.containsKey(key));
     }
 
     private static void exact(QueryWrapper<Object> query, String column, String value) {
@@ -113,6 +114,27 @@ public final class MesProAdmissionListQuery {
                 + " WHEN 'BLOCKED_INVALID_FINITE_CAPACITY' THEN '缺产能' WHEN 'BLOCKED_INVALID_INFINITE_FORMULA' THEN '缺无限产能公式'"
                 + " WHEN 'BLOCKED_CALENDAR_RULE_MISSING' THEN '缺日历' WHEN 'BLOCKED_ERP_SYNC_RECORD_MISSING' THEN '缺 ERP 正式订单'"
                 + " WHEN 'WARN_ERP_SYNC_RECORD_MISSING' THEN '缺 ERP 同步证据' ELSE '未知原因' END";
+    }
+
+    private static final String PAGE_ORDER = " ORDER BY q.temporary_frozen ASC,q.id DESC"
+            + " <if test=\"req.pageSize != -1\"> LIMIT #{req.pageSize} OFFSET #{offset} </if>";
+
+    // The base filters reference only work-order and product fields. Eligibility cannot change this page.
+    private static String workOrderQuery() {
+        String productJoin = " ON i.id=w.product_id AND i.tenant_id=w.tenant_id AND i.deleted=0";
+        return " FROM (SELECT w.*,i.code AS product_code,i.name AS product_name,i.specification AS product_specification"
+                + " <choose><when test=\"req.productCode != null and !req.productCode.trim().isEmpty()\">"
+                + " FROM mes_md_item i STRAIGHT_JOIN mes_pro_work_order w" + productJoin
+                + " </when><otherwise> FROM mes_pro_work_order w LEFT JOIN mes_md_item i" + productJoin
+                + " </otherwise></choose> WHERE w.tenant_id=#{tenantId} AND w.deleted=0) q WHERE 1=1" + baseWhere();
+    }
+
+    public static String basicCount() {
+        return "<script>SELECT COUNT(*)" + workOrderQuery() + "</script>";
+    }
+
+    public static String basicPage() {
+        return "<script>SELECT q.id" + workOrderQuery() + PAGE_ORDER + "</script>";
     }
 
     public static String products() {
@@ -132,7 +154,7 @@ public final class MesProAdmissionListQuery {
     private static String query(String select, boolean page) {
         String result = "<script>SELECT " + select + " FROM (" + outcomeProjection() + ") q WHERE 1=1"
                 + baseWhere() + " <if test=\"ew != null and !ew.emptyOfNormal\"> AND (${ew.sqlSegment}) </if>";
-        if (page) result += " ORDER BY q.temporary_frozen ASC,q.id DESC <if test=\"req.pageSize != -1\"> LIMIT #{req.pageSize} OFFSET #{offset} </if>";
+        if (page) result += PAGE_ORDER;
         return result + "</script>";
     }
 

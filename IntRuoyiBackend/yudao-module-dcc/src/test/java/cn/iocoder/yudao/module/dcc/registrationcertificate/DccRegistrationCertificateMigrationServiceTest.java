@@ -197,6 +197,59 @@ class DccRegistrationCertificateMigrationServiceTest extends BaseDbUnitTest {
         assertEquals(0, count("dcc_registration_certificate_audit"));
     }
 
+    @Test
+    void workbookKeepsFdaDatesEmptyAndSeparatesSheetsOnReplay() {
+        ensureJdbcTemplate();
+        var entries = new java.util.ArrayList<DccRegistrationCertificateMigrationService.WorkbookRow>();
+        for (String type : List.of("FDA", "CE")) {
+            var facts = new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts();
+            facts.setCertificateType(type);
+            facts.setHistoricalSheet(type + "证书");
+            facts.setHistoricalRow(4);
+            var row = new RowCommand(4, 10L, null, null, "测试产品", null, null, null, null,
+                    null, null, "II", null, null, null, null, null, null, null, null, List.of(),
+                    List.of("NO_ATTACHMENT_POLICY", "HISTORICAL_WORKBOOK"));
+            entries.add(new DccRegistrationCertificateMigrationService.WorkbookRow(row, facts));
+        }
+        var first = service.commitWorkbookRows(1L, 99L, "WORKBOOK", "test", entries);
+        assertEquals(2, first.committedCount());
+        assertEquals(2, countWhere("dcc_registration_certificate_version",
+                "expiry_date IS NULL AND approval_date IS NULL AND status = 'CURRENT'"));
+        assertEquals(2, service.commitWorkbookRows(1L, 99L, "WORKBOOK", "retry", entries).replayedCount());
+        assertEquals(2, count("dcc_registration_certificate_audit"));
+    }
+
+    @Test
+    @org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable(named = "REGISTRATION_IMPORT_SAMPLE", matches = ".+")
+    void importInitializationWorkbookThroughUploadService() throws Exception {
+        ensureJdbcTemplate();
+        var bytes = java.nio.file.Files.readAllBytes(java.nio.file.Path.of(System.getenv("REGISTRATION_IMPORT_SAMPLE")));
+        var file = new org.springframework.mock.web.MockMultipartFile("file", "初始化.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes);
+        var entries = new cn.iocoder.yudao.module.dcc.registrationcertificate.service.historicalimport.RegistrationCertificateWorkbook()
+                .read(file.getInputStream());
+        long id = 80000;
+        for (String name : entries.stream().map(e -> e.company()).distinct().toList()) {
+            jdbcTemplate.update("INSERT INTO mdm_enterprise (id,enterprise_code,name,type,status,tenant_id,deleted) VALUES (?,?,?,'OWNED_COMPANY','ENABLE',1,0)",
+                    ++id, "REG-" + id, name);
+        }
+        var scope = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi.class);
+        var importer = new cn.iocoder.yudao.module.dcc.registrationcertificate.service.historicalimport.RegistrationCertificateWorkbookImportService(
+                jdbcTemplate, scope, service);
+        var first = importer.importFile(file, 99L);
+        assertEquals(java.util.Map.of("国内注册证",119,"CE证书",43,"FDA证书",19), first.sheetCounts());
+        assertEquals(181, first.inserted());
+        assertEquals(181, importer.importFile(file,99L).existing());
+        assertEquals(181, countWhere("dcc_registration_certificate_snapshot",
+                "entrusted_production IS NULL AND self_production IS NULL"));
+        var customerRow = entries.stream().filter(e -> e.sheet().equals("FDA证书") && e.row() == 12)
+                .findFirst().orElseThrow();
+        assertEquals(Boolean.TRUE, customerRow.facts().getCustomerHeld());
+        assertEquals(LocalDate.of(2026, 7, 7), customerRow.facts().getApprovalDate());
+        assertEquals("上海瑛泰医疗器械股份有限公司", customerRow.company());
+        assertEquals(0, count("dcc_registration_certificate_file"));
+    }
+
     private BatchCommand batch(RowCommand... rows) {
         return new BatchCommand(1L, 99L,
                 "D42162DC354E8976CED450FA8A2BB00A2AB6099EDDF19AB907FEC3366EF94FF4",

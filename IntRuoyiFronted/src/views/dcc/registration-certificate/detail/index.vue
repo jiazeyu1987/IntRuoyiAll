@@ -96,7 +96,8 @@
         </el-descriptions-item>
         <el-descriptions-item label="注册人">{{ displayText(detail.registrantName) }}</el-descriptions-item>
         <el-descriptions-item label="生产方式">
-          自产：{{ detail.selfProduction ? '是' : '否' }} / 委托：{{ detail.entrustedProduction ? '是' : '否' }}
+          <span v-if="detail.selfProduction == null && detail.entrustedProduction == null">未注明</span>
+          <span v-else>自产：{{ detail.selfProduction ? '是' : '否' }} / 委托：{{ detail.entrustedProduction ? '是' : '否' }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="型号规格">{{ displayText(detail.modelSpecification) }}</el-descriptions-item>
         <el-descriptions-item label="结构组成">{{ displayText(detail.structureComposition) }}</el-descriptions-item>

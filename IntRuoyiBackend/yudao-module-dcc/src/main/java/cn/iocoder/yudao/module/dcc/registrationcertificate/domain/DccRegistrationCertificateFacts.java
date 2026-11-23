@@ -11,6 +11,9 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 @Data
 public class DccRegistrationCertificateFacts {
     private DccRegistrationCertificateProjectProduct projectProduct;
+    private String historicalSheet;
+    private Integer historicalRow;
+    private java.util.Map<String, String> historicalValues;
     private String certificateType;
     private String certificateStatus;
     private String registrationLink;

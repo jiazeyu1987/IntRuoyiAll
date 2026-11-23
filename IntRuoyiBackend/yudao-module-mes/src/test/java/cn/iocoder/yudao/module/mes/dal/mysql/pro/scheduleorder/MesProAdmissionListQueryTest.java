@@ -19,6 +19,39 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MesProAdmissionListQueryTest {
     @Test
+    void browserProductColumnRestrictsCandidateProductsEvenAlongsideAdmissionStatus() {
+        var request = new MesProScheduleOrderAdmissionDiffPageReqVO();
+        request.setListFilters("[{\"key\":\"productCode\",\"operator\":\"contains\",\"value\":\"YXN%_\"},"
+                + "{\"key\":\"admissionStatus\",\"operator\":\"eq\",\"value\":\"阻断\"}]");
+        var base = MesProAdmissionListQuery.baseFilter(request);
+        var sql = bind(MesProAdmissionListQuery.products(), Map.of("tenantId", 1L, "base", base));
+        assertTrue(sql.contains("q.product_code"));
+        assertTrue(sql.contains("ESCAPE '!'"));
+        assertTrue(base.getParamNameValuePairs().containsValue("%yxn!%!_%"));
+        var derived = MesProAdmissionListQuery.filter(request).getSqlSegment();
+        assertTrue(derived.contains("q.admission_status"));
+        assertFalse(derived.contains("q.product_code"));
+    }
+
+    @Test
+    void productCodeCountAndPageUseOnlyWorkOrdersAndProducts() {
+        var request = new MesProScheduleOrderAdmissionDiffPageReqVO();
+        request.setProductCode("YXN.002");
+        Map<String, Object> params = Map.of("tenantId", 1L, "base", MesProAdmissionListQuery.baseFilter(request),
+                "req", request, "offset", 20L);
+        String count = bind(MesProAdmissionListQuery.basicCount(), params);
+        String page = bind(MesProAdmissionListQuery.basicPage(), params);
+        assertEquals(count.substring(count.indexOf(" FROM (")).trim(),
+                page.substring(page.indexOf(" FROM ("), page.indexOf(" ORDER BY")).trim());
+        assertTrue(page.contains("q.product_code LIKE ?"));
+        assertTrue(page.contains("LIMIT ? OFFSET ?"));
+        assertFalse(page.contains("mes_pro_route"));
+        assertFalse(page.contains("mes_kingdee"));
+        request.setPageSize(-1);
+        assertFalse(bind(MesProAdmissionListQuery.basicPage(), params).contains("LIMIT"));
+    }
+
+    @Test
     void candidateProductsPreserveWorkOrderShortCircuitWithoutLoadingWorkOrders() {
         var request = new MesProScheduleOrderAdmissionDiffPageReqVO();
         request.setWorkOrderCode("MO-1");

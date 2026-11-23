@@ -34,8 +34,8 @@ const oldIndexMapping = extract(queryService, 'private static DccRegistrationCer
 
 assert.match(
   queryMapper,
-  /\bv\.classification\b/,
-  'registration certificate query mapper must select the formal category from version classification'
+  /NULLIF\(JSON_UNQUOTE\(JSON_EXTRACT\(s\.facts_json, '\$\.classification'\)\), 'null'\) AS classification/,
+  'registration certificate lists must read classification from the selected snapshot'
 )
 assert.match(
   pageItem,

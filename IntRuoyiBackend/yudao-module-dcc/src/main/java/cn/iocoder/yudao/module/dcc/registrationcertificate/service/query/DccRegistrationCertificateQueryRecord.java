@@ -20,6 +20,7 @@ public class DccRegistrationCertificateQueryRecord {
     private String visualState;
     private LocalDate firstObtainedDate;
     private String factsJson;
+    private Boolean historicalImport;
     private String productName;
     private String certificateNo;
     private Integer versionNo;
