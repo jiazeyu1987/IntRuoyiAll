@@ -8,13 +8,13 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8')
 const plain = value => JSON.parse(JSON.stringify(value))
 function moduleFrom(source, dependencies = {}) {
   const context = { exports: {}, Error, String, Number, BigInt, JSON, Array, Object, Set, Map, Promise,
-    require: id => id === 'vue' ? vue : Object.hasOwn(dependencies, id) ? dependencies[id] : (() => { throw Error('Unmapped test dependency: ' + id) })() }
+    require: id => id === '@/store/modules/user' ? { useUserStore: () => ({ getUser: { id: '99' } }) } : id === 'vue' ? vue : Object.hasOwn(dependencies, id) ? dependencies[id] : (() => { throw Error('Unmapped test dependency: ' + id) })() }
   vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, context)
   return context.exports
 }
 function component(file, dependencies) {
   const compiled = compileScript(parse(read(file)).descriptor, { id: file, inlineTemplate: true })
-  return moduleFrom(compiled.content, { ...dependencies, '@/views/system/user/components/UserSelectV2.vue': { default: control('select', ['modelValue', 'placeholder', 'disabled']) } }).default
+  return moduleFrom(compiled.content, { ...dependencies, '@/components/SignatureCredentialInput/SignatureCredentialInput.vue': { default: { props: ['modelValue', 'disabled'], emits: ['update:modelValue'], setup: (props, { emit }) => () => vue.h('input', { placeholder: '请输入所选签名方式的六位 PIN 码或密码', disabled: props.disabled, value: props.modelValue, onInput: value => emit('update:modelValue', value) }) } }, '@/views/system/user/components/UserSelectV2.vue': { default: control('select', ['modelValue', 'placeholder', 'disabled']) } }).default
 }
 const actions = moduleFrom(read('src/views/dcc/controlled-file/workflow/workflow-actions.ts'))
 const { FileSelectorState } = moduleFrom(read('src/views/dcc/controlled-file/relations/selector-state.ts'))
@@ -50,7 +50,7 @@ const control = (tag, props) => ({ inheritAttrs: false, props,
       onInput: next => emit('update:modelValue', next), onChange: next => emit('update:modelValue', next) }, slots.default?.())
   } })
 
-function fixture(processDefinitionKey = 'dcc-controlled-file-upload', saveError, saveWait) {
+function fixture(processDefinitionKey = 'dcc-controlled-file-upload', saveError, saveWait, displayNames = {}) {
   const writes = [], selectorQueries = [], selectorErrors = [], selectors = [], history = [rel1]
   let choice = rel2
   const context = { controlledFileId: MAIN, processInstanceId: ROUND, taskId: TASK,
@@ -114,7 +114,7 @@ function fixture(processDefinitionKey = 'dcc-controlled-file-upload', saveError,
   })
   const host = { children: [] }, blocked = vue.ref(false)
   const app = renderer(host).createApp({ setup: () => () => vue.h(Detail,
-    { fileId: MAIN, processInstanceId: ROUND, taskId: TASK, blocked: blocked.value },
+    { fileId: MAIN, processInstanceId: ROUND, taskId: TASK, blocked: blocked.value, ...displayNames },
     { actions: ({ disabled }) => vue.h('button', { disabled, onClick: () => { blocked.value = true } }, '驳回') }) })
   app.directive('loading', {})
   app.component('ContentWrap', { setup: (props, { slots }) => () => vue.h('section', slots.default?.()) })
@@ -127,8 +127,8 @@ function fixture(processDefinitionKey = 'dcc-controlled-file-upload', saveError,
   app.component('ElTag', { setup: (props, { slots }) => () => vue.h('span', slots.default?.()) })
   app.component('ElForm', { setup: (props, { slots }) => () => vue.h('form', slots.default?.()) })
   app.component('ElFormItem', { props: ['label'], setup: (props, { slots }) => () => vue.h('div', [vue.h('label', props.label), slots.default?.()]) })
-  app.component('ElTable', { setup: () => () => vue.h('table') })
-  app.component('ElTableColumn', { setup: () => () => vue.h('td') })
+  app.component('ElTable', { props: ['data'], setup(props, { slots }) { vue.provide('tableRows', () => props.data); return () => vue.h('table', slots.default?.()) } })
+  app.component('ElTableColumn', { setup(_props, { slots }) { const rows = vue.inject('tableRows'); return () => vue.h('td', rows().map(row => slots.default?.({ row }))) } })
   app.component('ElCheckbox', control('input', ['modelValue', 'disabled']))
   app.component('ElDatePicker', control('input', ['modelValue', 'placeholder', 'disabled']))
   app.mount(host)
@@ -145,6 +145,20 @@ function fixture(processDefinitionKey = 'dcc-controlled-file-upload', saveError,
   return { app, host, writes, selectorQueries, selectorErrors, selectors, history, context, click, open, sign, input, one, blocked,
     choose: row => { choice = row }, async selectRel2() { await open(); await click('unit:选择候选'); await click('unit:确认候选') } }
 }
+
+test('assignment reuses detail display names without changing candidate identities or exposing internal department IDs', async () => {
+  const h = fixture('dcc-controlled-file-upload', undefined, undefined, {
+    departmentNames: new Map([[910379, '研发一部']]), userNames: new Map([[Number(ASSIGNEE), '张伟']])
+  })
+  try {
+    await drain()
+    assert.match(text(h.host), /研发一部/)
+    assert.match(text(h.host), /张伟/)
+    assert.doesNotMatch(text(h.host), /910379|DCC241016C22Dept|DCC241016C22C/)
+    await h.sign()
+    assert.equal(h.writes[0].data.assigneeUserId, ASSIGNEE)
+  } finally { h.app.unmount() }
+})
 function assertSigned(h, extras, revision = false) {
   assert.equal(h.writes.length, 1, 'The real assignment click must reach the existing lifecycle request once')
   const request = h.writes[0], payload = request.data
@@ -164,10 +178,10 @@ for (const process of ['dcc-controlled-file-upload', 'dcc-controlled-file-revisi
     try {
       await drain(); await h.selectRel2()
       assert.deepEqual(h.selectorErrors, [])
-      assert.match(text(h.host), /原有关联文件：1 个/)
-      assert.match(text(h.host), /本次补充 1 个/)
-      assert.match(text(h.host), /文件编号：DCC241016C22REL2 · 关联版本：A\/1/)
-      assert.match(text(h.host), /原有关联继续保留/)
+      assert.match(text(h.host), /原有关联 1 份/)
+      assert.match(text(h.host), /本次补充 1 份/)
+      assert.match(text(h.host), /DCC241016C22REL2审阅版本 A\/1本次补充/)
+      assert.match(text(h.host), /不可移除/)
       assert.match(text(h.host), /DCC241016C22Rel1-A.pdf.*A\/1/)
       assert.match(text(h.host), /DCC241016C22Rel2-A.pdf.*A\/1/)
       await h.sign(); assertSigned(h, [REL2], process.endsWith('revision'))

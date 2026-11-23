@@ -564,7 +564,7 @@ export const getSignoffAssignmentContext = async (
   identity(result.departmentId)
   result.assigneeOptions.forEach((user) => {
     identity(user.id)
-    if (!user.name) throw new Error('会签候选人名称缺失')
+      if (!user.name?.trim() && !user.username?.trim()) throw new Error('会签候选人名称或账号缺失')
   })
   return result
 }

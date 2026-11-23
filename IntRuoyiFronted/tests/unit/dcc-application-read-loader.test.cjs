@@ -21,6 +21,14 @@ const row = { tenantId: '1', id: '9223372036854775000', masterId: '20', latestCo
   sourceOriginalFileName: 'SOP.docx', fileNumber: 'SOP-1', versionNo: 'A/1', status: 'ACTIVE',
   controlled: true, pendingEffect: false, executable: true, canPreview: false }
 
+test('assignment accepts account-only candidate labels but rejects missing names and accounts', async () => {
+  const facts = { controlledFileId: '20', processInstanceId: 'round-1', taskId: 'task-1',
+    processDefinitionKey: 'dcc-controlled-file-upload', obligationId: 'signoff-1', departmentId: '910380',
+    assigned: false, canAssign: true, assigneeOptions: [{ id: '99', name: '', username: 'reviewer99' }] }
+  assert.equal((await load(facts).api.getSignoffAssignmentContext('20', 'task-1')).assigneeOptions[0].username, 'reviewer99')
+  await assert.rejects(load({ ...facts, assigneeOptions: [{ id: '99', name: ' ', username: '' }] }).api.getSignoffAssignmentContext('20', 'task-1'), /名称或账号缺失/)
+})
+
 test('training progress reads the exact file and round through the DCC metadata endpoint', async () => {
   const facts = { controlledFileId: '20', applicationType: 'REVISION', bpmRound: 'training-1', attributeRound: 1,
     tasks: [{ id: 'review-1', processInstanceId: 'training-1', taskDefinitionKey: 'MATRIX_REVIEW', status: 2 }] }

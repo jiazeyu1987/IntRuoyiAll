@@ -45,8 +45,9 @@ function mount(transport, overrides = {}) {
   const queries = [], props = vue.reactive({ modelValue: false, source: clone(source), purpose: 'reference', directories: [], selected: [candidate], loadPage: async q => { queries.push(clone(q)); return { list: [], total: 0 } }, persist: async () => {}, openPreview: async () => {}, ...overrides })
   const root = make('root'), app = renderer.createApp({ render: () => vue.h(exports.default, props) })
   app.config.warnHandler = () => {}
-  for (const type of ['el-dialog', 'el-alert', 'el-button', 'el-input', 'el-tree', 'el-tabs', 'el-tab-pane', 'el-pagination', 'el-tag', 'el-checkbox']) app.component(type, { inheritAttrs: false, setup: (_, c) => () => vue.h(type, c.attrs, [c.slots.default?.(), c.slots.footer?.()]) })
-  app.component('el-table', { props: ['data'], setup: (p, c) => { vue.provide('rows', vue.toRef(p, 'data')); return () => vue.h('el-table', { ...c.attrs, data: p.data }, c.slots.default?.()) } })
+  for (const type of ['el-dialog', 'el-alert', 'el-button', 'el-input', 'el-tabs', 'el-tab-pane', 'el-pagination', 'el-tag', 'el-checkbox']) app.component(type, { inheritAttrs: false, setup: (_, c) => () => vue.h(type, c.attrs, [c.slots.default?.(), c.slots.footer?.()]) })
+  app.component('el-tree', { props: ['data'], setup: (p, c) => () => vue.h('el-tree', { ...c.attrs, data: p.data }, (p.data || []).map(data => c.slots.default?.({ data }))) })
+  app.component('el-table', { props: ['data'], setup: (p, c) => { vue.provide('rows', vue.toRef(p, 'data')); return () => vue.h('el-table', { ...c.attrs, data: p.data }, [c.slots.default?.(), !p.data.length ? c.slots.empty?.() : null]) } })
   app.component('el-table-column', { inheritAttrs: false, setup: (_, c) => { const rows = vue.inject('rows'); return () => vue.h('el-table-column', c.attrs, c.slots.default ? rows.value.map(row => c.slots.default({ row })) : rows.value.map(row => String(row[c.attrs.prop] ?? ''))) } })
   app.directive('loading', {}); app.mount(root)
   return { app, props, queries, root, state: () => app._instance.subTree.component.setupState }
@@ -69,18 +70,17 @@ test('supplemental selector has fixed business columns and confirms only its loc
     const table = find(m.root, 'el-table')
     assert.equal(table.props['data-user-table-column-explicit'], '')
     assert.deepEqual(nodes(table, n => n.type === 'el-table-column').map(n => n.props.label),
-      ['选择', '文件名称', '文件编号', '来源项目', '文件夹', '受控版本', '状态', '正文'])
+      ['选择', '文件名称与编号', '受控版本', '状态'])
     assert.ok(find(m.root, 'el-tree'))
-    assert.deepEqual(nodes(m.root, n => n.type === 'el-tab-pane').map(n => n.props.label), ['项目目录', '本项目搜索'])
-    assert.deepEqual(queries.at(-1), { keyword: '', pageNo: 1, pageSize: 20, projectId: P, folderId: F })
-    const tabs = find(m.root, 'el-tabs')
-    tabs.props['onUpdate:modelValue']('global'); await tabs.props.onTabChange(); await tick()
+    assert.equal(find(m.root, 'el-tabs'), undefined)
+    assert.deepEqual(queries.at(-1), { keyword: '', pageNo: 1, pageSize: 20, projectId: P })
     const search = find(m.root, 'el-input')
     search.props['onUpdate:modelValue']('补充二'); await search.props.onKeyup({ key: 'Enter' }); await tick()
     assert.deepEqual(queries.at(-1), { keyword: '补充二', pageNo: 1, pageSize: 20, projectId: P })
     assert.ok(content(m.root).includes('已选 1 项'))
     nodes(m.root, n => n.type === 'el-checkbox')[1].props.onChange(true); await tick()
     assert.ok(content(m.root).includes('已选 2 项'))
+    nodes(m.root, n => n.type === 'el-button' && n.props['aria-controls'])[0].props.onClick(); await tick()
     const selectedRow = nodes(m.root, n => n.props?.class === 'selected-file' && content(n).includes(second.fileName))[0]
     assert.ok(selectedRow, '确认前必须展示已选文件名称')
     assert.ok(content(selectedRow).includes(`文件编号：${second.fileNumber}`))
@@ -88,6 +88,7 @@ test('supplemental selector has fixed business columns and confirms only its loc
     await click('取消'); assert.equal(writes.length, 0); assert.deepEqual(confirmed, [first])
     m.props.modelValue = true; await tick()
     nodes(m.root, n => n.type === 'el-checkbox')[1].props.onChange(true); await tick()
+    nodes(m.root, n => n.type === 'el-button' && n.props['aria-controls'])[0].props.onClick(); await tick()
     const remove = nodes(m.root, n => n.type === 'el-button' && n.props['aria-label'] === `移除 ${first.fileName}`)[0]
     remove.props.onClick(); await tick()
     assert.ok(content(m.root).includes('已选 1 项'))
@@ -175,5 +176,78 @@ test('candidate project navigation never changes the persisted reference target 
     await nodes(m.root, n => n.type === 'el-button' && content(n) === '确认引用')[0].props.onClick(); await tick()
     assert.deepEqual(writes, [{ targetProject: P, targetFolder: F, selected: ['51'] }]); assert.equal(events.length, 1)
     assert.equal(m.props.source.projectId, P); assert.equal(m.props.source.folderId, F)
+  } finally { m.app.unmount() }
+})
+
+
+test('supplemental locks historical masters and preserves draft across directory/search/clear/cancel', async () => {
+  const first = { ...candidate, projectId: P, projectFolderId: F, canPreview: true }
+  const second = { ...first, masterId: '52', controlledFileId: '53', fileName: '另一目录.pdf', projectFolderId: BF }
+  const locked = { ...first, masterId: '54', controlledFileId: '55' }
+  const self = { ...first, masterId: source.masterId, controlledFileId: '11' }
+  const denied = { ...first, masterId: '56', controlledFileId: '57', canPreview: false }
+  const original = [first], writes = [], queries = []
+  const m = mount(async () => [folder(F, P, '目录一'), folder(BF, P, '目录二')], {
+    purpose: 'relations', supplemental: true, selected: original, lockedRelations: [{ masterId: locked.masterId }],
+    loadPage: async q => { queries.push(clone(q)); return { list: q.keyword ? [second] : [first, second, locked, self, denied], total: q.keyword ? 1 : q.folderId ? 7 : 42 } },
+    persist: async rows => writes.push(clone(rows)), 'onUpdate:modelValue': open => { m.props.modelValue = open }
+  })
+  const click = async label => { await nodes(m.root, n => n.type === 'el-button' && content(n) === label)[0].props.onClick(); await tick() }
+  try {
+    m.props.modelValue = true; await tick()
+    let checks = nodes(m.root, n => n.type === 'el-checkbox')
+    assert.equal(checks[2].props['model-value'], true); assert.equal(checks[2].props.disabled, true)
+    assert.equal(checks[3].props.disabled, true); assert.equal(checks[4].props.disabled, true)
+    assert.ok(content(m.root).includes('原有关联')); assert.ok(content(m.root).includes('当前文件'))
+    const all = () => content(nodes(m.root, n => n.type === 'button')[0])
+    assert.ok(all().includes('42'))
+    assert.equal(nodes(find(m.root, 'el-tree'), n => n.props.class === 'directory-count').length, 0, '未查询目录不得造数')
+    await find(m.root, 'el-tree').props.onNodeClick(find(m.root, 'el-tree').props.data[1]); await tick()
+    assert.equal(queries.at(-1).folderId, BF)
+    assert.equal(find(m.root, 'el-tree').props['highlight-current'], true)
+    assert.ok(find(m.root, 'el-tree').props['current-node-key'])
+    assert.equal(content(nodes(find(m.root, 'el-tree'), n => n.props.class === 'directory-count')[0]), '7')
+    nodes(m.root, n => n.type === 'el-checkbox')[1].props.onChange(true); await tick()
+    assert.ok(content(m.root).includes('已选 2 项'))
+    const input = find(m.root, 'el-input'); input.props['onUpdate:modelValue']('编号'); await input.props.onKeyup({ key: 'Enter' }); await tick()
+    assert.equal(queries.at(-1).folderId, undefined); assert.equal(queries.at(-1).projectId, P)
+    assert.ok(all().includes('42'), '搜索total不能代替全项目total')
+    assert.equal(find(m.root, 'el-tree').props['highlight-current'], false)
+    assert.equal(find(m.root, 'el-tree').props['current-node-key'], null)
+    assert.ok(content(m.root).includes('已选 2 项'))
+    nodes(m.root, n => n.type === 'el-button' && n.props['aria-controls'])[0].props.onClick(); await tick()
+    await click('清空本次选择'); assert.ok(content(m.root).includes('已选 0 项'))
+    assert.equal(writes.length, 0); assert.deepEqual(original, [first])
+    await click('取消'); m.props.modelValue = true; await tick()
+    assert.ok(content(m.root).includes('已选 1 项')); assert.equal(writes.length, 0)
+    await click('确认关联'); assert.deepEqual(writes, [[first]])
+  } finally { m.app.unmount() }
+})
+
+
+test('supplemental empty results distinguish search, loading and errors and keep footer actions together', async () => {
+  let pending, failure = false
+  const m = mount(async () => [folder(F, P, '目录')], {
+    purpose: 'relations', supplemental: true, selected: [],
+    loadPage: async () => { if (pending) return pending.promise; if (failure) throw Error('真实查询失败'); return { list: [], total: 0 } }
+  })
+  try {
+    m.props.modelValue = true; await tick()
+    assert.ok(content(m.root).includes('当前目录无可选文件'))
+    assert.equal(find(m.root, 'el-pagination'), undefined)
+    const footer = nodes(m.root, n => n.props.class === 'selector-footer')[0]
+    assert.ok(content(footer).includes('已选 0 项')); assert.ok(content(footer).includes('取消')); assert.ok(content(footer).includes('确认关联'))
+    assert.ok(!content(footer).includes('所选文件将随本次指派签名一并保存'))
+    const input = find(m.root, 'el-input')
+    input.props['onUpdate:modelValue']('找不到'); await input.props.onKeyup({ key: 'Enter' }); await tick()
+    assert.ok(content(m.root).includes('未找到匹配文件')); assert.ok(!content(m.root).includes('当前目录无可选文件'))
+    pending = deferred(); const loading = input.props.onKeyup({ key: 'Enter' }); await tick()
+    assert.ok(!content(m.root).includes('未找到匹配文件')); assert.ok(!content(m.root).includes('当前目录无可选文件'))
+    pending.resolve({ list: [], total: 0 }); await loading; await tick(); pending = undefined
+    failure = true; await input.props.onKeyup({ key: 'Enter' }); await tick()
+    assert.equal(nodes(m.root, n => n.type === 'el-alert' && n.props.title === '真实查询失败').length, 1)
+    assert.ok(!content(m.root).includes('未找到匹配文件')); assert.equal(find(m.root, 'el-pagination'), undefined)
+    const sourceText = read('views/dcc/controlled-file/relations/DccFileSelector.vue')
+    assert.ok(!/float\s*:/.test(sourceText)); assert.match(sourceText, /all-directories \{[^}]*border: 0/)
   } finally { m.app.unmount() }
 })
