@@ -201,7 +201,7 @@ public class FileServiceImpl implements FileService {
     }
 
     private FileCreateContext buildFileCreateContext(byte[] content, String name, String directory, String type) {
-        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        TenantContextHolder.getRequiredTenantId();
         // 1.1 处理 type 为空的情况
         if (StrUtil.isEmpty(type)) {
             type = FileTypeUtils.getMineType(content, name);
@@ -220,11 +220,11 @@ public class FileServiceImpl implements FileService {
 
         // 2.1 生成上传的 path，需要保证唯一
         String path = generateUploadPath(name, directory);
-        return new FileCreateContext(name, path, type, tenantId);
+        return new FileCreateContext(name, path, type);
     }
 
     private FileCreateContext buildFileCreateContext(String name, String directory, String type) {
-        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        TenantContextHolder.getRequiredTenantId();
         Assert.notEmpty(name, "流式上传文件名不能为空");
         if (StrUtil.isEmpty(type)) {
             type = FileTypeUtils.getMineType(name);
@@ -236,11 +236,11 @@ public class FileServiceImpl implements FileService {
             }
         }
         String path = generateUploadPath(name, directory);
-        return new FileCreateContext(name, path, type, tenantId);
+        return new FileCreateContext(name, path, type);
     }
 
     private FileDO buildFileDO(Long configId, FileCreateContext context, String url, long contentLength) {
-        return new FileDO().setTenantId(context.getTenantId()).setConfigId(configId)
+        return new FileDO().setConfigId(configId)
                 .setName(context.getName()).setPath(context.getPath()).setUrl(url)
                 .setType(context.getType()).setSize(contentLength);
     }
@@ -305,11 +305,10 @@ public class FileServiceImpl implements FileService {
 
     @Override
     public Long createFile(FileCreateReqVO createReqVO) {
-        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        TenantContextHolder.getRequiredTenantId();
         createReqVO.setUrl(HttpUtils.removeUrlQuery(createReqVO.getUrl())); // 目的：移除私有桶情况下，URL 的签名参数
         Assert.isFalse(isDossierStoragePath(createReqVO.getPath()), "不能从通用文件接口登记活跃订单资料");
         FileDO file = BeanUtils.toBean(createReqVO, FileDO.class);
-        file.setTenantId(tenantId);
         fileMapper.insert(file);
         return file.getId();
     }
@@ -565,7 +564,6 @@ public class FileServiceImpl implements FileService {
         private String name;
         private String path;
         private String type;
-        private Long tenantId;
     }
 
 }

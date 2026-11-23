@@ -29,7 +29,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @Import(FileServiceImpl.class)
-class FileTenantWriteTest extends BaseDbUnitTest {
+class FileStorageSchemaTest extends BaseDbUnitTest {
     @Resource private FileServiceImpl service;
     @Resource private FileMapper files;
     @Resource private javax.sql.DataSource dataSource;
@@ -44,7 +44,7 @@ class FileTenantWriteTest extends BaseDbUnitTest {
 
     @ParameterizedTest
     @ValueSource(longs = {186L, 122L})
-    void allUploadFormsPersistTheActualTenant(Long tenant) throws Exception {
+    void allUploadFormsUseDeployedFileSchema(Long tenant) throws Exception {
         TenantContextHolder.setTenantId(tenant);
         byte[] content = "SIMULATION registration certificate".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         FileClient client = mock(FileClient.class);
@@ -54,27 +54,27 @@ class FileTenantWriteTest extends BaseDbUnitTest {
         when(client.upload(any(java.io.InputStream.class), anyLong(), anyString(), anyString())).thenReturn("https://test/stream");
         when(client.upload(any(Path.class), anyLong(), anyString(), anyString())).thenReturn("https://test/path");
 
-        assertTenant(service.createFileAndReturnId(content, "certificate.txt", "dcc/registration-certificate/upload/1", "text/plain"), tenant);
-        assertTenant(service.createFileAndReturnId(new ByteArrayInputStream(content), content.length, "certificate.txt", "dcc", "text/plain"), tenant);
+        assertStored(service.createFileAndReturnId(content, "certificate.txt", "dcc/registration-certificate/upload/1", "text/plain"), tenant);
+        assertStored(service.createFileAndReturnId(new ByteArrayInputStream(content), content.length, "certificate.txt", "dcc", "text/plain"), tenant);
         Path path = Files.createTempFile("registration-tenant-write-", ".txt");
         try {
             Files.write(path, content);
-            assertTenant(service.createFileAndReturnId(path, content.length, "certificate.txt", "dcc", "text/plain"), tenant);
+            assertStored(service.createFileAndReturnId(path, content.length, "certificate.txt", "dcc", "text/plain"), tenant);
         } finally {
             Files.delete(path);
         }
 
         when(client.uploadWithStorageRetention(any(), anyString(), anyString(), any()))
                 .thenReturn(new StorageRetentionEvidence().setUrl("https://test/retained"));
-        assertTenant(service.createFileWithStorageRetention(content, "certificate.txt", "dcc", "text/plain", new StorageRetentionPolicy()).getFileId(), tenant);
+        assertStored(service.createFileWithStorageRetention(content, "certificate.txt", "dcc", "text/plain", new StorageRetentionPolicy()).getFileId(), tenant);
 
         FileCreateReqVO registration = new FileCreateReqVO().setConfigId(10L).setName("certificate.txt")
                 .setPath("dcc/registered.txt").setUrl("https://test/registered").setType("text/plain").setSize((long) content.length);
-        assertTenant(service.createFile(registration), tenant);
+        assertStored(service.createFile(registration), tenant);
     }
 
     @Test
-    void databaseStoragePersistsContentAndMetadataWithTheSameTenant() {
+    void databaseStoragePersistsReadableContentAndMetadata() {
         TenantContextHolder.setTenantId(186L);
         DBFileClientConfig config = new DBFileClientConfig().setDomain("http://localhost");
         DBFileClient client = new DBFileClient(10L, config);
@@ -82,9 +82,9 @@ class FileTenantWriteTest extends BaseDbUnitTest {
         when(configs.getMasterFileClient()).thenReturn(client);
         byte[] content = "SIMULATION CE ANNEX".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         Long id = service.createFileAndReturnId(content, "annex.txt", "dcc/registration-certificate", "text/plain");
-        assertTenant(id, 186L);
+        assertStored(id, 186L);
         FileDO file = files.selectById(id);
-        assertEquals(186L, jdbc.queryForObject("SELECT tenant_id FROM infra_file_content WHERE path=?", Long.class, file.getPath()));
+        assertEquals(1L, jdbc.queryForObject("SELECT COUNT(*) FROM infra_file_content WHERE path=?", Long.class, file.getPath()));
         assertArrayEquals(content, client.getContent(file.getPath()));
     }
 
@@ -98,14 +98,19 @@ class FileTenantWriteTest extends BaseDbUnitTest {
     }
 
     @Test
-    void insertsOutsideFileServiceAlsoUseTheActualTenant() {
+    void fileListingUsesDeployedFileSchema() {
         TenantContextHolder.setTenantId(186L);
         FileDO file = new FileDO().setConfigId(10L).setName("certificate.txt").setSize(1L);
         files.insert(file);
-        assertTenant(file.getId(), 186L);
+        assertStored(file.getId(), 186L);
+        var page = files.selectPage(new cn.iocoder.yudao.module.infra.controller.admin.file.vo.file.FilePageReqVO());
+        assertEquals(1L, page.getTotal());
+        assertEquals(file.getId(), page.getList().get(0).getId());
     }
 
-    private void assertTenant(Long id, Long expected) {
-        assertEquals(expected, jdbc.queryForObject("SELECT tenant_id FROM infra_file WHERE id=?", Long.class, id));
+    private void assertStored(Long id, Long expected) {
+        assertNotNull(id);
+        assertNotNull(files.selectById(id));
+        assertEquals(expected, TenantContextHolder.getTenantId());
     }
 }

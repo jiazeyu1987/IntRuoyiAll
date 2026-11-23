@@ -4,9 +4,6 @@ import cn.iocoder.yudao.framework.mybatis.core.dataobject.BaseDO;
 import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
 import cn.iocoder.yudao.module.infra.framework.file.core.client.db.DBFileClient;
 import com.baomidou.mybatisplus.annotation.KeySequence;
-import com.baomidou.mybatisplus.annotation.FieldFill;
-import com.baomidou.mybatisplus.annotation.FieldStrategy;
-import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.*;
@@ -28,10 +25,6 @@ import lombok.*;
 @AllArgsConstructor
 @TenantIgnore
 public class FileContentDO extends BaseDO {
-
-    /** 与文件元数据一致的写入租户。 */
-    @TableField(fill = FieldFill.INSERT, updateStrategy = FieldStrategy.NEVER)
-    private Long tenantId;
 
     /**
      * 编号，数据库自增
