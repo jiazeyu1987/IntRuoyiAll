@@ -15,7 +15,7 @@ SELECT CASE WHEN
         ON tc.CONSTRAINT_SCHEMA=cc.CONSTRAINT_SCHEMA AND tc.CONSTRAINT_NAME=cc.CONSTRAINT_NAME
       WHERE tc.CONSTRAINT_SCHEMA=DATABASE() AND tc.TABLE_NAME='mes_pqc_inspection_task'
         AND tc.CONSTRAINT_NAME='chk_mes_pqc_inspection_rule_key' AND tc.CONSTRAINT_TYPE='CHECK' AND tc.ENFORCED='YES'
-        AND REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(cc.CHECK_CLAUSE),'`',''),'_utf8mb4',''),'_utf8mb3',''),'_latin1',''),CONCAT(CHAR(92),CHAR(39)),CHAR(39)),'[[:space:]()]','') IN (
+        AND REGEXP_REPLACE(REGEXP_REPLACE(CONVERT(LOWER(cc.CHECK_CLAUSE) USING utf8mb4),'`|_utf8mb4|_utf8mb3|_latin1|[[:space:]()]',''),CONVERT(CONCAT(CHAR(92),CHAR(92)) USING utf8mb4),'') IN (
           'inspection_rule_keyin''first'',''patrol_am'',''patrol_pm'',''final''',
           'inspection_rule_keyin''first'',''patrol'',''patrol_am'',''patrol_pm'',''final''')
     )

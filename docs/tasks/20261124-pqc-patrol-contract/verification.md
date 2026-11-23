@@ -36,3 +36,12 @@ BDD：
 真实页面成功入单后，核验组长活跃订单和一线PQC首检/第一轮巡检任务可见，冻结来源版本和抽样证据完整；重复加入不得多建任务。权限不绕过，业务操作全部由维护使用Playwright执行。本轮应用仓任务未部署服务器、未执行应用数据库写入、未完成页面E2E。
 
 链路依据：TeamLeaderWorkbenchPage.vue的submitAddActiveOrder → MesProcessPoolTeamLeaderController的/active-order/add（maintain权限，身份取登录组长）→ MesTeamLeaderActiveOrderServiceImpl.addActiveOrder → requireProductionRouteSourceForAdd/requireLatestQaSource/preparePqcTaskPlan → insertPqcInspectionTasks/buildPqcTask → Mapper.insert。FIRST及第一轮PATROL在入单时冻结生成，FINAL由后续链路创建；本迁移仅解除数据库对合法PATROL的错误拒绝。
+
+发布预检补充：正式发布工具禁止独立REPLACE词元（包括标量函数），已改用REGEXP_REPLACE实现同一严格签名归一化；未修改发布工具或关闭只读门禁。Windows工作区历史SQL的CRLF会触发旧账本哈希差异，最终发布合同须基于git archive导出的固定提交字节验证，不改历史SQL或账本。
+
+最终发布输入验证：test/prod/backup的历史账本校验全部通过（分别848/844/757条）；新迁移均规划为APPLY，移除目标预检的负向测试在三环境均被拒绝。正式工具生成913项迁移、1232项制品。最终MySQL8项复测25.718秒全部通过；归一化显式转换utf8mb4，避免信息架构及CHAR二进制字符集与正则混用。
+
+- 最终迁移SHA256：`b122d09b01283490ea2f3d8f0b49d6d9d6c346ab5bddb6e1e0d73793677afbf1`
+- 最终目标预检SHA256：`445b4c6caaf2f969479008d5a26049a0e6b1a91245e3603fce69544ca78f4749`
+- 菜单/权限累计源码门禁及staged门禁通过；分支运行端口门禁通过（int_main 8081/48081）。未新增页面、权限或菜单；无前端运行代码改动。
+- 应用仓必要自动回归已全部通过。部署后真实“新增活跃订单→PQC→个人任务”页面验收仍须维护执行，未据单元测试宣称该E2E完成，也未授权晋级正式。

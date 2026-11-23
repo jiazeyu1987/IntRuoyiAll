@@ -24,7 +24,7 @@ BEGIN
     ALTER TABLE mes_pqc_inspection_task ADD CONSTRAINT chk_mes_pqc_inspection_rule_key
       CHECK (inspection_rule_key IN ('FIRST','PATROL','PATROL_AM','PATROL_PM','FINAL')) ENFORCED;
   ELSE
-    SELECT REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(cc.CHECK_CLAUSE),'`',''),'_utf8mb4',''),'_utf8mb3',''),'_latin1',''),CONCAT(CHAR(92),CHAR(39)),CHAR(39)),'[[:space:]()]',''), tc.ENFORCED
+    SELECT REGEXP_REPLACE(REGEXP_REPLACE(CONVERT(LOWER(cc.CHECK_CLAUSE) USING utf8mb4),'`|_utf8mb4|_utf8mb3|_latin1|[[:space:]()]',''),CONVERT(CONCAT(CHAR(92),CHAR(92)) USING utf8mb4),''), tc.ENFORCED
       INTO check_signature, check_enforced
       FROM information_schema.TABLE_CONSTRAINTS tc JOIN information_schema.CHECK_CONSTRAINTS cc
         ON tc.CONSTRAINT_SCHEMA=cc.CONSTRAINT_SCHEMA AND tc.CONSTRAINT_NAME=cc.CONSTRAINT_NAME
