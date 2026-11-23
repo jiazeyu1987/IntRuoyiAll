@@ -36,6 +36,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.framework.tenant.core.util.TenantUtils;
 import jakarta.annotation.Resource;
 import jakarta.annotation.security.PermitAll;
 import jakarta.servlet.http.HttpServletRequest;
@@ -237,7 +239,7 @@ public class AuthController {
         String ticket = UUID.randomUUID().toString();
         LocalDateTime expiresTime = LocalDateTime.now().plusSeconds(INVOICE_VOUCHER_PRINT_TICKET_TTL_SECONDS);
         stringRedisTemplate.opsForValue().set(formatInvoiceVoucherPrintTicketKey(ticket),
-                buildInvoiceVoucherPrintTicketPayload(loginUserId, expiresTime),
+                buildInvoiceVoucherPrintTicketPayload(loginUserId, TenantContextHolder.getRequiredTenantId(), expiresTime),
                 INVOICE_VOUCHER_PRINT_TICKET_TTL_SECONDS, TimeUnit.SECONDS);
         return success(AuthInvoiceVoucherPrintTicketRespVO.builder()
                 .ticket(ticket)
@@ -267,23 +269,29 @@ public class AuthController {
             @RequestBody @Valid AuthInvoiceVoucherPrintTicketValidateReqVO reqVO) {
         String ticket = reqVO.getTicket().trim();
         String redisKey = formatInvoiceVoucherPrintTicketKey(ticket);
-        String payload = stringRedisTemplate.opsForValue().get(redisKey);
+        // Consume atomically; concurrent callbacks must never reuse one authorization grant.
+        String payload = stringRedisTemplate.opsForValue().getAndDelete(redisKey);
         if (StrUtil.isBlank(payload)) {
             return success(invalidInvoiceVoucherPrintTicket("missing"));
         }
-
-        AuthInvoiceVoucherPrintTicketValidateRespVO respVO = parseInvoiceVoucherPrintTicket(payload);
-        stringRedisTemplate.delete(redisKey);
-        if (!Boolean.TRUE.equals(respVO.getValid())) {
-            return success(respVO);
+        InvoiceVoucherPrintTicketPayload parsed = parseInvoiceVoucherPrintTicket(payload);
+        if (parsed == null) {
+            return success(invalidInvoiceVoucherPrintTicket("malformed"));
         }
-        if (respVO.getExpiresTime().isBefore(LocalDateTime.now())) {
+        if (!parsed.expiresTime().isAfter(LocalDateTime.now())) {
             return success(invalidInvoiceVoucherPrintTicket("expired"));
         }
-        if (!INVOICE_VOUCHER_PRINT_PERMISSION.equals(respVO.getPermission())) {
+        if (!INVOICE_VOUCHER_PRINT_PERMISSION.equals(parsed.permission())) {
             return success(invalidInvoiceVoucherPrintTicket("permission_mismatch"));
         }
-        respVO.setKingdeeConfig(buildInvoiceVoucherPrintKingdeeConfig());
+        AuthInvoiceVoucherPrintTicketValidateRespVO respVO = AuthInvoiceVoucherPrintTicketValidateRespVO.builder()
+                .valid(true).userId(parsed.userId()).permission(parsed.permission())
+                .expiresTime(parsed.expiresTime()).build();
+        // Tenant identity comes only from the server-issued ticket, never an anonymous request header.
+        // Runnable overload preserves business exceptions and restores tenant/ignore context in finally.
+        TenantUtils.execute(parsed.tenantId(), () -> {
+            respVO.setKingdeeConfig(buildInvoiceVoucherPrintKingdeeConfig());
+        });
         return success(respVO);
     }
 
@@ -444,26 +452,30 @@ public class AuthController {
         return String.format(FENBEITONG_ASSISTANT_TICKET, ticket);
     }
 
-    private static String buildInvoiceVoucherPrintTicketPayload(Long userId, LocalDateTime expiresTime) {
+    private record InvoiceVoucherPrintTicketPayload(Long userId, Long tenantId, String permission,
+                                                   LocalDateTime expiresTime) { }
+
+    private static String buildInvoiceVoucherPrintTicketPayload(Long userId, Long tenantId,
+                                                                LocalDateTime expiresTime) {
         return userId + INVOICE_VOUCHER_PRINT_TICKET_SEPARATOR
+                + tenantId + INVOICE_VOUCHER_PRINT_TICKET_SEPARATOR
                 + INVOICE_VOUCHER_PRINT_PERMISSION + INVOICE_VOUCHER_PRINT_TICKET_SEPARATOR
                 + expiresTime;
     }
 
-    private static AuthInvoiceVoucherPrintTicketValidateRespVO parseInvoiceVoucherPrintTicket(String payload) {
+    private static InvoiceVoucherPrintTicketPayload parseInvoiceVoucherPrintTicket(String payload) {
         String[] parts = payload.split("\\|", -1);
-        if (parts.length != 3) {
-            return invalidInvoiceVoucherPrintTicket("malformed");
+        // Old short-lived tickets lack a trusted tenant and must be reissued, never guessed.
+        if (parts.length != 4) {
+            return null;
         }
         try {
-            return AuthInvoiceVoucherPrintTicketValidateRespVO.builder()
-                    .valid(true)
-                    .userId(Long.valueOf(parts[0]))
-                    .permission(parts[1])
-                    .expiresTime(LocalDateTime.parse(parts[2]))
-                    .build();
+            Long userId = Long.valueOf(parts[0]);
+            Long tenantId = Long.valueOf(parts[1]);
+            if (userId <= 0 || tenantId < 0) return null;
+            return new InvoiceVoucherPrintTicketPayload(userId, tenantId, parts[2], LocalDateTime.parse(parts[3]));
         } catch (RuntimeException ex) {
-            return invalidInvoiceVoucherPrintTicket("malformed");
+            return null;
         }
     }
 

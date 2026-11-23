@@ -28,6 +28,10 @@ import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.social.SocialClientService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -62,6 +66,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AuthControllerTest extends BaseMockitoUnitTest {
+
+    @AfterEach
+    void clearTenantContext() {
+        TenantContextHolder.clear();
+    }
 
     @InjectMocks
     private AuthController authController;
@@ -509,6 +518,7 @@ class AuthControllerTest extends BaseMockitoUnitTest {
 
     @Test
     void createInvoiceVoucherPrintTicketStoresShortLivedTicketWhenUserHasFinancePrintRole() {
+        TenantContextHolder.setTenantId(169L);
         Long loginUserId = 203L;
         AdminUserDO user = randomPojo(AdminUserDO.class).setId(loginUserId).setUsername("financePrinter");
         RoleDO financePrintRole = randomPojo(RoleDO.class)
@@ -532,7 +542,7 @@ class AuthControllerTest extends BaseMockitoUnitTest {
             ArgumentCaptor<String> valueCaptor = ArgumentCaptor.forClass(String.class);
             verify(valueOperations).set(keyCaptor.capture(), valueCaptor.capture(), eq(120L), eq(TimeUnit.SECONDS));
             assertTrue(keyCaptor.getValue().startsWith("invoice_voucher_print_ticket:"));
-            assertTrue(valueCaptor.getValue().contains("erp:invoice-voucher-print:query"));
+            assertTrue(valueCaptor.getValue().startsWith("203|169|erp:invoice-voucher-print:query|"));
         }
     }
 
@@ -569,7 +579,7 @@ class AuthControllerTest extends BaseMockitoUnitTest {
         reqVO.setTicket(ticket);
 
         when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(eq(redisKey))).thenReturn("203|erp:invoice-voucher-print:query|" + expiresTime);
+        when(valueOperations.getAndDelete(eq(redisKey))).thenReturn("203|169|erp:invoice-voucher-print:query|" + expiresTime);
         when(kingdeeConfigProvider.getCurrentConfigSnapshot())
                 .thenReturn(KingdeeConfigSnapshot.builder()
                         .baseUrl("http://kingdee/K3Cloud")
@@ -584,6 +594,7 @@ class AuthControllerTest extends BaseMockitoUnitTest {
 
         AuthInvoiceVoucherPrintTicketValidateRespVO respVO = authController.validateInvoiceVoucherPrintTicket(reqVO).getData();
 
+        assertEquals(null, TenantContextHolder.getTenantId());
         assertTrue(respVO.getValid());
         assertEquals(203L, respVO.getUserId());
         assertEquals("erp:invoice-voucher-print:query", respVO.getPermission());
@@ -595,12 +606,15 @@ class AuthControllerTest extends BaseMockitoUnitTest {
         assertEquals("invoice-print-signed-data", respVO.getKingdeeConfig().getSignedData());
         assertEquals("1700000000", respVO.getKingdeeConfig().getTimestamp());
         assertEquals(2052, respVO.getKingdeeConfig().getLcid());
-        verify(stringRedisTemplate).delete(eq(redisKey));
+        verify(valueOperations).getAndDelete(eq(redisKey));
+        verify(stringRedisTemplate, never()).delete(anyString());
         verify(kingdeeConfigProvider).getCurrentConfigSnapshot();
     }
 
     @Test
     void validateInvoiceVoucherPrintTicketFailsWhenKingdeeConfigMissing() {
+        TenantContextHolder.setTenantId(999L);
+        TenantContextHolder.setIgnore(true);
         String ticket = "valid-ticket";
         String redisKey = "invoice_voucher_print_ticket:" + ticket;
         LocalDateTime expiresTime = LocalDateTime.now().plusMinutes(1);
@@ -608,16 +622,23 @@ class AuthControllerTest extends BaseMockitoUnitTest {
         reqVO.setTicket(ticket);
 
         when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(eq(redisKey))).thenReturn("203|erp:invoice-voucher-print:query|" + expiresTime);
+        when(valueOperations.getAndDelete(eq(redisKey))).thenReturn("203|169|erp:invoice-voucher-print:query|" + expiresTime);
         when(kingdeeConfigProvider.getCurrentConfigSnapshot())
-                .thenThrow(new ServiceException(400, "发票凭证打印助手 ERP 配置缺失：appId"));
+                .thenAnswer(invocation -> {
+                    assertEquals(169L, TenantContextHolder.getRequiredTenantId());
+                    assertFalse(TenantContextHolder.isIgnore());
+                    throw new ServiceException(400, "发票凭证打印助手 ERP 配置缺失：appId");
+                });
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> authController.validateInvoiceVoucherPrintTicket(reqVO));
 
+        assertEquals(999L, TenantContextHolder.getTenantId());
+        assertTrue(TenantContextHolder.isIgnore());
         assertEquals(400, exception.getCode());
         assertTrue(exception.getMessage().contains("ERP 配置缺失"));
-        verify(stringRedisTemplate).delete(eq(redisKey));
+        verify(valueOperations).getAndDelete(eq(redisKey));
+        verify(stringRedisTemplate, never()).delete(anyString());
         verify(kingdeeConfigProvider).getCurrentConfigSnapshot();
     }
 
@@ -627,12 +648,57 @@ class AuthControllerTest extends BaseMockitoUnitTest {
         reqVO.setTicket("missing-ticket");
 
         when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(eq("invoice_voucher_print_ticket:missing-ticket"))).thenReturn(null);
+        when(valueOperations.getAndDelete(eq("invoice_voucher_print_ticket:missing-ticket"))).thenReturn(null);
 
         var respVO = authController.validateInvoiceVoucherPrintTicket(reqVO).getData();
 
         assertFalse(respVO.getValid());
         verify(stringRedisTemplate, never()).delete(anyString());
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0L, 1L, 999L})
+    void validateInvoiceVoucherPrintTicketUsesTrustedTenantAndRestoresIncomingContext(long incomingTenant) {
+        TenantContextHolder.setTenantId(incomingTenant);
+        TenantContextHolder.setIgnore(true);
+        var request = new AuthInvoiceVoucherPrintTicketValidateReqVO();
+        request.setTicket("tenant-ticket");
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.getAndDelete("invoice_voucher_print_ticket:tenant-ticket"))
+                .thenReturn("203|169|erp:invoice-voucher-print:query|" + LocalDateTime.now().plusMinutes(1))
+                .thenReturn(null);
+        when(kingdeeConfigProvider.getCurrentConfigSnapshot()).thenAnswer(invocation -> {
+            assertEquals(169L, TenantContextHolder.getRequiredTenantId());
+            assertFalse(TenantContextHolder.isIgnore());
+            return KingdeeConfigSnapshot.builder().acctId("tenant-169-only").build();
+        });
+        var response = authController.validateInvoiceVoucherPrintTicket(request).getData();
+        assertTrue(response.getValid());
+        assertEquals("tenant-169-only", response.getKingdeeConfig().getAcctId());
+        assertEquals(incomingTenant, TenantContextHolder.getTenantId());
+        assertTrue(TenantContextHolder.isIgnore());
+        assertFalse(authController.validateInvoiceVoucherPrintTicket(request).getData().getValid());
+        verify(kingdeeConfigProvider).getCurrentConfigSnapshot();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "203|erp:invoice-voucher-print:query|2099-01-01T00:00:00",
+            "203||erp:invoice-voucher-print:query|2099-01-01T00:00:00",
+            "203|-1|erp:invoice-voucher-print:query|2099-01-01T00:00:00",
+            "203|169|wrong-permission|2099-01-01T00:00:00",
+            "203|169|erp:invoice-voucher-print:query|2000-01-01T00:00:00",
+            "203|169|erp:invoice-voucher-print:query|not-a-date"
+    })
+    void validateInvoiceVoucherPrintTicketRejectsUntrustedOrExpiredPayloadWithoutReadingConfig(String payload) {
+        var request = new AuthInvoiceVoucherPrintTicketValidateReqVO();
+        request.setTicket("invalid-ticket");
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.getAndDelete("invoice_voucher_print_ticket:invalid-ticket")).thenReturn(payload);
+        var response = authController.validateInvoiceVoucherPrintTicket(request).getData();
+        assertFalse(response.getValid());
+        assertEquals(null, TenantContextHolder.getTenantId());
+        verify(kingdeeConfigProvider, never()).getCurrentConfigSnapshot();
     }
 
     @Test
