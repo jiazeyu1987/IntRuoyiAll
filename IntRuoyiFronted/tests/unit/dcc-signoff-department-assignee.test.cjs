@@ -10,7 +10,7 @@ const root = path.resolve(__dirname, '../..')
 const read = file => fs.readFileSync(path.join(root, file), 'utf8')
 function moduleFrom(source, dependencies = {}) {
   const context = { exports: {}, Error, String, JSON, Array, Object, Set,
-    require: name => name === 'vue' ? vue : dependencies[name] || (name.endsWith('.vue') ? {} : (() => { throw Error(name) })()) }
+    require: name => name === '@/store/modules/user' ? { useUserStore: () => ({ getUser: { id: '99' } }) } : name === 'vue' ? vue : dependencies[name] || (name.endsWith('.vue') ? {} : (() => { throw Error(name) })()) }
   vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, context)
   return context.exports
 }
@@ -98,9 +98,10 @@ test('actual component template has one department candidate selector and no ALL
   })
   try {
     app.mount({ children: [] })
-    assert.equal(selectors.length, 1)
-    assert.deepEqual(Array.from(selectors[0], user => user.id), ['99'])
-    assert.equal(selectors[0].some(user => /全员|其他部门/.test(user.nickname)), false)
+    assert.equal(selectors.length, 0)
+    assert.equal(mounted.filter(name => name === 'ElSelect').length, 1)
+    assert.deepEqual(values, ['99'])
+    assert.deepEqual(optionLabels, ['本人'])
   } finally { app.unmount() }
 })
 
@@ -174,4 +175,44 @@ test('signature opinion and password start locked and task changes erase entered
     assert.equal(panel.state.reason,'');assert.equal(panel.state.password,'')
     assert.equal(panel.state.reasonFocused,false);assert.equal(panel.state.passwordFocused,false)
   } finally {panel.app.unmount()}
+})
+
+
+test('self shortcut follows exact current candidate membership and selected values', async () => {
+  const panel = assignment()
+  try {
+    panel.props.currentUserId = '99'; await vue.nextTick()
+    assert.equal(panel.state.selfCandidate.id, '99')
+    panel.state.selected = panel.state.selfCandidate.id
+    assert.equal(panel.state.isSelfAssigned, true)
+    panel.state.selected = ''
+    assert.equal(panel.state.isSelfAssigned, false)
+    panel.props.users = [{ id: '100', name: '本部门成员' }]; await vue.nextTick()
+    assert.equal(panel.state.selfCandidate, undefined)
+  } finally { panel.app.unmount() }
+})
+
+
+test('department display uses business names or codes without exposing internal identity', async () => {
+  const panel = assignment()
+  try {
+    panel.props.departmentId = '910380'
+    panel.props.departmentCode = 'QA-01'
+    assert.equal(panel.state.departmentLabel, 'A部门')
+    panel.props.departmentName = ' '; await vue.nextTick()
+    assert.equal(panel.state.departmentLabel, '部门编码：QA-01')
+    panel.props.departmentCode = ''; await vue.nextTick()
+    assert.equal(panel.state.departmentLabel, '部门名称及业务编码未提供')
+    assert.equal(panel.state.userLabel({ id: '1', name: '', username: 'reviewer' }), 'reviewer')
+    assert.equal(panel.state.userLabel({ id: '1', username: 'reviewer' }), 'reviewer')
+  } finally { panel.app.unmount() }
+})
+
+test('assignment card contains flow notes and persistent clear control while action order stays unchanged', () => {
+  const { descriptor } = parse(read('src/views/dcc/controlled-file/workflow/SignoffAssignmentPanel.vue'))
+  const template = descriptor.template.content
+  assert.doesNotMatch(template, /label="提交后流转"|\{\{ departmentId \}\}/)
+  assert.match(template, /class="signature-area"[\s\S]*下一节点：实际会签人会签。指派本人时同样进入该环节。[\s\S]*本次补充的文件和整改安排随指派签名提交。/)
+  assert.match(template, /class="assignee-clear"[\s\S]*aria-label="清空会签人"/)
+  assert.ok(template.indexOf("确认指派并签名") < template.indexOf('slot name="actions"'))
 })

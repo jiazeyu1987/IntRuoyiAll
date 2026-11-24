@@ -8,7 +8,7 @@ const { parse, compileScript } = require('vue/compiler-sfc')
 const read = file => fs.readFileSync(file, 'utf8')
 const moduleFrom = (source, dependencies = {}) => {
   const c = { exports: {}, Error, JSON, String, Number, BigInt, Array, Object, Set, console,
-    require: id => id === 'vue' ? vue : dependencies[id] || (id.endsWith('.vue') ? {} : (() => { throw new Error(id) })()) }
+    require: id => id === '@/store/modules/user' ? { useUserStore: () => ({ getUser: { id: '99' } }) } : id === 'vue' ? vue : dependencies[id] || (id.endsWith('.vue') ? {} : (() => { throw new Error(id) })()) }
   vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, c)
   return c.exports
 }
@@ -93,4 +93,31 @@ test('actual signoff context wrapper requires the current formal task process de
     response = { ...response, processDefinitionKey: key }
     assert.equal((await api.getSignoffAssignmentContext('9007199254740993', 'task-id')).processDefinitionKey, key)
   }
+})
+
+
+test('merged original and supplemental remediation shows both required errors, validates dates and prunes removed rows', async () => {
+  const counts = []
+  const h = mount('src/views/dcc/controlled-file/detail/DetailRelationArrangements.vue', {
+    contextKey: 'revision-task', disabled: false, saved: [],
+    relations: [{ masterId: '8', fileName: '原有关联', versionNo: 'A/1' }, { masterId: '9', fileName: '补充关联', versionNo: 'A/2', supplemental: true }],
+    users: [{ id: '7', name: '负责人' }], onCountChange: count => counts.push(count)
+  }, { '../workflow/workflow-actions': actions, '../shared/version-display': { getDccVersionDisplayText: v => v } })
+  try {
+    h.state.toggle('9', true); await vue.nextTick()
+    assert.equal(counts.at(-1), 1)
+    assert.throws(() => h.state.validate(), /对应行/)
+    assert.match(h.state.rowErrors['9'].assignee, /负责人/)
+    assert.match(h.state.rowErrors['9'].dueAt, /期限/)
+    h.state.selected('9').assigneeUserId = '7'
+    h.state.selected('9').dueAt = '2026-02-30 12:00:00'
+    assert.throws(() => h.state.validate(), /有效日期/)
+    h.state.selected('9').dueAt = '2026-12-01 12:00:00'
+    assert.equal(h.state.validate()[0].relatedMasterId, '9')
+    h.props.relations = [h.props.relations[0]]; await vue.nextTick()
+    assert.equal(h.state.validate().length, 0)
+    assert.equal(counts.at(-1), 0)
+    h.props.remediable = false; await vue.nextTick(); h.state.toggle('8', true)
+    assert.equal(h.state.validate().length, 0)
+  } finally { h.app.unmount() }
 })

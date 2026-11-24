@@ -104,3 +104,18 @@ test('candidate page must contain one exact latest identity per master and canno
   assert.throws(()=>s.resolve(token,{total:1,list:[row('20','200',{pendingEffect:true,executable:true})]}),/VERSION/)
   assert.equal(s.rows.length,0)
 })
+
+
+test('locked masters cannot be selected, removed or submitted; clear respects saving', async () => {
+  const s = setup(); const context = { contextKey: 'supplement', tenantId: '1', masterId: '10', relationProjectId: '20', lockedMasterIds: ['30'], requirePreview: true }
+  s.reset(context, [])
+  assert.throws(() => s.select(row('30', '31', { canPreview: true })), /EXISTING_RELATION/)
+  assert.throws(() => s.remove('30'), /EXISTING_RELATION/)
+  assert.throws(() => s.select(row('40')), /CONTENT_PERMISSION/)
+  s.select(row('40', '41', { canPreview: true })); s.clear(); assert.equal(s.selected.length, 0); assert.equal(s.isLocked('30'), true)
+  s.reset(context, [row('30', '31', { canPreview: true })]); let writes = 0
+  assert.equal(await s.save(async () => writes++, true), false); assert.equal(writes, 0)
+  s.reset(context, []); s.select(row('40', '41', { canPreview: true })); let finish
+  const pending = s.save(() => new Promise(resolve => { finish = resolve }), true)
+  assert.throws(() => s.clear(), /SAVING/); finish(); assert.equal(await pending, true)
+})
