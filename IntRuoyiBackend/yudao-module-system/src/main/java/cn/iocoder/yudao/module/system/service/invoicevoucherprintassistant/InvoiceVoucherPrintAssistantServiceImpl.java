@@ -27,6 +27,7 @@ public class InvoiceVoucherPrintAssistantServiceImpl implements InvoiceVoucherPr
 
     @Override
     public AuthInvoiceVoucherPrintAssistantStatusRespVO getStatus() {
+        requirePublicUrl();
         if (healthProbe.isRunning()) {
             return buildStatus(true, true, "发票凭证打印助手已启动");
         }
@@ -39,6 +40,7 @@ public class InvoiceVoucherPrintAssistantServiceImpl implements InvoiceVoucherPr
 
     @Override
     public synchronized AuthInvoiceVoucherPrintAssistantStatusRespVO start() {
+        requirePublicUrl();
         if (healthProbe.isRunning()) {
             return buildStatus(true, true, "发票凭证打印助手已启动");
         }
@@ -80,10 +82,17 @@ public class InvoiceVoucherPrintAssistantServiceImpl implements InvoiceVoucherPr
 
     private AuthInvoiceVoucherPrintAssistantStatusRespVO buildStatus(boolean running, boolean launchable, String message) {
         return AuthInvoiceVoucherPrintAssistantStatusRespVO.builder()
+                .publicUrl(properties.getPublicUrl())
                 .running(running)
                 .launchable(launchable)
                 .message(message)
                 .build();
+    }
+
+    private void requirePublicUrl() {
+        if (properties.getPublicUrl().isEmpty()) {
+            throw exception0(BAD_REQUEST.getCode(), "发票凭证打印助手地址未配置，请联系管理员配置公开访问地址。");
+        }
     }
 
     private List<String> collectLaunchBlockers() {

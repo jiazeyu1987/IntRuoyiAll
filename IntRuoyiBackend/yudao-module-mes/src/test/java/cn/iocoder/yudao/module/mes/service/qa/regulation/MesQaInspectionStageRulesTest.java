@@ -77,7 +77,9 @@ class MesQaInspectionStageRulesTest {
 
     private static void validate(List<InspectionTypeRule> rules) {
         ReflectionTestUtils.invokeMethod(MesQaInspectionRegulationServiceImpl.class,
-                "validateInspectionTypeRules", rules);
+                "validateInspectionTypeRules", new cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO()
+                        .setInspectionTypeRules(rules).setFinalInspectionApplicable(false)
+                        .setFinalInspectionNotApplicableReason("本测试不适用末检"));
     }
 
     @Test

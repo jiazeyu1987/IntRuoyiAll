@@ -25,7 +25,7 @@ class MesFrontlinePqcTaskOverlayTest {
                 task(1001L, ACTIVE_ORDER_ID + 1, REGULATION_VERSION_ID, QA_PROCESS_ID, "FIRST", "FIRST"),
                 task(1002L, ACTIVE_ORDER_ID, REGULATION_VERSION_ID + 1, QA_PROCESS_ID, "FIRST", "FIRST"),
                 task(1003L, ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID + 1, "FIRST", "FIRST"),
-                task(1004L, ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID, "PATROL", "PATROL_AM"),
+                task(1004L, ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID, "PATROL", "PATROL"),
                 task(1005L, ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID, "FIRST", "FIRST"));
 
         MesFrontlinePqcTaskOverlay overlay = MesFrontlinePqcTaskOverlay.fromExpectedTask(
@@ -48,21 +48,21 @@ class MesFrontlinePqcTaskOverlayTest {
     }
 
     @Test
-    void shouldKeepFirstPatrolAmPatrolPmAndFinalTaskOptionsSeparate() {
+    void shouldKeepFirstTwoPatrolRoundsAndFinalTaskOptionsSeparate() {
         List<MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity> expectedTasks = List.of(
                 expected(QA_PROCESS_ID, "FIRST", "FIRST"),
-                expected(QA_PROCESS_ID, "PATROL_AM", "PATROL"),
-                expected(QA_PROCESS_ID, "PATROL_PM", "PATROL"),
+                expected(QA_PROCESS_ID, "PATROL", "PATROL"),
+                expected(QA_PROCESS_ID, "PATROL", "PATROL", BUSINESS_DATE, 2),
                 expected(QA_PROCESS_ID, "FINAL", "FINAL"));
         List<MesPqcInspectionTaskDO> tasks = List.of(
                 task(1001L, ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID, "FIRST", "FIRST"),
-                task(1002L, ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID, "PATROL", "PATROL_AM"),
-                task(1003L, ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID, "PATROL", "PATROL_PM"),
+                task(1002L, ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID, "PATROL", "PATROL"),
+                task(1003L, ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID, "PATROL", "PATROL", BUSINESS_DATE, 2),
                 task(1004L, ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID, "FINAL", "FINAL"));
 
         List<MesFrontlinePqcTaskOverlay> overlays = MesFrontlinePqcTaskOverlay.fromExpectedTasks(expectedTasks, tasks);
 
-        assertEquals(List.of("FIRST", "PATROL_AM", "PATROL_PM", "FINAL"),
+        assertEquals(List.of("FIRST", "PATROL", "PATROL", "FINAL"),
                 overlays.stream().map(MesFrontlinePqcTaskOverlay::inspectionRuleKey).toList());
         assertEquals(List.of(1001L, 1002L, 1003L, 1004L),
                 overlays.stream().map(overlay -> overlay.pqcTaskOption().pqcTaskId()).toList());
@@ -73,17 +73,17 @@ class MesFrontlinePqcTaskOverlayTest {
         LocalDate previousDay = BUSINESS_DATE.minusDays(1);
         List<MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity> expectedTasks = List.of(
                 expected(QA_PROCESS_ID, "FINAL", "FINAL", BUSINESS_DATE, 1),
-                expected(QA_PROCESS_ID, "PATROL_PM", "PATROL", BUSINESS_DATE, 1),
+                expected(QA_PROCESS_ID, "PATROL", "PATROL", BUSINESS_DATE, 2),
                 expected(QA_PROCESS_ID, "FIRST", "FIRST", previousDay, 1),
-                expected(QA_PROCESS_ID, "PATROL_AM", "PATROL", BUSINESS_DATE, 1));
+                expected(QA_PROCESS_ID, "PATROL", "PATROL", BUSINESS_DATE, 1));
         List<MesPqcInspectionTaskDO> tasks = List.of(
                 task(1004L, ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID, "FINAL", "FINAL",
                         BUSINESS_DATE, 1),
-                task(1003L, ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID, "PATROL", "PATROL_PM",
-                        BUSINESS_DATE, 1),
+                task(1003L, ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID, "PATROL", "PATROL",
+                        BUSINESS_DATE, 2),
                 task(1001L, ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID, "FIRST", "FIRST",
                         previousDay, 1),
-                task(1002L, ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID, "PATROL", "PATROL_AM",
+                task(1002L, ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID, "PATROL", "PATROL",
                         BUSINESS_DATE, 1));
 
         List<MesFrontlinePqcTaskOverlay> overlays = MesFrontlinePqcTaskOverlay.fromExpectedTasks(expectedTasks, tasks);
@@ -95,16 +95,16 @@ class MesFrontlinePqcTaskOverlayTest {
     @Test
     void shouldKeepSameQaIdentityAcrossProductionProcessesSeparate() {
         MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity first = expected(
-                ROUTE_PROCESS_ID, PROCESS_ID, QA_PROCESS_ID, "PATROL_AM", "PATROL", BUSINESS_DATE, "DAY", 1);
+                ROUTE_PROCESS_ID, PROCESS_ID, QA_PROCESS_ID, "PATROL", "PATROL", BUSINESS_DATE, "DAY", 1);
         MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity second = expected(
-                ROUTE_PROCESS_ID + 1, PROCESS_ID + 1, QA_PROCESS_ID, "PATROL_AM", "PATROL", BUSINESS_DATE, "DAY", 1);
+                ROUTE_PROCESS_ID + 1, PROCESS_ID + 1, QA_PROCESS_ID, "PATROL", "PATROL", BUSINESS_DATE, "DAY", 1);
 
         List<MesFrontlinePqcTaskOverlay> overlays = MesFrontlinePqcTaskOverlay.fromExpectedTasks(
                 List.of(first, second), List.of(
                         task(1101L, ACTIVE_ORDER_ID, ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID,
-                                QA_PROCESS_ID, "PATROL", "PATROL_AM", BUSINESS_DATE, "DAY", 1),
+                                QA_PROCESS_ID, "PATROL", "PATROL", BUSINESS_DATE, "DAY", 1),
                         task(1102L, ACTIVE_ORDER_ID, ROUTE_PROCESS_ID + 1, PROCESS_ID + 1,
-                                REGULATION_VERSION_ID, QA_PROCESS_ID, "PATROL", "PATROL_AM", BUSINESS_DATE, "DAY", 1)));
+                                REGULATION_VERSION_ID, QA_PROCESS_ID, "PATROL", "PATROL", BUSINESS_DATE, "DAY", 1)));
 
         assertEquals(List.of(1101L, 1102L), overlays.stream()
                 .map(overlay -> overlay.pqcTaskOption().pqcTaskId()).toList());
@@ -113,16 +113,16 @@ class MesFrontlinePqcTaskOverlayTest {
     @Test
     void shouldKeepSameQaIdentityAcrossBusinessRoundsSeparate() {
         MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity first = expected(
-                ROUTE_PROCESS_ID, PROCESS_ID, QA_PROCESS_ID, "PATROL_AM", "PATROL", BUSINESS_DATE, "DAY", 1);
+                ROUTE_PROCESS_ID, PROCESS_ID, QA_PROCESS_ID, "PATROL", "PATROL", BUSINESS_DATE, "DAY", 1);
         MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity second = expected(
-                ROUTE_PROCESS_ID, PROCESS_ID, QA_PROCESS_ID, "PATROL_AM", "PATROL", BUSINESS_DATE.plusDays(1), "NIGHT", 2);
+                ROUTE_PROCESS_ID, PROCESS_ID, QA_PROCESS_ID, "PATROL", "PATROL", BUSINESS_DATE.plusDays(1), "NIGHT", 2);
 
         List<MesFrontlinePqcTaskOverlay> overlays = MesFrontlinePqcTaskOverlay.fromExpectedTasks(
                 List.of(first, second), List.of(
                         task(1201L, ACTIVE_ORDER_ID, ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID,
-                                QA_PROCESS_ID, "PATROL", "PATROL_AM", BUSINESS_DATE, "DAY", 1),
+                                QA_PROCESS_ID, "PATROL", "PATROL", BUSINESS_DATE, "DAY", 1),
                         task(1202L, ACTIVE_ORDER_ID, ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID,
-                                QA_PROCESS_ID, "PATROL", "PATROL_AM", BUSINESS_DATE.plusDays(1), "NIGHT", 2)));
+                                QA_PROCESS_ID, "PATROL", "PATROL", BUSINESS_DATE.plusDays(1), "NIGHT", 2)));
 
         assertEquals(List.of(1201L, 1202L), overlays.stream()
                 .map(overlay -> overlay.pqcTaskOption().pqcTaskId()).toList());
@@ -131,13 +131,23 @@ class MesFrontlinePqcTaskOverlayTest {
     @Test
     void shouldRejectDuplicateTasksWithCompleteOverlayIdentity() {
         MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity expected = expected(
-                ROUTE_PROCESS_ID, PROCESS_ID, QA_PROCESS_ID, "PATROL_AM", "PATROL", BUSINESS_DATE, "DAY", 1);
+                ROUTE_PROCESS_ID, PROCESS_ID, QA_PROCESS_ID, "PATROL", "PATROL", BUSINESS_DATE, "DAY", 1);
         assertThrows(IllegalStateException.class, () -> MesFrontlinePqcTaskOverlay.fromExpectedTask(expected,
                 List.of(
                         task(1301L, ACTIVE_ORDER_ID, ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID,
-                                QA_PROCESS_ID, "PATROL", "PATROL_AM", BUSINESS_DATE, "DAY", 1),
+                                QA_PROCESS_ID, "PATROL", "PATROL", BUSINESS_DATE, "DAY", 1),
                         task(1302L, ACTIVE_ORDER_ID, ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID,
-                                QA_PROCESS_ID, "PATROL", "PATROL_AM", BUSINESS_DATE, "DAY", 1))));
+                                QA_PROCESS_ID, "PATROL", "PATROL", BUSINESS_DATE, "DAY", 1))));
+    }
+
+    @Test
+    void legacyFrozenPatrolDoesNotMasqueradeAsNewPatrolStage() {
+        for (String legacy : List.of("PATROL_AM", "PATROL_PM")) {
+            var frozen = task(1401L, ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID, "PATROL", legacy);
+            var overlay = MesFrontlinePqcTaskOverlay.fromExpectedTask(expected(QA_PROCESS_ID, "PATROL", "PATROL"), List.of(frozen));
+            assertEquals(MesFrontlinePqcTaskOverlay.STATUS_NOT_CREATED, overlay.status());
+            assertEquals(legacy, frozen.getInspectionRuleKey());
+        }
     }
 
     private static MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity expected(long qaProcessId,

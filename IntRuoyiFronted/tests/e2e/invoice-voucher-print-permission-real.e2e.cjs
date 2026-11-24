@@ -243,8 +243,13 @@ async function verifyAdmin(browser, defaults, consoleErrors, pageErrors) {
         response.request().method() === 'POST',
       { timeout: 30000 }
     )
+    const statusResponsePromise = page.waitForResponse(r => r.url().includes('/system/auth/invoice-voucher-print-assistant/status') && r.request().method() === 'GET')
     await clickMenuLabel(page, '发票凭证打印')
     await page.waitForURL((url) => url.pathname === targetPath, { timeout: 20000 })
+    const statusJson = await (await statusResponsePromise).json()
+    assert.equal(statusJson.code, 0, 'runtime status must succeed')
+    const assistantUrl = statusJson.data.publicUrl
+    assert.ok(assistantUrl, 'runtime publicUrl must be configured')
     const ticketResponse = await ticketResponsePromise
     const ticketJson = await ticketResponse.json().catch(() => null)
     assert.equal(ticketResponse.status(), 200, 'ticket HTTP status must be 200')
@@ -256,7 +261,6 @@ async function verifyAdmin(browser, defaults, consoleErrors, pageErrors) {
     const alertCount = await page.locator('.el-alert:has-text("发票凭证打印助手地址未配置")').count()
     assert.ok(iframeCount > 0 || alertCount > 0, 'invoice print page must render iframe or explicit config blocker')
     if (iframeCount > 0) {
-      const assistantUrl = defaults.VITE_INVOICE_VOUCHER_PRINT_ASSISTANT_URL || ''
       const iframeSrc = await iframe.getAttribute('src')
       assert.match(iframeSrc || '', /\/auth\/callback\?ticket=/, 'iframe must enter assistant through ticket callback')
       const iframeHandle = await iframe.elementHandle()
@@ -282,6 +286,7 @@ async function verifyAdmin(browser, defaults, consoleErrors, pageErrors) {
       menuChain: invoiceMenu.names,
       finalUrl: page.url(),
       rendered: iframeCount > 0 ? 'iframe' : 'config-blocker-alert',
+      assistantUrl,
       ticketIssued: Boolean(ticketJson?.data?.ticket),
       screenshotPath: adminScreenshotPath
     }
@@ -290,8 +295,7 @@ async function verifyAdmin(browser, defaults, consoleErrors, pageErrors) {
   }
 }
 
-async function verifyDirectAssistantAccess(browser, defaults, consoleErrors, pageErrors) {
-  const assistantUrl = defaults.VITE_INVOICE_VOUCHER_PRINT_ASSISTANT_URL || ''
+async function verifyDirectAssistantAccess(browser, assistantUrl, consoleErrors, pageErrors) {
   assert.ok(assistantUrl, 'assistant URL must be configured before direct access E2E')
   const { context, page } = await createPage(browser, consoleErrors, pageErrors, 'direct-assistant')
   try {
@@ -351,8 +355,8 @@ async function main() {
   const browser = await chromium.launch({ headless: true })
 
   try {
-    const directAssistantResult = await verifyDirectAssistantAccess(browser, defaults, consoleErrors, pageErrors)
     const adminResult = await verifyAdmin(browser, defaults, consoleErrors, pageErrors)
+    const directAssistantResult = await verifyDirectAssistantAccess(browser, adminResult.assistantUrl, consoleErrors, pageErrors)
     const unauthorizedResult = await verifyUnauthorized(browser, defaults, consoleErrors, pageErrors)
     assert.deepEqual(consoleErrors, [])
     assert.deepEqual(pageErrors, [])

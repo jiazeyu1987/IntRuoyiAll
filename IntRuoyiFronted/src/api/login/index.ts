@@ -23,6 +23,7 @@ export interface InvoiceVoucherPrintTicketRespVO {
 }
 
 export interface InvoiceVoucherPrintAssistantStatusRespVO {
+  publicUrl: string
   running: boolean
   launchable: boolean
   message?: string

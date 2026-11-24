@@ -24,7 +24,7 @@ class MesOrderQaStageReleaseCoverageTest {
         tasks.removeIf(task -> Long.valueOf(7).equals(task.getQaProcessId()));
         List<String> missing = ReflectionTestUtils.invokeMethod(service(), "missingExpectedPqcTaskIdentities", order(), tasks);
         assertNotNull(missing);
-        assertEquals(3, missing.size());
+        assertEquals(2, missing.size());
         assertTrue(missing.stream().allMatch(value -> value.contains("10|7|")));
     }
     private MesOrderReleaseCompletenessServiceImpl service() {
@@ -39,8 +39,7 @@ class MesOrderQaStageReleaseCoverageTest {
                 .finalInspectionApplicable(false).finalInspectionNotApplicableReason("无末检")
                 .inspectionTypeRulesJson("""
                     [{"key":"FIRST","inspectionType":"FIRST","required":true},
-                     {"key":"PATROL_AM","inspectionType":"PATROL","required":true},
-                     {"key":"PATROL_PM","inspectionType":"PATROL","required":true},
+                     {"key":"PATROL","inspectionType":"PATROL","required":true},
                      {"key":"FINAL","inspectionType":"FINAL","required":false}]
                     """).build());
         when(processes.selectListByVersionIds(List.of(10L))).thenReturn(java.util.stream.LongStream.rangeClosed(1, 7)
@@ -54,17 +53,20 @@ class MesOrderQaStageReleaseCoverageTest {
         return service;
     }
     private MesProcessPoolActiveOrderDO order() {
-        return MesProcessPoolActiveOrderDO.builder().id(1L).workOrderId(2L).qaRegulationVersionId(10L).build();
+        return MesProcessPoolActiveOrderDO.builder().id(1L).workOrderId(2L).qaRegulationVersionId(10L).pqcQaSourceVersionIdsJson("[10]").build();
     }
     private ArrayList<MesPqcInspectionTaskDO> tasks() {
         var rows = new ArrayList<MesPqcInspectionTaskDO>();
-        for (long id = 1; id <= 7; id++) for (String key : List.of("FIRST", "PATROL_AM", "PATROL_PM")) {
+        for (long id = 1; id <= 7; id++) for (String key : List.of("FIRST", "PATROL", "PATROL")) {
             rows.add(MesPqcInspectionTaskDO.builder().id((long) rows.size() + 1).activeOrderId(1L).workOrderId(2L)
                     .regulationVersionId(10L).qaProcessId(id).qaItemCode("").inspectionRuleKey(key)
                     .inspectionType(key.equals("FIRST") ? "FIRST" : "PATROL")
-                    .shiftCode(key.equals("FIRST") ? "FIRST" : key.endsWith("AM") ? "AM" : "PM")
-                    .roundNo(1).businessDate(LocalDate.of(2026,10,15)).plannedInspectionQuantity(2)
-                    .inspectionItemPlanJson("{\"A\":2}").taskStatus("CONFIRMED").build());
+                    .shiftCode(key)
+                    .roundNo(key.equals("FIRST") ? 1 : (rows.size() % 3)).businessDate(LocalDate.of(2026,10,15)).plannedInspectionQuantity(2)
+                    .inspectionItemPlanJson("{\"A\":2}")
+                    .inspectionSamplingPlanJson(key.equals("FIRST") ? null : cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(Map.of("A",
+                        cn.iocoder.yudao.module.mes.service.qc.sampling.MesQcSamplingPlan.calculate(java.math.BigDecimal.valueOf(2), "II"))))
+                    .taskStatus("CONFIRMED").build());
         }
         return rows;
     }

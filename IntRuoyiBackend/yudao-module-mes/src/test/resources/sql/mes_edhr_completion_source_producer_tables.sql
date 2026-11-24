@@ -509,7 +509,7 @@ CREATE TABLE mes_pqc_inspection_task (
   CONSTRAINT uk_mes_pqc_task_submitted_event UNIQUE NULLS DISTINCT (tenant_id, submitted_event_id, deleted),
   CONSTRAINT uk_mes_pqc_task_process_item_rule_identity UNIQUE NULLS DISTINCT (tenant_id, active_order_id, route_process_id, process_id, regulation_version_id, qa_process_id, qa_item_code, inspection_rule_key, business_date, deleted),
   PRIMARY KEY (id),
-  CONSTRAINT chk_mes_pqc_inspection_rule_key CHECK (inspection_rule_key IN ('FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'))
+  CONSTRAINT chk_mes_pqc_inspection_rule_key CHECK (inspection_rule_key IN ('FIRST', 'PATROL', 'PATROL_AM', 'PATROL_PM', 'FINAL'))
 );
 CREATE INDEX idx_mes_pqc_task_regulation_version ON mes_pqc_inspection_task(tenant_id, regulation_version_id);
 CREATE INDEX idx_mes_pqc_task_work_order ON mes_pqc_inspection_task(tenant_id, work_order_id, route_process_id);
