@@ -1057,6 +1057,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
                 ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
         verify(pqcInspectionTaskMapper, times(2)).insert(taskCaptor.capture());
+        cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcWriterContractEvidence.record("active-order", taskCaptor.getAllValues());
         assertEquals(Set.of("FIRST", "PATROL"),
                 taskCaptor.getAllValues().stream().map(MesPqcInspectionTaskDO::getInspectionRuleKey)
                         .collect(java.util.stream.Collectors.toSet()));
