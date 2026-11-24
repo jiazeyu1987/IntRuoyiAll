@@ -23,7 +23,8 @@ class WorkbenchModuleSqlContractTest {
   var count=List.of(DCC+"countDistribution",DCC+"countTraining",MES+"countEdhr",SHOW+"countAssignment");
   var chunk=List.of(DCC+"chunkDistribution",DCC+"chunkTraining",MES+"chunkEdhr",SHOW+"chunkAssignment");
   for(int i=0;i<count.size();i++){
-   var q=query();String c=sql(count.get(i),Map.of("q",q));assertTrue(c.contains("COUNT(DISTINCT CAST(CONVERT(u.task_key USING utf8mb4) AS BINARY))"));assertTrue(c.contains("THEN COUNT(*) ELSE NULL END"));assertTrue(c.indexOf("COUNT(DISTINCT")<c.indexOf("system_profile_workbench_task_visibility"));assertFalse(c.contains(" IN (?)"));
+   var q=query();String c=sql(count.get(i),Map.of("q",q));assertTrue(c.contains("COUNT(DISTINCT CAST(CONVERT(r.task_key USING utf8mb4) AS BINARY))"));assertTrue(c.contains("THEN COUNT(CASE WHEN 1=1"));assertTrue(c.indexOf("COUNT(DISTINCT")<c.indexOf("system_profile_workbench_task_visibility"));assertFalse(c.contains(" IN (?)"));
+   assertFalse(c.contains("SELECT CASE WHEN (SELECT"),"filtered counts must not repeat the business base");
    String all=sql(count.get(i),Map.of("q",q.partition(null)));
    assertTrue(all.contains("COUNT(DISTINCT CAST(CONVERT(r.task_key USING utf8mb4) AS BINARY))"));assertTrue(all.contains("THEN COUNT(*) ELSE NULL END"));
    assertFalse(all.contains("SELECT CASE WHEN (SELECT"));assertFalse(c.contains("AS due_group"));assertFalse(all.contains("AS due_group"));
@@ -73,7 +74,7 @@ class WorkbenchModuleSqlContractTest {
    assertTrue(statement.contains("UNION ALL"));
    assertTrue(statement.contains("'QA_DECISION_HANDOFF','QA_REVIEW'"));
    assertTrue(statement.contains("mes_pro_edhr_work_task.task_type"));
-   assertTrue(statement.contains("'DEVIATION_RECEIVE','DEVIATION_CORRECT','DEVIATION_SIGN','DEVIATION_APPROVE','DEVIATION_CLOSE'"));
+   assertTrue(statement.contains("'DEVIATION_RECEIVE','DEVIATION_CORRECT','DEVIATION_VERIFY','DEVIATION_SIGN','DEVIATION_APPROVE','DEVIATION_CLOSE'"));
    assertTrue(statement.contains("TRIM(mes_pro_edhr_work_task.reason)"), "deviation tasks must expose the assigned duty, deviation code and content version");
    String ordinaryWhere=statement.substring(statement.indexOf("WHERE mes_pro_edhr_work_task.tenant_id"),
     statement.indexOf("UNION ALL"));
