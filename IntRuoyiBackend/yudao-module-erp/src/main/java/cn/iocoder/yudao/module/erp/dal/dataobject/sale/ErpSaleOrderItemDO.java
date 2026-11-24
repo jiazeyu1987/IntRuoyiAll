@@ -35,6 +35,9 @@ public class ErpSaleOrderItemDO extends BaseDO {
      * 关联 {@link ErpSaleOrderDO#getId()}
      */
     private Long orderId;
+
+    /** Stable source EntryID. */
+    private String sourceEntryId;
     /**
      * 产品编号
      *

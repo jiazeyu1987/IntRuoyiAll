@@ -23,11 +23,13 @@ import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.
 public interface ErpPurchaseInItemMapper extends BaseMapperX<ErpPurchaseInItemDO> {
 
     default List<ErpPurchaseInItemDO> selectListByInId(Long inId) {
-        return selectList(ErpPurchaseInItemDO::getInId, inId);
+        return selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ErpPurchaseInItemDO>().eq(ErpPurchaseInItemDO::getInId, inId)
+                .last(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive() ? "FOR UPDATE" : ""));
     }
 
     default List<ErpPurchaseInItemDO> selectListByInIds(Collection<Long> inIds) {
-        return selectList(ErpPurchaseInItemDO::getInId, inIds);
+        return selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ErpPurchaseInItemDO>().in(ErpPurchaseInItemDO::getInId, inIds)
+                .last(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive() ? "FOR UPDATE" : ""));
     }
 
     default int deleteByInId(Long inId) {
@@ -44,13 +46,14 @@ public interface ErpPurchaseInItemMapper extends BaseMapperX<ErpPurchaseInItemDO
         if (CollUtil.isEmpty(inIds)) {
             return Collections.emptyMap();
         }
-        // SQL sum 查询
-        List<Map<String, Object>> result = selectMaps(new QueryWrapper<ErpPurchaseInItemDO>()
-                .select("order_item_id, SUM(count) AS sum_count")
-                .groupBy("order_item_id")
-                .in("in_id", inIds));
-        // 获得数量
-        return convertMap(result, obj -> (Long) obj.get("order_item_id"), obj -> (BigDecimal) obj.get("sum_count"));
+        List<ErpPurchaseInItemDO> rows = selectList(new QueryWrapper<ErpPurchaseInItemDO>()
+                .in("in_id", inIds).last(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive() ? "FOR UPDATE" : ""));
+        Map<Long, BigDecimal> result = new java.util.HashMap<>();
+        for (var row : rows) {
+            if (row.getCount() == null) throw new IllegalStateException("单据明细数量为空");
+            result.merge(row.getOrderItemId(), row.getCount(), BigDecimal::add);
+        }
+        return result;
     }
 
 }

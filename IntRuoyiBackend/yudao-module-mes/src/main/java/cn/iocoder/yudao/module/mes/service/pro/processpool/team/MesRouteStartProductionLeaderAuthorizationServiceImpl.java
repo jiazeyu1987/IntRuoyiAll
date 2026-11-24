@@ -59,7 +59,7 @@ public class MesRouteStartProductionLeaderAuthorizationServiceImpl
             throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "leaderUserId");
         }
         Set<Long> routeIds = new LinkedHashSet<>(resolveConfiguredRouteIds(leaderUserId, listActiveRouteVersions()));
-        routeIds.addAll(packagingAccess.activeRouteIds(leaderUserId));
+        routeIds.addAll(executableRouteIds(packagingAccess.activeRouteIds(leaderUserId)));
         if (routeIds.isEmpty()) {
             return List.of();
         }
@@ -95,7 +95,7 @@ public class MesRouteStartProductionLeaderAuthorizationServiceImpl
         }
         List<MesProRouteVersionDO> activeVersions = listActiveRouteVersions();
         Set<Long> routeIds = new LinkedHashSet<>(resolveAuthorizedRouteIds(leaderUserId, activeVersions));
-        routeIds.addAll(packagingAccess.activeRouteIds(leaderUserId));
+        routeIds.addAll(executableRouteIds(packagingAccess.activeRouteIds(leaderUserId)));
         if (routeIds.isEmpty()) {
             return List.of();
         }
@@ -113,6 +113,7 @@ public class MesRouteStartProductionLeaderAuthorizationServiceImpl
         if (leaderUserId == null || routeId == null) {
             throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "leaderUserId/routeId");
         }
+        assertExecutableRoute(routeId);
         MesProRouteVersionDO activeVersion = routeVersionMapper.selectActiveByRouteId(routeId);
         List<MesProRouteVersionDO> versions = activeVersion == null ? List.of() : List.of(activeVersion);
         if (resolveAuthorizedRouteIds(leaderUserId, versions).contains(routeId)) {
@@ -158,6 +159,7 @@ public class MesRouteStartProductionLeaderAuthorizationServiceImpl
         if (routeProcess == null || routeProcess.getRouteId() == null) {
             throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "routeProcessId=" + routeProcessId);
         }
+        assertExecutableRoute(routeProcess.getRouteId());
         MesProRouteVersionDO activeVersion = routeVersionMapper.selectActiveByRouteId(routeProcess.getRouteId());
         if (!resolveAuthorizedRouteIds(leaderUserId, activeVersion == null ? List.of() : List.of(activeVersion)).contains(routeProcess.getRouteId())) {
             throw exception(PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED, "路线开始工序");
@@ -186,10 +188,14 @@ public class MesRouteStartProductionLeaderAuthorizationServiceImpl
         if (CollUtil.isEmpty(routeVersions)) {
             return Set.of();
         }
+        Set<Long> executableRouteIds = executableRouteIds(routeVersions.stream()
+                .filter(this::isActiveRouteVersion)
+                .map(MesProRouteVersionDO::getRouteId)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new)));
         Set<Long> userRoleIds = null;
         Set<Long> authorizedRouteIds = new LinkedHashSet<>();
         for (MesProRouteVersionDO routeVersion : routeVersions) {
-            if (!isActiveRouteVersion(routeVersion)) {
+            if (!isActiveRouteVersion(routeVersion) || !executableRouteIds.contains(routeVersion.getRouteId())) {
                 continue;
             }
             for (RouteStartProductionLeaderSnapshot snapshot
@@ -211,6 +217,52 @@ public class MesRouteStartProductionLeaderAuthorizationServiceImpl
             }
         }
         return authorizedRouteIds;
+    }
+
+    /** GROUP snapshots are templates, so their inherited leader configuration is not execution authority. */
+    private Set<Long> executableRouteIds(Set<Long> routeIds) {
+        if (routeIds.isEmpty()) {
+            return Set.of();
+        }
+        List<MesProRouteDO> routes = routeMapper.selectBatchIds(routeIds);
+        Set<Long> loadedIds = new LinkedHashSet<>();
+        Set<Long> executableIds = new LinkedHashSet<>();
+        for (MesProRouteDO route : routes) {
+            if (route == null || route.getId() == null) {
+                throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "responsibleRoutes invalidRouteSummary");
+            }
+            loadedIds.add(route.getId());
+            if (isExecutableRoute(route)) {
+                executableIds.add(route.getId());
+            }
+        }
+        if (!loadedIds.equals(routeIds)) {
+            Set<Long> missingIds = new LinkedHashSet<>(routeIds);
+            missingIds.removeAll(loadedIds);
+            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "responsibleRoutes missingRouteIds=" + missingIds);
+        }
+        return executableIds;
+    }
+
+    private void assertExecutableRoute(Long routeId) {
+        MesProRouteDO route = routeMapper.selectById(routeId);
+        if (route == null) {
+            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "routeId=" + routeId);
+        }
+        if (!isExecutableRoute(route)) {
+            throw exception(PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED, "分组模板不能用于生产执行");
+        }
+    }
+
+    private boolean isExecutableRoute(MesProRouteDO route) {
+        if ("GROUP".equals(route.getNodeType())) {
+            return false;
+        }
+        if (!"FLOW".equals(route.getNodeType())) {
+            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED,
+                    "routeId=" + route.getId() + " nodeType=" + route.getNodeType());
+        }
+        return true;
     }
 
     private boolean isActiveRouteVersion(MesProRouteVersionDO routeVersion) {

@@ -17,6 +17,15 @@ assert.ok(closeWatcher)
 function harness() {
   const calls = []
   const context = {
+    route: { query: {} },
+    router: { replace: async ({ query }) => {
+      context.route.query = query
+      context.invalidateReviewContext()
+      context.selectedReview.value = { id: Number(query.reviewId) }
+      context.fillDisposeForm()
+      context.reviewTabOpen.value = true
+      context.activeTab.value = 'review'
+    } },
     watch, reviewTabOpen: ref(false), activeTab: ref('pending'), listTab: ref('pending'),
     selectedReview: ref(), unassignedReviewerId: ref(), errorText: ref(''),
     disposeLoading: ref(false), assigningReviewer: ref(false),
@@ -32,9 +41,9 @@ function harness() {
   return { context, calls }
 }
 
-test('processing selects the review tab without discarding the pending list filter', () => {
+test('processing selects the review tab without discarding the pending list filter', async () => {
   const { context: c, calls } = harness()
-  c.openReviewTab({ id: 109 })
+  await c.openReviewTab({ id: 109 })
   assert.equal(c.reviewTabOpen.value, true)
   assert.equal(c.activeTab.value, 'review')
   assert.equal(c.selectedReview.value.id, 109)
@@ -43,9 +52,9 @@ test('processing selects the review tab without discarding the pending list filt
   assert.equal(c.buildReviewQuery().reviewStatus, 'pending_review')
 })
 
-test('switching between list and processing preserves the selected review and form context', () => {
+test('switching between list and processing preserves the selected review and form context', async () => {
   const { context: c, calls } = harness()
-  c.openReviewTab({ id: 109 })
+  await c.openReviewTab({ id: 109 })
   c.activeTab.value = 'all'
   c.handleTabChange()
   c.activeTab.value = 'review'
@@ -57,22 +66,22 @@ test('switching between list and processing preserves the selected review and fo
   assert.deepEqual(calls, ['invalidate', 'fill', 'list'])
 })
 
-test('closing processing returns to its list tab and invalidates outstanding callbacks', () => {
+test('closing processing returns to its list tab and invalidates outstanding callbacks', async () => {
   const { context: c, calls } = harness()
-  c.openReviewTab({ id: 109 })
+  await c.openReviewTab({ id: 109 })
   c.closeReviewTab()
   assert.equal(c.reviewTabOpen.value, false)
   assert.equal(c.activeTab.value, 'pending')
   assert.deepEqual(calls, ['invalidate', 'fill', 'invalidate'])
 })
 
-test('submitting or assigning prevents tab closure and review replacement', () => {
+test('submitting or assigning prevents tab closure and review replacement', async () => {
   for (const state of ['disposeLoading', 'assigningReviewer']) {
     const { context: c, calls } = harness()
-    c.openReviewTab({ id: 109 })
+    await c.openReviewTab({ id: 109 })
     c[state].value = true
     c.closeReviewTab()
-    c.openReviewTab({ id: 110 })
+    await c.openReviewTab({ id: 110 })
     assert.equal(c.reviewTabOpen.value, true)
     assert.equal(c.selectedReview.value.id, 109)
     assert.deepEqual(calls, ['invalidate', 'fill'])

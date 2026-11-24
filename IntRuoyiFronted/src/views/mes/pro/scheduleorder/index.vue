@@ -930,6 +930,7 @@
         <el-form-item label="承诺交期">
           <el-date-picker
             v-model="priorityForm.promiseDate"
+            placeholder="可选，留空保持原值"
             value-format="YYYY-MM-DD"
             type="date"
             class="!w-220px"
@@ -938,6 +939,7 @@
         <el-form-item label="计划开工">
           <el-date-picker
             v-model="priorityForm.plannedStartTime"
+            placeholder="可选，留空保持原值"
             value-format="YYYY-MM-DD HH:mm:ss"
             type="datetime"
             class="!w-220px"
@@ -1895,7 +1897,6 @@
       v-model="replanStartDateDialogVisible"
       title="开始重排日期"
       width="460px"
-      :z-index="3900"
       data-testid="schedule-order-replan-start-date-dialog"
     >
       <div class="schedule-order-pool__replan-start-date">
@@ -2596,7 +2597,6 @@ const workOrderAdmissionMultiFilterDefinitions: ListMultiFilterDefinition[] = [
       { label: '已入池', value: 'ALREADY_ADMITTED' },
       { label: '生产工单冻结', value: 'BLOCKED_WORK_ORDER_FROZEN' },
       { label: '工单状态异常', value: 'BLOCKED_WORK_ORDER_STATUS' },
-      { label: 'ERP同步缺失', value: 'BLOCKED_ERP_SYNC_RECORD_MISSING' },
       { label: '缺路线', value: 'BLOCKED_MISSING_ROUTE' },
       { label: '路线多重绑定', value: 'BLOCKED_ROUTE_PRODUCT_AMBIGUOUS' },
       { label: '路线未启用', value: 'BLOCKED_ROUTE_DISABLED' },
@@ -3467,14 +3467,6 @@ const submitPriorityAdjust = async () => {
     message.warning('优先级必须大于等于 1')
     return
   }
-  if (!priorityForm.promiseDate) {
-    message.warning('承诺交期不能为空')
-    return
-  }
-  if (!priorityForm.plannedStartTime) {
-    message.warning('计划开工时间不能为空')
-    return
-  }
   if (!priorityForm.reason?.trim()) {
     message.warning('修改原因不能为空')
     return
@@ -3483,8 +3475,8 @@ const submitPriorityAdjust = async () => {
   try {
     await MesProScheduleOrderApi.updateScheduleOrder({
       id: priorityForm.id,
-      promiseDate: priorityForm.promiseDate,
-      plannedStartTime: priorityForm.plannedStartTime,
+      promiseDate: priorityForm.promiseDate || undefined,
+      plannedStartTime: priorityForm.plannedStartTime || undefined,
       priorityNo: priorityForm.priorityNo,
       remark: priorityForm.remark,
       reason: priorityForm.reason
@@ -4650,7 +4642,6 @@ const getReasonCodeText = (reasonCode?: string) => {
       BLOCKED_INVALID_FINITE_CAPACITY: '缺产能',
       BLOCKED_INVALID_INFINITE_FORMULA: '缺无限产能公式',
       BLOCKED_CALENDAR_RULE_MISSING: '缺日历',
-      BLOCKED_ERP_SYNC_RECORD_MISSING: '缺 ERP 正式订单',
       WARN_ERP_SYNC_RECORD_MISSING: '缺 ERP 同步证据'
     }[reasonCode || ''] || '未知原因'
   )

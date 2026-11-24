@@ -15,7 +15,7 @@ assert.match(api, /selectable:\s*boolean/, 'admission diff API row must expose s
 
 assert.match(
   page,
-  /<el-table-column type="selection" width="48" :selectable="isAdmissionRowSelectable" \/>/,
+  /<el-table-column\s+type="selection"\s+width="48"\s+:selectable="isAdmissionRowSelectable"\s*\/>/,
   'admission table selection must delegate to row selectable guard'
 )
 assert.match(
@@ -33,8 +33,8 @@ assert.match(
   /const rows = selectedWorkOrders\.value\.filter\(isAdmissionRowSelectable\)/,
   'batch admission submit must re-filter selected rows with the same selectable guard'
 )
-assert.match(
+assert.doesNotMatch(
   page,
-  /BLOCKED_ERP_SYNC_RECORD_MISSING:\s*'缺 ERP 正式订单'/,
-  'ERP formal identity blocker must have a user-visible reason label'
+  /BLOCKED_ERP_SYNC_RECORD_MISSING/,
+  'Missing ERP identity must not be an admission blocker or filter option'
 )

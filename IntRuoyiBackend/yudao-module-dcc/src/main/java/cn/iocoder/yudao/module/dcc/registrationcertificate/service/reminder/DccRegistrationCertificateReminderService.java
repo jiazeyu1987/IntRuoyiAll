@@ -54,6 +54,9 @@ public class DccRegistrationCertificateReminderService {
         }
         int daysUntilDue = Math.toIntExact(ChronoUnit.DAYS.between(businessDate, dueDate));
         Threshold threshold = selectThreshold(certificateType, businessDate, dueDate);
+        if (daysUntilDue < 0) {
+            return new DccRegistrationCertificateReminderEvaluation("EXPIRED", "BRIGHT", daysUntilDue);
+        }
         if (cleared && threshold != null && "LIGHT".equals(threshold.colorCode())) {
             return new DccRegistrationCertificateReminderEvaluation("CLEARED", "CLEARED", daysUntilDue);
         }

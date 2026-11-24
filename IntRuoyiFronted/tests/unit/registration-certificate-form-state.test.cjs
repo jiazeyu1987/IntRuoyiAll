@@ -158,3 +158,8 @@ test('binding an existing project submits normally while the task entry submits 
  c.state.facts.modelSpecifications.splice(0,1);await c.state.submit();sent=JSON.parse(calls[1].get('structuredValues[CERTIFICATE_INFORMATION]'));assert.deepEqual(sent.modelSpecifications,['B'])
  }finally{c.app.unmount()}
  })
+
+test('domestic upload rejects missing approval date and accepts actual approval date',()=>{
+ const facts=domestic();delete facts.approvalDate;assert.doesNotThrow(()=>factsModule.validateFacts(facts));assert.throws(()=>factsModule.validateUploadFacts(facts),/请填写批准日期/);
+ assert.equal(facts.approvalDate,undefined);facts.approvalDate='2024-01-01';assert.doesNotThrow(()=>factsModule.validateUploadFacts(facts));
+})

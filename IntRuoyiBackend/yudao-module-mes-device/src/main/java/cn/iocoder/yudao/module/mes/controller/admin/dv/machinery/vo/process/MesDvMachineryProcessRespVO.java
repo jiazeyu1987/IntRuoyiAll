@@ -19,6 +19,9 @@ public class MesDvMachineryProcessRespVO {
     @Schema(description = "\u8BBE\u5907\u7F16\u53F7", example = "1")
     private Long machineryId;
 
+    @Schema(description = "工序编号")
+    private Long processId;
+
     @Schema(description = "\u8BBE\u5907\u7F16\u7801", example = "A03196")
     @ExcelProperty("\u8BBE\u5907\u7F16\u7801")
     private String machineryCode;

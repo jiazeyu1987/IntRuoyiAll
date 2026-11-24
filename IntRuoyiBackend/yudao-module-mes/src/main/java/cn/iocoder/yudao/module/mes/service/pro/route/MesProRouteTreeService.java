@@ -90,7 +90,8 @@ public class MesProRouteTreeService {
         Long sourceId = parentId == null || groupTemplate(parentId) == null ? sourceRouteId : parentId;
         if (sourceId == null) throw invalid("请选择分组的初始工艺模板");
         JSONObject source = snapshot(active(sourceId));
-        if (!MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(source.toJSONString())) {
+        if (!MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(
+                MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(source))) {
             throw invalid("初始工艺模板快照不完整，请先完成源流程生产配置迁移并发布后再创建目录");
         }
         MesProRouteDO group = MesProRouteDO.builder().name(name.trim())
@@ -101,9 +102,11 @@ public class MesProRouteTreeService {
         source.put("routeName", group.getName()); source.put("name", group.getName()); source.put("status", 1);
         JSONObject configs = source.getJSONObject("configSnapshots");
         configs.put("products", new JSONArray()); configs.put("productBoms", new JSONArray()); configs.remove("craftChangeId");
+        // 目录只承载工艺模板，不复制源流程的生产执行授权。
+        configs.put(MesProRouteFlowConfigServiceImpl.ROUTE_START_PRODUCTION_LEADERS_KEY, new JSONArray());
         MesProRouteVersionDO version = MesProRouteVersionDO.builder().routeId(group.getId()).versionNo("V1")
                 .active(true).lifecycleStatus(STATUS_ACTIVE).build();
-        MesProRouteVersionSnapshotIdentityWriter.apply(version, source.toJSONString());
+        MesProRouteVersionSnapshotIdentityWriter.apply(version, MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(source));
         versions.insert(version);
         finishInitialVersion(version);
         owners.bindCurrentUserAsOwner(group.getId());
@@ -198,13 +201,13 @@ public class MesProRouteTreeService {
                 // 子流程合并结果仍处于候选阶段：新增工序可能使用负数 client 引用，
                 // 先走候选快照校验，发布投影完成后再走正式快照正数引用校验。
                 MesProRouteSnapshotCanonicalizer.Validation validation =
-                        canonicalizer.validateCandidate(child.getId(), merged.toJSONString());
+                        canonicalizer.validateCandidate(child.getId(), MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(merged));
                 if (!validation.ready()) throw invalid("配置不完整：" + validation.blockers());
                 snapshots.put(child.getId(), merged);
                 row.put("versionNo", base.getVersionNo()); row.put("beforeProcesses", processNames(snapshot(base)));
                 row.put("afterProcesses", processNames(merged));
                 row.put("beforeHash", base.getRouteSnapshotSha256());
-                row.put("afterHash", canonicalizer.sha256(merged.toJSONString()));
+                row.put("afterHash", canonicalizer.sha256(MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(merged)));
                 row.put("changes", differences(snapshot(base), merged, ""));
             } catch (cn.iocoder.yudao.framework.common.exception.ServiceException error) {
                 blockers.add(child.getName() + "：" + error.getMessage()); row.put("blocker", error.getMessage());

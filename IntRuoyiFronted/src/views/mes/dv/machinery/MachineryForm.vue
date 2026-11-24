@@ -116,7 +116,11 @@
 
     <el-tabs v-if="formType !== 'create' && formData.id" v-model="activeTab" class="mt-10px">
       <el-tab-pane label="工序明细" name="process" lazy>
-        <MachineryProcessList :machinery-id="formData.id" />
+        <MachineryProcessList
+          :machinery-id="formData.id"
+          :editable="!isDetail"
+          @success="emit('success')"
+        />
       </el-tab-pane>
       <el-tab-pane label="点检记录" name="check" lazy>
         <MachineryCheckRecordList :machinery-id="formData.id" />
@@ -130,7 +134,13 @@
     </el-tabs>
 
     <template #footer>
-      <el-button v-if="formData.id && !isDetail" plain :disabled="formLoading" @click="sharedChangeDialog?.openReplacement('DEVICE', formData.id)">工艺流程统一替换</el-button>
+      <el-button
+        v-if="formData.id && !isDetail"
+        plain
+        :disabled="formLoading"
+        @click="sharedChangeDialog?.openReplacement('DEVICE', formData.id)"
+        >工艺流程统一替换</el-button
+      >
       <el-button v-if="isDetail && formData.id" type="primary" plain @click="handleBarcode">
         查看条码
       </el-button>
@@ -166,7 +176,10 @@ import SharedChangeDialog from '@/views/mes/pro/shared/SharedChangeDialog.vue'
 import { SharedChangeApi } from '@/api/mes/pro/sharedChange'
 const sharedChangeDialog = ref<InstanceType<typeof SharedChangeDialog>>()
 const sharedFingerprint = ref('')
-const handleSharedSubmitted = () => { dialogVisible.value = false; emit('success') }
+const handleSharedSubmitted = () => {
+  dialogVisible.value = false
+  emit('success')
+}
 
 defineOptions({ name: 'MachineryForm' })
 
@@ -221,7 +234,9 @@ const handleBarcode = () => {
 }
 
 const generateCode = async () => {
-  formData.value.code = await AutoCodeRecordApi.generateAutoCode(MesAutoCodeRuleCode.DV_MACHINERY_CODE)
+  formData.value.code = await AutoCodeRecordApi.generateAutoCode(
+    MesAutoCodeRuleCode.DV_MACHINERY_CODE
+  )
 }
 
 const open = async (type: string, id?: number | string) => {
@@ -253,7 +268,16 @@ const emit = defineEmits(['success'])
 const submitForm = async () => {
   await formRef.value.validate()
   if (formType.value !== 'create' && formData.value.id) {
-    await sharedChangeDialog.value?.open({ subjectType: 'DEVICE', action: 'UPDATE', sourceId: formData.value.id, expectedFingerprint: sharedFingerprint.value, requestId: createSecureUuid(), device: { ...formData.value }, reason: '', nodes: [] })
+    await sharedChangeDialog.value?.open({
+      subjectType: 'DEVICE',
+      action: 'UPDATE',
+      sourceId: formData.value.id,
+      expectedFingerprint: sharedFingerprint.value,
+      requestId: createSecureUuid(),
+      device: { ...formData.value },
+      reason: '',
+      nodes: []
+    })
     return
   }
   formLoading.value = true

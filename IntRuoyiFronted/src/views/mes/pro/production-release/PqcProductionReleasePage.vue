@@ -414,9 +414,13 @@ type PqcReleaseRouteContext = { applicationId: string; pqcReleaseWorkTaskId: str
 let pqcReleaseRouteGeneration = 0
 
 const readPqcReleaseRouteContext = (): PqcReleaseRouteContext | undefined => {
+  const mode = route.query.releaseMode
+  if (mode !== undefined && mode !== 'detail' && mode !== 'approval') {
+    throw new Error('生产放行展示模式必须为唯一的 detail 或 approval。')
+  }
   const applicationId = route.query.applicationId
   const workTaskId = route.query.workTaskId
-  if (applicationId === undefined && workTaskId === undefined) return undefined
+  if (applicationId === undefined && workTaskId === undefined && mode === undefined) return undefined
   if (typeof applicationId !== 'string' || !/^[1-9]\d*$/.test(applicationId) ||
     typeof workTaskId !== 'string' || !/^[1-9]\d*$/.test(workTaskId)) {
     throw new Error('生产放行入口必须提供唯一且精确的申请和工作任务编号。')
@@ -518,10 +522,11 @@ const requireCompletedPqcReleaseDetail = (
 const openCompletedPqcReleaseDetail = async (
   context: PqcReleaseRouteContext,
   decision: MesPqcProductionReleaseDecisionRespVO,
-  isCurrent: () => boolean
+  isCurrent: () => boolean,
+  readOnly = true
 ) => {
   detailApplicationId.value = context.applicationId
-  detailReadOnly.value = true
+  detailReadOnly.value = readOnly
   detailVisible.value = true
   detailLoading.value = true
   detailError.value = ''
@@ -574,7 +579,11 @@ const openPqcReleaseFromRoute = async () => {
       }
       if (state === 'APPROVED') {
         loading.value = false
-        await openCompletedPqcReleaseDetail(context, decision, isCurrent)
+        await openCompletedPqcReleaseDetail(context, decision, isCurrent, route.query.releaseMode !== 'detail')
+        return
+      }
+      if (route.query.releaseMode === 'detail') {
+        await loadActiveOrderDetail(context.applicationId)
         return
       }
       activeView.value = PQC_RELEASE_VIEW_PENDING
@@ -673,6 +682,8 @@ const captureReleaseContext = () => {
     key === JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, selectedRow.value?.applicationId, selectedRow.value?.pqcReleaseWorkTaskId, selectedRow.value?.version])
 }
 const invalidatePqcReleasePage = () => {
+  selectionNavigationGeneration++
+  selectionNavigationPending = false
   pqcReleaseRouteGeneration++
   listRequestSequence++
   loading.value = false
@@ -693,7 +704,28 @@ watch(() => approvalInvalidation.syncSession().key, () => {
 onBeforeUnmount(invalidatePqcReleasePage)
 onDeactivated(invalidatePqcReleasePage)
 
+let selectionNavigationGeneration = 0
+let selectionNavigationPending = false
+const navigatePqcReleaseSelection = (row: MesPqcProductionReleasePageItemRespVO, mode: 'detail' | 'approval') => {
+  const sameSelection = String(route.query.applicationId) === String(row.applicationId) &&
+    String(route.query.workTaskId) === String(row.pqcReleaseWorkTaskId) &&
+    (route.query.releaseMode === 'detail' ? 'detail' : 'approval') === mode
+  if (sameSelection && !selectionNavigationPending) return false
+  const generation = ++selectionNavigationGeneration
+  const origin = JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath])
+  const current = () => generation === selectionNavigationGeneration && origin === JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath])
+  selectionNavigationPending = true
+  void router.replace({ query: sameSelection ? { ...route.query } : { ...route.query, applicationId: String(row.applicationId),
+    workTaskId: String(row.pqcReleaseWorkTaskId), releaseMode: mode } }).then(failure => {
+    if (failure && failure.type !== 16 && current()) message.error('页面定位切换未完成，请重新选择。')
+  }).catch(error => { if (current()) message.error(resolveErrorMessage(error, '页面定位切换失败。')) }).finally(() => {
+    if (generation === selectionNavigationGeneration) selectionNavigationPending = false
+  })
+  return !sameSelection
+}
+
 const openReleaseDialog = (row: MesPqcProductionReleasePageItemRespVO) => {
+  if (navigatePqcReleaseSelection(row, 'approval')) return
   resetReleaseDialog()
   selectedRow.value = row
   releaseError.value = ''
@@ -971,6 +1003,11 @@ const openActiveOrderDetail = async (row: MesPqcProductionReleasePageItemRespVO)
     message.error('缺少正式活跃订单来源，无法查看详情')
     return
   }
+  if (navigatePqcReleaseSelection(row, 'detail')) return
+  await loadActiveOrderDetail(row.applicationId, row)
+}
+
+const loadActiveOrderDetail = async (applicationId: string, row?: MesPqcProductionReleasePageItemRespVO) => {
   clearOrderDetail()
   const sequence = detailRequestSequence
   const pageContext = JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath])
@@ -978,13 +1015,13 @@ const openActiveOrderDetail = async (row: MesPqcProductionReleasePageItemRespVO)
   listRequestSequence++
   loading.value = false
   detailRow.value = row
-  detailApplicationId.value = row.applicationId
+  detailApplicationId.value = applicationId
   detailVisible.value = true
   detailLoading.value = true
   detailError.value = ''
   orderDetail.value = undefined
   try {
-    const result = await getPqcProductionReleaseOrderDetail(row.applicationId, { ignoreErrorMessage: true, isRequestContextCurrent: current })
+    const result = await getPqcProductionReleaseOrderDetail(applicationId, { ignoreErrorMessage: true, isRequestContextCurrent: current })
     if (!current()) return
     orderDetail.value = result
   } catch (error) {
@@ -998,6 +1035,7 @@ const openActiveOrderDetail = async (row: MesPqcProductionReleasePageItemRespVO)
 const retryOrderDetail = () => {
   if (detailReadOnly.value) void openPqcReleaseFromRoute()
   else if (detailRow.value) void openActiveOrderDetail(detailRow.value)
+  else if (route.query.releaseMode === 'detail') void openPqcReleaseFromRoute()
 }
 
 onMounted(() => openPqcReleaseFromRoute())

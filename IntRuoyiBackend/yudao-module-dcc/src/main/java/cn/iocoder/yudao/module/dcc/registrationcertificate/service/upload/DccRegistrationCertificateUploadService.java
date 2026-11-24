@@ -215,7 +215,10 @@ public class DccRegistrationCertificateUploadService {
         businessEventNotifier.notifyNewCertificateFormalized(
                 tenantId, request.getOwnerCompanyId(), request.getCertificateId(), version.getId(),
                 approverId, approvalKey, snapshot.getProductName(), version.getCertificateNo(),
-                version.getEffectiveDate(), version.getExpiryDate());
+                version.getEffectiveDate(), version.getExpiryDate(),
+                cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(
+                        snapshot.getFactsJson()).getCertificateType(),
+                "CURRENT".equals(version.getStatus()));
         registrationHandlingTasks.recordDecision(tenantId, approverId, requestId, true, "上传审批通过，正式注册证已入库");
     }
 
@@ -247,7 +250,7 @@ public class DccRegistrationCertificateUploadService {
         Long projectCodeId = projectCode == null ? null : projectCode.getId();
         String productName = requireProductName(command.productName());
         var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(command.factsJson());
-        facts.validate();
+        facts.validateForUpload();
         if ("CE".equals(facts.getCertificateType())) {
             var records = facts.getCeCertificates();
             facts.setCertificateNo(records == null || records.isEmpty() ? null : records.get(records.size() - 1).getCertificateNo());

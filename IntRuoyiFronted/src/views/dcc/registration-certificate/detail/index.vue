@@ -18,8 +18,8 @@
           <h2>{{ detail.certificateNo }}</h2>
           <p>{{ detail.ownerCompanyName }} / {{ detail.productName }}</p>
         </div>
-        <el-tag :type="getRegistrationCertificateStatusTagType(detail.status)" effect="dark">
-          {{ formatRegistrationCertificateStatus(detail.status) }}
+        <el-tag :type="getRegistrationCertificateStatusTagType(detail.status, detail.visualState)" effect="dark">
+          {{ formatRegistrationCertificateStatus(detail.status, detail.visualState) }}
         </el-tag>
         <el-tag :type="getRegistrationCertificateReminderTagType(detail.reminderColor)">
           提醒：{{ formatRegistrationCertificateReminder(detail.visualState) }}
@@ -27,7 +27,7 @@
       </div>
 
       <el-alert v-if="detail.status === 'OLD'" title="已被替换的旧版本，已停止使用；原有效期至仅为证载日期，以下证载状态为历史记录" type="info" :closable="false" class="mb-16px" />
-      <el-form label-width="140px"><FactsFields :model-value="parseFacts(detail.factsJson)" :historical-record="detail.status === 'OLD'" readonly/></el-form>
+      <el-form label-width="140px"><FactsFields :model-value="parseFacts(detail.factsJson)" :visual-state="detail.visualState" :historical-record="detail.status === 'OLD'" readonly/></el-form>
       <EvidencePanel :certificate-id="detail.certificateId" :version-id="detail.versionId" :authorized-file-ids="downloadAuthorizedFileIds" :pending-file-ids="requestPendingFileIds" @files-loaded="handleEvidenceFilesLoaded" @preview="openAttachmentPreview" @download="downloadAttachment" @request-download="openDownloadRequest"/>
       <SupportingDocumentPanel v-if="detail.status === 'CURRENT'" :certificate-id="detail.certificateId" :version-id="detail.versionId" :certificate-type="parseFacts(detail.factsJson).certificateType" :visual-state="detail.visualState" @uploaded="loadDetail" />
       <el-descriptions :column="detailDescriptionColumns" border>

@@ -21,6 +21,11 @@ import java.util.Objects;
 @Mapper
 public interface ErpSaleOrderMapper extends BaseMapperX<ErpSaleOrderDO> {
 
+    default ErpSaleOrderDO selectByIdForUpdate(Long id) {
+        return selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ErpSaleOrderDO>()
+                .eq(ErpSaleOrderDO::getId, id).last("FOR UPDATE"));
+    }
+
     default PageResult<ErpSaleOrderDO> selectPage(ErpSaleOrderPageReqVO reqVO) {
         MPJLambdaWrapperX<ErpSaleOrderDO> query = new MPJLambdaWrapperX<ErpSaleOrderDO>()
                 .likeIfPresent(ErpSaleOrderDO::getNo, reqVO.getNo())

@@ -15,12 +15,30 @@ import java.util.List;
 @Mapper
 public interface ErpSaleOrderItemMapper extends BaseMapperX<ErpSaleOrderItemDO> {
 
+    default int updateSourceItem(ErpSaleOrderItemDO item, Long orderId) {
+        return update(new ErpSaleOrderItemDO(), new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<ErpSaleOrderItemDO>()
+                .eq(ErpSaleOrderItemDO::getId, item.getId()).eq(ErpSaleOrderItemDO::getOrderId, orderId)
+                .set(ErpSaleOrderItemDO::getSourceEntryId, item.getSourceEntryId())
+                .set(ErpSaleOrderItemDO::getProductId, item.getProductId())
+                .set(ErpSaleOrderItemDO::getProductUnitId, item.getProductUnitId())
+                .set(ErpSaleOrderItemDO::getProductPrice, item.getProductPrice())
+                .set(ErpSaleOrderItemDO::getCount, item.getCount())
+                .set(ErpSaleOrderItemDO::getTotalPrice, item.getTotalPrice())
+                .set(ErpSaleOrderItemDO::getTaxPercent, item.getTaxPercent())
+                .set(ErpSaleOrderItemDO::getTaxPrice, item.getTaxPrice())
+                .set(ErpSaleOrderItemDO::getRemark, item.getRemark())
+                .set(ErpSaleOrderItemDO::getOutCount, item.getOutCount())
+                .set(ErpSaleOrderItemDO::getReturnCount, item.getReturnCount()));
+    }
+
     default List<ErpSaleOrderItemDO> selectListByOrderId(Long orderId) {
-        return selectList(ErpSaleOrderItemDO::getOrderId, orderId);
+        return selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ErpSaleOrderItemDO>().eq(ErpSaleOrderItemDO::getOrderId, orderId)
+                .last(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive() ? "FOR UPDATE" : ""));
     }
 
     default List<ErpSaleOrderItemDO> selectListByOrderIds(Collection<Long> orderIds) {
-        return selectList(ErpSaleOrderItemDO::getOrderId, orderIds);
+        return selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ErpSaleOrderItemDO>().in(ErpSaleOrderItemDO::getOrderId, orderIds)
+                .last(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive() ? "FOR UPDATE" : ""));
     }
 
     default int deleteByOrderId(Long orderId) {

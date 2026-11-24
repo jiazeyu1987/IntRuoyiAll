@@ -136,7 +136,9 @@ public class DccRegistrationCertificateActivationService {
         businessEventNotifier.notifyRenewalCandidateActivated(
                 command.tenantId(), certificate.getOwnerCompanyId(), command.certificateId(), pending.getId(),
                 command.actorId(), command.idempotencyKey(), activationSnapshot.getProductName(),
-                pending.getCertificateNo(), pending.getEffectiveDate(), pending.getExpiryDate());
+                pending.getCertificateNo(), pending.getEffectiveDate(), pending.getExpiryDate(),
+                cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(
+                        activationSnapshot.getFactsJson()).getCertificateType());
         productCatalogRegistrationSyncService.syncByRegistrationCertificateId(command.certificateId());
         return new DccRegistrationCertificateActivationResult(command.certificateId(), command.currentVersionId(),
                 command.pendingVersionId(), activationSnapshot.getId(), true);

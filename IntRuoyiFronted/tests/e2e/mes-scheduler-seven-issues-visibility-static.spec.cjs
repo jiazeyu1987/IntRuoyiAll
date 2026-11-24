@@ -97,16 +97,13 @@ assert.match(nightShiftCapacityStatusRealE2E, /任务级失败不得显示为成
 assert.match(scheduleOrder, /计算日期从 00:00 开始/)
 assert.match(scheduleOrder, /下一可用班次/)
 assert.match(scheduleOrder, /schedule-order-replan-start-date-dialog/)
-const replanDialogZIndex = Number(scheduleOrder.match(/:z-index="(\d+)"/)?.[1])
+const replanDateDialog = scheduleOrder.match(/<Dialog\s+v-model="replanStartDateDialogVisible"[\s\S]*?>/)?.[0]
 const globalConfig = fs.readFileSync(path.join(repoRoot, 'src/components/ConfigGlobal/src/ConfigGlobal.vue'), 'utf8')
 const confirmOverlayZIndex = Number(globalConfig.match(/:z-index="(\d+)"/)?.[1])
-assert.ok(Number.isFinite(replanDialogZIndex), '开始重排日期确认窗口必须声明明确层级。')
+assert.ok(replanDateDialog, '开始重排日期确认窗口必须存在。')
+assert.doesNotMatch(replanDateDialog, /:z-index=/, '日期确认窗口必须随全局弹窗按打开顺序递增层级，不能固定在抽屉下方。')
 assert.ok(Number.isFinite(confirmOverlayZIndex), '全局弹窗必须声明共享起始层级。')
 assert.doesNotMatch(globalStyles, /\.app-confirm-message-box-overlay\s*\{[^}]*z-index:/)
-assert.ok(
-  replanDialogZIndex < confirmOverlayZIndex,
-  'ERP 来源二次确认框必须高于开始重排日期窗口，确保用户可以取消或确认。'
-)
 assert.match(scheduleOrder, /WARN_ERP_SYNC_RECORD_MISSING/)
 assert.match(scheduleOrder, /erpSourceRiskConfirmed: true/)
 assert.match(autoScheduleApi, /erpSourceRiskConfirmed\?: boolean/)

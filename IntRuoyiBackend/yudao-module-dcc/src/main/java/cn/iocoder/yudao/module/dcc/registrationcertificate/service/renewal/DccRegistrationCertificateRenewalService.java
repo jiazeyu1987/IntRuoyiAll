@@ -378,7 +378,9 @@ public class DccRegistrationCertificateRenewalService {
         businessEventNotifier.notifyRenewalCandidateUploaded(
                 command.tenantId(), certificate.getOwnerCompanyId(), certificate.getId(), renewalVersion.getId(),
                 command.actorId(), command.idempotencyKey(), renewalSnapshot.getProductName(),
-                renewalVersion.getCertificateNo(), renewalVersion.getEffectiveDate(), renewalVersion.getExpiryDate());
+                renewalVersion.getCertificateNo(), renewalVersion.getEffectiveDate(), renewalVersion.getExpiryDate(),
+                cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(
+                        renewalSnapshot.getFactsJson()).getCertificateType());
         if (ceRenewal || !command.effectiveDate().isAfter(businessClock.businessDate())) {
             activationService.activateDueCandidate(new DccRegistrationCertificateActivationCommand(
                     command.tenantId(), command.actorId(), command.idempotencyKey() + ":activation",
@@ -585,8 +587,10 @@ public class DccRegistrationCertificateRenewalService {
     }
 
     private boolean isCeRenewal(DccRegistrationCertificateDO certificate, DccRegistrationCertificateVersionDO version) {
-        return "CE".equals(cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(
-                requireSnapshot(certificate.getCurrentSnapshotId(), version.getId()).getFactsJson()).getCertificateType());
+        var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(
+                requireSnapshot(certificate.getCurrentSnapshotId(), version.getId()).getFactsJson());
+        if (facts.isFda()) throw new ServiceException(400, "FDA不适用到期延续，请通过变更办理批准信函或产品资料更新");
+        return "CE".equals(facts.getCertificateType());
     }
 
     private void validateRenewalDates(boolean ceRenewal, LocalDate firstObtainedDate, LocalDate approvalDate,

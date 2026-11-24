@@ -57,6 +57,10 @@ public class ErpPurchaseOrderSaveReqVO {
         @Schema(description = "订单项编号", example = "11756")
         private Long id;
 
+        @com.fasterxml.jackson.annotation.JsonIgnore
+        @Schema(hidden = true)
+        private String sourceEntryId;
+
         @Schema(description = "产品编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "3113")
         @NotNull(message = "产品编号不能为空")
         private Long productId;

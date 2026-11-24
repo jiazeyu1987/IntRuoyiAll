@@ -32,6 +32,44 @@ import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteVersionLifecycleServiceTest {
+    @Test
+    void publishVerifiesProjectedSopAndAcceptsExplicitNull() {
+        String snapshot = validSnapshotJson(9001L, "RT", "Route").replace("\"/sop.pdf\"", "null");
+        var candidate = MesProRouteVersionDO.builder().id(1002L).routeId(9001L).active(false)
+                .lifecycleStatus("READY_TO_PUBLISH").sourceRouteVersionId(1001L)
+                .routeSnapshotJson(snapshot).build();
+        when(routeVersionMapper.selectById(1002L)).thenReturn(candidate);
+        when(routeVersionMapper.selectActiveByRouteId(9001L)).thenReturn(
+                MesProRouteVersionDO.builder().id(1001L).routeId(9001L).active(true).lifecycleStatus("ACTIVE").build());
+        when(publishProjectionService.projectCandidate(candidate)).thenReturn(
+                projection(snapshot.replace(", \"sopFileUrl\": null", ""), 10L));
+        var error = assertThrows(ServiceException.class, () -> lifecycleService.publishCandidate(1002L, 600L));
+        assertEquals(ErrorCodeConstants.PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE.getCode(), error.getCode());
+        verify(routeVersionMapper, never()).updateById(any(MesProRouteVersionDO.class));
+        when(publishProjectionService.projectCandidate(candidate)).thenReturn(projection(snapshot, 10L));
+        when(routeVersionMapper.updateById(any(MesProRouteVersionDO.class))).thenReturn(1);
+        assertEquals("ACTIVE", lifecycleService.publishCandidate(1002L, 600L).getLifecycleStatus());
+        var node = com.alibaba.fastjson.JSON.parseObject(candidate.getRouteSnapshotJson())
+                .getJSONObject("configSnapshots").getJSONObject("flowGraph").getJSONArray("nodes").getJSONObject(0);
+        assertTrue(node.containsKey("sopFileUrl"));
+        org.junit.jupiter.api.Assertions.assertNull(node.get("sopFileUrl"));
+    }
+
+    @Test
+    void publishRejectsMissingOrMalformedSopBeforeProjectionOrStatusWrites() {
+        var candidate = MesProRouteVersionDO.builder().id(1002L).routeId(9001L).active(false)
+                .lifecycleStatus("READY_TO_PUBLISH").sourceRouteVersionId(1001L).build();
+        when(routeVersionMapper.selectById(1002L)).thenReturn(candidate);
+        for (String replacement : new String[]{"", ", \"sopFileUrl\": 123"}) {
+            candidate.setRouteSnapshotJson(validSnapshotJson(9001L, "RT", "Route")
+                    .replace(", \"sopFileUrl\": \"/sop.pdf\"", replacement));
+            var error = assertThrows(ServiceException.class, () -> lifecycleService.publishCandidate(1002L, 600L));
+            assertEquals(ErrorCodeConstants.PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE.getCode(), error.getCode());
+        }
+        org.mockito.Mockito.verifyNoInteractions(publishProjectionService, deviceIdentitySnapshots, versionOperateLogService);
+        verify(routeVersionMapper, never()).updateById(any(MesProRouteVersionDO.class));
+    }
+
     @org.mockito.Mock
     private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
 
@@ -466,7 +504,7 @@ class MesProRouteVersionLifecycleServiceTest {
                   "configSnapshots": {
                     "flowGraph": {
                       "nodes": [
-                        {"routeProcessId": %d, "processId": 20, "sort": 1}
+                        {"routeProcessId": %d, "processId": 20, "sort": 1, "sopFileUrl": "/sop.pdf"}
                       ],
                       "edges": []
                     },

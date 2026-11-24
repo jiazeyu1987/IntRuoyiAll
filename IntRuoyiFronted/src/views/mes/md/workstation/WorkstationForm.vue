@@ -141,7 +141,12 @@
     <!-- 编辑时显示子资源 Tab -->
     <el-tabs v-if="formType !== 'create'" v-model="activeTab" class="mt-10px">
       <el-tab-pane label="设备资源" name="machine">
-        <WorkstationMachineList :workstation-id="formData.id!" :formType="formType" />
+        <WorkstationMachineList
+          :workstation-id="formData.id!"
+          :process-id="savedProcessId"
+          :formType="formType"
+          @success="emit('success')"
+        />
       </el-tab-pane>
       <el-tab-pane label="工装夹具" name="tool">
         <WorkstationToolList :workstation-id="formData.id!" :formType="formType" />
@@ -191,6 +196,7 @@ const formLoading = ref(false) // 表单的加载中：1）修改时的数据加
 const formType = ref('') // 表单的类型：create - 新增；update - 修改；detail - 详情
 const isDetail = computed(() => formType.value === 'detail')
 const activeTab = ref('machine') // 当前激活的资源 Tab
+const savedProcessId = ref<number | string>()
 const locationList = ref<WmWarehouseLocationVO[]>([]) // 库区下拉列表
 const areaList = ref<WmWarehouseAreaVO[]>([]) // 库位下拉列表
 const formData = ref({
@@ -221,7 +227,10 @@ const barcodeDetailRef = ref() // 条码详情弹窗 Ref
 /** 查看条码 */
 const handleBarcode = () => {
   barcodeDetailRef.value?.openByBusiness(
-    formData.value.id!, BarcodeBizTypeEnum.WORKSTATION, formData.value.code, formData.value.name
+    formData.value.id!,
+    BarcodeBizTypeEnum.WORKSTATION,
+    formData.value.code,
+    formData.value.name
   )
 }
 
@@ -275,6 +284,7 @@ const open = async (type: string, id?: number | string) => {
     formLoading.value = true
     try {
       formData.value = await MdWorkstationApi.getWorkstation(id)
+      savedProcessId.value = formData.value.processId
       // 加载库区和库位列表（因为修改时会回显仓库和库区，所以需要加载对应的列表）
       await loadLocationList(formData.value.warehouseId)
       await loadAreaList(formData.value.locationId)
@@ -311,6 +321,7 @@ const submitForm = async () => {
 
 /** 重置表单 */
 const resetForm = () => {
+  savedProcessId.value = undefined
   formData.value = {
     id: undefined,
     code: undefined,

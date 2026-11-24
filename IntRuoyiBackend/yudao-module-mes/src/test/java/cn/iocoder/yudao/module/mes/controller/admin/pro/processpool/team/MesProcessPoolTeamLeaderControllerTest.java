@@ -826,6 +826,21 @@ class MesProcessPoolTeamLeaderControllerTest {
     }
 
     @Test
+    void allocationConfirmationRequiresLoadedVersionButAcceptsInitialVersionZero() {
+        var request = new MesTeamLeaderReportAllocationConfirmReqVO();
+        try (var factory = Validation.buildDefaultValidatorFactory()) {
+            var validator = factory.getValidator();
+            var violations = validator.validateProperty(request, "expectedVersion");
+            assertEquals(1, violations.size());
+            assertEquals("分配信息尚未加载完成，请重新打开分配窗口", violations.iterator().next().getMessage());
+            request.setExpectedVersion(0);
+            assertEquals(0, validator.validateProperty(request, "expectedVersion").size());
+            request.setExpectedVersion(1);
+            assertEquals(0, validator.validateProperty(request, "expectedVersion").size());
+        }
+    }
+
+    @Test
     void mappingsAndPermissions_matchTeamLeaderWorkbenchContract() throws Exception {
         RequestMapping requestMapping = MesProcessPoolTeamLeaderController.class.getAnnotation(RequestMapping.class);
         assertNotNull(requestMapping);

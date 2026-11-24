@@ -330,7 +330,7 @@ export interface MesProScheduleOrderUpdatePriorityReqVO {
 
 export interface MesProScheduleOrderUpdateReqVO {
   id: number
-  promiseDate: string
+  promiseDate?: string
   plannedStartTime?: string
   priorityNo: number
   remark?: string

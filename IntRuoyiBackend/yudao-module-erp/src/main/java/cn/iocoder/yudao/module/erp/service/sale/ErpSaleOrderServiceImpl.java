@@ -24,7 +24,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
+import cn.iocoder.yudao.module.erp.service.sync.ErpKingdeeOrderLineIdentity;
+import cn.iocoder.yudao.module.erp.service.sync.ErpKingdeeOrderLineIdentity.Line;
+import cn.iocoder.yudao.module.erp.dal.mysql.sale.ErpSaleOutItemMapper;
+import cn.iocoder.yudao.module.erp.dal.mysql.sale.ErpSaleReturnItemMapper;
+import cn.iocoder.yudao.module.erp.dal.mysql.sale.ErpSaleOutMapper;
+import cn.iocoder.yudao.module.erp.dal.mysql.sale.ErpSaleReturnMapper;
+
 import java.math.BigDecimal;
+import java.util.Objects;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -44,11 +52,24 @@ import static cn.iocoder.yudao.module.erp.enums.ErrorCodeConstants.*;
 @Service
 @Validated
 public class ErpSaleOrderServiceImpl implements ErpSaleOrderService {
+    @Override
+    public void lockOrder(Long id) {
+        if (saleOrderMapper.selectByIdForUpdate(id) == null) throw exception(SALE_ORDER_NOT_EXISTS);
+    }
+
 
     @Resource
     private ErpSaleOrderMapper saleOrderMapper;
     @Resource
     private ErpSaleOrderItemMapper saleOrderItemMapper;
+    @Resource
+    private ErpSaleOutItemMapper saleOutItemMapper;
+    @Resource
+    private ErpSaleReturnItemMapper saleReturnItemMapper;
+    @Resource
+    private ErpSaleOutMapper saleOutMapper;
+    @Resource
+    private ErpSaleReturnMapper saleReturnMapper;
 
     @Resource
     private ErpNoRedisDAO noRedisDAO;
@@ -88,11 +109,12 @@ public class ErpSaleOrderServiceImpl implements ErpSaleOrderService {
 
         // 2.1 插入订单
         ErpSaleOrderDO saleOrder = BeanUtils.toBean(createReqVO, ErpSaleOrderDO.class, in -> in
-                .setNo(no).setStatus(ErpAuditStatus.PROCESS.getStatus()));
+                .setNo(no).setStatus(ErpAuditStatus.PROCESS.getStatus())
+                .setOutCount(BigDecimal.ZERO).setReturnCount(BigDecimal.ZERO));
         calculateTotalPrice(saleOrder, saleOrderItems, createReqVO.getKingdeeAmounts());
         saleOrderMapper.insert(saleOrder);
         // 2.2 插入订单项
-        saleOrderItems.forEach(o -> o.setOrderId(saleOrder.getId()));
+        saleOrderItems.forEach(o -> o.setOrderId(saleOrder.getId()).setOutCount(BigDecimal.ZERO).setReturnCount(BigDecimal.ZERO));
         saleOrderItemMapper.insertBatch(saleOrderItems);
         return saleOrder.getId();
     }
@@ -100,9 +122,25 @@ public class ErpSaleOrderServiceImpl implements ErpSaleOrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateSaleOrder(ErpSaleOrderSaveReqVO updateReqVO) {
+        updateOrder(updateReqVO, null, List.of());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateSaleOrderFromKingdee(ErpSaleOrderSaveReqVO req, Integer status,
+            List<ErpSaleOrderSaveReqVO.Item> previousItems) {
+        if (req.getKingdeeAmounts() == null || !(ErpAuditStatus.APPROVE.getStatus().equals(status)
+                || ErpAuditStatus.PROCESS.getStatus().equals(status))) {
+            throw new IllegalArgumentException("ERP同步缺少可信金额快照或审核状态无效");
+        }
+        updateOrder(req, status, previousItems);
+    }
+
+    private void updateOrder(ErpSaleOrderSaveReqVO updateReqVO, Integer sourceStatus,
+            List<ErpSaleOrderSaveReqVO.Item> previousItems) {
         // 1.1 校验存在
         ErpSaleOrderDO saleOrder = validateSaleOrderExists(updateReqVO.getId());
-        if (ErpAuditStatus.APPROVE.getStatus().equals(saleOrder.getStatus())) {
+        if (sourceStatus == null && ErpAuditStatus.APPROVE.getStatus().equals(saleOrder.getStatus())) {
             throw exception(SALE_ORDER_UPDATE_FAIL_APPROVE, saleOrder.getNo());
         }
         // 1.2 校验客户
@@ -121,9 +159,83 @@ public class ErpSaleOrderServiceImpl implements ErpSaleOrderService {
         // 2.1 更新订单
         ErpSaleOrderDO updateObj = BeanUtils.toBean(updateReqVO, ErpSaleOrderDO.class);
         calculateTotalPrice(updateObj, saleOrderItems, updateReqVO.getKingdeeAmounts());
-        saleOrderMapper.updateById(updateObj);
+        if (sourceStatus != null) {
+            reconcileSourceItems(saleOrder, updateReqVO, saleOrderItems, previousItems, sourceStatus, updateObj);
+            updateObj.setStatus(sourceStatus);
+        }
+        if (sourceStatus == null) {
+            saleOrderMapper.updateById(updateObj);
+        } else if (saleOrderMapper.updateByIdAndStatus(updateReqVO.getId(), saleOrder.getStatus(), updateObj) != 1) {
+            throw new IllegalStateException("ERP订单更新期间状态已变化，请重新同步");
+        }
         // 2.2 更新订单项
-        updateSaleOrderItemList(updateReqVO.getId(), saleOrderItems);
+        updateSaleOrderItemList(updateReqVO.getId(), saleOrderItems, sourceStatus != null);
+    }
+
+
+    private void reconcileSourceItems(ErpSaleOrderDO order, ErpSaleOrderSaveReqVO req,
+            List<ErpSaleOrderItemDO> incoming, List<ErpSaleOrderSaveReqVO.Item> previous,
+            Integer status, ErpSaleOrderDO update) {
+        var stored = saleOrderItemMapper.selectListByOrderId(order.getId());
+        var ids = ErpKingdeeOrderLineIdentity.reconcile(stored.stream().map(o -> new Line(o.getId(),
+                o.getSourceEntryId(), o.getProductId(), o.getProductUnitId(), o.getProductPrice(),
+                o.getCount(), o.getTaxPercent(), o.getRemark())).toList(), incoming.stream().map(o -> new Line(null,
+                o.getSourceEntryId(), o.getProductId(), o.getProductUnitId(), o.getProductPrice(),
+                o.getCount(), o.getTaxPercent(), o.getRemark())).toList(), previous.stream().map(o -> new Line(null,
+                o.getSourceEntryId(), o.getProductId(), o.getProductUnitId(), o.getProductPrice(),
+                o.getCount(), o.getTaxPercent(), o.getRemark())).toList());
+        incoming.forEach(o -> o.setId(ids.get(o.getSourceEntryId())));
+        var documents = saleOutMapper.selectListByOrderId(order.getId());
+        var returns = saleReturnMapper.selectListByOrderId(order.getId());
+        var quantities = saleOutItemMapper.selectOrderItemCountSumMapByOutIds(
+                documents.stream().map(o -> o.getId()).toList());
+        var returnQuantities = saleReturnItemMapper.selectOrderItemCountSumMapByReturnIds(
+                returns.stream().map(o -> o.getId()).toList());
+        BigDecimal documentTotal = documents.stream().map(o -> requireDocumentCount(o.getTotalCount(), o.getNo()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal returnTotal = returns.stream().map(o -> requireDocumentCount(o.getTotalCount(), o.getNo()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (quantities.values().stream().anyMatch(Objects::isNull)
+                || returnQuantities.values().stream().anyMatch(Objects::isNull)) {
+            throw new IllegalStateException("关联出入库单明细数量为空：" + order.getNo());
+        }
+        if (documentTotal.compareTo(quantities.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add)) != 0
+                || returnTotal.compareTo(returnQuantities.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add)) != 0) {
+            throw new IllegalStateException("关联出入库单汇总与明细数量不一致：" + order.getNo());
+        }
+        var storedIds = stored.stream().map(o -> o.getId()).collect(java.util.stream.Collectors.toSet());
+        if (!storedIds.containsAll(quantities.keySet()) || !storedIds.containsAll(returnQuantities.keySet())) {
+            throw new IllegalStateException("关联出入库单指向不存在的订单明细，请核对订单=" + order.getNo());
+        }
+        boolean linked = !documents.isEmpty() || !returns.isEmpty();
+        if (linked && (!Objects.equals(order.getCustomerId(), req.getCustomerId())
+                || !ErpAuditStatus.APPROVE.getStatus().equals(status))) {
+            throw new IllegalStateException("已有出入库关联的ERP订单不能更换往来单位或反审核：" + order.getNo());
+        }
+        BigDecimal total = BigDecimal.ZERO;
+        BigDecimal totalReturn = BigDecimal.ZERO;
+        for (var old : stored) {
+            BigDecimal count = ErpKingdeeOrderLineIdentity.quantity(quantities, old.getId(), old.getOutCount());
+            BigDecimal returned = ErpKingdeeOrderLineIdentity.quantity(returnQuantities, old.getId(), old.getReturnCount());
+            if (returned.compareTo(count) > 0) throw new IllegalStateException("退货数量超过出入库数量，明细ID=" + old.getId());
+            var next = incoming.stream().filter(o -> old.getId().equals(o.getId())).findFirst().orElse(null);
+            boolean referenced = quantities.containsKey(old.getId()) || returnQuantities.containsKey(old.getId());
+            if (referenced && (next == null || !Objects.equals(old.getProductId(), next.getProductId())
+                    || !Objects.equals(old.getProductUnitId(), next.getProductUnitId()))) {
+                throw new IllegalStateException("ERP更新不能删除或更换已关联出入库的物料/单位，明细ID=" + old.getId());
+            }
+            if (next != null) {
+                if (next.getCount() == null ? referenced : next.getCount().compareTo(count) < 0) {
+                    throw new IllegalStateException("ERP订单数量小于已出入库数量，明细ID=" + old.getId());
+                }
+                next.setOutCount(count).setReturnCount(returned);
+            }
+            total = total.add(count);
+            totalReturn = totalReturn.add(returned);
+        }
+        ErpKingdeeOrderLineIdentity.quantity(java.util.Map.of(order.getId(), total), order.getId(), order.getOutCount());
+        ErpKingdeeOrderLineIdentity.quantity(java.util.Map.of(order.getId(), totalReturn), order.getId(), order.getReturnCount());
+        update.setOutCount(total).setReturnCount(totalReturn);
     }
 
     private void calculateTotalPrice(ErpSaleOrderDO saleOrder, List<ErpSaleOrderItemDO> saleOrderItems, ErpKingdeeOrderAmounts source) {
@@ -158,13 +270,17 @@ public class ErpSaleOrderServiceImpl implements ErpSaleOrderService {
         if (saleOrder.getStatus().equals(status)) {
             throw exception(approve ? SALE_ORDER_APPROVE_FAIL : SALE_ORDER_PROCESS_FAIL);
         }
-        // 1.3 存在销售出库单，无法反审核
-        if (!approve && nullToZero(saleOrder.getOutCount()).compareTo(BigDecimal.ZERO) > 0) {
-            throw exception(SALE_ORDER_PROCESS_FAIL_EXISTS_OUT);
-        }
-        // 1.4 存在销售退货单，无法反审核
-        if (!approve && nullToZero(saleOrder.getReturnCount()).compareTo(BigDecimal.ZERO) > 0) {
-            throw exception(SALE_ORDER_PROCESS_FAIL_EXISTS_RETURN);
+        if (!approve) {
+            boolean hasOut = saleOutMapper.selectListByOrderId(id).stream().anyMatch(document ->
+                    requireDocumentCount(document.getTotalCount(), document.getNo()).signum() > 0);
+            if (hasOut || (saleOrder.getOutCount() != null && saleOrder.getOutCount().signum() > 0)) {
+                throw exception(SALE_ORDER_PROCESS_FAIL_EXISTS_OUT);
+            }
+            boolean hasReturn = saleReturnMapper.selectListByOrderId(id).stream().anyMatch(document ->
+                    requireDocumentCount(document.getTotalCount(), document.getNo()).signum() > 0);
+            if (hasReturn || (saleOrder.getReturnCount() != null && saleOrder.getReturnCount().signum() > 0)) {
+                throw exception(SALE_ORDER_PROCESS_FAIL_EXISTS_RETURN);
+            }
         }
 
         // 2. 更新状态
@@ -175,12 +291,18 @@ public class ErpSaleOrderServiceImpl implements ErpSaleOrderService {
         }
     }
 
-    private static BigDecimal nullToZero(BigDecimal value) {
-        return value == null ? BigDecimal.ZERO : value;
+    private static BigDecimal requireDocumentCount(BigDecimal value, String no) {
+        if (value == null) throw new IllegalStateException("销售关联单据数量为空，无法核实是否允许反审核：" + no);
+        return value;
     }
 
     private List<ErpSaleOrderItemDO> validateSaleOrderItems(ErpSaleOrderSaveReqVO req) {
         List<ErpSaleOrderSaveReqVO.Item> list = req.getItems();
+        if (req.getKingdeeAmounts() != null) {
+            ErpKingdeeOrderLineIdentity.reconcile(List.of(), list.stream().map(o -> new Line(null,
+                    o.getSourceEntryId(), o.getProductId(), o.getProductUnitId(), o.getProductPrice(),
+                    o.getCount(), o.getTaxPercent(), o.getRemark())).toList(), List.of());
+        }
         if (req.getKingdeeAmounts() != null) { req.getKingdeeAmounts().validate(list.size()); }
         Map<Long, ErpProductUnitDO> units =
                 productUnitService.getProductUnitMap(convertSet(list, ErpSaleOrderSaveReqVO.Item::getProductUnitId));
@@ -221,19 +343,31 @@ public class ErpSaleOrderServiceImpl implements ErpSaleOrderService {
         return result;
     }
 
-    private void updateSaleOrderItemList(Long id, List<ErpSaleOrderItemDO> newList) {
+    private void updateSaleOrderItemList(Long id, List<ErpSaleOrderItemDO> newList, boolean sourceUpdate) {
         // 第一步，对比新老数据，获得添加、修改、删除的列表
         List<ErpSaleOrderItemDO> oldList = saleOrderItemMapper.selectListByOrderId(id);
+        var ownedIds = oldList.stream().map(item -> item.getId()).collect(java.util.stream.Collectors.toSet());
+        if (newList.stream().anyMatch(item -> item.getId() != null && !ownedIds.contains(item.getId()))) {
+            throw new IllegalArgumentException("订单明细ID不属于当前订单");
+        }
         List<List<ErpSaleOrderItemDO>> diffList = diffList(oldList, newList, // id 不同，就认为是不同的记录
                 (oldVal, newVal) -> oldVal.getId().equals(newVal.getId()));
 
         // 第二步，批量添加、修改、删除
         if (CollUtil.isNotEmpty(diffList.get(0))) {
-            diffList.get(0).forEach(o -> o.setOrderId(id));
+            diffList.get(0).forEach(o -> o.setOrderId(id).setOutCount(BigDecimal.ZERO).setReturnCount(BigDecimal.ZERO));
             saleOrderItemMapper.insertBatch(diffList.get(0));
         }
         if (CollUtil.isNotEmpty(diffList.get(1))) {
-            saleOrderItemMapper.updateBatch(diffList.get(1));
+            if (sourceUpdate) {
+                for (var item : diffList.get(1)) {
+                    if (saleOrderItemMapper.updateSourceItem(item, id) != 1) {
+                        throw new IllegalStateException("ERP明细更新期间已变化，明细ID=" + item.getId());
+                    }
+                }
+            } else {
+                saleOrderItemMapper.updateBatch(diffList.get(1));
+            }
         }
         if (CollUtil.isNotEmpty(diffList.get(2))) {
             saleOrderItemMapper.deleteByIds(convertList(diffList.get(2), ErpSaleOrderItemDO::getId));
@@ -246,7 +380,7 @@ public class ErpSaleOrderServiceImpl implements ErpSaleOrderService {
         // 1. 更新每个销售订单项
         orderItems.forEach(item -> {
             BigDecimal outCount = outCountMap.getOrDefault(item.getId(), BigDecimal.ZERO);
-            if (item.getOutCount().equals(outCount)) {
+            if (outCount.equals(item.getOutCount())) {
                 return;
             }
             if (outCount.compareTo(item.getCount()) > 0) {
@@ -266,8 +400,11 @@ public class ErpSaleOrderServiceImpl implements ErpSaleOrderService {
         // 1. 更新每个销售订单项
         orderItems.forEach(item -> {
             BigDecimal returnCount = returnCountMap.getOrDefault(item.getId(), BigDecimal.ZERO);
-            if (item.getReturnCount().equals(returnCount)) {
+            if (returnCount.equals(item.getReturnCount())) {
                 return;
+            }
+            if (item.getOutCount() == null) {
+                throw new IllegalStateException("订单出入库数量为空，请先核对关联单据，明细ID=" + item.getId());
             }
             if (returnCount.compareTo(item.getOutCount()) > 0) {
                 throw exception(SALE_ORDER_ITEM_RETURN_FAIL_OUT_EXCEED,
@@ -284,7 +421,8 @@ public class ErpSaleOrderServiceImpl implements ErpSaleOrderService {
     @Transactional(rollbackFor = Exception.class)
     public void deleteSaleOrder(List<Long> ids) {
         // 1. 校验不处于已审批
-        List<ErpSaleOrderDO> saleOrders = saleOrderMapper.selectByIds(ids);
+        List<ErpSaleOrderDO> saleOrders = ids.stream().distinct().sorted()
+                .map(this::validateSaleOrderExists).toList();
         if (CollUtil.isEmpty(saleOrders)) {
             return;
         }
@@ -304,7 +442,8 @@ public class ErpSaleOrderServiceImpl implements ErpSaleOrderService {
     }
 
     private ErpSaleOrderDO validateSaleOrderExists(Long id) {
-        ErpSaleOrderDO saleOrder = saleOrderMapper.selectById(id);
+        ErpSaleOrderDO saleOrder = org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()
+                ? saleOrderMapper.selectByIdForUpdate(id) : saleOrderMapper.selectById(id);
         if (saleOrder == null) {
             throw exception(SALE_ORDER_NOT_EXISTS);
         }

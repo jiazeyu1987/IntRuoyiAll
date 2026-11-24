@@ -6,6 +6,29 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MesProRouteTreePatchTest {
+    @Test void unrelatedParentChangePreservesExplicitUnboundAndBoundSop() {
+        JSONObject before = route(10, 1, 2), after = copy(before), child = route(20, 1, 2);
+        graph(child).getJSONArray("nodes").getJSONObject(0).put("sopFileUrl", null);
+        graph(child).getJSONArray("nodes").getJSONObject(1).put("sopFileUrl", "/files/frozen-sop.pdf");
+        config(after, 1).put("overagePercent", 3);
+        JSONObject result = MesProRouteTreePatch.apply(before, after, child);
+        JSONObject unbound = graph(result).getJSONArray("nodes").getJSONObject(0);
+        assertTrue(unbound.containsKey("sopFileUrl"));
+        assertNull(unbound.get("sopFileUrl"));
+        assertEquals("/files/frozen-sop.pdf", graph(result).getJSONArray("nodes").getJSONObject(1).get("sopFileUrl"));
+        assertEquals(3, config(result, 1).getIntValue("overagePercent"));
+    }
+    @Test void inheritedAndNewProcessKeepExplicitUnboundSop() {
+        JSONObject source = route(10, 1, 2);
+        graph(source).getJSONArray("nodes").forEach(value -> ((JSONObject) value).put("sopFileUrl", null));
+        JSONObject inherited = MesProRouteTreePatch.inherit(source, route(20, 1, 2));
+        JSONObject merged = MesProRouteTreePatch.apply(route(10, 1), source, route(20, 1));
+        for (JSONObject result : List.of(inherited, merged)) {
+            JSONObject added = graph(result).getJSONArray("nodes").getJSONObject(1);
+            assertTrue(added.containsKey("sopFileUrl"));
+            assertNull(added.get("sopFileUrl"));
+        }
+    }
     @Test void lossReasonsSynchronizeSameNamedProcessAcrossIndependentProcessIds() {
         JSONObject before = route(10, 1), after = copy(before), child = route(20, 2, 3);
         config(before, 1).put("processName", "检测工序");

@@ -88,8 +88,26 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     @TestConfiguration(proxyBeanMethods = false)
     static class JdbcTestConfiguration {
         @Bean
+        H2TextCastInterceptor h2TextCastInterceptor() { return new H2TextCastInterceptor(); }
+
+        @Bean
         JdbcTemplate jdbcTemplate(DataSource dataSource) {
             return new JdbcTemplate(dataSource);
+        }
+    }
+
+    // H2 CHAR defaults to length 1, unlike MySQL's unbounded CAST AS CHAR.
+    @org.apache.ibatis.plugin.Intercepts(@org.apache.ibatis.plugin.Signature(
+            type = org.apache.ibatis.executor.statement.StatementHandler.class,
+            method = "prepare", args = {java.sql.Connection.class, Integer.class}))
+    public static class H2TextCastInterceptor implements org.apache.ibatis.plugin.Interceptor {
+        @Override
+        public Object intercept(org.apache.ibatis.plugin.Invocation invocation) throws Throwable {
+            var handler = (org.apache.ibatis.executor.statement.StatementHandler) invocation.getTarget();
+            var sql = handler.getBoundSql();
+            org.apache.ibatis.reflection.SystemMetaObject.forObject(sql).setValue("sql",
+                    sql.getSql().replace(" AS CHAR)", " AS VARCHAR)"));
+            return invocation.proceed();
         }
     }
 
@@ -1020,6 +1038,47 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void expiredDisplayFiltersMatchExpiryWithoutChangingVersionLifecycle() {
+        var expired = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "EXPIRED-FILTER", true, 20L);
+        var current = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CURRENT-FILTER", true, 20L);
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any())).thenReturn(List.of(owner(10L, "Owner A")));
+        var today = LocalDate.now(DccRegistrationCertificateBusinessClock.BUSINESS_ZONE);
+        updateExpiryDate(expired.versionId(), today.minusDays(1));
+        updateExpiryDate(current.versionId(), today);
+        for (String key : List.of("status", "reminder")) {
+            var query = DccRegistrationCertificatePageQuery.builder().build();
+            query.setListFilters("[{\"key\":\"" + key + "\",\"operator\":\"eq\",\"value\":\"已过期\"}]");
+            var page = queryService.getPage(1L, 99L, query, context("EXPIRED-DISPLAY-FILTER"));
+            assertEquals(List.of(expired.certificateId()), page.getList().stream().map(DccRegistrationCertificatePageItem::getCertificateId).toList());
+            assertEquals("CURRENT", page.getList().get(0).getStatus());
+            assertEquals("EXPIRED", page.getList().get(0).getVisualState());
+        }
+        var query = DccRegistrationCertificatePageQuery.builder().reminderState("EXPIRED").build();
+        assertEquals(1L, queryService.getPage(1L, 99L, query, context("EXPIRED-STATE-FILTER")).getTotal());
+    }
+
+    @Test
+    void entrustedNameFiltersUseTheDisplayedSnapshotAfterAChange() {
+        var record = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "ENTERPRISE-CHANGE", true, 20L);
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any())).thenReturn(List.of(owner(10L, "Owner A")));
+        jdbcTemplate.update("DELETE FROM dcc_registration_certificate_snapshot_entrusted WHERE snapshot_id=?", record.snapshotId());
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET entrusted_enterprises_json=? WHERE id=?",
+                "[{\"enterpriseId\":30,\"enterpriseName\":\"山东瑛泰医疗器械有限公司\"}]", record.snapshotId());
+        for (String name : List.of("山东瑛泰医疗器械有限公司", "山东瑛泰")) {
+            var query = DccRegistrationCertificatePageQuery.builder().entrustedEnterpriseName(name).build();
+            assertEquals(1L, queryService.getPage(1L, 99L, query, context("ENTERPRISE-DIRECT")).getTotal());
+            query.setEntrustedEnterpriseName(null);
+            query.setListFilters("[{\"key\":\"modelSpecification\",\"operator\":\"contains\",\"value\":\"Sensitive Model\"},{\"key\":\"entrustedEnterpriseName\",\"operator\":\"contains\",\"value\":\"" + name + "\"}]");
+            assertEquals(1L, queryService.getPage(1L, 99L, query, context("ENTERPRISE-LIST-FILTER")).getTotal());
+            query.setListFilters(null);
+            query.setFieldFilters(java.util.Map.of("entrustedEnterpriseName", name));
+            assertEquals(1L, queryService.getPage(1L, 99L, query, context("ENTERPRISE-FIELD")).getTotal());
+        }
+        var query = DccRegistrationCertificatePageQuery.builder().entrustedEnterpriseName("Factory A").build();
+        assertEquals(0L, queryService.getPage(1L, 99L, query, context("ENTERPRISE-OLD-NAME")).getTotal());
+    }
+
+    @Test
     void ceTypedRevisionFiltersSurviveRealTenantAndPaginationParsing() {
         var query = DccRegistrationCertificatePageQuery.builder().certificateType("CE")
                 .ceRevision("Rev.2").ceCertificateNo("CE-2")
@@ -1484,7 +1543,12 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     public static String jsonExtract(String json, String path) {
         if (json == null || path == null) return null;
         var node = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(json);
-        var tokens = java.util.regex.Pattern.compile("([a-zA-Z_][a-zA-Z_0-9]*)|\\[([0-9]+)\\]").matcher(path.substring(2));
+        if ("$[*].enterpriseName".equals(path)) {
+            var names = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.arrayNode();
+            node.forEach(item -> { if (item.has("enterpriseName")) names.add(item.get("enterpriseName")); });
+            return names.isEmpty() ? null : names.toString();
+        }
+        var tokens = java.util.regex.Pattern.compile("([a-zA-Z_][a-zA-Z_0-9]*)|\\[([0-9]+)\\]").matcher(path.substring(1));
         while (tokens.find() && node != null) node = tokens.group(1) != null ? node.get(tokens.group(1)) : node.get(Integer.parseInt(tokens.group(2)));
         return node == null ? null : node.toString();
     }

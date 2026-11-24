@@ -1198,7 +1198,9 @@ const consumeProjectProductRequestRoute = async () => {
       return
     }
     if (typeof query.requestId !== 'string' || query.requestOpen !== 'records'
-      || (query.from !== 'approval-center' && query.from !== 'notification')) throw new Error('项目申请入口参数无效')
+      || (query.from !== 'approval-center' && query.from !== 'notification' && query.from !== 'project-code')) throw new Error('项目申请入口参数无效')
+    if (projectProductDialogVisible.value && projectProductMode.value === 'records'
+      && projectProductExactRequestId.value === dccProjectProductRequestIdentity(query.requestId)) return
     await openProjectProductDialog('records', dccProjectProductRequestIdentity(query.requestId))
   } catch (cause) {
     closeProjectProductRequestEntry()
@@ -1234,8 +1236,11 @@ const submitProjectProductRequest = async () => {
   if (projectProductLoading.value || !projectProductDialogVisible.value || projectProductMode.value !== 'create') return
   const sequence = projectProductDialogSequence
   const actor = projectProductActorScope()
+  const entryPath = route.path
+  let entryQuery = JSON.stringify(route.query)
   const current = () => sequence === projectProductDialogSequence && actor === projectProductActorScope()
-    && projectProductDialogVisible.value
+    && projectProductDialogVisible.value && route.path === entryPath
+    && JSON.stringify(route.query) === entryQuery
   projectProductLoading.value = true
   projectProductError.value = ''
   try {
@@ -1275,6 +1280,20 @@ const submitProjectProductRequest = async () => {
     projectProductMode.value = 'records'
     projectProductExactRequestId.value = dccProjectProductRequestIdentity(createdId)
     projectProductRequests.value = []
+    const targetQuery = {
+      requestOpen: 'records', requestId: projectProductExactRequestId.value, from: 'project-code'
+    }
+    let navigationFailure
+    try {
+      navigationFailure = await router.replace({ path: '/mdm/product-catalog', query: targetQuery })
+    } catch (cause) {
+      throw new Error('申请已保存，但定位切换失败，请勿重复创建：' + (cause instanceof Error ? cause.message : String(cause)))
+    }
+    if (navigationFailure) throw new Error('申请已保存，但定位切换失败，请勿重复创建')
+    if (route.path !== '/mdm/product-catalog' || Object.keys(route.query).length !== 3
+      || Object.entries(targetQuery).some(([key, value]) => route.query[key] !== value)) return
+    entryQuery = JSON.stringify(route.query)
+    if (!current()) return
     await loadProjectProductRequests()
     if (!current()) return
     if (projectProductError.value) projectProductError.value = (rejectedRequestId ? '申请已提交，但读取最新申请失败：' : '项目及产品已创建，但读取创建记录失败：') + projectProductError.value

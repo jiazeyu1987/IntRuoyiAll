@@ -21,6 +21,8 @@ import java.util.Objects;
  */
 @Mapper
 public interface ErpSaleOutMapper extends BaseMapperX<ErpSaleOutDO> {
+    default ErpSaleOutDO selectByIdForUpdate(Long id) { return selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ErpSaleOutDO>().eq(ErpSaleOutDO::getId, id).last("FOR UPDATE")); }
+
 
     default PageResult<ErpSaleOutDO> selectPage(ErpSaleOutPageReqVO reqVO) {
         MPJLambdaWrapperX<ErpSaleOutDO> query = new MPJLambdaWrapperX<ErpSaleOutDO>()
@@ -64,7 +66,8 @@ public interface ErpSaleOutMapper extends BaseMapperX<ErpSaleOutDO> {
     }
 
     default List<ErpSaleOutDO> selectListByOrderId(Long orderId) {
-        return selectList(ErpSaleOutDO::getOrderId, orderId);
+        return selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ErpSaleOutDO>().eq(ErpSaleOutDO::getOrderId, orderId)
+                .last(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive() ? "FOR UPDATE" : ""));
     }
 
 }

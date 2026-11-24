@@ -206,6 +206,24 @@ class DccRegistrationCertificateUploadServiceTest {
     }
 
     @Test
+    void missingDomesticApprovalDateDoesNotCreateDraftOrApproval() {
+        mockOwnedCompany();
+        mockProjectCode();
+        var command = uploadCommand(true, false, List.of(301L, 302L));
+        var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(command.factsJson());
+        facts.setApprovalDate(null);
+        var missing = new DccRegistrationCertificateUploadCommand(command.projectCodeId(), command.companyId(), command.productName(),
+                command.certificateNo(), command.firstObtainedDate(), command.effectiveDate(), command.expiryDate(), command.classification(),
+                command.entrustedProduction(), command.selfProduction(), command.entrustedEnterpriseIds(), command.remark(), command.file(),
+                facts.toJson(), List.of(), List.of(), null, List.of(), null);
+        var error = assertThrows(ServiceException.class, () -> uploadService.submitUploadForApproval(
+                TENANT_ID, ACTOR_ID, "missing-approval-date", "missing-approval-trace", missing));
+        assertEquals("请填写批准日期", error.getMessage());
+        verify(commandService, never()).createDraft(any(), any(), any(), any(), any());
+        verify(requestMapper, never()).insert(any(DccRegistrationCertificateAccessRequestDO.class));
+    }
+
+    @Test
     void submitUploadForApprovalCreatesDraftWithoutProjectCodeWhenProductNameIsManual() {
         mockOwnedCompany();
         when(requestMapper.selectByTenantAndRequestKey(TENANT_ID, "UPLOAD-KEY-NO-PROJECT")).thenReturn(null);
@@ -480,6 +498,7 @@ class DccRegistrationCertificateUploadServiceTest {
                 .id(9101L)
                 .certificateId(9001L)
                 .certificateNo("REG-CERT-UPLOAD-1")
+                .status("CURRENT")
                 .effectiveDate(LocalDate.of(2025, 1, 2))
                 .expiryDate(LocalDate.of(2026, 1, 1))
                 .build();
@@ -503,7 +522,7 @@ class DccRegistrationCertificateUploadServiceTest {
         verify(businessEventNotifier).notifyNewCertificateFormalized(
                 TENANT_ID, 501L, 9001L, 9101L, 88L, "APPROVAL-KEY-1",
                 "一次性使用无菌导管", "REG-CERT-UPLOAD-1",
-                LocalDate.of(2025, 1, 2), LocalDate.of(2026, 1, 1));
+                LocalDate.of(2025, 1, 2), LocalDate.of(2026, 1, 1), "DOMESTIC", true);
     }
 
     private void mockOwnedCompany() {
@@ -595,7 +614,7 @@ class DccRegistrationCertificateUploadServiceTest {
         var facts=new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts();
         facts.setCertificateType("DOMESTIC");facts.setCertificateStatus("VALID");facts.setOwnProduct(ownProduct);
         facts.setCertificateNo("REG-CERT-UPLOAD-1");facts.setClassification("A类");
-        facts.setFirstObtainedDate(LocalDate.of(2025,1,1));facts.setEffectiveDate(LocalDate.of(2025,1,2));
+        facts.setApprovalDate(LocalDate.of(2025,1,1));facts.setFirstObtainedDate(LocalDate.of(2025,1,1));facts.setEffectiveDate(LocalDate.of(2025,1,2));
         if(!ownProduct)facts.setProjectCode("CUSTOMER-PRJ-01");facts.setExpiryDate(LocalDate.of(2026,1,1));facts.setRemark("上传注册证审批");
         return facts.toJson();
     }

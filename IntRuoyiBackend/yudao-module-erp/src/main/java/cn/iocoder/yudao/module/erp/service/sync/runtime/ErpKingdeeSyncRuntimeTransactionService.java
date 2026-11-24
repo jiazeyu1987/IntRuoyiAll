@@ -20,6 +20,34 @@ public class ErpKingdeeSyncRuntimeTransactionService {
     private final ErpKingdeeSyncWatermarkMapper watermarkMapper;
     private final ErpKingdeeSyncRunMapper runMapper;
 
+    /** Caller must own both source and execution locks; a previous owner can no longer write. */
+    @Transactional(rollbackFor = Exception.class)
+    public void recoverInterruptedAfterLock(String syncType) {
+        if (runMapper.selectRunningBySyncType(syncType) == null) return;
+        runMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<ErpKingdeeSyncRunDO>()
+                .eq(ErpKingdeeSyncRunDO::getSyncType, syncType)
+                .in(ErpKingdeeSyncRunDO::getStatus, 10, 40)
+                .set(ErpKingdeeSyncRunDO::getStatus, ErpKingdeeSyncRunStatusEnum.FAILED.getStatus())
+                .set(ErpKingdeeSyncRunDO::getEndedAt, LocalDateTime.now())
+                .set(ErpKingdeeSyncRunDO::getFailureMessage,
+                        "旧执行已中断：已取得来源及同步执行锁，保留已提交计数和原水位，开始重试"));
+    }
+    /** Commits ordinary business imports, their result and watermark together. */
+    @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeeSyncRunResult execute(ErpKingdeeSyncExecution execution,
+                                          ErpKingdeeSyncTask task,
+                                          ErpKingdeeSyncCancellation cancellation) {
+        ErpKingdeeSyncRunResult result;
+        ErpKingdeeOrderSyncContext.setRunId(execution.getRunId());
+        try {
+            result = task.run(execution.getContext());
+        } finally {
+            ErpKingdeeOrderSyncContext.clear();
+        }
+        cancellation.check(execution.getRunId());
+        complete(execution, result);
+        return result;
+    }
     @Transactional(rollbackFor = Exception.class)
     public ErpKingdeeSyncExecution start(ErpKingdeeSyncCommand command) {
         ErpKingdeeSyncRunDO running = runMapper.selectRunningBySyncType(command.getSyncType().getType());
@@ -55,6 +83,9 @@ public class ErpKingdeeSyncRuntimeTransactionService {
 
     @Transactional(rollbackFor = Exception.class)
     public void complete(ErpKingdeeSyncExecution execution, ErpKingdeeSyncRunResult result) {
+        if (result.getFailedCount() > 0) {
+            throw new IllegalStateException("同步结果包含失败记录，禁止推进水位");
+        }
         if (result.getWatermarkTime() != null) {
             ErpKingdeeSyncWatermarkDO watermark = watermarkMapper.selectBySyncType(
                     execution.getContext().getSyncType().getType());
@@ -74,7 +105,27 @@ public class ErpKingdeeSyncRuntimeTransactionService {
 
     @Transactional(rollbackFor = Exception.class)
     public void fail(ErpKingdeeSyncExecution execution, RuntimeException failure) {
-        updateRun(execution.getRunId(), ErpKingdeeSyncRunStatusEnum.FAILED.getStatus(), null,
+        ErpKingdeeSyncRunResult result = null;
+        if (failure instanceof ErpKingdeeOrderBatchSyncFailure batch) {
+            ErpKingdeeSyncRunDO update = new ErpKingdeeSyncRunDO();
+            update.setId(execution.getRunId());
+            update.setStatus(ErpKingdeeSyncRunStatusEnum.FAILED.getStatus());
+            update.setEndedAt(LocalDateTime.now());
+            update.setFailedCount(batch.getFailedCount());
+            update.setFailureMessage(truncateFailureMessage(failure.getMessage()));
+            if (runMapper.update(update, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<ErpKingdeeSyncRunDO>()
+                    .eq(ErpKingdeeSyncRunDO::getId, execution.getRunId())
+                    .in(ErpKingdeeSyncRunDO::getStatus, 10, 40)) != 1) {
+                throw new IllegalStateException("失败记录状态已变化，未覆盖终态");
+            }
+            return;
+        }
+        if (failure instanceof ErpKingdeeOrderSyncFailure) {
+            // These order imports are one transaction: none of the attempted writes committed.
+            result = ErpKingdeeSyncRunResult.builder().createdCount(0).updatedCount(0)
+                    .skippedCount(0).failedCount(1).build();
+        }
+        updateRun(execution.getRunId(), ErpKingdeeSyncRunStatusEnum.FAILED.getStatus(), result,
                 failure.getMessage(), execution.getContext().getWindowEnd());
     }
 
@@ -88,11 +139,19 @@ public class ErpKingdeeSyncRuntimeTransactionService {
         }
     }
 
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY, rollbackFor = Exception.class)
+    public void recordOrderProgress(Long runId, ErpKingdeeSyncRunResult progress) {
+        if (runId == null || runMapper.addOrderProgress(runId, progress.getCreatedCount(),
+                progress.getUpdatedCount(), progress.getSkippedCount()) != 1) {
+            throw new IllegalStateException("采购销售任务已结束或不存在，当前订单未提交");
+        }
+    }
+
     private LocalDateTime resolveInitialWindowStart(ErpKingdeeSyncCommand command) {
         if (command.getInitialWindowStart() != null) {
             return command.getInitialWindowStart();
         }
-        return command.getWindowEnd().minusSeconds(1);
+        return LocalDateTime.of(1970, 1, 1, 0, 0);
     }
 
     private void updateRun(Long runId, Integer status, ErpKingdeeSyncRunResult result,
@@ -109,7 +168,17 @@ public class ErpKingdeeSyncRuntimeTransactionService {
             update.setWindowEndTime(result.getWatermarkTime() != null ? result.getWatermarkTime() : windowEnd);
         }
         update.setFailureMessage(truncateFailureMessage(failureMessage));
-        runMapper.updateById(update);
+        com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<ErpKingdeeSyncRunDO> guard =
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<ErpKingdeeSyncRunDO>()
+                        .eq(ErpKingdeeSyncRunDO::getId, runId);
+        if (status.equals(ErpKingdeeSyncRunStatusEnum.SUCCESS.getStatus())) {
+            guard.eq(ErpKingdeeSyncRunDO::getStatus, ErpKingdeeSyncRunStatusEnum.RUNNING.getStatus());
+        } else {
+            guard.in(ErpKingdeeSyncRunDO::getStatus, 10, 40);
+        }
+        if (runMapper.update(update, guard) != 1) {
+            throw new java.util.concurrent.CancellationException("同步状态已变化，当前结果未提交");
+        }
     }
 
     private String truncateFailureMessage(String failureMessage) {

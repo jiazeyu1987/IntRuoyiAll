@@ -128,6 +128,20 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void fdaRejectsExpiryRenewalBeforeCreatingApproval() {
+        CurrentFixture current = seedCurrentCertificate();
+        var facts = new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts();
+        facts.setCertificateType("FDA");
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json = ? WHERE version_id = ?", facts.toJson(), current.currentVersionId());
+        var error = assertThrows(ServiceException.class, () -> service.submitRenewalForApproval(
+                new DccRegistrationCertificateRenewalSubmitCommand(1L, 99L, "fda-no-renewal", "fda-no-renewal-trace",
+                        current.certificateId(), 1, current.currentVersionId(), LocalDate.of(2026, 8, 1),
+                        null, null, false, null, null, renewalApprovalFile())));
+        assertEquals("FDA不适用到期延续，请通过变更办理批准信函或产品资料更新", error.getMessage());
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request WHERE request_key = ?", "fda-no-renewal"));
+    }
+
+    @Test
     void ceRenewalWithoutEffectiveDateChangesNumberAndActivatesWithIndependentInitialDate() throws Exception {
         CurrentFixture current = seedCurrentCertificate();
         jdbcTemplate.update("UPDATE dcc_registration_certificate_version SET effective_date = NULL WHERE id = ?", current.currentVersionId());
@@ -368,7 +382,7 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
         verify(businessEventNotifier).notifyRenewalCandidateUploaded(
                 eq(1L), eq(10L), eq(current.certificateId()), eq(result.renewalVersionId()),
                 eq(99L), eq("renewal-1"), eq("Product A"), eq("CERT-001"),
-                eq(LocalDate.of(2026, 9, 1)), eq(LocalDate.of(2031, 9, 1)));
+                eq(LocalDate.of(2026, 9, 1)), eq(LocalDate.of(2031, 9, 1)), eq("DOMESTIC"));
     }
 
     @Test
@@ -401,7 +415,7 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
         verify(businessEventNotifier).notifyRenewalCandidateUploaded(
                 eq(1L), eq(10L), eq(current.certificateId()), eq(result.renewalVersionId()),
                 eq(99L), eq("renewal-category-1"), eq("Product A"), eq("CERT-002"),
-                eq(LocalDate.of(2026, 9, 1)), eq(LocalDate.of(2031, 9, 1)));
+                eq(LocalDate.of(2026, 9, 1)), eq(LocalDate.of(2031, 9, 1)), eq("DOMESTIC"));
     }
 
     @Test

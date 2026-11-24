@@ -56,6 +56,7 @@ class ErpPurchaseOrderKingdeeSnapshotTest {
         req.setSupplierId(5L);
         req.setDepositPrice(new BigDecimal("3.00"));
         var item = new ErpPurchaseOrderSaveReqVO.Item();
+        item.setSourceEntryId("entry-1");
         item.setProductId(10L);
         item.setProductUnitId(20L); // Transaction unit differs from the product master unit 99.
         item.setProductPrice(new BigDecimal("100"));
@@ -102,10 +103,13 @@ class ErpPurchaseOrderKingdeeSnapshotTest {
         assertEquals(new BigDecimal("2.00"), header.getValue().getDiscountPrice());
         assertEquals(new BigDecimal("3.00"), header.getValue().getDepositPrice());
         assertEquals(new BigDecimal("16.666667"), header.getValue().getDiscountPercent());
+        assertEquals(BigDecimal.ZERO, header.getValue().getInCount());
+        assertEquals(BigDecimal.ZERO, header.getValue().getReturnCount());
         verify(itemMapper).insertBatch(org.mockito.ArgumentMatchers.<java.util.Collection<ErpPurchaseOrderItemDO>>argThat(items -> {
             var line = items.iterator().next();
             return line.getProductUnitId().equals(20L) && line.getTotalPrice().compareTo(new BigDecimal("8.85")) == 0
-                && line.getTaxPrice().compareTo(new BigDecimal("1.15")) == 0 && line.getRemark().equals("ERP entry remark");
+                && line.getTaxPrice().compareTo(new BigDecimal("1.15")) == 0 && line.getRemark().equals("ERP entry remark")
+                && BigDecimal.ZERO.equals(line.getInCount()) && BigDecimal.ZERO.equals(line.getReturnCount());
         }));
     }
 
@@ -118,8 +122,12 @@ class ErpPurchaseOrderKingdeeSnapshotTest {
         verify(orderMapper).insert(header.capture());
         assertEquals(0, new BigDecimal("203.40").compareTo(header.getValue().getTotalPrice()));
         assertEquals(0, new BigDecimal("22.60").compareTo(header.getValue().getDiscountPrice()));
+        assertEquals(BigDecimal.ZERO, header.getValue().getInCount());
+        assertEquals(BigDecimal.ZERO, header.getValue().getReturnCount());
         verify(itemMapper).insertBatch(org.mockito.ArgumentMatchers.<java.util.Collection<ErpPurchaseOrderItemDO>>argThat(items ->
-            items.iterator().next().getProductUnitId().equals(20L)));
+            items.iterator().next().getProductUnitId().equals(20L)
+                    && BigDecimal.ZERO.equals(items.iterator().next().getInCount())
+                    && BigDecimal.ZERO.equals(items.iterator().next().getReturnCount())));
     }
 
     @Test void discrepantSourceAmountsArePreservedOnCreateAndUpdate() {
@@ -211,6 +219,51 @@ class ErpPurchaseOrderKingdeeSnapshotTest {
         assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
                 () -> service.createPurchaseOrder(req));
         verifyNoInteractions(orderMapper, itemMapper, unitService);
+    }
+
+    @Test void editingInitializesNewLinesWithoutOverwritingExistingFulfillmentCounts() {
+        var req = request();
+        req.setId(100L);
+        req.getItems().get(0).setId(201L);
+        var added = new ErpPurchaseOrderSaveReqVO.Item();
+        added.setProductId(10L);
+        added.setProductUnitId(20L);
+        added.setProductPrice(BigDecimal.ONE);
+        added.setCount(BigDecimal.TEN);
+        req.setItems(List.of(req.getItems().get(0), added));
+        when(unitService.getProductUnitMap(Set.of(20L))).thenReturn(Map.of(20L, new ErpProductUnitDO().setId(20L)));
+        when(orderMapper.selectById(100L)).thenReturn(new ErpPurchaseOrderDO().setId(100L).setStatus(10));
+        when(itemMapper.selectListByOrderId(100L)).thenReturn(List.of(new ErpPurchaseOrderItemDO()
+                .setId(201L).setOrderId(100L).setInCount(BigDecimal.ONE).setReturnCount(BigDecimal.ZERO)));
+
+        service.updatePurchaseOrder(req);
+
+        verify(itemMapper).insertBatch(org.mockito.ArgumentMatchers.<java.util.Collection<ErpPurchaseOrderItemDO>>argThat(items -> {
+            var line = items.iterator().next();
+            return items.size() == 1 && line.getOrderId().equals(100L)
+                    && BigDecimal.ZERO.equals(line.getInCount()) && BigDecimal.ZERO.equals(line.getReturnCount());
+        }));
+        verify(itemMapper).updateBatch(org.mockito.ArgumentMatchers.<java.util.Collection<ErpPurchaseOrderItemDO>>argThat(items -> {
+            var line = items.iterator().next();
+            return items.size() == 1 && line.getId().equals(201L)
+                    && line.getInCount() == null && line.getReturnCount() == null;
+        }));
+    }
+
+    @Test void calculatedInboundAndReturnCountsCanReplaceLegacyNullItemTotals() {
+        var item = new ErpPurchaseOrderItemDO().setId(701L).setOrderId(501L).setCount(BigDecimal.TEN);
+        when(itemMapper.selectListByOrderId(501L)).thenReturn(List.of(item));
+
+        service.updatePurchaseOrderInCount(501L, Map.of(701L, BigDecimal.ONE));
+        item.setInCount(BigDecimal.ONE);
+        service.updatePurchaseOrderReturnCount(501L, Map.of(701L, BigDecimal.ONE));
+
+        verify(itemMapper).updateById(org.mockito.ArgumentMatchers.<ErpPurchaseOrderItemDO>argThat(value -> value.getId().equals(701L)
+                && BigDecimal.ONE.equals(value.getInCount())));
+        verify(itemMapper).updateById(org.mockito.ArgumentMatchers.<ErpPurchaseOrderItemDO>argThat(value -> value.getId().equals(701L)
+                && BigDecimal.ONE.equals(value.getReturnCount())));
+        verify(orderMapper).updateById(org.mockito.ArgumentMatchers.<ErpPurchaseOrderDO>argThat(value -> BigDecimal.ONE.equals(value.getInCount())));
+        verify(orderMapper).updateById(org.mockito.ArgumentMatchers.<ErpPurchaseOrderDO>argThat(value -> BigDecimal.ONE.equals(value.getReturnCount())));
     }
 
     @Test void methodValidationAllowsNullSourceSupplierButRejectsManualNullSupplier() throws Exception {

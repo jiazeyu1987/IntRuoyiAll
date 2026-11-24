@@ -49,9 +49,14 @@ import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.
 @RequestMapping("/erp/purchase-order")
 @Validated
 public class ErpPurchaseOrderController {
+    @Resource
+    private cn.iocoder.yudao.module.erp.service.product.ErpProductUnitService productUnitService;
+
 
     @Resource
     private ErpPurchaseOrderService purchaseOrderService;
+    @Resource
+    private cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRuntimeService syncRuntimeService;
     @Resource
     private ErpKingdeePurchaseOrderSyncService kingdeePurchaseOrderSyncService;
     @Resource
@@ -75,7 +80,17 @@ public class ErpPurchaseOrderController {
     @Operation(summary = "从 Kingdee K3Cloud 同步采购订单")
     @PreAuthorize("@ss.hasPermission('erp:purchase-order:sync-kingdee')")
     public CommonResult<ErpKingdeePurchaseOrderSyncRespVO> syncKingdeePurchaseOrders() {
-        ErpKingdeePurchaseOrderSyncResult result = kingdeePurchaseOrderSyncService.syncPurchaseOrders();
+        java.util.concurrent.atomic.AtomicReference<ErpKingdeePurchaseOrderSyncResult> imported = new java.util.concurrent.atomic.AtomicReference<>();
+        syncRuntimeService.executeSync(cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncCommand.builder()
+                .syncType(cn.iocoder.yudao.module.erp.enums.sync.ErpKingdeeSyncTypeEnum.PURCHASE_ORDER)
+                .triggerType(cn.iocoder.yudao.module.erp.enums.sync.ErpKingdeeSyncTriggerTypeEnum.MANUAL)
+                .windowEnd(java.time.LocalDateTime.now()).build(), context -> {
+            ErpKingdeePurchaseOrderSyncResult value = kingdeePurchaseOrderSyncService.syncPurchaseOrders();
+            imported.set(value);
+            return cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult.success(
+                    null, value.getCreatedCount(), value.getUpdatedCount(), value.getSkippedCount(), 0);
+        });
+        ErpKingdeePurchaseOrderSyncResult result = imported.get();
         return success(BeanUtils.toBean(result, ErpKingdeePurchaseOrderSyncRespVO.class));
     }
 
@@ -117,12 +132,17 @@ public class ErpPurchaseOrderController {
         List<ErpPurchaseOrderItemDO> purchaseOrderItemList = purchaseOrderService.getPurchaseOrderItemListByOrderId(id);
         Map<Long, ErpProductRespVO> productMap = productService.getProductVOMap(
                 convertSet(purchaseOrderItemList, ErpPurchaseOrderItemDO::getProductId));
+        var unitIds = purchaseOrderItemList.stream().map(ErpPurchaseOrderItemDO::getProductUnitId)
+                .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+        var unitMap = unitIds.isEmpty() ? java.util.Map.<Long, cn.iocoder.yudao.module.erp.dal.dataobject.product.ErpProductUnitDO>of()
+                : productUnitService.getProductUnitMap(unitIds);
         return success(BeanUtils.toBean(purchaseOrder, ErpPurchaseOrderRespVO.class, purchaseOrderVO ->
                 purchaseOrderVO.setItems(BeanUtils.toBean(purchaseOrderItemList, ErpPurchaseOrderRespVO.Item.class, item -> {
                     BigDecimal purchaseCount = stockService.getStockCount(item.getProductId());
                     item.setStockCount(purchaseCount != null ? purchaseCount : BigDecimal.ZERO);
                     MapUtils.findAndThen(productMap, item.getProductId(), product -> item.setProductName(product.getName())
-                            .setProductBarCode(product.getBarCode()).setProductUnitName(product.getUnitName()));
+                            .setProductBarCode(product.getBarCode()).setProductUnitName(item.getProductUnitId() == null || unitMap.get(item.getProductUnitId()) == null
+                                    ? null : unitMap.get(item.getProductUnitId()).getName()));
                 }))));
     }
 
@@ -157,6 +177,10 @@ public class ErpPurchaseOrderController {
         // 1.2 产品信息
         Map<Long, ErpProductRespVO> productMap = productService.getProductVOMap(
                 convertSet(purchaseOrderItemList, ErpPurchaseOrderItemDO::getProductId));
+        var unitIds = purchaseOrderItemList.stream().map(ErpPurchaseOrderItemDO::getProductUnitId)
+                .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+        var unitMap = unitIds.isEmpty() ? java.util.Map.<Long, cn.iocoder.yudao.module.erp.dal.dataobject.product.ErpProductUnitDO>of()
+                : productUnitService.getProductUnitMap(unitIds);
         // 1.3 供应商信息
         Map<Long, ErpSupplierDO> supplierMap = supplierService.getSupplierMap(
                 convertSet(pageResult.getList(), ErpPurchaseOrderDO::getSupplierId));
@@ -168,7 +192,8 @@ public class ErpPurchaseOrderController {
         return BeanUtils.toBean(pageResult, ErpPurchaseOrderRespVO.class, purchaseOrder -> {
             purchaseOrder.setItems(BeanUtils.toBean(purchaseOrderItemMap.get(purchaseOrder.getId()), ErpPurchaseOrderRespVO.Item.class,
                     item -> MapUtils.findAndThen(productMap, item.getProductId(), product -> item.setProductName(product.getName())
-                            .setProductBarCode(product.getBarCode()).setProductUnitName(product.getUnitName()))));
+                            .setProductBarCode(product.getBarCode()).setProductUnitName(item.getProductUnitId() == null || unitMap.get(item.getProductUnitId()) == null
+                                    ? null : unitMap.get(item.getProductUnitId()).getName()))));
             purchaseOrder.setProductNames(CollUtil.join(purchaseOrder.getItems(), "，", ErpPurchaseOrderRespVO.Item::getProductName));
             MapUtils.findAndThen(supplierMap, purchaseOrder.getSupplierId(), supplier -> purchaseOrder.setSupplierName(supplier.getName()));
             // Imported orders may have no platform creator; leave the display name unknown.

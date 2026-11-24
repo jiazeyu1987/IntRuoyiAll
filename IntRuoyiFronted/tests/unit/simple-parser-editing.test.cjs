@@ -128,6 +128,45 @@ for (const kind of ['pqc', 'common']) {
   })
 }
 
+test('pqc: quick equipment switch updates only the issue item and supports undo and persistence', async t => {
+  const state = mountState(page('pqc'), t)
+  initialize(state, 'pqc')
+  const target = state.draft.value.processes[1].items[0]
+  target.inspectionTool = '气密性检测设备'
+  state.confirmedUnbound.value = [target.itemCode]
+  await vue.nextTick()
+  state.resetEditing(true)
+  const issue = { field: 'equipment', processIndex: 1, itemIndex: 0 }
+  state.toggleIssueEquipment(issue, false)
+  await vue.nextTick()
+  assert.equal(target.equipmentRequired, false)
+  assert.equal(state.item.value.equipmentRequired, undefined)
+  assert.equal(state.processIndex.value, 0)
+  assert.equal(target.inspectionTool, '气密性检测设备')
+  assert.equal(state.confirmedUnbound.value.includes(target.itemCode), false)
+  assert.equal(state.dirty.value, true)
+  state.undo()
+  await vue.nextTick()
+  assert.equal(state.draft.value.processes[1].items[0].equipmentRequired, undefined)
+  assert.equal(state.confirmedUnbound.value.includes(target.itemCode), true)
+  state.toggleIssueEquipment(issue, false)
+  await vue.nextTick()
+  state.saveLocal()
+  await state.restoreLocal()
+  assert.equal(state.draft.value.processes[1].items[0].equipmentRequired, false)
+  state.busy.value = true
+  state.toggleIssueEquipment(issue, true)
+  assert.equal(state.draft.value.processes[1].items[0].equipmentRequired, false)
+  state.busy.value = false
+  state.published.value = true
+  state.toggleIssueEquipment(issue, true)
+  assert.equal(state.draft.value.processes[1].items[0].equipmentRequired, false)
+  state.published.value = false
+  state.toggleIssueEquipment(issue, true)
+  await vue.nextTick()
+  assert.ok(state.issues.value.some(i => i.field === 'equipment' && i.processIndex === 1))
+})
+
 test('production: disabling a detected group preserves its content and excludes its validation', async t => {
   const ctx = page('production'), state = mountState(ctx, t)
   initialize(state, 'production')

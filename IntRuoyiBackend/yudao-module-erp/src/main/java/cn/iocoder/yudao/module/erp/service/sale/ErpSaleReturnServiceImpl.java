@@ -75,7 +75,7 @@ public class ErpSaleReturnServiceImpl implements ErpSaleReturnService {
         // 1.1 校验销售订单已审核
         ErpSaleOrderDO saleOrder = saleOrderService.validateSaleOrder(createReqVO.getOrderId());
         // 1.2 校验退货项的有效性
-        List<ErpSaleReturnItemDO> saleReturnItems = validateSaleReturnItems(createReqVO.getItems());
+        List<ErpSaleReturnItemDO> saleReturnItems = validateSaleReturnItems(createReqVO.getItems(), createReqVO.getOrderId());
         // 1.3 校验结算账户
         accountService.validateAccount(createReqVO.getAccountId());
         // 1.4 校验销售人员
@@ -108,6 +108,7 @@ public class ErpSaleReturnServiceImpl implements ErpSaleReturnService {
     public void updateSaleReturn(ErpSaleReturnSaveReqVO updateReqVO) {
         // 1.1 校验存在
         ErpSaleReturnDO saleReturn = validateSaleReturnExists(updateReqVO.getId());
+        if (!java.util.Objects.equals(saleReturn.getOrderId(), updateReqVO.getOrderId())) throw new IllegalArgumentException("不允许变更单据所属订单，请删除后重新创建");
         if (ErpAuditStatus.APPROVE.getStatus().equals(saleReturn.getStatus())) {
             throw exception(SALE_RETURN_UPDATE_FAIL_APPROVE, saleReturn.getNo());
         }
@@ -120,7 +121,7 @@ public class ErpSaleReturnServiceImpl implements ErpSaleReturnService {
             adminUserApi.validateUser(updateReqVO.getSaleUserId());
         }
         // 1.5 校验订单项的有效性
-        List<ErpSaleReturnItemDO> saleReturnItems = validateSaleReturnItems(updateReqVO.getItems());
+        List<ErpSaleReturnItemDO> saleReturnItems = validateSaleReturnItems(updateReqVO.getItems(), updateReqVO.getOrderId());
 
         // 2.1 更新退货
         ErpSaleReturnDO updateObj = BeanUtils.toBean(updateReqVO, ErpSaleReturnDO.class)
@@ -185,6 +186,11 @@ public class ErpSaleReturnServiceImpl implements ErpSaleReturnService {
 
         // 3. 变更库存
         List<ErpSaleReturnItemDO> saleReturnItems = saleReturnItemMapper.selectListByReturnId(id);
+        // Approval posts quantities in the current stock unit. Cancellation reverses the exact
+        // persisted quantities previously posted; revalidating against today's unit would block reversal.
+        if (approve) {
+            validateSaleReturnItems(convertList(saleReturnItems, item -> BeanUtils.toBean(item, ErpSaleReturnSaveReqVO.Item.class)), saleReturn.getOrderId());
+        }
         Integer bizType = approve ? ErpStockRecordBizTypeEnum.SALE_RETURN.getType()
                 : ErpStockRecordBizTypeEnum.SALE_RETURN_CANCEL.getType();
         saleReturnItems.forEach(saleReturnItem -> {
@@ -198,6 +204,10 @@ public class ErpSaleReturnServiceImpl implements ErpSaleReturnService {
     @Override
     public void updateSaleReturnRefundPrice(Long id, BigDecimal refundPrice) {
         ErpSaleReturnDO saleReturn = saleReturnMapper.selectById(id);
+        if (saleReturn != null && org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            saleOrderService.lockOrder(saleReturn.getOrderId());
+            saleReturn = saleReturnMapper.selectByIdForUpdate(id);
+        }
         if (saleReturn.getRefundPrice().equals(refundPrice)) {
             return;
         }
@@ -207,13 +217,21 @@ public class ErpSaleReturnServiceImpl implements ErpSaleReturnService {
         saleReturnMapper.updateById(new ErpSaleReturnDO().setId(id).setRefundPrice(refundPrice));
     }
 
-    private List<ErpSaleReturnItemDO> validateSaleReturnItems(List<ErpSaleReturnSaveReqVO.Item> list) {
+    private List<ErpSaleReturnItemDO> validateSaleReturnItems(List<ErpSaleReturnSaveReqVO.Item> list, Long orderId) {
         // 1. 校验产品存在
         List<ErpProductDO> productList = productService.validProductList(
                 convertSet(list, ErpSaleReturnSaveReqVO.Item::getProductId));
         Map<Long, ErpProductDO> productMap = convertMap(productList, ErpProductDO::getId);
         // 2. 转化为 ErpSaleReturnItemDO 列表
         return convertList(list, o -> BeanUtils.toBean(o, ErpSaleReturnItemDO.class, item -> {
+            var orderItem = saleOrderService.getSaleOrderItemListByOrderId(orderId).stream()
+                    .filter(line -> java.util.Objects.equals(line.getId(), item.getOrderItemId())).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("单据明细不属于所选订单"));
+            if (!java.util.Objects.equals(orderItem.getProductId(), item.getProductId())
+                    || !java.util.Objects.equals(orderItem.getProductUnitId(), productMap.get(item.getProductId()).getUnitId())
+                    || (item.getProductUnitId() != null && !java.util.Objects.equals(item.getProductUnitId(), orderItem.getProductUnitId()))) {
+                throw new IllegalArgumentException("单据物料或单位与订单/库存单位不一致，缺少可靠换算关系");
+            }
             item.setProductUnitId(productMap.get(item.getProductId()).getUnitId());
             item.setTotalPrice(MoneyUtils.priceMultiply(item.getProductPrice(), item.getCount()));
             if (item.getTotalPrice() == null) {
@@ -228,6 +246,10 @@ public class ErpSaleReturnServiceImpl implements ErpSaleReturnService {
     private void updateSaleReturnItemList(Long id, List<ErpSaleReturnItemDO> newList) {
         // 第一步，对比新老数据，获得添加、修改、删除的列表
         List<ErpSaleReturnItemDO> oldList = saleReturnItemMapper.selectListByReturnId(id);
+        var ownedIds = oldList.stream().map(item -> item.getId()).collect(java.util.stream.Collectors.toSet());
+        if (newList.stream().anyMatch(item -> item.getId() != null && !ownedIds.contains(item.getId()))) {
+            throw new IllegalArgumentException("明细ID不属于当前单据");
+        }
         List<List<ErpSaleReturnItemDO>> diffList = diffList(oldList, newList, // id 不同，就认为是不同的记录
                 (oldVal, newVal) -> oldVal.getId().equals(newVal.getId()));
 
@@ -249,6 +271,8 @@ public class ErpSaleReturnServiceImpl implements ErpSaleReturnService {
     public void deleteSaleReturn(List<Long> ids) {
         // 1. 校验不处于已审批
         List<ErpSaleReturnDO> saleReturns = saleReturnMapper.selectByIds(ids);
+        saleReturns.stream().map(ErpSaleReturnDO::getOrderId).distinct().sorted().forEach(saleOrderService::lockOrder);
+        saleReturns = ids.stream().distinct().sorted().map(saleReturnMapper::selectByIdForUpdate).filter(java.util.Objects::nonNull).toList();
         if (CollUtil.isEmpty(saleReturns)) {
             return;
         }
@@ -273,6 +297,10 @@ public class ErpSaleReturnServiceImpl implements ErpSaleReturnService {
 
     private ErpSaleReturnDO validateSaleReturnExists(Long id) {
         ErpSaleReturnDO saleReturn = saleReturnMapper.selectById(id);
+        if (saleReturn != null && org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            saleOrderService.lockOrder(saleReturn.getOrderId());
+            saleReturn = saleReturnMapper.selectByIdForUpdate(id);
+        }
         if (saleReturn == null) {
             throw exception(SALE_RETURN_NOT_EXISTS);
         }

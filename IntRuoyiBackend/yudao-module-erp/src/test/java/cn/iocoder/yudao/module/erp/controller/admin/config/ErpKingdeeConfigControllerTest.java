@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class ErpKingdeeConfigControllerTest {
 
     private static final String PROFILE_CONFIG_PERMISSION =
-            "@ss.hasPermission('mes:pro-batch-record-execution:golden-finger')";
+            "@ss.hasPermission('erp:data-config:operate')";
 
     @Test
     void externalWritePermissionEndpointsRequireSuperAdminRole() throws Exception {

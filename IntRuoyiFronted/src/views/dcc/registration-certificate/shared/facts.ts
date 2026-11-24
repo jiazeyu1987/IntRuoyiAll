@@ -67,3 +67,8 @@ export const validateFacts = (facts: CertificateFacts) => {
   if (facts.effectiveDate && facts.expiryDate && facts.effectiveDate >= facts.expiryDate) throw new Error('生效日期必须早于有效期至')
   if (facts.firstObtainedDate && facts.effectiveDate && facts.firstObtainedDate > facts.effectiveDate) throw new Error('首次获证日期不能晚于生效日期')
 }
+
+export const validateUploadFacts = (facts: CertificateFacts) => {
+  validateFacts(facts)
+  if (facts.certificateType === 'DOMESTIC' && !facts.approvalDate) throw new Error('请填写批准日期')
+}

@@ -429,6 +429,14 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
                     || route.getId() == null) {
                 continue;
             }
+            if ("GROUP".equals(route.getNodeType())) {
+                // 模板的 ACTIVE 快照用于继承，不授予一线执行工序。
+                continue;
+            }
+            if (!"FLOW".equals(route.getNodeType())) {
+                throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
+                        "流程节点类型无效：routeId=" + route.getId());
+            }
             routeMap.putIfAbsent(route.getId(), route);
         }
         return routeMap;
@@ -449,6 +457,7 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
         for (MesProRouteVersionDO routeVersion : routeVersions) {
             if (routeVersion == null
                     || routeVersion.getRouteId() == null
+                    || !routeMap.containsKey(routeVersion.getRouteId())
                     || !Boolean.TRUE.equals(routeVersion.getActive())
                     || !MesProRouteVersionLifecycleServiceImpl.STATUS_ACTIVE.equals(
                     routeVersion.getLifecycleStatus())) {

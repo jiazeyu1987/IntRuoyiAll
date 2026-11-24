@@ -52,6 +52,7 @@ class ErpSaleOrderKingdeeSnapshotTest {
         req.setCustomerId(5L);
         req.setDepositPrice(new BigDecimal("3.00"));
         var item = new ErpSaleOrderSaveReqVO.Item();
+        item.setSourceEntryId("entry-1");
         item.setProductId(10L);
         item.setProductUnitId(20L); // Transaction unit differs from the product master unit 99.
         item.setProductPrice(new BigDecimal("100"));

@@ -767,6 +767,7 @@
           <el-table-column label="任务操作" width="100" align="center">
             <template #default="{ row }">
               <el-button
+                v-hasPermi="['mes:pro-schedule-order:update']"
                 link
                 :type="row.locked ? 'warning' : 'primary'"
                 :loading="taskActionLoadingId === row.taskId"

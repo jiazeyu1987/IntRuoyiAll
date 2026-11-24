@@ -5,11 +5,11 @@ const vm = require('node:vm')
 const root = __dirname + '/../'
 test('historical facts label distinguishes recorded state without changing the recorded value', () => {
  const source = fs.readFileSync(root + 'shared/FactsFields.vue', 'utf8')
- const expression = source.match(/:label="([^"]+)"/)[1]
+ const expression = source.match(/<el-form-item :label="([^"]+)"/)[1]
  const facts = { certificateType: 'CE', certificateStatus: 'VALID' }
  for (const historicalRecord of [true, false]) {
-  const context = { historicalRecord, field: 'certificateStatus', model: facts, factLabels: { certificateStatus: '证件状态' } }
-  assert.equal(vm.runInNewContext(expression, context), historicalRecord ? '证载状态（历史记录）' : '证件状态')
+  const context = { historicalRecord, readonly: true, field: 'certificateStatus', model: facts, factLabels: { certificateStatus: '证件状态' } }
+  assert.equal(vm.runInNewContext(expression, context), historicalRecord ? '证载状态（历史记录）' : '证载状态（原记录）')
   assert.equal(facts.certificateStatus, 'VALID')
   assert.equal(vm.runInNewContext(expression, { ...context, field: 'expiryDate', factLabels: { expiryDate: '有效期至' } }), historicalRecord ? '原有效期至' : '有效期至')
  }

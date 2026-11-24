@@ -48,6 +48,17 @@ test('allocation stays closed until both reads and the original prefill finish',
   assert.equal(h.context.reviewVisible.value, true)
 })
 
+test('opening another allocation closes the old dialog before reading its snapshot', async () => {
+  const h = harness()
+  h.context.reviewVisible.value = true
+  const pending = h.context.openAllocation({ id: 43 })
+  assert.equal(h.context.reviewVisible.value, false)
+  h.snapshot.resolve({ lines: [] })
+  h.orders.resolve()
+  await pending
+  assert.equal(h.context.reviewVisible.value, true)
+})
+
 test('failed allocation load reports the failure without opening an editable draft', async () => {
   const h = harness(), pending = h.context.openAllocation({ id: 42 })
   h.snapshot.reject(new Error('allocation unavailable'))
@@ -67,3 +78,32 @@ test('superseded allocation reads cannot reopen a stale dialog', async () => {
   assert.equal(h.context.reviewVisible.value, false)
   assert.equal(h.applied.length, 0)
 })
+
+for (const [label, snapshot] of [
+  ['missing snapshot', undefined],
+  ['snapshot from another report', { eventId: 41, version: 1 }],
+  ['missing version', { eventId: 42 }]
+]) {
+  test(label + ' cannot send a production confirmation', async () => {
+    const errors = []
+    const context = {
+      requireWritableHandoff: () => true, reviewSubmitting: { value: false },
+      leaderReviewGuard: { capture: () => () => true }, reviewDialogMode: { value: 'ALLOCATION' },
+      reviewForm: { reviewStatus: 'APPROVED', reviewRemark: '确认分配' },
+      isProductionLeader: { value: true }, reviewEvent: { value: { id: 42 } },
+      requirePositiveNumber: value => value, allocationSnapshot: { value: snapshot },
+      approvalInvalidation: { captureHandoffSourceSuccess() {} },
+      resolveCurrentLeaderType: () => 'PRODUCTION', isReportAllocationVersionConflict: () => false,
+      ElMessage: { error: message => errors.push(message) }, resolveErrorMessage: error => error.message,
+      confirmTeamLeaderReportAllocation() { assert.fail('must not send a confirmation') }
+    }
+    const begin = source.indexOf('const submitReview = async () =>')
+    const finish = source.indexOf('const resetCorrectionFormForEvent =', begin)
+    runInNewContext(ts.transpileModule(source.slice(begin, finish) + '\nglobalThis.submit = submitReview', {
+      compilerOptions: { target: ts.ScriptTarget.ES2020 }
+    }).outputText, context)
+    await context.submit()
+    assert.match(errors[0], /尚未加载完成/)
+    assert.equal(context.reviewSubmitting.value, false)
+  })
+}

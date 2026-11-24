@@ -21,6 +21,8 @@ import java.util.Objects;
  */
 @Mapper
 public interface ErpPurchaseInMapper extends BaseMapperX<ErpPurchaseInDO> {
+    default ErpPurchaseInDO selectByIdForUpdate(Long id) { return selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ErpPurchaseInDO>().eq(ErpPurchaseInDO::getId, id).last("FOR UPDATE")); }
+
 
     default PageResult<ErpPurchaseInDO> selectPage(ErpPurchaseInPageReqVO reqVO) {
         MPJLambdaWrapperX<ErpPurchaseInDO> query = new MPJLambdaWrapperX<ErpPurchaseInDO>()
@@ -64,7 +66,8 @@ public interface ErpPurchaseInMapper extends BaseMapperX<ErpPurchaseInDO> {
     }
 
     default List<ErpPurchaseInDO> selectListByOrderId(Long orderId) {
-        return selectList(ErpPurchaseInDO::getOrderId, orderId);
+        return selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ErpPurchaseInDO>().eq(ErpPurchaseInDO::getOrderId, orderId)
+                .last(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive() ? "FOR UPDATE" : ""));
     }
 
 }

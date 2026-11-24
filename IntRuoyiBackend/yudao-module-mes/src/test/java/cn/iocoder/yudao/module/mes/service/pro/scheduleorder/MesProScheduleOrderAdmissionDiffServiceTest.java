@@ -633,30 +633,38 @@ class MesProScheduleOrderAdmissionDiffServiceTest {
     }
 
     @Test
-    void getAdmissionDiff_shouldBlockConfirmedOrderWithoutFormalErpSyncIdentity() {
-        MesProWorkOrderDO missingErpIdentity = buildWorkOrder(100L, "MO-MISSING-ERP", 10L, Boolean.FALSE,
-                MesProWorkOrderStatusEnum.CONFIRMED.getStatus());
-        when(workOrderMapper.selectPage(org.mockito.ArgumentMatchers.any()))
-                .thenReturn(new PageResult<>(List.of(missingErpIdentity), 1L));
-        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(100L))).thenReturn(List.of());
-        when(syncRecordMapper.selectByWorkOrderId(100L)).thenReturn(null);
+    void getAdmissionDiff_shouldAllowConfirmedOrderWithoutFormalErpSyncIdentity() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        try {
+            var admissionListMapper = org.mockito.Mockito.mock(
+                    cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProAdmissionListMapper.class);
+            org.springframework.test.util.ReflectionTestUtils.setField(scheduleOrderService, "admissionListMapper", admissionListMapper);
+            MesProWorkOrderDO localOrder = buildWorkOrder(100L, "MO-LOCAL", 10L, Boolean.FALSE,
+                    MesProWorkOrderStatusEnum.CONFIRMED.getStatus());
+            MesProScheduleOrderAdmissionDiffPageReqVO reqVO = new MesProScheduleOrderAdmissionDiffPageReqVO();
+            reqVO.setPageNo(1);
+            reqVO.setPageSize(10);
+            when(admissionListMapper.countBasic(eq(1L), org.mockito.ArgumentMatchers.any(), eq(reqVO))).thenReturn(1L);
+            when(admissionListMapper.selectBasicPageIds(eq(1L), org.mockito.ArgumentMatchers.any(), eq(reqVO), eq(0L)))
+                    .thenReturn(List.of(100L));
+            when(workOrderMapper.selectListByIds(List.of(100L))).thenReturn(List.of(localOrder));
+            when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(100L))).thenReturn(List.of());
+            mockReadyRoute(10L, 201L, 301L, 401L, 501L);
 
-        MesProScheduleOrderAdmissionDiffPageReqVO reqVO = new MesProScheduleOrderAdmissionDiffPageReqVO();
-        reqVO.setPageNo(1);
-        reqVO.setPageSize(10);
+            MesProScheduleOrderAdmissionDiffPageRespVO result = scheduleOrderService.getAdmissionDiff(reqVO);
 
-        MesProScheduleOrderAdmissionDiffPageRespVO result = scheduleOrderService.getAdmissionDiff(reqVO);
-
-        assertEquals(1L, result.getTotal());
-        assertEquals(1, result.getList().size());
-        MesProScheduleOrderAdmissionDiffRespVO row = result.getList().get(0);
-        assertEquals("BLOCKED", row.getAdmissionStatus());
-        assertEquals("BLOCKED_ERP_SYNC_RECORD_MISSING", row.getReasonCode());
-        assertEquals("BLOCKED", row.getSeverity());
-        assertFalse(row.getSelectable());
-        assertTrue(row.getMessage().contains("ERP"));
-        assertEquals(0, result.getSummary().getReadyCount());
-        assertEquals(1, result.getSummary().getBlockedCount());
+            assertEquals(1L, result.getTotal());
+            MesProScheduleOrderAdmissionDiffRespVO row = result.getList().get(0);
+            assertEquals("READY_TO_ADMIT", row.getAdmissionStatus());
+            assertEquals("READY_TO_ADMIT", row.getReasonCode());
+            assertEquals("PASS", row.getSeverity());
+            assertTrue(row.getSelectable());
+            assertEquals(1, result.getSummary().getReadyCount());
+            assertEquals(0, result.getSummary().getBlockedCount());
+            org.mockito.Mockito.verifyNoInteractions(syncRecordMapper);
+        } finally {
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+        }
     }
 
     private void mockReadyRoute(Long productId, Long routeId, Long routeVersionId, Long routeProcessId, Long processId) {

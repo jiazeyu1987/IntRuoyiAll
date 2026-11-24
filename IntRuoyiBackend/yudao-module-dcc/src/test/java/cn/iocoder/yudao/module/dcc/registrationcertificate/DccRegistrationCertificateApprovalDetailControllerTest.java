@@ -39,6 +39,46 @@ class DccRegistrationCertificateApprovalDetailControllerTest {
         verifyCompany("{\"certificateName\":\"产品名称\"}", "实际所属公司", true);
     }
 
+    @Test
+    void resolvesEnterpriseInRequestTenantAndKeepsMissingNameVisible() {
+        for (boolean missing : new boolean[]{false, true}) {
+            var approvals = mock(DccRegistrationCertificateApprovalService.class);
+            var jdbc = mock(JdbcTemplate.class);
+            var request = DccRegistrationCertificateAccessRequestDO.builder().requestType("UPLOAD")
+                    .detailJson("{\"draft\":{\"entrustedEnterpriseIds\":[17]}}").build();
+            when(approvals.requireApprovalDetailRequest(eq(1L), nullable(Long.class), eq(2L), eq("process"))).thenReturn(request);
+            when(jdbc.queryForList(contains("FROM mdm_enterprise WHERE tenant_id=?"), eq(String.class), eq(1L), eq(17)))
+                    .thenReturn(missing ? List.of() : List.of("受托公司"));
+            TenantContextHolder.setTenantId(1L);
+            try {
+                var result = new DccRegistrationCertificateApprovalDetailController(approvals,jdbc).get(2L,"process").getData();
+                var draft = (Map<?, ?>)((Map<?, ?>)result.get("submission")).get("draft");
+                if (missing) assertTrue(draft.get("entrustedEnterpriseDisplayError").toString().contains("无法完整核对"));
+                else assertTrue(draft.get("entrustedEnterprisesJson").toString().contains("受托公司"));
+                assertTrue(result.containsKey("files"));
+                verify(jdbc).queryForList(contains("FROM mdm_enterprise WHERE tenant_id=?"),eq(String.class),eq(1L),eq(17));
+            } finally { TenantContextHolder.clear(); }
+        }
+    }
+
+    @Test
+    void changeDatesUseSourceFormalFactsAndSubmittedApprovalSeparately() {
+        var approvals = mock(DccRegistrationCertificateApprovalService.class);
+        var jdbc = mock(JdbcTemplate.class);
+        var request = DccRegistrationCertificateAccessRequestDO.builder().requestType("CHANGE")
+                .detailJson("{\"operation\":\"CHANGE_CERTIFICATE\",\"approvalDate\":\"2026-11-20\"}").build();
+        when(approvals.requireApprovalDetailRequest(eq(1L),nullable(Long.class),eq(2L),eq("process"))).thenReturn(request);
+        when(jdbc.queryForList(contains("SELECT s.facts_json"),eq(String.class),eq(1L),eq(2L)))
+                .thenReturn(List.of("{\"approvalDate\":\"2025-01-01\"}"));
+        TenantContextHolder.setTenantId(1L);
+        try {
+            var result = new DccRegistrationCertificateApprovalDetailController(approvals,jdbc).get(2L,"process").getData();
+            assertEquals("2025-01-01",result.get("originalApprovalDate"));
+            assertEquals("2026-11-20",((Map<?,?>)result.get("submission")).get("approvalDate"));
+            verify(jdbc).queryForList(contains("s.id=c.source_snapshot_id"),eq(String.class),eq(1L),eq(2L));
+        } finally { TenantContextHolder.clear(); }
+    }
+
     private void verifyCompany(String json, String expected, boolean historical) {
         var approvals = mock(DccRegistrationCertificateApprovalService.class);
         var jdbc = mock(JdbcTemplate.class);

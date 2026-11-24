@@ -21,63 +21,84 @@ public class DccRegistrationCertificateBusinessEventNotifier {
     private final DccRegistrationCertificateBusinessEventNotificationConfigService configService;
     private final DccRegistrationCertificateBusinessEventNotificationService notificationService;
     private final DccRegistrationCertificateChangeConfirmationService changeConfirmationService;
+    private final DccRegistrationCertificateViewerRecipientResolver viewerRecipientResolver;
 
     public DccRegistrationCertificateBusinessEventNotifier(
             DccRegistrationCertificateBusinessEventNotificationConfigService configService,
             DccRegistrationCertificateBusinessEventNotificationService notificationService,
-            DccRegistrationCertificateChangeConfirmationService changeConfirmationService) {
+            DccRegistrationCertificateChangeConfirmationService changeConfirmationService,
+            DccRegistrationCertificateViewerRecipientResolver viewerRecipientResolver) {
         this.configService = require(configService, "configService");
         this.notificationService = require(notificationService, "notificationService");
         this.changeConfirmationService = require(changeConfirmationService, "changeConfirmationService");
+        this.viewerRecipientResolver = require(viewerRecipientResolver, "viewerRecipientResolver");
     }
 
-    public void validateChangeConfirmationRecipients(Long tenantId) {
-        configService.resolveChangeConfirmationRecipientUserIds(tenantId);
+    public void validateChangeConfirmationRecipients(Long tenantId, String certificateType) {
+        resolveChangeRecipients(tenantId, certificateType);
     }
 
     public void notifyNewCertificateFormalized(Long tenantId, Long ownerCompanyId, Long certificateId,
                                                Long versionId, Long actorId, String eventKey,
                                                String productName, String certificateNo,
-                                               LocalDate effectiveDate, LocalDate expiryDate) {
+                                               LocalDate effectiveDate, LocalDate expiryDate,
+                                               String certificateType, boolean current) {
         send(tenantId, ownerCompanyId, certificateId, versionId, actorId, EVENT_NEW_CERTIFICATE_FORMALIZED,
-                eventKey, "已入库", productName, certificateNo, effectiveDate, expiryDate);
+                eventKey, "已入库", productName, certificateNo, effectiveDate, expiryDate,
+                isCe(certificateType) && current);
     }
 
     public void notifyRenewalCandidateUploaded(Long tenantId, Long ownerCompanyId, Long certificateId,
                                                Long versionId, Long actorId, String eventKey,
                                                String productName, String certificateNo,
-                                               LocalDate effectiveDate, LocalDate expiryDate) {
+                                               LocalDate effectiveDate, LocalDate expiryDate, String certificateType) {
         send(tenantId, ownerCompanyId, certificateId, versionId, actorId, EVENT_RENEWAL_CANDIDATE_UPLOADED,
-                eventKey, "延续版本已入库", productName, certificateNo, effectiveDate, expiryDate);
+                eventKey, "延续版本已入库", productName, certificateNo, effectiveDate, expiryDate, isCe(certificateType));
     }
 
     public void notifyRenewalCandidateActivated(Long tenantId, Long ownerCompanyId, Long certificateId,
                                                 Long versionId, Long actorId, String eventKey,
                                                 String productName, String certificateNo,
-                                                LocalDate effectiveDate, LocalDate expiryDate) {
+                                                LocalDate effectiveDate, LocalDate expiryDate, String certificateType) {
         send(tenantId, ownerCompanyId, certificateId, versionId, actorId, EVENT_RENEWAL_CANDIDATE_ACTIVATED,
-                eventKey, "延续版本已生效", productName, certificateNo, effectiveDate, expiryDate);
+                eventKey, "延续版本已生效", productName, certificateNo, effectiveDate, expiryDate, isCe(certificateType));
     }
 
     public void notifyChangeApprovalRecorded(Long tenantId, Long ownerCompanyId, Long certificateId,
                                              Long versionId, Long actorId, String eventKey,
                                              String productName, String certificateNo,
-                                             LocalDate effectiveDate, LocalDate expiryDate) {
+                                             LocalDate effectiveDate, LocalDate expiryDate, String certificateType) {
         Map<String,Object> params=detailParams("变更已生效，请确认",productName,certificateNo,effectiveDate,expiryDate);
         changeConfirmationService.send(new DccRegistrationCertificateBusinessEventNotificationCommand(
                 tenantId,ownerCompanyId,certificateId,versionId,actorId,EVENT_CHANGE_APPROVAL_RECORDED,
-                eventKey,List.of(),null,params),configService.resolveChangeConfirmationRecipientUserIds(tenantId));
+                eventKey,List.of(),null,params),resolveChangeRecipients(tenantId, certificateType));
+    }
+
+    private List<Long> resolveChangeRecipients(Long tenantId, String certificateType) {
+        return isCe(certificateType) ? viewerRecipientResolver.resolve(tenantId)
+                : configService.resolveChangeConfirmationRecipientUserIds(tenantId);
     }
 
     private void send(Long tenantId, Long ownerCompanyId, Long certificateId, Long versionId, Long actorId,
                       String eventType, String eventKey, String eventTitle, String productName,
-                      String certificateNo, LocalDate effectiveDate, LocalDate expiryDate) {
+                      String certificateNo, LocalDate effectiveDate, LocalDate expiryDate, boolean notifyViewers) {
         Map<String, Object> detailParams = detailParams(eventTitle, productName, certificateNo,
                 effectiveDate, expiryDate);
-        List<Long> recipientUserIds = configService.resolveRecipientUserIds(tenantId);
-        notificationService.sendToUsers(new DccRegistrationCertificateBusinessEventNotificationCommand(
+        var command = new DccRegistrationCertificateBusinessEventNotificationCommand(
                 tenantId, ownerCompanyId, certificateId, versionId, actorId, eventType, eventKey,
-                List.of(), null, detailParams), recipientUserIds);
+                List.of(), null, detailParams);
+        if (notifyViewers) {
+            notificationService.sendToExactUsers(command, viewerRecipientResolver.resolve(tenantId));
+        } else {
+            notificationService.sendToUsers(command, configService.resolveRecipientUserIds(tenantId));
+        }
+    }
+
+    private static boolean isCe(String certificateType) {
+        if (certificateType == null || !java.util.Set.of("DOMESTIC", "CE", "FDA").contains(certificateType)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_TEMPLATE_PARAM_MISSING);
+        }
+        return "CE".equals(certificateType);
     }
 
     private static Map<String, Object> detailParams(String eventTitle, String productName, String certificateNo,

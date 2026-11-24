@@ -308,6 +308,7 @@ public interface DccRegistrationCertificateQueryMapper {
 
         private static String reminderStateExpression() {
             String domestic = "CASE"
+                    + " WHEN #{query.businessDate} > CAST(" + fact("expiryDate") + " AS DATE) THEN 'EXPIRED'"
                     + " WHEN " + reminderDateCrossed(1) + " THEN 'T_1'"
                     + " WHEN " + reminderDateCrossed(2) + " THEN 'T_2'"
                     + " WHEN " + reminderDateCrossed(8) + " AND " + REMINDER_CLEARED_EXISTS_EXPRESSION
@@ -316,6 +317,7 @@ public interface DccRegistrationCertificateQueryMapper {
                     + " WHEN " + reminderDateCrossed(30) + " THEN 'T_30'"
                     + " ELSE 'NONE' END";
             String ce = "CASE"
+                    + " WHEN #{query.businessDate} > CAST(" + fact("expiryDate") + " AS DATE) THEN 'EXPIRED'"
                     + " WHEN " + reminderDateCrossed(3) + " THEN 'CE_T_3'"
                     + " WHEN " + reminderDateCrossed(12) + " AND " + REMINDER_CLEARED_EXISTS_EXPRESSION + " THEN 'CLEARED'"
                     + " WHEN " + reminderDateCrossed(12) + " THEN 'CE_T_12'"
@@ -327,7 +329,7 @@ public interface DccRegistrationCertificateQueryMapper {
 
         private static String reminderPrioritySortExpression() {
             return "CASE (" + REMINDER_STATE_EXPRESSION + ")"
-                    + " WHEN 'T_1' THEN 4 WHEN 'T_2' THEN 3 WHEN 'CE_T_3' THEN 3"
+                    + " WHEN 'EXPIRED' THEN 5 WHEN 'T_1' THEN 4 WHEN 'T_2' THEN 3 WHEN 'CE_T_3' THEN 3"
                     + " WHEN 'T_8' THEN 2 WHEN 'CE_T_12' THEN 2"
                     + " WHEN 'T_30' THEN 1 WHEN 'CE_T_18' THEN 1 ELSE 0 END";
         }
@@ -352,8 +354,15 @@ public interface DccRegistrationCertificateQueryMapper {
             var fields = new java.util.LinkedHashMap<String, ListFilterQueryUtils.Field>();
             fields.put("ownerCompanyName", ListFilterQueryUtils.text(OWNER_COMPANY_NAME_SORT_EXPRESSION));
             fields.put("productName", ListFilterQueryUtils.text("s.product_name"));
+            fields.put("modelSpecification", ListFilterQueryUtils.text("s.model_specification"));
+            fields.put("registrantName", ListFilterQueryUtils.text("s.registrant_name"));
+            fields.put("productionAddress", ListFilterQueryUtils.text("s.production_address"));
+            fields.put("entrustedEnterpriseName", ListFilterQueryUtils.textCollection(
+                    "JSON_UNQUOTE(JSON_EXTRACT(s.entrusted_enterprises_json, '$[*].enterpriseName'))",
+                    "WITH RECURSIVE enterprises(idx) AS (SELECT 0 WHERE JSON_LENGTH(s.entrusted_enterprises_json) > 0 UNION ALL SELECT idx + 1 FROM enterprises WHERE idx + 1 < JSON_LENGTH(s.entrusted_enterprises_json)) SELECT 1 FROM enterprises WHERE 1=1",
+                    "JSON_UNQUOTE(JSON_EXTRACT(s.entrusted_enterprises_json, CONCAT('$[', enterprises.idx, '].enterpriseName')))"));
             fields.put("versionNo", ListFilterQueryUtils.text("v.version_no"));
-            String status = "CASE v.status WHEN 'DRAFT' THEN '草稿' WHEN 'PENDING_EFFECTIVE' THEN '待生效' WHEN 'CURRENT' THEN '当前有效' WHEN 'OLD' THEN '旧证' WHEN 'VOIDED' THEN '已作废' ELSE '未识别状态' END";
+            String status = "CASE v.status WHEN 'DRAFT' THEN '草稿' WHEN 'PENDING_EFFECTIVE' THEN '待生效' WHEN 'CURRENT' THEN CASE WHEN (" + REMINDER_STATE_EXPRESSION + ") = 'EXPIRED' THEN '已过期' ELSE '当前版本' END WHEN 'OLD' THEN '旧证' WHEN 'VOIDED' THEN '已作废' ELSE '未识别状态' END";
             if (oldIndex) status = "CONCAT('已被替换，原有效期至 ', COALESCE(" + fact("expiryDate") + ", '—'))";
             fields.put("status", ListFilterQueryUtils.text(status));
             for (String key : java.util.List.of("certificateNo", "classification", "remark"))
@@ -364,7 +373,7 @@ public interface DccRegistrationCertificateQueryMapper {
                 fields.put("projectCode", ListFilterQueryUtils.text("CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN " + fact("projectCode") + " ELSE pc.project_code END"));
                 fields.put("hasProjectCode", ListFilterQueryUtils.text("CASE WHEN (" + PROJECT_CODE_EXISTS_SORT_EXPRESSION + ") = 1 THEN '已提供' ELSE '缺失' END"));
                 fields.put("hasRegistrationFile", ListFilterQueryUtils.text("CASE WHEN (" + REGISTRATION_FILE_EXISTS_SORT_EXPRESSION + ") = 1 THEN '已提供' ELSE '缺失' END"));
-                fields.put("reminder", ListFilterQueryUtils.text("CASE (" + REMINDER_STATE_EXPRESSION + ") WHEN 'T_30' THEN '到期前 30 个月' WHEN 'T_8' THEN '到期前 8 个月' WHEN 'T_2' THEN '到期前 2 个月' WHEN 'T_1' THEN '到期前 1 个月' ELSE '正常' END"));
+                fields.put("reminder", ListFilterQueryUtils.text("CASE (" + REMINDER_STATE_EXPRESSION + ") WHEN 'EXPIRED' THEN '已过期' WHEN 'CE_T_18' THEN 'CE 到期前 18 个月' WHEN 'CE_T_12' THEN 'CE 到期前 12 个月' WHEN 'CE_T_3' THEN 'CE 到期前 3 个月' WHEN 'CLEARED' THEN '正常' WHEN 'T_30' THEN '到期前 30 个月' WHEN 'T_8' THEN '到期前 8 个月' WHEN 'T_2' THEN '到期前 2 个月' WHEN 'T_1' THEN '到期前 1 个月' ELSE '正常' END"));
             }
             var request = new PageParam();
             request.setListFilters(query.getListFilters());
@@ -521,7 +530,7 @@ public interface DccRegistrationCertificateQueryMapper {
                             <when test="field == 'entrustedProduction'">AND CASE WHEN s.entrusted_production THEN 'true' ELSE 'false' END = #{value}</when>
                             <when test="field == 'selfProduction'">AND CASE WHEN s.self_production THEN 'true' ELSE 'false' END = #{value}</when>
                             <when test="field == 'projectCode'">AND (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END) LIKE CONCAT('%',#{value},'%')</when>
-                            <when test="field == 'entrustedEnterpriseName'">AND EXISTS(SELECT 1 FROM dcc_registration_certificate_snapshot_entrusted se WHERE se.tenant_id=s.tenant_id AND se.snapshot_id=s.id AND se.enterprise_name_snapshot LIKE CONCAT('%',#{value},'%') AND se.deleted=0)</when>
+                            <when test="field == 'entrustedEnterpriseName'">AND JSON_UNQUOTE(JSON_EXTRACT(s.entrusted_enterprises_json, '$[*].enterpriseName')) LIKE CONCAT('%', #{value}, '%')</when>
                             <otherwise>AND JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, CONCAT('$.', #{field}))) LIKE CONCAT('%', #{value}, '%')</otherwise>
                           </choose>
                         </foreach>
@@ -592,7 +601,7 @@ public interface DccRegistrationCertificateQueryMapper {
                         AND s.production_address LIKE CONCAT('%', #{query.productionAddress}, '%')
                       </if>
                       <if test="query.entrustedEnterpriseName != null and query.entrustedEnterpriseName != ''">
-                        AND EXISTS (SELECT 1 FROM dcc_registration_certificate_snapshot_entrusted se WHERE se.tenant_id = c.tenant_id AND se.snapshot_id = s.id AND se.deleted = 0 AND se.enterprise_name_snapshot LIKE CONCAT('%', #{query.entrustedEnterpriseName}, '%'))
+                        AND JSON_UNQUOTE(JSON_EXTRACT(s.entrusted_enterprises_json, '$[*].enterpriseName')) LIKE CONCAT('%', #{query.entrustedEnterpriseName}, '%')
                       </if>
                       <if test="query.projectCode != null and query.projectCode != ''">
                         AND (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END) LIKE CONCAT('%', #{query.projectCode}, '%')
@@ -685,7 +694,7 @@ public interface DccRegistrationCertificateQueryMapper {
                         AND s.production_address LIKE CONCAT('%', #{query.productionAddress}, '%')
                       </if>
                       <if test="query.entrustedEnterpriseName != null and query.entrustedEnterpriseName != ''">
-                        AND EXISTS (SELECT 1 FROM dcc_registration_certificate_snapshot_entrusted se WHERE se.tenant_id = c.tenant_id AND se.snapshot_id = s.id AND se.deleted = 0 AND se.enterprise_name_snapshot LIKE CONCAT('%', #{query.entrustedEnterpriseName}, '%'))
+                        AND JSON_UNQUOTE(JSON_EXTRACT(s.entrusted_enterprises_json, '$[*].enterpriseName')) LIKE CONCAT('%', #{query.entrustedEnterpriseName}, '%')
                       </if>
                       <if test="query.projectCode != null and query.projectCode != ''">
                         AND (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END) LIKE CONCAT('%', #{query.projectCode}, '%')

@@ -49,6 +49,9 @@ import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.
 @RequestMapping("/erp/sale-order")
 @Validated
 public class ErpSaleOrderController {
+    @Resource
+    private cn.iocoder.yudao.module.erp.service.product.ErpProductUnitService productUnitService;
+
 
     @Resource
     private ErpSaleOrderService saleOrderService;
@@ -61,6 +64,8 @@ public class ErpSaleOrderController {
 
     @Resource
     private AdminUserApi adminUserApi;
+    @Resource
+    private cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRuntimeService syncRuntimeService;
     @Resource
     private ErpKingdeeSaleOrderSyncService kingdeeSaleOrderSyncService;
 
@@ -75,7 +80,17 @@ public class ErpSaleOrderController {
     @Operation(summary = "从 Kingdee K3Cloud 同步销售订单")
     @PreAuthorize("@ss.hasPermission('erp:sale-order:create')")
     public CommonResult<ErpKingdeeSaleOrderSyncRespVO> syncKingdeeSaleOrders() {
-        ErpKingdeeSaleOrderSyncResult result = kingdeeSaleOrderSyncService.syncSaleOrders();
+        java.util.concurrent.atomic.AtomicReference<ErpKingdeeSaleOrderSyncResult> imported = new java.util.concurrent.atomic.AtomicReference<>();
+        syncRuntimeService.executeSync(cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncCommand.builder()
+                .syncType(cn.iocoder.yudao.module.erp.enums.sync.ErpKingdeeSyncTypeEnum.SALE_ORDER)
+                .triggerType(cn.iocoder.yudao.module.erp.enums.sync.ErpKingdeeSyncTriggerTypeEnum.MANUAL)
+                .windowEnd(java.time.LocalDateTime.now()).build(), context -> {
+            ErpKingdeeSaleOrderSyncResult value = kingdeeSaleOrderSyncService.syncSaleOrders();
+            imported.set(value);
+            return cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult.success(
+                    null, value.getCreatedCount(), value.getUpdatedCount(), value.getSkippedCount(), 0);
+        });
+        ErpKingdeeSaleOrderSyncResult result = imported.get();
         return success(BeanUtils.toBean(result, ErpKingdeeSaleOrderSyncRespVO.class));
     }
 
@@ -117,12 +132,17 @@ public class ErpSaleOrderController {
         List<ErpSaleOrderItemDO> saleOrderItemList = saleOrderService.getSaleOrderItemListByOrderId(id);
         Map<Long, ErpProductRespVO> productMap = productService.getProductVOMap(
                 convertSet(saleOrderItemList, ErpSaleOrderItemDO::getProductId));
+        var unitIds = saleOrderItemList.stream().map(ErpSaleOrderItemDO::getProductUnitId)
+                .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+        var unitMap = unitIds.isEmpty() ? java.util.Map.<Long, cn.iocoder.yudao.module.erp.dal.dataobject.product.ErpProductUnitDO>of()
+                : productUnitService.getProductUnitMap(unitIds);
         return success(BeanUtils.toBean(saleOrder, ErpSaleOrderRespVO.class, saleOrderVO ->
                 saleOrderVO.setItems(BeanUtils.toBean(saleOrderItemList, ErpSaleOrderRespVO.Item.class, item -> {
                     BigDecimal stockCount = stockService.getStockCount(item.getProductId());
                     item.setStockCount(stockCount != null ? stockCount : BigDecimal.ZERO);
                     MapUtils.findAndThen(productMap, item.getProductId(), product -> item.setProductName(product.getName())
-                            .setProductBarCode(product.getBarCode()).setProductUnitName(product.getUnitName()));
+                            .setProductBarCode(product.getBarCode()).setProductUnitName(item.getProductUnitId() == null || unitMap.get(item.getProductUnitId()) == null
+                                    ? null : unitMap.get(item.getProductUnitId()).getName()));
                 }))));
     }
 
@@ -157,6 +177,10 @@ public class ErpSaleOrderController {
         // 1.2 产品信息
         Map<Long, ErpProductRespVO> productMap = productService.getProductVOMap(
                 convertSet(saleOrderItemList, ErpSaleOrderItemDO::getProductId));
+        var unitIds = saleOrderItemList.stream().map(ErpSaleOrderItemDO::getProductUnitId)
+                .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+        var unitMap = unitIds.isEmpty() ? java.util.Map.<Long, cn.iocoder.yudao.module.erp.dal.dataobject.product.ErpProductUnitDO>of()
+                : productUnitService.getProductUnitMap(unitIds);
         // 1.3 客户信息
         Map<Long, ErpCustomerDO> customerMap = customerService.getCustomerMap(
                 convertSet(pageResult.getList(), ErpSaleOrderDO::getCustomerId));
@@ -168,7 +192,8 @@ public class ErpSaleOrderController {
         return BeanUtils.toBean(pageResult, ErpSaleOrderRespVO.class, saleOrder -> {
             saleOrder.setItems(BeanUtils.toBean(saleOrderItemMap.get(saleOrder.getId()), ErpSaleOrderRespVO.Item.class,
                     item -> MapUtils.findAndThen(productMap, item.getProductId(), product -> item.setProductName(product.getName())
-                            .setProductBarCode(product.getBarCode()).setProductUnitName(product.getUnitName()))));
+                            .setProductBarCode(product.getBarCode()).setProductUnitName(item.getProductUnitId() == null || unitMap.get(item.getProductUnitId()) == null
+                                    ? null : unitMap.get(item.getProductUnitId()).getName()))));
             saleOrder.setProductNames(CollUtil.join(saleOrder.getItems(), "，", ErpSaleOrderRespVO.Item::getProductName));
             MapUtils.findAndThen(customerMap, saleOrder.getCustomerId(), supplier -> saleOrder.setCustomerName(supplier.getName()));
             // ERP imports do not necessarily have a platform creator.

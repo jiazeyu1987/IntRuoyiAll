@@ -695,7 +695,7 @@ class MesProRouteVersionWorkflowServiceTest {
                   "configSnapshots": {
                     "flowGraph": {
                       "nodes": [
-                        {"routeProcessId": 10, "processId": 20, "sort": 1}
+                        {"routeProcessId": 10, "processId": 20, "sort": 1, "sopFileUrl": "/sop.pdf"}
                       ],
                       "edges": []
                     },
@@ -728,7 +728,7 @@ class MesProRouteVersionWorkflowServiceTest {
                   "configSnapshots": {
                     "flowGraph": {
                       "nodes": [
-                        {"routeProcessId": 10, "processId": 20, "sort": 1}
+                        {"routeProcessId": 10, "processId": 20, "sort": 1, "sopFileUrl": "/sop.pdf"}
                       ],
                       "edges": []
                     },

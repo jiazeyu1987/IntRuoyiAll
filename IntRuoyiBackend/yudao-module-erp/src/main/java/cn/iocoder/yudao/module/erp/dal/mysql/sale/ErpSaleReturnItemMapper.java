@@ -23,11 +23,13 @@ import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.
 public interface ErpSaleReturnItemMapper extends BaseMapperX<ErpSaleReturnItemDO> {
 
     default List<ErpSaleReturnItemDO> selectListByReturnId(Long returnId) {
-        return selectList(ErpSaleReturnItemDO::getReturnId, returnId);
+        return selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ErpSaleReturnItemDO>().eq(ErpSaleReturnItemDO::getReturnId, returnId)
+                .last(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive() ? "FOR UPDATE" : ""));
     }
 
     default List<ErpSaleReturnItemDO> selectListByReturnIds(Collection<Long> returnIds) {
-        return selectList(ErpSaleReturnItemDO::getReturnId, returnIds);
+        return selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ErpSaleReturnItemDO>().in(ErpSaleReturnItemDO::getReturnId, returnIds)
+                .last(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive() ? "FOR UPDATE" : ""));
     }
 
     default int deleteByReturnId(Long returnId) {
@@ -44,13 +46,14 @@ public interface ErpSaleReturnItemMapper extends BaseMapperX<ErpSaleReturnItemDO
         if (CollUtil.isEmpty(returnIds)) {
             return Collections.emptyMap();
         }
-        // SQL sum 查询
-        List<Map<String, Object>> result = selectMaps(new QueryWrapper<ErpSaleReturnItemDO>()
-                .select("order_item_id, SUM(count) AS sum_count")
-                .groupBy("order_item_id")
-                .in("return_id", returnIds));
-        // 获得数量
-        return convertMap(result, obj -> (Long) obj.get("order_item_id"), obj -> (BigDecimal) obj.get("sum_count"));
+        List<ErpSaleReturnItemDO> rows = selectList(new QueryWrapper<ErpSaleReturnItemDO>()
+                .in("return_id", returnIds).last(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive() ? "FOR UPDATE" : ""));
+        Map<Long, BigDecimal> result = new java.util.HashMap<>();
+        for (var row : rows) {
+            if (row.getCount() == null) throw new IllegalStateException("单据明细数量为空");
+            result.merge(row.getOrderItemId(), row.getCount(), BigDecimal::add);
+        }
+        return result;
     }
 
 }
