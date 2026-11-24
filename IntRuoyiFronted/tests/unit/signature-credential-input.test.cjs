@@ -138,3 +138,33 @@ test('selected worker lookup failure blocks signing instead of using current log
   assert.equal(loginLookups, 0)
   h.close()
 })
+
+
+test('optional PIN visibility starts masked and resets when signature settings change', async () => {
+  const h = mountScript('src/components/SignatureCredentialInput/SignatureCredentialInput.vue', { modelValue: '', allowPinVisibility: true }, modules(async () => ({ credentialType: 'PIN' })))
+  try {
+    await settle()
+    assert.equal(h.state.pinVisible.value, false)
+    h.state.pinVisible.value = true
+    window.dispatchEvent(new Event('signature-settings-changed'))
+    await settle()
+    assert.equal(h.state.pinVisible.value, false)
+  } finally { h.close() }
+})
+
+
+for (const credentialType of ['PASSWORD', 'PIN']) test(`assignment ${credentialType} visibility is opt-in and resets with signature settings`, async () => {
+  const h = mountScript('src/components/SignatureCredentialInput/SignatureCredentialInput.vue', { modelValue: '', assignmentPresentation: true, allowPinVisibility: true }, modules(async () => ({ credentialType })))
+  try {
+    await settle()
+    assert.equal(h.state.resolvedType.value, credentialType)
+    assert.equal(h.state.passwordVisible.value, false)
+    assert.equal(h.state.pinVisible.value, false)
+    h.state.passwordVisible.value = true
+    h.state.pinVisible.value = true
+    window.dispatchEvent(new Event('signature-settings-changed'))
+    await settle()
+    assert.equal(h.state.passwordVisible.value, false)
+    assert.equal(h.state.pinVisible.value, false)
+  } finally { h.close() }
+})

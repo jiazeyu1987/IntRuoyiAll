@@ -462,6 +462,7 @@
             ref="signoffAssignmentRef"
             v-if="fileDetail && approvalTodoTask && canShowSignoffAssignment"
             :blocked="actionDialog?.visible"
+            :department-names="deptNameMap" :user-names="approvalUserNameMap"
             :file-id="fileDetail.id" :process-instance-id="approvalProcessInstanceId" :task-id="String(approvalTodoTask.id)"
             @state="handleSignoffAssignmentState" @saved="handleSignoffAssignmentSaved"
           >
@@ -564,6 +565,7 @@
       ref="signoffAssignmentRef"
       v-if="!isApprovalUploadHandlingPage && fileDetail && approvalTodoTask && canShowSignoffAssignment"
       :blocked="actionDialog?.visible"
+      :department-names="deptNameMap" :user-names="approvalUserNameMap"
       :file-id="fileDetail.id" :process-instance-id="approvalProcessInstanceId" :task-id="String(approvalTodoTask.id)"
       @state="handleSignoffAssignmentState" @saved="handleSignoffAssignmentSaved"
     >

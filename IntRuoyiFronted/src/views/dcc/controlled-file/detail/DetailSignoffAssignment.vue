@@ -8,8 +8,11 @@
       :file-id="context.controlledFileId"
       :process-instance-id="context.processInstanceId"
       :task-id="context.taskId"
-      :department-name="context.departmentName || `部门代码：${context.departmentId}`"
-      :users="context.assigneeOptions"
+      :department-name="assignmentDepartmentName"
+      :current-user-id="userStore.getUser.id"
+      :supplemental-count="supplementalFiles.length"
+      :arrangement-count="arrangementCount"
+      :users="assignmentUsers"
       :assigned="context.assigned"
       :blocked="blocked"
       :arrangements-ready="ready && context.canAssign && !supplementLoading && !supplementVisible"
@@ -20,35 +23,24 @@
         <slot name="actions" :disabled="disabled"></slot>
       </template>
       <template #relation-arrangements="{ disabled }">
-        <div v-if="canSupplement">
-          <el-button :disabled="disabled || supplementLoading" :loading="supplementLoading" @click="openSupplement">
-            补充关联文件
-          </el-button>
-          <el-alert v-if="supplementError" :title="supplementError" type="error" :closable="false" />
-          <p>本次补充 {{ supplementalFiles.length }} 个。已确认的文件随本次指派签名保存，原有关联继续保留。</p>
-          <ul v-if="supplementalFiles.length" class="m-0 pl-20px">
-            <li v-for="file in supplementalFiles" :key="file.masterId">{{ file.fileName }} · 文件编号：{{ file.fileNumber }} · 关联版本：{{ file.versionNo }}</li>
-          </ul>
-          <p v-else>尚未确认补充文件</p>
+        <div class="relation-toolbar">
+          <el-button v-if="canSupplement" :disabled="disabled || supplementLoading" :loading="supplementLoading" @click="openSupplement">补充关联文件</el-button>
+          <span v-if="ready">原有关联 {{ relations.length }} 份 · 本次补充 {{ supplementalFiles.length }} 份</span>
         </div>
-        <p v-else-if="ready">本环节不支持补充关联文件</p>
+        <el-alert v-if="supplementError" :title="supplementError" type="error" :closable="false" />
         <p v-if="error">原有关联文件或整改安排读取失败，请处理上方错误后重新打开当前任务。</p>
         <p v-else-if="!ready">原有关联文件正在加载，请稍候核对。</p>
-        <div v-else>
-          <p>原有关联文件：{{ relations.length }} 个</p>
-          <ul v-if="relations.length" class="m-0 pl-20px">
-            <li v-for="file in relations" :key="file.masterId">{{ file.fileName }} · {{ file.versionNo }}</li>
-          </ul>
-          <p v-else>无原有关联文件</p>
-        </div>
         <DetailRelationArrangements
-          v-if="context.processDefinitionKey === 'dcc-controlled-file-revision'"
+          v-if="ready"
           ref="arrangementsRef"
           :context-key="contextKey"
-          :relations="relations"
+          :relations="displayRelations"
           :users="users"
           :saved="savedArrangements"
+          :remediable="context.processDefinitionKey === 'dcc-controlled-file-revision'"
           :disabled="disabled || !ready || !context.canAssign"
+          @remove="removeSupplement"
+          @count-change="arrangementCount = $event"
         />
       </template>
     </SignoffAssignmentPanel>
@@ -61,6 +53,7 @@
       supplemental
       :directories="[]"
       :selected="supplementalFiles"
+      :locked-relations="relations"
       :load-page="loadSupplementPage"
       :persist="confirmSupplement"
       :open-preview="previewSupplement"
@@ -69,6 +62,7 @@
 </template>
 <script setup lang="ts">
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
+import { useUserStore } from '@/store/modules/user'
 import {
   getSignoffAssignmentContext,
   getControlledFileRelationPermissions,
@@ -91,7 +85,13 @@ import {
   type SignoffAssignment,
   type ArrangementCommand
 } from '../workflow/workflow-actions'
-const props = defineProps<{ fileId: number | string; processInstanceId: string; taskId: string; blocked?: boolean }>()
+const props = defineProps<{
+  fileId: number | string; processInstanceId: string; taskId: string; blocked?: boolean
+  departmentNames?: ReadonlyMap<number, string>
+  userNames?: ReadonlyMap<number, string>
+}>()
+const userStore = useUserStore()
+const arrangementCount = ref(0)
 const assignmentPanelRef = ref<InstanceType<typeof SignoffAssignmentPanel>>()
 defineExpose({ scrollToForm: () => assignmentPanelRef.value?.scrollToForm() })
 const emit = defineEmits<{
@@ -102,12 +102,27 @@ const context = ref<SignoffAssignmentContext>(),
   error = ref(''),
   loading = ref(false),
   ready = ref(false)
+const displayName = (names: ReadonlyMap<number, string> | undefined, id: string) =>
+  Array.from(names || []).find(([key]) => String(key) === id)?.[1]?.trim()
+const assignmentDepartmentName = computed(() => context.value
+  ? displayName(props.departmentNames, context.value.departmentId) || context.value.departmentName?.trim() || '' : '')
+const assignmentUsers = computed(() => (context.value?.assigneeOptions || []).map(user => ({
+  ...user, name: displayName(props.userNames, user.id) || user.name?.trim() || user.username?.trim() || ''
+})))
 const users = ref<Array<{ id: string; name: string }>>([])
-const relations = ref<Array<{ masterId: string; fileName: string; versionNo: string }>>([])
+const relations = ref<Array<{ masterId: string; fileName: string; fileNumber?: string; versionNo: string }>>([])
 const savedArrangements = ref<ArrangementCommand[]>([])
 const arrangementsRef = ref<InstanceType<typeof DetailRelationArrangements>>()
 const supplementSource = ref<SelectorSource>()
 const supplementalFiles = ref<FileCandidate[]>([])
+const displayRelations = computed(() => [
+  ...relations.value.map(file => ({ ...file, supplemental: false })),
+  ...supplementalFiles.value.map(file => ({ ...file, supplemental: true }))
+])
+const removeSupplement = (masterId: string) => {
+  if (props.blocked || context.value?.assigned || !canSupplement.value || supplementLoading.value || supplementVisible.value) return
+  supplementalFiles.value = supplementalFiles.value.filter(file => file.masterId !== masterId)
+}
 const supplementVisible = ref(false), supplementLoading = ref(false), supplementError = ref('')
 const canSupplement = computed(() => ready.value && context.value?.canAssign && !context.value.assigned
   && context.value.controlledFileId === String(props.fileId)
@@ -117,10 +132,10 @@ const contextKey = computed(() =>
   JSON.stringify([String(props.fileId), props.processInstanceId, props.taskId])
 )
 let generation = 0
-const relationList = (history: Array<{ masterId: string | number; fileName: string; versionNo: string }>) => {
+const relationList = (history: Array<{ masterId: string | number; fileName: string; fileNumber?: string; versionNo: string }>) => {
   if (!Array.isArray(history) || history.some(row => !isWorkflowId(row.masterId) || !row.fileName || !row.versionNo))
     throw new Error('本次审阅关联版本快照不完整')
-  return history.map(row => ({ masterId: String(row.masterId), fileName: row.fileName, versionNo: row.versionNo }))
+  return history.map(row => ({ masterId: String(row.masterId), fileName: row.fileName, fileNumber: row.fileNumber, versionNo: row.versionNo }))
 }
 onBeforeUnmount(() => {
   generation++
@@ -136,6 +151,7 @@ watch(
     relations.value = []
     users.value = []
     savedArrangements.value = []
+    arrangementCount.value = 0
     supplementSource.value = undefined
     supplementalFiles.value = []
     supplementVisible.value = false
@@ -223,7 +239,7 @@ const confirmSupplement = async (rows: FileCandidate[]) => {
     if (row.tenantId !== source.tenantId || row.projectId !== source.projectId
       || typeof row.controlledFileId !== 'string' || !isWorkflowId(row.controlledFileId)
       || typeof row.masterId !== 'string' || !isWorkflowId(row.masterId)
-      || row.masterId === source.masterId || masters.has(row.masterId)
+      || row.masterId === source.masterId || relations.value.some(file => file.masterId === row.masterId) || masters.has(row.masterId)
       || !row.controlled || row.status !== 'ACTIVE' || row.pendingEffect || !row.executable || !row.canPreview)
       throw new Error('只能后补当前项目中有正文查看权限的其他已生效固定版本，且不能重复')
     masters.add(row.masterId)
@@ -279,3 +295,8 @@ const onSaved = (value: { fileId: number | string; processInstanceId: string; ta
   }
 }
 </script>
+
+<style scoped>
+.relation-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+.relation-toolbar span { color: var(--el-text-color-secondary); font-size: 13px; }
+</style>
