@@ -91,20 +91,22 @@
                 >
                 <el-table-column type="selection" :reserve-selection="true" width="55" fixed="left" />
                 <el-table-column
+                  v-if="isCurrentColumnVisible('certificateType')"
+                  label="注册证类型"
+                  prop="certificateType"
+                  :width="getCurrentColumnWidthString('certificateType', 120)"
+                >
+                  <template #default="{ row }">
+                    {{ formatListCertificateType(row.factsJson) }}
+                  </template>
+                </el-table-column>
+                <el-table-column
                   v-if="isCurrentColumnVisible('certificateNo')"
                   label="注册证编号"
                   prop="certificateNo"
                   :min-width="getCurrentColumnMinWidthString('certificateNo', 180)"
                   :width="getCurrentColumnWidthString('certificateNo')"
                   v-bind="sortColumnAttrs('certificateNo')"
-                />
-                <el-table-column
-                  v-if="isCurrentColumnVisible('ownerCompanyName')"
-                  label="所属公司"
-                  prop="ownerCompanyName"
-                  :min-width="getCurrentColumnMinWidthString('ownerCompanyName', 180)"
-                  :width="getCurrentColumnWidthString('ownerCompanyName')"
-                  v-bind="sortColumnAttrs('ownerCompanyName')"
                 />
                 <el-table-column
                   v-if="isCurrentColumnVisible('productName')"
@@ -117,6 +119,52 @@
                   <template #default="{ row }">
                     {{ row.productName }}
                     <el-tag v-if="row.historicalImport" size="small">历史导入</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isCurrentColumnVisible('ownerCompanyName')"
+                  label="所属公司"
+                  prop="ownerCompanyName"
+                  :min-width="getCurrentColumnMinWidthString('ownerCompanyName', 180)"
+                  :width="getCurrentColumnWidthString('ownerCompanyName')"
+                  v-bind="sortColumnAttrs('ownerCompanyName')"
+                />
+                <el-table-column
+                  v-if="isCurrentColumnVisible('status')"
+                  label="状态"
+                  prop="status"
+                  align="center"
+                  :width="getCurrentColumnWidthString('status', 130)"
+                  v-bind="sortColumnAttrs('status')"
+                >
+                  <template #default="{ row }">
+                    <el-tag :type="getRegistrationCertificateStatusTagType(row.status)">
+                      {{ formatRegistrationCertificateStatus(row.status) }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isCurrentColumnVisible('expiryDate')"
+                  label="有效期至"
+                  prop="expiryDate"
+                  :width="getCurrentColumnWidthString('expiryDate', 120)"
+                  v-bind="sortColumnAttrs('expiryDate')"
+                >
+                  <template #default="{ row }">
+                    {{ formatRegistrationCertificateDate(row.expiryDate) }}
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isCurrentColumnVisible('reminder')"
+                  label="提醒状态"
+                  prop="reminder"
+                  :width="getCurrentColumnWidthString('reminder', 120)"
+                  v-bind="sortColumnAttrs('reminder')"
+                >
+                  <template #default="{ row }">
+                    <el-tag :type="getRegistrationCertificateReminderTagType(row.reminderColor)">
+                      {{ formatRegistrationCertificateReminder(row.visualState) }}
+                    </el-tag>
                   </template>
                 </el-table-column>
                 <el-table-column
@@ -136,41 +184,6 @@
                   v-bind="sortColumnAttrs('projectCode')"
                 />
                 <el-table-column
-                  v-if="isCurrentColumnVisible('versionNo')"
-                  label="版本"
-                  prop="versionNo"
-                  align="center"
-                  :width="getCurrentColumnWidthString('versionNo', 90)"
-                  v-bind="sortColumnAttrs('versionNo')"
-                />
-                <el-table-column
-                  v-if="isCurrentColumnVisible('status')"
-                  label="状态"
-                  prop="status"
-                  align="center"
-                  :width="getCurrentColumnWidthString('status', 130)"
-                  v-bind="sortColumnAttrs('status')"
-                >
-                  <template #default="{ row }">
-                    <el-tag :type="getRegistrationCertificateStatusTagType(row.status)">
-                      {{ formatRegistrationCertificateStatus(row.status) }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column
-                  v-if="isCurrentColumnVisible('reminder')"
-                  label="提醒状态"
-                  prop="reminder"
-                  :width="getCurrentColumnWidthString('reminder', 120)"
-                  v-bind="sortColumnAttrs('reminder')"
-                >
-                  <template #default="{ row }">
-                    <el-tag :type="getRegistrationCertificateReminderTagType(row.reminderColor)">
-                      {{ formatRegistrationCertificateReminder(row.visualState) }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column
                   v-if="isCurrentColumnVisible('hasProjectCode')"
                   label="项目代码"
                   prop="hasProjectCode"
@@ -185,19 +198,13 @@
                   </template>
                 </el-table-column>
                 <el-table-column
-                  v-if="isCurrentColumnVisible('hasRegistrationFile')"
-                  label="注册证文件"
-                  prop="hasRegistrationFile"
+                  v-if="isCurrentColumnVisible('versionNo')"
+                  label="版本"
+                  prop="versionNo"
                   align="center"
-                  :width="getCurrentColumnWidthString('hasRegistrationFile', 120)"
-                  v-bind="sortColumnAttrs('hasRegistrationFile')"
-                >
-                  <template #default="{ row }">
-                    <el-tag :type="getMissingMarkerTagType(row.hasRegistrationFile)">
-                      {{ formatMissingMarker(row.hasRegistrationFile) }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
+                  :width="getCurrentColumnWidthString('versionNo', 90)"
+                  v-bind="sortColumnAttrs('versionNo')"
+                />
                 <el-table-column
                   v-if="isCurrentColumnVisible('approvalDate')"
                   label="批准日"
@@ -221,14 +228,17 @@
                   </template>
                 </el-table-column>
                 <el-table-column
-                  v-if="isCurrentColumnVisible('expiryDate')"
-                  label="有效期至"
-                  prop="expiryDate"
-                  :width="getCurrentColumnWidthString('expiryDate', 120)"
-                  v-bind="sortColumnAttrs('expiryDate')"
+                  v-if="isCurrentColumnVisible('hasRegistrationFile')"
+                  label="注册证文件"
+                  prop="hasRegistrationFile"
+                  align="center"
+                  :width="getCurrentColumnWidthString('hasRegistrationFile', 120)"
+                  v-bind="sortColumnAttrs('hasRegistrationFile')"
                 >
                   <template #default="{ row }">
-                    {{ formatRegistrationCertificateDate(row.expiryDate) }}
+                    <el-tag :type="getMissingMarkerTagType(row.hasRegistrationFile)">
+                      {{ formatMissingMarker(row.hasRegistrationFile) }}
+                    </el-tag>
                   </template>
                 </el-table-column>
                 <el-table-column
@@ -470,6 +480,7 @@ import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter
 import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 
 import CategoryFilters from '../shared/CategoryFilters.vue'
+import { formatListCertificateType } from '../shared/listDisplay'
 import MyApplications from '../upload/MyApplications.vue'
 const configRouter = useRouter()
 import { computed, onActivated, onMounted, reactive, ref, watch } from 'vue'
@@ -627,19 +638,20 @@ const OLD_SERVER_SORT_FIELDS = new Set<RegistrationCertificateSortField>([
 ])
 
 const currentColumnDefinitions: UserTableColumnDefinition[] = [
+  { key: 'certificateType', label: '注册证类型', width: 120 },
   { key: 'certificateNo', label: '注册证编号', minWidth: 180, sortable: 'custom' },
-  { key: 'ownerCompanyName', label: '所属公司', minWidth: 180, sortable: 'custom' },
   { key: 'productName', label: '产品', minWidth: 180, sortable: 'custom' },
+  { key: 'ownerCompanyName', label: '所属公司', minWidth: 180, sortable: 'custom' },
+  { key: 'status', label: '状态', width: 130, sortable: 'custom' },
+  { key: 'expiryDate', label: '有效期至', width: 120, sortable: 'custom' },
+  { key: 'reminder', label: '提醒状态', width: 120, sortable: 'custom' },
   { key: 'classification', label: '分类', minWidth: 110, sortable: 'custom' },
   { key: 'projectCode', label: '实际项目代码', minWidth: 150, sortable: 'custom' },
-  { key: 'versionNo', label: '版本', width: 90, sortable: 'custom' },
-  { key: 'status', label: '状态', width: 130, sortable: 'custom' },
-  { key: 'reminder', label: '提醒状态', width: 120, sortable: 'custom' },
   { key: 'hasProjectCode', label: '项目代码', width: 110, sortable: 'custom' },
-  { key: 'hasRegistrationFile', label: '注册证文件', width: 120, sortable: 'custom' },
+  { key: 'versionNo', label: '版本', width: 90, sortable: 'custom' },
   { key: 'approvalDate', label: '批准日', width: 120, sortable: 'custom' },
   { key: 'effectiveDate', label: '生效日', width: 120, sortable: 'custom' },
-  { key: 'expiryDate', label: '有效期至', width: 120, sortable: 'custom' },
+  { key: 'hasRegistrationFile', label: '注册证文件', width: 120, sortable: 'custom' },
   { key: 'remark', label: '备注', minWidth: 220, sortable: 'custom' },
   { key: 'actions', label: '操作', width: 150, hideable: false, business: false, sortable: false }
 ]
