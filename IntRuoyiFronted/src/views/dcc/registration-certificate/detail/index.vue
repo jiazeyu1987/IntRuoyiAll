@@ -18,11 +18,11 @@
           <h2>{{ detail.certificateNo }}</h2>
           <p>{{ detail.ownerCompanyName }} / {{ detail.productName }}</p>
         </div>
-        <el-tag :type="getRegistrationCertificateStatusTagType(detail.status, detail.visualState)" effect="dark">
-          {{ formatRegistrationCertificateStatus(detail.status, detail.visualState) }}
+        <el-tag :type="getRegistrationCertificateStatusTagType(detail.status, detail.visualState, detail.expiryDate)" effect="dark">
+          {{ formatRegistrationCertificateStatus(detail.status, detail.visualState, detail.expiryDate) }}
         </el-tag>
-        <el-tag :type="getRegistrationCertificateReminderTagType(detail.reminderColor)">
-          提醒：{{ formatRegistrationCertificateReminder(detail.visualState) }}
+        <el-tag :type="getRegistrationCertificateReminderTagType(detail.reminderColor, detail.expiryDate)">
+          提醒：{{ formatRegistrationCertificateReminder(detail.visualState, detail.expiryDate) }}
         </el-tag>
       </div>
 

@@ -139,8 +139,8 @@
                   v-bind="sortColumnAttrs('status')"
                 >
                   <template #default="{ row }">
-                    <el-tag :type="getRegistrationCertificateStatusTagType(row.status)">
-                      {{ formatRegistrationCertificateStatus(row.status) }}
+                    <el-tag :type="getRegistrationCertificateStatusTagType(row.status, row.visualState, row.expiryDate)">
+                      {{ formatRegistrationCertificateStatus(row.status, row.visualState, row.expiryDate) }}
                     </el-tag>
                   </template>
                 </el-table-column>
@@ -163,8 +163,8 @@
                   v-bind="sortColumnAttrs('reminder')"
                 >
                   <template #default="{ row }">
-                    <el-tag :type="getRegistrationCertificateReminderTagType(row.reminderColor)">
-                      {{ formatRegistrationCertificateReminder(row.visualState) }}
+                    <el-tag :type="getRegistrationCertificateReminderTagType(row.reminderColor, row.expiryDate)">
+                      {{ formatRegistrationCertificateReminder(row.visualState, row.expiryDate) }}
                     </el-tag>
                   </template>
                 </el-table-column>
@@ -378,8 +378,8 @@
                   v-bind="sortColumnAttrs('status')"
                 >
                   <template #default="{ row }">
-                    <el-tag :type="getRegistrationCertificateStatusTagType(row.status, row.visualState)">
-                      {{ row.status === 'OLD' ? '已被替换，原有效期至 ' + formatRegistrationCertificateDate(row.expiryDate) : formatRegistrationCertificateStatus(row.status, row.visualState) }}
+                    <el-tag :type="getRegistrationCertificateStatusTagType(row.status, row.visualState, row.expiryDate)">
+                      {{ row.status === 'OLD' ? '已被替换，原有效期至 ' + formatRegistrationCertificateDate(row.expiryDate) : formatRegistrationCertificateStatus(row.status, row.visualState, row.expiryDate) }}
                     </el-tag>
                   </template>
                 </el-table-column>
@@ -1232,13 +1232,13 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
     key: 'status',
     label: '状态',
     type: 'text',
-    getValue: (row) => [formatRegistrationCertificateStatus(row.status, row.visualState)].join(' ')
+    getValue: (row) => [formatRegistrationCertificateStatus(row.status, row.visualState, row.expiryDate)].join(' ')
   },
   {
     key: 'reminder',
     label: '提醒状态',
     type: 'text',
-    getValue: (row) => [formatRegistrationCertificateReminder(row.visualState)].join(' ')
+    getValue: (row) => [formatRegistrationCertificateReminder(row.visualState, row.expiryDate)].join(' ')
   },
   {
     key: 'hasProjectCode',
@@ -1264,7 +1264,7 @@ const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() =
       [
         row.status === 'OLD'
           ? '已被替换，原有效期至 ' + formatRegistrationCertificateDate(row.expiryDate)
-          : formatRegistrationCertificateStatus(row.status, row.visualState)
+          : formatRegistrationCertificateStatus(row.status, row.visualState, row.expiryDate)
       ].join(' ')
   }
 ])
