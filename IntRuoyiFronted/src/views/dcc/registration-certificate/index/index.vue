@@ -45,10 +45,7 @@
               >
                 <Icon icon="ep:bell" class="mr-5px" />通知设置
               </el-button>
-              <WorkbookImport
-                v-if="checkPermi(['dcc:registration-certificate:historical-import']) && checkPermi(['dcc:registration-certificate:upload:approve'])"
-                @imported="loadPage"
-              />
+              <WorkbookImport @imported="loadPage" />
               <el-button v-if="canUploadRegistrationCertificate" type="primary" @click="openUploadDialog">
                 <Icon icon="ep:upload" class="mr-5px" />上传注册证
               </el-button>
