@@ -23,6 +23,8 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_
 
 @Service
 public class DccRegistrationCertificateCommandTransactionService {
+    @jakarta.annotation.Resource
+    private DccRegistrationCertificateProductBindingService productBindings;
 
     private final DccRegistrationCertificateMapper certificateMapper;
     private final DccRegistrationCertificateVersionMapper versionMapper;
@@ -71,6 +73,8 @@ public class DccRegistrationCertificateCommandTransactionService {
         if (certificate.getId() == null || certificate.getId() <= 0) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
         }
+        var products = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(draft.factsJson()).getProjectProducts();
+        productBindings.reserve(metadata.tenantId(), certificate.getId(), products == null ? java.util.List.of() : products, metadata.actorId());
         context.resolveTrustedIdentity(draft.ownerCompanyId(), certificate.getId());
 
         DccRegistrationCertificateVersionDO version = DccRegistrationCertificateVersionDO.builder()
@@ -120,6 +124,9 @@ public class DccRegistrationCertificateCommandTransactionService {
                 metadata.actorId(), state.certificate().getOwnerCompanyId());
         DccRegistrationCertificateResolvedDraft resolved = prerequisiteValidator.validate(
                 metadata.tenantId(), metadata.actorId(), draft);
+        productBindings.releasePending(metadata.tenantId(), certificateId);
+        var products = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(draft.factsJson()).getProjectProducts();
+        productBindings.reserve(metadata.tenantId(), certificateId, products == null ? java.util.List.of() : products, metadata.actorId());
         draftRepository.replaceDraft(state, draft, resolved, metadata.tenantId(),
                 expectedRowVersion, expectedSnapshotRevision);
         context.resolveTrustedIdentity(draft.ownerCompanyId(), certificateId);
@@ -136,6 +143,7 @@ public class DccRegistrationCertificateCommandTransactionService {
         prerequisiteValidator.validateCompanyScope(
                 metadata.actorId(), state.certificate().getOwnerCompanyId());
         draftRepository.deleteDraft(state, metadata.tenantId(), expectedRowVersion, expectedSnapshotRevision);
+        productBindings.releasePending(metadata.tenantId(), certificateId);
         auditService.recordSuccess(metadata, context, state.version().getId(), state.snapshot().getId(), null);
         return certificateId;
     }
@@ -191,6 +199,8 @@ public class DccRegistrationCertificateCommandTransactionService {
         DccRegistrationCertificateDraftData stored = storedDraft(state);
         DccRegistrationCertificateResolvedDraft resolved = prerequisiteValidator.validate(
                 metadata.tenantId(), validationActorId, stored);
+        var products = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(stored.factsJson()).getProjectProducts();
+        productBindings.confirm(metadata.tenantId(), certificateId, products == null ? java.util.List.of() : products, metadata.actorId());
         DccRegistrationCertificateFormalizationResult result = formalizationService.formalize(
                 state, resolved, metadata.tenantId(), metadata.actorId(), expectedRowVersion, businessFileId);
         auditService.recordSuccess(metadata, context, result.versionId(), result.snapshotId(), result.businessFileId());

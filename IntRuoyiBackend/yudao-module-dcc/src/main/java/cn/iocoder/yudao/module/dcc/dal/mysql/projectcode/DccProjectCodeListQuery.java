@@ -98,7 +98,7 @@ public final class DccProjectCodeListQuery {
         // Aggregate effective associations once per tenant, rather than rescan every file for each project.
         String fileCounts = " LEFT JOIN (SELECT linked.project_id,COUNT(*) AS file_count FROM ("
                 + "SELECT COALESCE(cf.dcc_project_code_id,(SELECT rr.matched_project_code_id FROM dcc_controlled_file_recognition_record rr WHERE rr.controlled_file_id=cf.id AND rr.tenant_id=#{tenantId} AND rr.deleted=0 AND rr.status='SUCCESS' AND rr.matched_project_code_id IS NOT NULL ORDER BY rr.id DESC LIMIT 1)) AS project_id FROM dcc_controlled_file cf WHERE cf.tenant_id=#{tenantId} AND cf.deleted=0"
-                + " UNION ALL SELECT rf.dcc_project_code_id AS project_id FROM dcc_registration_certificate_file rf WHERE rf.tenant_id=#{tenantId} AND rf.deleted=0 AND rf.status='BOUND'"
+                + " UNION ALL SELECT bp.project_code_id AS project_id FROM dcc_registration_certificate_file rf LEFT JOIN dcc_registration_certificate_version rv ON rf.owner_type='VERSION' AND rv.id=rf.owner_id AND rv.tenant_id=rf.tenant_id AND rv.deleted=0 LEFT JOIN dcc_registration_certificate_change rc ON rf.owner_type='CHANGE' AND rc.id=rf.owner_id AND rc.tenant_id=rf.tenant_id AND rc.deleted=0 JOIN dcc_registration_certificate_product bp ON bp.tenant_id=rf.tenant_id AND bp.certificate_id=COALESCE(rv.certificate_id,rc.certificate_id) AND bp.state='BOUND' WHERE rf.tenant_id=#{tenantId} AND rf.deleted=0 AND rf.status='BOUND'"
                 + ") linked WHERE linked.project_id IS NOT NULL GROUP BY linked.project_id) fc ON fc.project_id=p.id";
         String fileCount = "COALESCE(fc.file_count,0)";
         // The legacy stored count must not collide with the live association count below.

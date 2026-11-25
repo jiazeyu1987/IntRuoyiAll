@@ -4,6 +4,7 @@ export type CertificateType = 'DOMESTIC' | 'CE' | 'FDA'
 export interface CertificateFacts {
   certificateType: CertificateType
   ownProduct: boolean
+  projectProducts?: DccRegistrationCertificateProjectProduct[]
   projectProduct?: DccRegistrationCertificateProjectProduct
   certificateStatus?: string
   modelSpecifications?: string[]

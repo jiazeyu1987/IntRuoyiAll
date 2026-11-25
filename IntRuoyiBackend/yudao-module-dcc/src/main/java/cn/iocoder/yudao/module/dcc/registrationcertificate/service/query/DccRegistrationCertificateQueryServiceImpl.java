@@ -293,6 +293,8 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
         return DccRegistrationCertificateDetail.builder()
                 .certificateId(row.getCertificateId())
                 .rowVersion(row.getRowVersion())
+                .hasPendingChange(Boolean.TRUE.equals(row.getHasPendingChange()))
+                .hasPendingRenewal(Boolean.TRUE.equals(row.getHasPendingRenewal()))
                 .versionId(row.getVersionId())
                 .snapshotId(row.getSnapshotId())
                 .snapshotRevision(row.getSnapshotRevision())

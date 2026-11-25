@@ -36,7 +36,7 @@ function mount(apiOverrides = {}, props = {}) {
   const component = run(script.content).default
   component.render = run(template.code).render
   const app = renderer.createApp(component, { modelValue: false, ...props })
-  for (const name of ['el-dialog', 'el-form', 'el-row', 'el-col', 'el-form-item', 'el-select', 'el-option', 'el-input', 'el-button', 'el-alert', 'el-upload', 'el-checkbox']) {
+  for (const name of ['el-dialog', 'el-form', 'el-row', 'el-col', 'el-form-item', 'el-select', 'el-option', 'el-input', 'el-button', 'el-alert', 'el-upload', 'el-checkbox', 'el-radio', 'el-radio-group', 'Icon']) {
     app.component(name, { inheritAttrs: false, setup: (_, { attrs, slots }) => () => vue.h(name, attrs, [slots.default?.(), slots.footer?.()]) })
   }
   const host = node('root')
@@ -45,23 +45,24 @@ function mount(apiOverrides = {}, props = {}) {
 }
 function elements(host, type) { return [ ...(host.type === type ? [host] : []), ...host.children.flatMap(child => elements(child, type)) ] }
 
-test('选定项目自动显示正式DCC产品，编码和名称只读', async () => {
+test('选定项目显示正式DCC产品，证载名称可编辑且不改变产品关联', async () => {
   const { state, host, app } = mount()
-  state.projectCodeId = '501'
+  state.projectCodeIds = ['501']
   await flush()
   assert.equal(state.productName, 'DCC产品501')
   assert.equal(state.facts.projectProduct.productCode, '0313170202')
   const inputs = elements(host, 'el-input')
   assert.ok(inputs.some(input => input.props['model-value'] === '0313170202' && Object.hasOwn(input.props, 'readonly')))
-  assert.ok(inputs.some(input => input.props.modelValue === 'DCC产品501' && input.props.readonly))
+  assert.ok(inputs.some(input => input.props.modelValue === 'DCC产品501' && !input.props.readonly))
+  state.productName = '证载产品名称'; assert.equal(state.facts.projectProduct.productName, 'DCC产品501')
   app.unmount()
 })
 
 test('快速切换项目时，旧请求不能覆盖新项目产品', async () => {
   const pending = new Map()
   const { state, app } = mount({ getUploadProjectProduct: id => new Promise(resolve => pending.set(id, resolve)) })
-  state.projectCodeId = '501'; await flush()
-  state.projectCodeId = '502'; await flush()
+  state.projectCodeIds = ['501']; await flush()
+  state.projectCodeIds = ['502']; await flush()
   pending.get('502')(product('502')); await flush()
   pending.get('501')(product('501')); await flush()
   assert.equal(state.productName, 'DCC产品502')
@@ -71,7 +72,7 @@ test('快速切换项目时，旧请求不能覆盖新项目产品', async () =>
 
 test('缺少绑定时清空旧产品并禁止提交', async () => {
   const { state, host, app } = mount({ getUploadProjectProduct: async () => { throw new Error('项目尚未绑定有效的DCC产品') } })
-  state.productName = '旧产品'; state.projectCodeId = '501'; await flush()
+  state.productName = '旧产品'; state.projectCodeIds = ['501']; await flush()
   assert.equal(state.productName, '')
   assert.equal(state.facts.projectProduct, undefined)
   assert.match(state.productError, /项目尚未绑定/)
@@ -81,8 +82,8 @@ test('缺少绑定时清空旧产品并禁止提交', async () => {
 
 test('清空项目后不会保留产品，非瑛泰产品仍可手填名称', async () => {
   const { state, app } = mount()
-  state.projectCodeId = '501'; await flush()
-  state.projectCodeId = undefined; await flush()
+  state.projectCodeIds = ['501']; await flush()
+  state.projectCodeIds = []; await flush()
   assert.equal(state.productName, '')
   assert.equal(state.facts.projectProduct, undefined)
   state.facts.ownProduct = false; await flush()

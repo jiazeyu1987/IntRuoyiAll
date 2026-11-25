@@ -73,6 +73,9 @@ public class DccRegistrationCertificateUploadService {
 
 
 
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService productBindings;
+
     private static final String REQUEST_TYPE_UPLOAD_CERTIFICATE = "UPLOAD_CERTIFICATE";
     private static final String REQUEST_OPERATION_UPLOAD_CERTIFICATE = "UPLOAD_CERTIFICATE";
     private static final String STATUS_SUBMITTED = "SUBMITTED";
@@ -184,6 +187,32 @@ public class DccRegistrationCertificateUploadService {
         return prerequisiteValidator.resolveProjectProduct(requireProjectCode(tenantId, actorId, projectCodeId, true));
     }
 
+    public java.util.Map<String,Object> candidateBinding(Long tenantId, Long projectId, Long excludedCertificateId) {
+        var rows = projectProductMapper.selectBindings(tenantId, projectId);
+        var result = new java.util.LinkedHashMap<String,Object>();
+        var projectOccupied = productBindings.projectOccupancy(tenantId,projectId);
+        if(projectOccupied!=null && !Objects.equals(projectOccupied.certificateId(),excludedCertificateId)) {
+            result.put("disabled",true);result.put("bindingMessage",cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService.conflictMessage("该项目关联产品",projectOccupied));return result;
+        }
+        for (var row : rows) {
+            var occupied = productBindings.occupancy(tenantId, row.productCatalogId());
+            if (occupied != null && !Objects.equals(occupied.certificateId(), excludedCertificateId)) {
+                result.put("disabled", true);
+                result.put("bindingMessage", cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService.conflictMessage(row.productName(),occupied));
+                return result;
+            }
+        }
+        if (rows.isEmpty()) { result.put("disabled",true);result.put("bindingMessage","尚未绑定有效DCC产品"); }
+        return result;
+    }
+
+    public Long rejectedCertificateId(Long tenantId, Long actorId, Long sourceRequestId) {
+        return sourceRequestId == null ? null : requireRejectedSource(tenantId,actorId,sourceRequestId).getCertificateId();
+    }
+
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateProjectProductMapper projectProductMapper;
+
     @Transactional(rollbackFor = Exception.class)
     public DccRegistrationCertificateUploadSubmitResult submitUploadForApproval(
             Long tenantId, Long actorId, String idempotencyKey, String requestTraceId,
@@ -230,6 +259,7 @@ public class DccRegistrationCertificateUploadService {
             requestFile.setStatus(REQUEST_FILE_STATUS_REJECTED);
             requireUpdated(requestFileMapper.updateById(requestFile));
         }
+        productBindings.releasePending(tenantId, request.getCertificateId());
         registrationHandlingTasks.recordDecision(tenantId, actorId, requestId, false, reason);
     }
 
@@ -257,17 +287,22 @@ public class DccRegistrationCertificateUploadService {
         }
         Long productMasterId = Boolean.TRUE.equals(facts.getOwnProduct()) && projectCode != null ? projectCode.getProductMasterId() : null;
         if (Boolean.TRUE.equals(facts.getOwnProduct())) {
-            var product = prerequisiteValidator.resolveProjectProduct(projectCode);
-            if (facts.getProjectProduct() != null && !Objects.equals(facts.getProjectProduct(), product)) {
-                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
-                        "项目的DCC产品关联已变更，请重新选择项目");
+            var selected = facts.getProjectProducts();
+            if (selected == null || selected.isEmpty()) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("请选择至少一个系统项目代码");
+            var products = new java.util.ArrayList<DccRegistrationCertificateProjectProduct>();
+            var ids = new java.util.HashSet<Long>();
+            for (var selection : selected) {
+                if (selection == null) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("产品关联不能为空");
+                var actualProject = requireProjectCode(tenantId, actorId, selection.projectCodeId(), handlingTaskId != null);
+                var product = prerequisiteValidator.resolveProjectProduct(actualProject);
+                if (!Objects.equals(product, selection)) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("项目的DCC产品关联已变更，请重新选择项目");
+                if (!ids.add(product.productCatalogId())) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("多个项目指向同一产品，请保留一个项目");
+                products.add(product);
             }
-            if (!Objects.equals(productName, product.productName())) {
-                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
-                        cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCT_NAME_MISMATCH, product.productName());
-            }
-            facts.setProjectProduct(product);
-        } else if (projectCode != null || facts.getProjectProduct() != null) {
+            if (!Objects.equals(products.get(0).projectCodeId(), projectCodeId)) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("首个项目与产品关联不一致");
+            facts.setProjectProduct(products.get(0));
+            facts.setProjectProducts(products);
+        } else if (projectCode != null || facts.getProjectProduct() != null || facts.getProjectProducts() != null && !facts.getProjectProducts().isEmpty()) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH);
         }
         List<UploadFile> attachments = command.attachments() == null ? List.of() : command.attachments().stream().map(DccRegistrationCertificateUploadService::requireUploadFile).toList();

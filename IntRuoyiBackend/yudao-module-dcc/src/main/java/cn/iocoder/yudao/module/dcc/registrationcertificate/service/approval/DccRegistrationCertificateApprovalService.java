@@ -54,6 +54,8 @@ import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approv
 @Service
 @Slf4j
 public class DccRegistrationCertificateApprovalService {
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService productBindings;
 
     @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
@@ -307,6 +309,7 @@ public class DccRegistrationCertificateApprovalService {
         request.setWithdrawReason(reason.trim());
         request.setCompletedAt(request.getWithdrawnAt());
         requireUpdated(requestMapper.updateById(request));
+        if (isInitialUploadRequest(request)) productBindings.releasePending(tenantId, request.getCertificateId());
         registrationHandlingTasks.recordWithdrawal(tenantId, actorId, requestId, reason.trim());
         if (binding != null) {
             bpmProcessInstanceApi.cancelProcessInstance(actorId, binding.getBpmProcessInstanceId(), reason.trim());
@@ -345,6 +348,7 @@ public class DccRegistrationCertificateApprovalService {
         recordTerminalApprovalKey(binding, command.approvalKey());
         requireUpdated(requestMapper.updateById(request));
         requireUpdated(bindingMapper.updateById(binding));
+        if (isInitialUploadRequest(request)) productBindings.releasePending(tenantId, request.getCertificateId());
         registrationHandlingTasks.recordWithdrawal(tenantId, actorId, request.getId(), command.rejectReason().trim());
         return result(request, binding, List.of());
     }

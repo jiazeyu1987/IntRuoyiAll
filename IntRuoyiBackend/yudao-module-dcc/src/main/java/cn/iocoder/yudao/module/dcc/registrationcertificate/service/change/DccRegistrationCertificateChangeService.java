@@ -347,7 +347,7 @@ public class DccRegistrationCertificateChangeService {
             throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID);
         Map<?,?> oldValues=JsonUtils.parseObject(before.factsJson(),Map.class);
         Map<?,?> newValues=JsonUtils.parseObject(changes.get("CERTIFICATE_INFORMATION"),Map.class);
-        Set<String> protectedFields = Set.of("projectProduct", "projectCode", "ownerCompanyId", "projectCodeId", "productMasterId");
+        Set<String> protectedFields = Set.of("ownProduct", "projectProduct", "projectProducts", "projectCode", "ownerCompanyId", "projectCodeId", "productMasterId");
         for (String field : protectedFields) if (!Objects.equals(oldValues.get(field), newValues.get(field)))
             throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID);
         for(var entry:oldValues.entrySet()) if(entry.getValue()!=null && !newValues.containsKey(entry.getKey()))

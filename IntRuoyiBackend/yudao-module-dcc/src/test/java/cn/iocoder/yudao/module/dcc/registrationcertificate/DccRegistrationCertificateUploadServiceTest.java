@@ -137,7 +137,7 @@ class DccRegistrationCertificateUploadServiceTest {
     }
 
     @ParameterizedTest
-    @org.junit.jupiter.params.provider.CsvSource({"MDM,,DOMESTIC", "CATALOG,,DOMESTIC", "MDM,701,DOMESTIC", "MDM,,CE"})
+    @org.junit.jupiter.params.provider.CsvSource({"MDM,,DOMESTIC", "CATALOG,,DOMESTIC", "MDM,701,DOMESTIC", "MDM,,CE", "MULTI,,DOMESTIC", "MULTI,,CE", "STATED,,DOMESTIC"})
     void submitUploadUsesBoundDccProductRegardlessOfShowroomBinding(String productSource, Long handlingTaskId, String certificateType) {
         mockOwnedCompany();
         if ("MDM".equals(productSource)) mockProjectCode();
@@ -171,6 +171,16 @@ class DccRegistrationCertificateUploadServiceTest {
         when(registrationHandlingTasks.resolveUploadTaskId(null, handlingTaskId)).thenReturn(handlingTaskId);
 
         var command = uploadCommand(1001L, 501L, "一次性使用无菌导管", true, false, List.of(301L, 302L), handlingTaskId);
+        if ("MULTI".equals(productSource)) {
+            var secondary=DccProjectCodeDO.builder().id(1002L).status(DccProjectCodeStatusConstants.ENABLE).build();secondary.setTenantId(TENANT_ID);
+            when(projectCodeService.getProjectCode(ACTOR_ID,1002L)).thenReturn(secondary);
+            var facts=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(command.factsJson());
+            var first=facts.getProjectProduct();
+            var second=new DccRegistrationCertificateProjectProduct(1002L,664L,"P664","产品乙",List.of(new DccRegistrationCertificateProjectProduct.Binding("CONFIRMED",57L)));
+            when(projectProductService.resolve(any())).thenAnswer(inv->inv.<DccProjectCodeDO>getArgument(0).getId().equals(1001L)?first:second);
+            facts.setProjectProducts(List.of(first,second));
+            command=new DccRegistrationCertificateUploadCommand(command.projectCodeId(),command.companyId(),"一次性使用无菌导管、产品乙",command.certificateNo(),command.firstObtainedDate(),command.effectiveDate(),command.expiryDate(),command.classification(),command.entrustedProduction(),command.selfProduction(),command.entrustedEnterpriseIds(),command.remark(),command.file(),facts.toJson(),List.of(),List.of(),null,List.of(),handlingTaskId);
+        }
         if ("CE".equals(certificateType)) {
             var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(command.factsJson());
             facts.setCertificateType("CE");facts.setCertificateNo(null);facts.setFirstObtainedDate(null);facts.setEffectiveDate(null);
@@ -179,6 +189,9 @@ class DccRegistrationCertificateUploadServiceTest {
             command = new DccRegistrationCertificateUploadCommand(command.projectCodeId(),command.companyId(),command.productName(),
                     null,null,null,command.expiryDate(),command.classification(),command.entrustedProduction(),command.selfProduction(),
                     command.entrustedEnterpriseIds(),command.remark(),command.file(),facts.toJson(),List.of(),List.of(),null,List.of(),handlingTaskId);
+        }
+        if ("STATED".equals(productSource)) {
+            command = new DccRegistrationCertificateUploadCommand(command.projectCodeId(),command.companyId(),"证载产品名称",command.certificateNo(),command.firstObtainedDate(),command.effectiveDate(),command.expiryDate(),command.classification(),command.entrustedProduction(),command.selfProduction(),command.entrustedEnterpriseIds(),command.remark(),command.file(),command.factsJson(),List.of(),List.of(),null,List.of(),handlingTaskId);
         }
         DccRegistrationCertificateUploadSubmitResult result = uploadService.submitUploadForApproval(
                 TENANT_ID, ACTOR_ID, "UPLOAD-KEY-1", "TRACE-1", command);
@@ -196,7 +209,8 @@ class DccRegistrationCertificateUploadServiceTest {
             assertNull(draft.getValue().firstObtainedDate());
         }
         assertEquals(501L, draft.getValue().ownerCompanyId());
-        assertEquals("一次性使用无菌导管", draft.getValue().productName());
+        assertEquals("STATED".equals(productSource)?"证载产品名称":"MULTI".equals(productSource)?"一次性使用无菌导管、产品乙":"一次性使用无菌导管", draft.getValue().productName());
+        assertEquals("MULTI".equals(productSource)?2:1,cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(draft.getValue().factsJson()).getProjectProducts().size());
         assertEquals(1001L, draft.getValue().projectCodeId());
         assertEquals(Boolean.TRUE, draft.getValue().entrustedProduction());
         assertEquals(Boolean.FALSE, draft.getValue().selfProduction());
@@ -333,7 +347,7 @@ class DccRegistrationCertificateUploadServiceTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"unbound", "duplicate", "name-mismatch", "outage"})
+    @ValueSource(strings = {"unbound", "duplicate", "outage"})
     void submitUploadRejectsInvalidCatalogIdentityBeforeCreatingDraftOrFile(String failure) {
         mockOwnedCompany();
         mockProjectCodeWithoutProductBinding();
@@ -343,19 +357,13 @@ class DccRegistrationCertificateUploadServiceTest {
             assertEquals(outage, assertThrows(IllegalStateException.class, () -> uploadService.submitUploadForApproval(
                     TENANT_ID, ACTOR_ID, "CATALOG-INVALID", "TRACE-INVALID", uploadCommand(false, true, List.of()))));
         } else {
-            if (!"name-mismatch".equals(failure)) {
-                when(projectProductService.resolve(any())).thenThrow(new ServiceException(
-                        cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH));
-            }
+            when(projectProductService.resolve(any())).thenThrow(new ServiceException(
+                    cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH));
             var error = assertThrows(ServiceException.class, () -> uploadService.submitUploadForApproval(
                     TENANT_ID, ACTOR_ID, "CATALOG-INVALID", "TRACE-INVALID",
-                    uploadCommand(1001L, "name-mismatch".equals(failure) ? "其他产品" : "一次性使用无菌导管",
+                    uploadCommand(1001L, "一次性使用无菌导管",
                             false, true, List.of())));
-            assertEquals(("name-mismatch".equals(failure)
-                    ? cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCT_NAME_MISMATCH
-                    : cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH)
-                    .getCode(), error.getCode());
-            if ("name-mismatch".equals(failure)) org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("一次性使用无菌导管"));
+            assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH.getCode(), error.getCode());
         }
         verify(commandService, never()).createDraft(any(), any(), any(), any(), any());
         org.mockito.Mockito.verifyNoInteractions(fileService, productApi);
@@ -615,6 +623,10 @@ class DccRegistrationCertificateUploadServiceTest {
         facts.setCertificateType("DOMESTIC");facts.setCertificateStatus("VALID");facts.setOwnProduct(ownProduct);
         facts.setCertificateNo("REG-CERT-UPLOAD-1");facts.setClassification("A类");
         facts.setApprovalDate(LocalDate.of(2025,1,1));facts.setFirstObtainedDate(LocalDate.of(2025,1,1));facts.setEffectiveDate(LocalDate.of(2025,1,2));
+        if(ownProduct) {
+            var product=new DccRegistrationCertificateProjectProduct(1001L,663L,"0313170202","一次性使用无菌导管",List.of(new DccRegistrationCertificateProjectProduct.Binding("CONFIRMED",56L)));
+            facts.setProjectProduct(product);facts.setProjectProducts(List.of(product));
+        }
         if(!ownProduct)facts.setProjectCode("CUSTOMER-PRJ-01");facts.setExpiryDate(LocalDate.of(2026,1,1));facts.setRemark("上传注册证审批");
         return facts.toJson();
     }

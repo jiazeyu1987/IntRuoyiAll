@@ -103,6 +103,8 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
         this.transactionTemplate = new TransactionTemplate(require(transactionManager, "transactionManager"));
     }
 
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService productBindings;
+
     @Override
     public DccRegistrationCertificateFileDownloadResult download(Long tenantId, Long userId, Long businessFileId,
                                                                  String attemptKey,
@@ -121,8 +123,9 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
             DccRegistrationCertificateSnapshotDO snapshot = requireFileSnapshot(tenantId, version.getId(), businessFile);
             grant = accessPolicyService.requireDownloadGrant(tenantId, userId, businessFileId, now);
             DccRegistrationCertificateAccessRequestDO request = requireRequest(tenantId, grant.getRequestId());
-            DccProjectCodeDO projectCode = resolveLiveProjectCode(request.getProjectCodeId(),
-                    certificate.getProductMasterId());
+            if (request.getProjectCodeId()!=null && !productBindings.containsProject(tenantId,certificate.getId(),request.getProjectCodeId()))
+                throw new ServiceException(REGISTRATION_CERTIFICATE_DOWNLOAD_PROJECT_CODE_INVALID);
+            DccProjectCodeDO projectCode = resolveLiveProjectCode(request.getProjectCodeId(), null);
             String fileName = buildFileName(projectCode, certificate, version, snapshot, businessFile);
             String lockKey = tenantId + ":" + grant.getId() + ":" + businessFileId;
             Object lock = downloadLocks.computeIfAbsent(lockKey, ignored -> new Object());

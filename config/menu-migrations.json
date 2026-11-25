@@ -5060,6 +5060,9 @@
       "kind": "permission",
       "value": "system:role-category:create",
       "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 system:role-category:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
-    }
+    },
+    {"source":"IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/upload/DccRegistrationCertificateProductController.java","kind":"permission","value":"dcc:registration-certificate:upload:create","reason":"注册证详情内的一证多产品关联维护，复用现有 dcc:registration-certificate:upload:create 与 query-current 权限，不新增菜单、角色或租户套餐授权。"},
+    {"source":"IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/upload/DccRegistrationCertificateProductController.java","kind":"permission","value":"dcc:registration-certificate:query-current","reason":"注册证详情内的一证多产品关联维护，复用现有 dcc:registration-certificate:upload:create 与 query-current 权限，不新增菜单、角色或租户套餐授权。"},
+    {"source":"IntRuoyiFronted/src/views/dcc/registration-certificate/components/ProductBindings.vue","kind":"permission","value":"dcc:registration-certificate:upload:create","reason":"注册证详情内的一证多产品关联维护，复用现有 dcc:registration-certificate:upload:create 与 query-current 权限，不新增菜单、角色或租户套餐授权。"}
   ]
 }

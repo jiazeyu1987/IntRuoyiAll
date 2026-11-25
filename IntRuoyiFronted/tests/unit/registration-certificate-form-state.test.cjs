@@ -127,14 +127,14 @@ test('task upload resolves catalog name and blocks submit while identity is load
   c.props.modelValue=true;await drain();c.state.facts={...domestic(),ownProduct:true};await drain();assert.equal(pending[0].id,'349');assert.equal(c.state.productLoading,true)
   await c.state.submit();assert.match(c.state.error,/请先选择/);assert.equal(calls.length,0)
   pending[0].resolve({projectCodeId:'349',productCatalogId:'663',productCode:'0313170202',productName:'11.9测试',bindings:[]});await drain();assert.equal(c.state.productName,'11.9测试');assert.equal(c.state.facts.projectProduct.productName,'11.9测试')
-  c.state.projectCodeId='350';await drain();pending[1].reject(Error('项目绑定产品不可用'));await drain();await c.state.submit();assert.match(c.state.error,/项目绑定产品不可用/);assert.equal(calls.length,0)
+  c.state.projectCodeIds=['350'];await drain();pending[1].reject(Error('项目绑定产品不可用'));await drain();await c.state.submit();assert.match(c.state.error,/项目绑定产品不可用/);assert.equal(calls.length,0)
  }finally{c.app.unmount()}
 })
 
 test('changing project ignores late product response and non-owned product retains editable name',async()=>{
  const pending=[],c=mount('upload/UploadDialog.vue',{modelValue:false},uploadApi({getUploadProjectProduct:id=>new Promise(resolve=>pending.push({id,resolve}))}))
  try{
-  c.props.modelValue=true;await drain();c.state.facts.ownProduct=true;c.state.projectCodeId='1';await drain();c.state.projectCodeId='2';await drain()
+  c.props.modelValue=true;await drain();c.state.facts.ownProduct=true;c.state.projectCodeIds=['1'];await drain();c.state.projectCodeIds=['2'];await drain()
   pending[1].resolve({projectCodeId:'2',productName:'新产品'});await drain();pending[0].resolve({projectCodeId:'1',productName:'旧产品'});await drain();assert.equal(c.state.productName,'新产品')
   c.state.facts.ownProduct=false;await drain();assert.equal(c.state.facts.projectProduct,undefined);c.state.productName='手填产品';assert.equal(c.state.productName,'手填产品')
  }finally{c.app.unmount()}
@@ -145,7 +145,7 @@ test('binding an existing project submits normally while the task entry submits 
   const calls=[],project={id:'356',projectCode:'PRJ-356',projectName:'小马宝莉云宝'}
   const c=mount('upload/UploadDialog.vue',{modelValue:false,...(handlingTaskId?{handlingTaskId,taskProject:project}:{})},uploadApi({getUploadProjectCodes:async()=>[project],getUploadProjectProduct:async()=>({projectCodeId:'356',productCatalogId:'663',productCode:'PRODUCT-1',productName:'云宝产品',bindings:[]}),submitRegistrationCertificateUpload:async data=>calls.push(data)}))
   try{
-   c.props.modelValue=true;await drain();Object.assign(c.state.facts,domestic(),{ownProduct:true});c.state.companyId=10;c.state.entrustedProduction=false;c.state.selfProduction=true;c.state.projectCodeId='356';await drain();c.state.files=[raw('registration.pdf')]
+   c.props.modelValue=true;await drain();Object.assign(c.state.facts,domestic(),{ownProduct:true});c.state.companyId=10;c.state.entrustedProduction=false;c.state.selfProduction=true;c.state.projectCodeIds=['356'];await drain();c.state.files=[raw('registration.pdf')]
    await c.state.submit();assert.equal(c.state.error,'');assert.equal(calls.length,1)
    assert.equal(calls[0].get('projectCodeId'),'356');assert.equal(calls[0].get('handlingTaskId'),handlingTaskId??null)
   }finally{c.app.unmount()}
@@ -162,4 +162,53 @@ test('binding an existing project submits normally while the task entry submits 
 test('domestic upload rejects missing approval date and accepts actual approval date',()=>{
  const facts=domestic();delete facts.approvalDate;assert.doesNotThrow(()=>factsModule.validateFacts(facts));assert.throws(()=>factsModule.validateUploadFacts(facts),/请填写批准日期/);
  assert.equal(facts.approvalDate,undefined);facts.approvalDate='2024-01-01';assert.doesNotThrow(()=>factsModule.validateUploadFacts(facts));
+})
+
+test('upload binds multiple distinct products to one certificate',async()=>{
+ let payload
+ const product=id=>({projectCodeId:id,productCatalogId:id+100,productCode:'P'+id,productName:'产品'+id,bindings:[]})
+ const c=mount('upload/UploadDialog.vue',{modelValue:false},uploadApi({getUploadProjectProduct:async id=>product(id),submitRegistrationCertificateUpload:async data=>{payload=data}}))
+ try{
+  c.props.modelValue=true;await drain()
+  c.state.facts={...domestic(),ownProduct:true};await drain()
+  c.state.projectCodeIds=[11,12];await drain()
+  c.state.companyId=10;c.state.selfProduction=true;c.state.entrustedProduction=false;c.state.files=[raw('certificate.pdf')]
+  await c.state.submit()
+  assert.ok(payload)
+  assert.equal(payload.get('projectCodeId'),'11')
+  assert.deepEqual(JSON.parse(payload.get('factsJson')).projectProducts.map(p=>p.productCatalogId),[111,112])
+  assert.equal(payload.get('productName'),'产品11、产品12')
+ }finally{c.app.unmount()}
+})
+
+test('upload blocks two project codes resolving to the same product',async()=>{
+ let submitted=false
+ const c=mount('upload/UploadDialog.vue',{modelValue:false},uploadApi({getUploadProjectProduct:async id=>({projectCodeId:id,productCatalogId:100,productCode:'P100',productName:'同一个产品',bindings:[]}),submitRegistrationCertificateUpload:async()=>{submitted=true}}))
+ try{
+  c.props.modelValue=true;await drain()
+  c.state.facts={...domestic(),ownProduct:true};await drain()
+  c.state.projectCodeIds=[11,12];await drain()
+  assert.match(c.state.productError,/同一产品/)
+  await c.state.submit();assert.equal(submitted,false)
+ }finally{c.app.unmount()}
+})
+
+
+test('existing certificate appends products using the current revision and keeps prior products',async()=>{
+ const existing=[{projectCodeId:100,productCatalogId:10,productCode:'P10',productName:'甲',bindings:[]}]
+ let submitted,saved=0
+ const view=mount('components/ProductBindings.vue',{certificateId:1,rowVersion:3,products:existing,editable:true,onSaved:()=>saved++},{getUploadProjectCodes:async()=>[],getUploadProjectProduct:async id=>({projectCodeId:id,productCatalogId:20,productCode:'P20',productName:'乙',bindings:[]}),addRegistrationCertificateProducts:async(id,request)=>{submitted={id,request}}})
+ await view.state.open();view.state.selected=[200];await drain()
+ assert.equal(view.state.preview.length,1);assert.equal(view.state.error,'')
+ await view.state.save()
+ assert.deepEqual(submitted,{id:1,request:{expectedRowVersion:3,projectCodeIds:[200]}})
+ assert.equal(saved,1);assert.equal(view.state.visible,false);assert.equal(existing.length,1)
+ view.app.unmount()
+})
+test('append dialog rejects another project that resolves to an already associated product',async()=>{
+ let calls=0
+ const view=mount('components/ProductBindings.vue',{certificateId:1,rowVersion:3,products:[{projectCodeId:100,productCatalogId:10}],editable:true},{getUploadProjectCodes:async()=>[],getUploadProjectProduct:async id=>({projectCodeId:id,productCatalogId:10}),addRegistrationCertificateProducts:async()=>calls++})
+ await view.state.open();view.state.selected=[200];await drain()
+ assert.match(view.state.error,/已关联本注册证/);assert.deepEqual(view.state.preview,[]);assert.equal(calls,0)
+ view.app.unmount()
 })

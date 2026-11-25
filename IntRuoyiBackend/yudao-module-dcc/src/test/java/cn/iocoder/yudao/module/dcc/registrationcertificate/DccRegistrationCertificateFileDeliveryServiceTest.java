@@ -115,8 +115,14 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     @MockitoBean
     private PermissionApi permissionApi;
 
+    @MockitoBean
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService productBindings;
+
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(productBindings.containsProject(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(invocation -> jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dcc_registration_certificate WHERE tenant_id=? AND id=? AND project_code_id=? AND deleted=0", Long.class, invocation.getArgument(0), invocation.getArgument(1), invocation.getArgument(2)) > 0);
+
         reset(projectCodeService, fileService, permissionApi);
     }
 
