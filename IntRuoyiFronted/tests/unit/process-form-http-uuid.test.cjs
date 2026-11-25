@@ -17,6 +17,8 @@ function setup(crypto = { getRandomValues: bytes => webcrypto.getRandomValues(by
   const state = {
     ...loadUuid(crypto),
     formRef: { value: { validate: async () => true } },
+    sopUploadRef: { value: { isUploading: false } },
+    message: { warning: () => {} },
     formType: { value: 'update' },
     formData: { value: { id: 81, name: '工序草稿', status: 0 } },
     sharedFingerprint: { value: 'formal-fingerprint' },
@@ -52,4 +54,41 @@ test('missing or failed random source prevents opening shared approval', async (
     await assert.rejects(state.submit(), /不支持安全随机数|entropy failed/)
     assert.equal(opened.length, 0)
   }
+})
+
+test('pending SOP upload prevents both creation and shared approval, then saves the completed address', async () => {
+  for (const type of ['create', 'update']) {
+    const { state, opened } = setup()
+    const created = [], warnings = []
+    Object.assign(state, {
+      formType: { value: type },
+      formLoading: { value: false },
+      dialogVisible: { value: true },
+      ProProcessApi: { createProcess: async data => created.push(data) },
+      message: { warning: text => warnings.push(text), success() {} },
+      t: key => key,
+      emit() {}
+    })
+    state.formData.value.sopFileUrl = ''
+    state.sopUploadRef.value.isUploading = true
+    await state.submit()
+    assert.equal(created.length, 0)
+    assert.equal(opened.length, 0)
+    assert.equal(warnings.length, 1)
+    state.formData.value.sopFileUrl = 'https://files.example/a,b.pdf'
+    state.sopUploadRef.value.isUploading = false
+    await state.submit()
+    const saved = type === 'create' ? created[0] : opened[0].process
+    assert.equal(saved.sopFileUrl, 'https://files.example/a,b.pdf')
+  }
+})
+
+test('upload started during asynchronous form validation also blocks saving', async () => {
+  const { state, opened } = setup()
+  state.formRef.value.validate = async () => {
+    state.sopUploadRef.value.isUploading = true
+    return true
+  }
+  await state.submit()
+  assert.equal(opened.length, 0)
 })
