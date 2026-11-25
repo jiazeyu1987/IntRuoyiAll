@@ -453,6 +453,37 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void multipleChangeFilesAndSupplementalNotesSurviveApprovalWithoutReplacingExistingInformation() {
+        seedCurrentCertificate();
+        Map<String,Object> facts=new LinkedHashMap<>(JsonUtils.parseObject(text("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE id=3001"),Map.class));
+        facts.put("otherContentDescription","本次补充说明");
+        var c=new DccRegistrationCertificateChangeCommand(1L,99L,"multi-files-notes","trace-multi",1001L,3,LocalDate.of(2026,8,17),Map.of("CERTIFICATE_INFORMATION",JsonUtils.toJsonString(facts)),"本次补充说明",null,null,null,null,changeFile("first"),null,java.util.List.of(),java.util.List.of(),null,java.util.List.of(),java.util.List.of(changeFile("second")));
+        Long request=service.submitChangeForApproval(c);
+        assertEquals(2,count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request_file WHERE request_id=?",request));
+        assertEquals(3001L,longValue("SELECT current_snapshot_id FROM dcc_registration_certificate WHERE id=1001"));
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_access_request SET status='APPROVED' WHERE id=?",request);
+        var approved=service.approveChangeRequest(1L,55L,request,"multi-approved");
+        var saved=JsonUtils.parseObject(text("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE id=?",approved.resultingSnapshotId()),Map.class);
+        assertEquals("本次补充说明",saved.get("otherContentDescription"));
+        assertEquals("Product A",text("SELECT product_name FROM dcc_registration_certificate_snapshot WHERE id=?",approved.resultingSnapshotId()));
+        assertEquals(2,count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request_file WHERE request_id=? AND status='APPROVED'",request));
+        assertEquals("BOUND",text("SELECT status FROM dcc_registration_certificate_file WHERE id=4001"));
+    }
+
+    @Test
+    void fdaProductDescriptionUploadCannotReuseTheHistoricalChangeExplanation() {
+        seedCurrentCertificate();
+        var fda=new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts();fda.setCertificateType("FDA");fda.setOwnProduct(false);fda.setClassification("II");fda.setSubmissionType("PMA");fda.setCustomerHeld(false);fda.setApprovalLetterStatus("VALID");fda.setFactoryRegistrationStatus("ACTIVE");fda.setChangeDescription("历史说明");
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=3001",fda.toJson());
+        var c=new DccRegistrationCertificateChangeCommand(1L,99L,"fda-description","trace-fda",1001L,3,LocalDate.of(2026,8,17),Map.of("CERTIFICATE_INFORMATION",fda.toJson()),null,null,null,null,null,changeFile("approval"),null,java.util.List.of(),java.util.List.of(changeFile("description")));
+        assertThrows(ServiceException.class,()->service.submitChangeForApproval(c));
+        assertEquals(0,count("SELECT COUNT(*) FROM dcc_registration_certificate_change"));
+        fda.setChangeDescription("新增规格沿用原P号");
+        var updated=new DccRegistrationCertificateChangeCommand(1L,99L,"fda-description","trace-fda",1001L,3,LocalDate.of(2026,8,17),Map.of("CERTIFICATE_INFORMATION",fda.toJson()),null,null,null,null,null,changeFile("approval"),null,java.util.List.of(),java.util.List.of(changeFile("description")));
+        org.junit.jupiter.api.Assertions.assertNotNull(service.submitChangeForApproval(updated));
+    }
+
+    @Test
     void rejectedChangeCannotBeResubmittedByAnotherActor() {
         seedCurrentCertificate();
         Long source=service.submitChangeForApproval(command("actor-source",3,Map.of("PRODUCT_NAME","Product B"),null,null,null,null));
@@ -496,14 +527,14 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
         Map<String,Object> facts = new LinkedHashMap<>(JsonUtils.parseObject(text("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE id=3001"),Map.class));
         facts.put("certificateType","CE"); facts.put("modelSpecifications",java.util.List.of("SIM-CE-A"));
         jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=3001",JsonUtils.toJsonString(facts));
-        facts.put("modelSpecifications",java.util.List.of("SIM-CE-A","SIM-CE-B"));
+        facts.put("modelSpecifications",java.util.List.of("SIM-CE-A","SIM-CE-B"));facts.put("changeDescription","本次增加B型号");
         Long request = service.submitChangeForApproval(command("ce-add-model",3,Map.of("CERTIFICATE_INFORMATION",JsonUtils.toJsonString(facts)),null,null,null,null));
         jdbcTemplate.update("UPDATE dcc_registration_certificate_access_request SET status='APPROVED' WHERE id=?",request);
         service.approveChangeRequest(1L,55L,request,"ce-add-approved");
         Long snapshot = longValue("SELECT current_snapshot_id FROM dcc_registration_certificate WHERE id=1001");
         assertEquals(java.util.List.of("SIM-CE-A","SIM-CE-B"),JsonUtils.parseObject(text("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE id=?",snapshot),Map.class).get("modelSpecifications"));
         assertEquals("SIM-CE-A\nSIM-CE-B",text("SELECT model_specification FROM dcc_registration_certificate_snapshot WHERE id=?",snapshot));
-        facts.put("modelSpecifications",java.util.List.of("SIM-CE-B"));
+        facts.put("modelSpecifications",java.util.List.of("SIM-CE-B"));facts.put("changeDescription","本次删除A型号");
         Integer revision = jdbcTemplate.queryForObject("SELECT row_version FROM dcc_registration_certificate WHERE id=1001",Integer.class);
         Long deletion = service.submitChangeForApproval(command("ce-delete-model",revision,Map.of("CERTIFICATE_INFORMATION",JsonUtils.toJsonString(facts)),null,null,null,null));
         jdbcTemplate.update("UPDATE dcc_registration_certificate_access_request SET status='APPROVED' WHERE id=?",deletion);

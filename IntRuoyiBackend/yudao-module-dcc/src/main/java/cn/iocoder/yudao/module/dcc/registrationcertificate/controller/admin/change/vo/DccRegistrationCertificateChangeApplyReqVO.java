@@ -26,6 +26,7 @@ public class DccRegistrationCertificateChangeApplyReqVO {
     private Boolean selfProduction;
     private String entrustedEnterprisesJson;
     private MultipartFile file;
+    private List<MultipartFile> additionalPrimaryFiles;
     @Positive
     private Long sourceRequestId;
     private List<@Positive Long> retainedFileIds;

@@ -218,10 +218,7 @@ public class DccRegistrationCertificateAccessRequestService {
             if (candidates == null || candidates.isEmpty()) {
                 throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_NOT_STAGED);
             }
-            if (candidates.size() != 1) {
-                throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT);
-            }
-            fileIds = List.of(candidates.get(0).getId());
+            fileIds = candidates.stream().map(DccRegistrationCertificateFileDO::getId).toList();
         }
         return new NormalizedCommand(requested.certificateId(), requested.requestType(), requested.purpose(),
                 projectCodeId, fileIds);

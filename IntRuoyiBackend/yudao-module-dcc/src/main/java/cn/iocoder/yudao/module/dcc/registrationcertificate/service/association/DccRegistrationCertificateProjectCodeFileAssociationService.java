@@ -149,7 +149,7 @@ public class DccRegistrationCertificateProjectCodeFileAssociationService {
                 .eq(DccRegistrationCertificateFileDO::getTenantId,tenantId)
                 .eq(DccRegistrationCertificateFileDO::getOwnerType,ownerType)
                 .eq(DccRegistrationCertificateFileDO::getOwnerId,ownerId)
-                .in(DccRegistrationCertificateFileDO::getFileKind,java.util.List.of("CERTIFICATE_ATTACHMENT","FDA_PRODUCT_DESCRIPTION"))
+                .in(DccRegistrationCertificateFileDO::getFileKind,java.util.List.of("REGISTRATION_CERTIFICATE","CHANGE_APPROVAL","CERTIFICATE_ATTACHMENT","FDA_PRODUCT_DESCRIPTION"))
                 .eq(DccRegistrationCertificateFileDO::getStatus,FILE_STATUS_BOUND));
         if(files.isEmpty())return;
         var path=ensureRegistrationCertificateTaxonomyPath();

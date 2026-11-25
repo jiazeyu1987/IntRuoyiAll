@@ -98,11 +98,7 @@ public class DccRegistrationCertificatePrerequisiteValidator {
                 throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
                         "项目的DCC产品关联已变更，请重新核对后提交");
             }
-            productName = projectProduct.productName();
-            if (!isBlank(draft.productName()) && !Objects.equals(trim(draft.productName()), productName)) {
-                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
-                        cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCT_NAME_MISMATCH, productName);
-            }
+            productName = resolveProductName(draft);
         } else {
             if (facts.getProjectProduct() != null) throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID);
             productName = resolveProductName(draft);
@@ -140,10 +136,8 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         if (product == null || !draft.productMasterId().equals(product.getId()) || isBlank(masterProductName)) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID);
         }
-        if (!isBlank(draftProductName) && !Objects.equals(draftProductName, masterProductName)) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID);
-        }
-        return isBlank(draftProductName) ? masterProductName : draftProductName;
+        if (isBlank(draftProductName)) throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_REQUIRED);
+        return draftProductName;
     }
 
     public void validateCompanyScope(Long actorId, Long ownerCompanyId) {

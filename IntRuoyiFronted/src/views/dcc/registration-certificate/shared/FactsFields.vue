@@ -9,15 +9,15 @@
   <el-row :gutter="24">
     <el-col :span="12"><el-form-item label="注册证类型" required><el-select v-model="model.certificateType" :disabled="readonly || lockType || lockedFields?.includes('certificateType')"><el-option label="国内" value="DOMESTIC"/><el-option label="CE" value="CE"/><el-option label="FDA" value="FDA"/></el-select></el-form-item></el-col>
     <el-col :span="12"><el-form-item label="产品归属" required><el-select v-model="model.ownProduct" :disabled="readonly || lockType || lockedFields?.includes('ownProduct')"><el-option label="瑛泰产品（关联系统产品）" :value="true"/><el-option label="其他（不关联系统产品）" :value="false"/></el-select></el-form-item></el-col>
-    <el-col v-for="field in [...fieldsFor(model.certificateType),...(model.certificateType==='DOMESTIC' && !model.ownProduct ? ['projectCode'] : [])]" :key="field" :span="['remark','changeDescription','registrationLink'].includes(field) ? 24 : 12">
-      <el-form-item :label="historicalRecord && field === 'certificateStatus' ? '证载状态（历史记录）' : historicalRecord && field === 'expiryDate' ? '原有效期至' : model.certificateType === 'CE' && field === 'firstObtainedDate' ? 'Initial Issue Date（首次获证日期，可选）' : factLabels[field]">
+    <el-col v-for="field in [...(creation ? creationFieldsFor(model.certificateType) : fieldsFor(model.certificateType)).filter(f=>!change || f!=='otherContentDescription'),...(model.certificateType==='DOMESTIC' && !model.ownProduct ? ['projectCode'] : [])]" :key="field" :span="['remark','changeDescription','registrationLink'].includes(field) ? 24 : 12">
+      <el-form-item :label="historicalRecord && field === 'certificateStatus' ? '证载状态（历史记录）' : historicalRecord && field === 'expiryDate' ? '原有效期至' : model.certificateType === 'CE' && field === 'firstObtainedDate' ? 'Initial Issue Date（首次获证日期，可选）' : change && field === 'approvalDate' ? '原批准日期（证载）' : factLabels[field]">
         <a v-if="readonly && field === 'registrationLink' && model[field]" :href="model[field]" target="_blank" rel="noopener noreferrer">{{ model[field] }}</a>
         <el-select v-else-if="factOptions(field,model.certificateType).length" v-model="model[field]" :disabled="readonly || lockedFields?.includes(field)" clearable><el-option v-for="option in factOptions(field,model.certificateType)" :key="String(option.value)" :label="option.label" :value="option.value"/></el-select>
         <el-date-picker v-else-if="field.endsWith('Date')" v-model="model[field]" :disabled="readonly || lockedFields?.includes(field)" type="date" value-format="YYYY-MM-DD" format="YYYY-MM-DD" clearable/>
-        <el-input v-else v-model="model[field]" :readonly="readonly || lockedFields?.includes(field)" :type="['remark','changeDescription'].includes(field) ? 'textarea' : 'text'" :maxlength="field === 'remark' ? 1024 : 4096"/>
+        <el-input v-else v-model="model[field]" :readonly="readonly || lockedFields?.includes(field)" :type="['remark','changeDescription','otherContentDescription'].includes(field) ? 'textarea' : 'text'" :maxlength="field === 'remark' ? 1024 : 4096"/>
       </el-form-item>
     </el-col>
-    <el-col v-if="model.certificateType === 'CE'" :span="24">
+    <el-col v-if="model.certificateType === 'CE' && !creation" :span="24">
       <el-form-item label="型号规格">
         <div class="w-full">
           <div v-for="(_item, index) in model.modelSpecifications" :key="index" class="flex gap-8px mb-8px">
@@ -42,9 +42,9 @@
 </template>
 <script setup lang="ts">
 import type { CertificateFacts } from './facts'
-import { fieldsFor, factLabels, factOptions } from './facts'
+import { fieldsFor, creationFieldsFor, factLabels, factOptions } from './facts'
 const model = defineModel<CertificateFacts>({ required: true })
-defineProps<{ readonly?: boolean; lockType?: boolean; lockedFields?: string[]; historicalRecord?: boolean }>()
+defineProps<{ readonly?: boolean; lockType?: boolean; lockedFields?: string[]; historicalRecord?: boolean; creation?: boolean; change?: boolean }>()
 const addModelSpecification = () => { model.value.modelSpecifications ??= []; model.value.modelSpecifications.push('') }
 const addRevision = () => { model.value.ceCertificates ??= []; model.value.ceCertificates.push({revision:''}) }
 </script>

@@ -6,15 +6,15 @@
         <el-col :span="12"><el-form-item label="数据所属公司" required><el-select v-model="companyId" filterable remote :remote-method="searchOwnerCompanies" :loading="companyLoading"><el-option v-for="item in companies" :key="item.id" :label="item.name" :value="item.id"/></el-select></el-form-item></el-col>
         <el-col v-if="facts.ownProduct" :span="12"><el-form-item label="系统项目代码" :required="facts.ownProduct"><el-select v-model="projectCodeId" :disabled="!facts.ownProduct || !!taskProject" filterable remote clearable :remote-method="searchProjectCodes" :loading="projectLoading"><el-option v-for="item in projects" :key="item.id" :label="[item.projectCode,item.projectName].filter(Boolean).join(' - ')" :value="item.id"/></el-select></el-form-item></el-col>
         <el-col v-if="facts.ownProduct" :span="12"><el-form-item label="DCC产品编码"><ProductCodeLink :code="facts.projectProduct?.productCode" /></el-form-item></el-col>
-        <el-col :span="facts.ownProduct ? 12 : 24"><el-form-item label="产品中文名称" required><el-input v-model="productName" :readonly="facts.ownProduct" :placeholder="facts.ownProduct ? '选择项目后自动显示' : '请输入产品中文名称'" maxlength="255"/></el-form-item></el-col>
+        <el-col :span="facts.ownProduct ? 12 : 24"><el-form-item label="产品中文名称" required><el-input v-model="productName" :placeholder="facts.ownProduct ? '选择项目后自动显示' : '请输入产品中文名称'" maxlength="255"/></el-form-item></el-col>
       </el-row>
-      <FactsFields v-model="facts"/>
+      <FactsFields v-model="facts" creation/>
       <el-row v-if="facts.certificateType !== 'FDA'" :gutter="24">
         <el-col :span="12"><el-form-item label="是否委托生产" required><el-select v-model="entrustedProduction" @change="onProductionChange"><el-option label="是" :value="true"/><el-option label="否" :value="false"/></el-select></el-form-item></el-col>
         <el-col :span="12"><el-form-item label="是否自行生产" required><el-select v-model="selfProduction"><el-option label="是" :value="true"/><el-option label="否" :value="false"/></el-select></el-form-item></el-col>
         <el-col v-if="entrustedProduction" :span="24"><el-form-item label="受托企业名称" required><el-select v-model="entrustedEnterpriseIds" multiple filterable remote :remote-method="searchEnterprises"><el-option v-for="item in enterprises" :key="item.id" :label="item.name" :value="item.id"/></el-select></el-form-item></el-col>
       </el-row>
-      <el-form-item :label="facts.certificateType === 'FDA' ? '批准信函' : '注册证文件'" required><el-upload v-model:file-list="files" action="#" :auto-upload="false" :limit="1"><el-button>选择文件</el-button></el-upload></el-form-item>
+      <el-form-item :label="facts.certificateType === 'FDA' ? '批准信函' : '注册证文件'" required><el-upload v-model:file-list="files" action="#" multiple :auto-upload="false"><el-button>选择文件</el-button></el-upload></el-form-item>
       <el-form-item v-if="facts.certificateType === 'FDA'" label="产品描述文件" required><el-upload v-model:file-list="descriptions" action="#" multiple :auto-upload="false"><el-button>选择规格型号等产品描述材料</el-button><template #tip><div>必须上传批准后的产品描述文件，链接不能替代文件。</div></template></el-upload></el-form-item>
       <el-form-item label="证件附件"><el-upload v-model:file-list="attachments" action="#" multiple :auto-upload="false"><el-button>选择多个附件</el-button></el-upload></el-form-item>
       <el-form-item v-if="retainedFiles.length" label="原申请文件"><div><div v-for="file in retainedFiles" :key="file.id"><el-checkbox v-model="file.retained">{{file.originalName}}（{{file.fileKind}}）</el-checkbox></div><small>勾选保留原文件；替换注册证时上传新文件即可。</small></div></el-form-item>
@@ -33,7 +33,7 @@ import { getMyRegistrationCertificateUpload, getUploadEntrustedEnterprises, getU
  type DccRegistrationCertificateUploadCompanyRespVO, type DccRegistrationCertificateUploadEntrustedEnterpriseRespVO, type DccRegistrationCertificateUploadProjectCodeRespVO } from '@/api/dcc/registrationCertificate'
 import { generateUUID } from '@/utils'
 import FactsFields from '../shared/FactsFields.vue'
-import { emptyFacts, validateFacts } from '../shared/facts'
+import { emptyFacts, validateCreationFacts } from '../shared/facts'
 const props = defineProps<{modelValue:boolean;requestId?:number|string;handlingTaskId?:number|string;taskProject?:{id:string;projectCode:string;projectName:string}}>()
 const emit = defineEmits<{'update:modelValue':[boolean]; saved:[]}>()
 let submitted = false
@@ -51,10 +51,10 @@ const companies=ref<DccRegistrationCertificateUploadCompanyRespVO[]>([]),project
 const companyLoading=ref(false), projectLoading=ref(false),saving=ref(false),error=ref('')
 const productLoading=ref(false), productError=ref(''), hydrating=ref(false)
 let productLoadVersion=0
-const loadProjectProduct=async()=>{
+const loadProjectProduct=async(preserveName=false)=>{
  const version=++productLoadVersion
  productError.value='';productLoading.value=false;delete facts.value.projectProduct
- productName.value=''
+ if(!preserveName)productName.value=''
  if(!facts.value.ownProduct||!projectCodeId.value)return
  const id=projectCodeId.value
  productLoading.value=true
@@ -62,7 +62,7 @@ const loadProjectProduct=async()=>{
   const product=await getUploadProjectProduct(id)
   if(version!==productLoadVersion)return
   if(String(product.projectCodeId)!==String(id))throw new Error('项目与DCC产品关联不一致，请重新选择项目')
-  facts.value.projectProduct=product;productName.value=product.productName
+  facts.value.projectProduct=product;if(!preserveName||!productName.value.trim())productName.value=product.productName
  }catch(e){if(version===productLoadVersion)productError.value=e instanceof Error?e.message:String(e)}
  finally{if(version===productLoadVersion)productLoading.value=false}
 }
@@ -79,7 +79,7 @@ const submit=async()=>{
  if(saving.value)return
  error.value=''
  try{
-  validateFacts(facts.value)
+  validateCreationFacts(facts.value)
   if(facts.value.ownProduct&&(productLoading.value||productError.value||!facts.value.projectProduct))throw new Error(productError.value||'请先选择已绑定DCC产品的项目')
   if(!companyId.value||!productName.value.trim())throw new Error('请填写数据所属公司和产品中文名称')
   if(facts.value.ownProduct&&!projectCodeId.value)throw new Error('请选择实际项目代码')
@@ -92,7 +92,7 @@ const submit=async()=>{
   for(const field of ['certificateNo','firstObtainedDate','effectiveDate','expiryDate','remark'])if(facts.value[field])payload.append(field,facts.value[field])
   payload.append('entrustedProduction',String(facts.value.certificateType==='FDA'?false:entrustedProduction.value));payload.append('selfProduction',String(facts.value.certificateType==='FDA'?false:selfProduction.value))
   if(facts.value.certificateType!=='FDA')entrustedEnterpriseIds.value.forEach(id=>payload.append('entrustedEnterpriseIds',String(id)))
-  appendFiles(payload,'file',files.value);appendFiles(payload,'attachments',attachments.value);if(facts.value.certificateType==='FDA')appendFiles(payload,'productDescriptionFiles',descriptions.value)
+  appendFiles(payload,'file',files.value.slice(0,1));appendFiles(payload,'additionalPrimaryFiles',files.value.slice(1));appendFiles(payload,'attachments',attachments.value);if(facts.value.certificateType==='FDA')appendFiles(payload,'productDescriptionFiles',descriptions.value)
   saving.value=true;await submitRegistrationCertificateUpload(payload,`DCC-REG-CERT-UPLOAD-${generateUUID()}`);message.success('已提交审批');submitted=true;dialogVisible.value=false
  }catch(e){error.value=e instanceof Error?e.message:String(e);message.error(error.value)}finally{saving.value=false}
 }
@@ -111,7 +111,7 @@ watch(()=>props.modelValue,async visible=>{if(!visible)return;hydrating.value=tr
  entrustedProduction.value=draft.entrustedProduction;selfProduction.value=draft.selfProduction;entrustedEnterpriseIds.value=draft.entrustedEnterpriseIds??[]
  if(entrustedProduction.value)await searchEnterprises()
  retainedFiles.value=result.files.map(file=>({...file,retained:true}))
-}}catch(e){error.value=e instanceof Error?e.message:String(e)}finally{await nextTick();hydrating.value=false;if(facts.value.ownProduct)await loadProjectProduct()}})
+}}catch(e){error.value=e instanceof Error?e.message:String(e)}finally{await nextTick();hydrating.value=false;if(facts.value.ownProduct)await loadProjectProduct(!!props.requestId)}})
 </script>
 <style scoped>
 .registration-certificate-upload-body { max-height: calc(90vh - 140px); overflow-y: auto; overflow-x: hidden; padding: 0 12px; }

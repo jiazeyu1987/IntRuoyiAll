@@ -28,15 +28,29 @@ export const factLabels: Record<string, string> = {
   submissionType: '注册提交类型', kpNumber: 'K/P号', regulationCode: '法规监管代码', approvalDate: '批准日期',
   listingNumber: '列名编号', listingDate: '列名日期', customerHeld: '是否客户持证',
   approvalLetterStatus: '批准信函状态', factoryRegistrationStatus: '工厂登记状态', certificateNo: '注册证号',
-  firstObtainedDate: '首次获证日期', effectiveDate: '生效日期', expiryDate: '有效期至', remark: '备注', changeDescription: '变更描述'
+  firstObtainedDate: '首次获证日期', effectiveDate: '生效日期', expiryDate: '有效期至', remark: '备注', otherContentDescription: '其他内容说明', changeDescription: '变更描述'
 }
 export const fieldsFor = (type: CertificateType) => [
   'classification', 'certificateHolder', 'registrationLink',
   ...(type === 'DOMESTIC' ? ['certificateNo', 'firstObtainedDate', 'approvalDate', 'effectiveDate', 'expiryDate'] : []),
   ...(type === 'CE' ? ['firstObtainedDate', 'approvalDate', 'expiryDate', 'productNameEn', 'productCode', 'tradeName', 'notifiedBodyCode'] : []),
   ...(type === 'FDA' ? ['productNameEn', 'submissionType', 'kpNumber', 'regulationCode', 'productCode', 'approvalDate', 'listingNumber', 'listingDate', 'customerHeld', 'approvalLetterStatus', 'factoryRegistrationStatus'] : ['certificateStatus']),
-  'remark', 'changeDescription'
+  'remark', 'changeDescription', 'otherContentDescription'
 ]
+export const creationFieldsFor = (type: CertificateType) => [
+  'classification', 'certificateHolder', 'registrationLink',
+  ...(type === 'DOMESTIC' ? ['certificateNo', 'firstObtainedDate', 'effectiveDate', 'expiryDate', 'certificateStatus'] : []),
+  ...(type === 'CE' ? ['expiryDate', 'productNameEn', 'productCode', 'tradeName', 'notifiedBodyCode', 'certificateStatus'] : []),
+  ...(type === 'FDA' ? ['productNameEn', 'submissionType', 'kpNumber', 'regulationCode', 'productCode', 'approvalDate', 'listingNumber', 'listingDate', 'customerHeld', 'approvalLetterStatus', 'factoryRegistrationStatus'] : []),
+  'remark'
+]
+export const validateCreationFacts = (facts: CertificateFacts) => {
+  const removed = ['changeDescription', ...(facts.certificateType !== 'FDA' ? ['approvalDate'] : []), ...(facts.certificateType === 'CE' ? ['firstObtainedDate', 'modelSpecifications'] : [])]
+  for (const field of removed) {
+    if (facts[field] != null) throw new Error(`新建${facts.certificateType === 'DOMESTIC' ? '国内' : facts.certificateType}注册证不支持${field === 'modelSpecifications' ? '型号规格' : factLabels[field]}字段`)
+  }
+  validateFacts(facts)
+}
 export const factOptions = (field: string, type: CertificateType): Array<{label: string; value: any}> => {
   if (field === 'certificateStatus') return [{value:'VALID',label:'有效'}, ...(type === 'CE' ? [{value:'SUSPENDED',label:'暂停'}] : []), {value:'REVOKED',label:'撤销'}, {value:'EXPIRED',label:'失效'}]
   if (field === 'submissionType') return submissionTypes
@@ -66,4 +80,11 @@ export const validateFacts = (facts: CertificateFacts) => {
   for (const row of facts.ceCertificates ?? []) { if (!row.revision?.trim() || revisions.has(row.revision.trim())) throw new Error('CE证书Rev.须填写且不能重复'); revisions.add(row.revision.trim()) }
   if (facts.effectiveDate && facts.expiryDate && facts.effectiveDate >= facts.expiryDate) throw new Error('生效日期必须早于有效期至')
   if (facts.firstObtainedDate && facts.effectiveDate && facts.firstObtainedDate > facts.effectiveDate) throw new Error('首次获证日期不能晚于生效日期')
+}
+
+export const validateChangeFacts = (facts: CertificateFacts, before: CertificateFacts, newProductDescriptions = false) => {
+  validateFacts(facts)
+  const modelsChanged = facts.certificateType === 'CE' && JSON.stringify(facts.modelSpecifications) !== JSON.stringify(before.modelSpecifications)
+  const approvalChanged = facts.certificateType === 'FDA' && (newProductDescriptions || ['submissionType', 'kpNumber', 'regulationCode', 'productCode', 'approvalDate', 'listingNumber', 'listingDate'].some(key => facts[key] !== before[key]))
+  if ((modelsChanged || approvalChanged) && (!facts.changeDescription?.trim() || facts.changeDescription.trim() === before.changeDescription?.trim())) throw new Error(modelsChanged ? 'CE型号调整必须填写本次调整说明' : '新增或替代FDA批准信息必须填写本次变更描述')
 }
