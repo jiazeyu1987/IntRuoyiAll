@@ -605,18 +605,19 @@ class MesReportAllocationCommandServiceTest {
 
     @Test
     void unchangedInitialAllocationWithoutReviewMustCreateFormalReviewAndAttachCurrentRows() {
-        MesProProcessPoolEventDO event = event();
+        MesProProcessPoolEventDO event = event().setReportOutputQuantity(new BigDecimal("6000"));
+        event.setRawPayload(event.getRawPayload().replace(":300", ":6000").replace("\"lossQuantity\":0", "\"lossQuantity\":1"));
         MesProcessPoolReportAllocationDO currentWithoutReview =
-                allocation(7101L, 8101L, 9001L, 5101L, "300").setReviewId(null);
+                allocation(7101L, 8101L, 9001L, 5101L, "6000").setReviewId(null);
         MesProcessPoolReportAllocationDO currentWithReview =
-                allocation(7101L, 8101L, 9001L, 5101L, "300").setReviewId(7301L);
+                allocation(7101L, 8101L, 9001L, 5101L, "6000").setReviewId(7301L);
         MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
                 .id(7201L).eventId(1001L).currentVersion(1).build();
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(8101L, 9001L);
         MesProWorkOrderDO workOrder = workOrder(9001L, "A");
         MesProcessPoolSubmissionReviewDO[] insertedReview = new MesProcessPoolSubmissionReviewDO[1];
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
-        when(poolQuantityService.requirePoolQuantity(event)).thenReturn(new BigDecimal("300"));
+        when(poolQuantityService.requirePoolQuantity(event)).thenReturn(new BigDecimal("6000"));
         when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(state);
         when(allocationMapper.selectListByEventIdForUpdate(1001L))
                 .thenReturn(List.of(currentWithoutReview), List.of(currentWithReview));
@@ -644,10 +645,10 @@ class MesReportAllocationCommandServiceTest {
                 .idempotencyKey("confirm-initial-unchanged").allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
                 .reason("确认初始分配无误").signaturePassword("review-pass")
                 .allocations(List.of(MesReportAllocationSaveLine.builder().activeOrderId(8101L)
-                        .allocatedQuantity(new BigDecimal("300")).build())).build());
+                        .allocatedQuantity(new BigDecimal("6000")).build())).build());
 
         assertEquals(1, snapshot.getVersion());
-        assertAmount("300", snapshot.getTotalAllocatedQuantity());
+        assertAmount("6000", snapshot.getTotalAllocatedQuantity());
         ArgumentCaptor<MesProcessPoolSubmissionReviewDO> reviewCaptor =
                 ArgumentCaptor.forClass(MesProcessPoolSubmissionReviewDO.class);
         verify(reviewMapper).insert(reviewCaptor.capture());
@@ -752,6 +753,7 @@ class MesReportAllocationCommandServiceTest {
                         .allocatedQuantity(new BigDecimal("80")).build()))));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH.getCode(), ex.getCode());
+        assertEquals("分配总量不得超过本次报工数量：20", ex.getMessage());
         verify(allocationMapper, never()).insertBatch(anyCollection());
     }
 
@@ -795,6 +797,7 @@ class MesReportAllocationCommandServiceTest {
         ServiceException failure = assertThrows(ServiceException.class,
                 () -> MesProductionDisplayedContextFixture.save(service, saveCommand(1, List.of())));
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH.getCode(), failure.getCode());
+        assertEquals("分配总量必须大于0，请先完成订单和数量分配", failure.getMessage());
         verify(allocationMapper, never()).supersedeCurrentRows(anyCollection(), any());
         verify(allocationMapper, never()).insertBatch(anyCollection());
         org.mockito.Mockito.verifyNoInteractions(signatureService, quantityFragmentService, completionService);

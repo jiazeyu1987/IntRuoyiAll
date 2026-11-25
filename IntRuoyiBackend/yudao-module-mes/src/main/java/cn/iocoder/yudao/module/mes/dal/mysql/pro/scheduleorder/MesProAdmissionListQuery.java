@@ -28,8 +28,6 @@ public final class MesProAdmissionListQuery {
                     "生产工单不是已确认状态，不能加入排产工单池", "生产计划", false),
             new Outcome(null, "ALREADY_ADMITTED", "PASS", "ALREADY_ADMITTED",
                     "生产工单已在排产工单池中", "排产员", false),
-            new Outcome(null, "BLOCKED", "BLOCKED", "BLOCKED_ERP_SYNC_RECORD_MISSING",
-                    "生产工单缺少 ERP 正式生产订单同步记录或正式 ID/编号，不能加入排产工单池", "生产计划", false),
             new Outcome(null, "BLOCKED", "BLOCKED", "BLOCKED_MISSING_ROUTE",
                     "产品未绑定启用工艺流程排产配置", "工艺维护", false),
             new Outcome(null, "BLOCKED", "BLOCKED", "BLOCKED_ROUTE_PRODUCT_AMBIGUOUS",
@@ -112,7 +110,7 @@ public final class MesProAdmissionListQuery {
                 + " WHEN 'BLOCKED_ROUTE_PROCESS_SCHEDULE_USE_MISSING' THEN '缺智能排产用途' WHEN 'BLOCKED_ROUTE_PROCESS_DISABLED_FOR_SCHEDULE' THEN '智能排产已关闭'"
                 + " WHEN 'BLOCKED_ROUTE_SCHEDULE_CONFIG_MISSING' THEN '缺排产策略' WHEN 'BLOCKED_SHIFT_HOURS_REQUIRED' THEN '缺班次小时'"
                 + " WHEN 'BLOCKED_INVALID_FINITE_CAPACITY' THEN '缺产能' WHEN 'BLOCKED_INVALID_INFINITE_FORMULA' THEN '缺无限产能公式'"
-                + " WHEN 'BLOCKED_CALENDAR_RULE_MISSING' THEN '缺日历' WHEN 'BLOCKED_ERP_SYNC_RECORD_MISSING' THEN '缺 ERP 正式订单'"
+                + " WHEN 'BLOCKED_CALENDAR_RULE_MISSING' THEN '缺日历'"
                 + " WHEN 'WARN_ERP_SYNC_RECORD_MISSING' THEN '缺 ERP 同步证据' ELSE '未知原因' END";
     }
 
@@ -167,13 +165,12 @@ public final class MesProAdmissionListQuery {
         return "SELECT x.*,CASE WHEN x.temporary_frozen=1 THEN 'BLOCKED_WORK_ORDER_FROZEN'"
                 + " WHEN x.status IS NULL OR x.status&lt;&gt;" + MesProWorkOrderStatusEnum.CONFIRMED.getStatus() + " THEN 'BLOCKED_WORK_ORDER_STATUS'"
                 + " WHEN x.blocking_schedule_order_id IS NOT NULL THEN 'ALREADY_ADMITTED'"
-                + " WHEN x.formal_erp_identity=0 THEN 'BLOCKED_ERP_SYNC_RECORD_MISSING' WHEN x.route_binding_count=0 THEN 'BLOCKED_MISSING_ROUTE' WHEN x.route_binding_count>1 THEN 'BLOCKED_ROUTE_PRODUCT_AMBIGUOUS' ELSE NULL END AS base_reason_code"
+                + " WHEN x.route_binding_count=0 THEN 'BLOCKED_MISSING_ROUTE' WHEN x.route_binding_count>1 THEN 'BLOCKED_ROUTE_PRODUCT_AMBIGUOUS' ELSE NULL END AS base_reason_code"
                 + " FROM (SELECT w.*,i.code AS product_code,i.name AS product_name,i.specification AS product_specification,COALESCE(rp.route_binding_count,0) AS route_binding_count,"
                 + "(SELECT so.id FROM mes_pro_schedule_order so WHERE so.work_order_id=w.id AND so.tenant_id=w.tenant_id AND so.deleted=0"
                 + " AND (COALESCE(so.removed_from_schedule,0)=0 OR so.reentry_blocked=1"
                 + " OR EXISTS(SELECT 1 FROM mes_pro_feedback f WHERE f.schedule_order_id=so.id AND f.tenant_id=w.tenant_id AND f.deleted=0 AND f.status IN (" + feedbackStatuses + "))"
-                + " OR EXISTS(SELECT 1 FROM mes_pro_process_pool_active_order a WHERE a.work_order_id=w.id AND a.tenant_id=w.tenant_id AND a.deleted=0 AND a.active_status IN ('ACTIVE','REMOVED') AND COALESCE(a.simulated,0)=0)) ORDER BY so.id DESC LIMIT 1) AS blocking_schedule_order_id,"
-                + "EXISTS(SELECT 1 FROM mes_kingdee_production_order_sync_record s WHERE s.work_order_id=w.id AND s.tenant_id=w.tenant_id AND s.deleted=0 AND s.source_fid REGEXP '[^[:space:]]' AND s.source_bill_no REGEXP '[^[:space:]]') AS formal_erp_identity"
+                + " OR EXISTS(SELECT 1 FROM mes_pro_process_pool_active_order a WHERE a.work_order_id=w.id AND a.tenant_id=w.tenant_id AND a.deleted=0 AND a.active_status IN ('ACTIVE','REMOVED') AND COALESCE(a.simulated,0)=0)) ORDER BY so.id DESC LIMIT 1) AS blocking_schedule_order_id"
                 + " FROM mes_pro_work_order w LEFT JOIN mes_md_item i ON i.id=w.product_id AND i.tenant_id=w.tenant_id AND i.deleted=0"
                 + " LEFT JOIN (SELECT tenant_id,item_id,COUNT(*) AS route_binding_count FROM mes_pro_route_product WHERE tenant_id=#{tenantId} AND deleted=0 GROUP BY tenant_id,item_id) rp ON rp.item_id=w.product_id AND rp.tenant_id=w.tenant_id WHERE w.tenant_id=#{tenantId} AND w.deleted=0) x";
     }

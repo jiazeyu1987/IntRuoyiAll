@@ -26,7 +26,7 @@ function pageHarness(overrides = {}, query = { applicationId: '224', workTaskId:
   const source = fs.readFileSync(path.join(root, 'src/views/mes/pro/production-release/PqcProductionReleasePage.vue'), 'utf8')
   const { descriptor } = parse(source)
   const ast = ts.createSourceFile('page.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
-  const names = new Set(['loading', 'loadError', 'list', 'total', 'activeView', 'releaseDialogVisible', 'releaseSubmitting', 'releaseError', 'selectedRow', 'releaseResult', 'releaseOutcomeUncertain', 'releaseIdempotencyKeys', 'listRequestSequence', 'queryParams', 'releaseForm', 'resolveErrorMessage', 'getList', 'releaseDialogGeneration', 'openReleaseDialog', 'resetReleaseDialog', 'readPqcReleaseRouteContext', 'openPqcReleaseFromRoute', 'pqcReleaseRouteGeneration', 'detailVisible', 'detailLoading', 'detailError', 'detailRow', 'detailApplicationId', 'detailReadOnly', 'orderDetail', 'detailRequestSequence', 'clearOrderDetail', 'isExactPositiveId', 'isFormalSignedTime', 'requirePqcReleaseAuthority', 'requireCompletedPqcReleaseDetail', 'openCompletedPqcReleaseDetail', 'hasActiveOrderDetail', 'openActiveOrderDetail', 'retryOrderDetail', 'invalidatePqcReleasePage'])
+  const names = new Set(['loading', 'loadError', 'list', 'total', 'activeView', 'releaseDialogVisible', 'releaseSubmitting', 'releaseError', 'selectedRow', 'releaseResult', 'releaseOutcomeUncertain', 'releaseIdempotencyKeys', 'listRequestSequence', 'queryParams', 'releaseForm', 'resolveErrorMessage', 'getList', 'releaseDialogGeneration', 'openReleaseDialog', 'resetReleaseDialog', 'readPqcReleaseRouteContext', 'openPqcReleaseFromRoute', 'pqcReleaseRouteGeneration', 'detailVisible', 'detailLoading', 'detailError', 'detailRow', 'detailApplicationId', 'detailReadOnly', 'orderDetail', 'detailRequestSequence', 'clearOrderDetail', 'isExactPositiveId', 'isFormalSignedTime', 'requirePqcReleaseAuthority', 'requireCompletedPqcReleaseDetail', 'openCompletedPqcReleaseDetail', 'hasActiveOrderDetail', 'openActiveOrderDetail', 'retryOrderDetail', 'invalidatePqcReleasePage', 'navigatePqcReleaseSelection', 'selectionNavigationGeneration', 'selectionNavigationPending', 'loadActiveOrderDetail'])
   for (const name of ['handleTabChange', 'handleQuery', 'resetQuery', 'rejectedDecision']) names.add(name)
   const statements = ast.statements.filter(statement => ts.isVariableStatement(statement)
     ? statement.declarationList.declarations.some(declaration => names.has(declaration.name.getText(ast)) || ['releaseRequestStates', 'releaseRequestScopeKey'].includes(declaration.name.getText(ast)))
@@ -35,6 +35,7 @@ function pageHarness(overrides = {}, query = { applicationId: '224', workTaskId:
   const route = vue.reactive({ query, get fullPath() { return '/mes/production-release/pqc?' + new URLSearchParams(this.query).toString() } })
   const context = {
     releaseRequestOwner: { pqcReleaseRequests: { keys: new Map(), states: new Map(), requests: new Map() } },
+    router: { replace: async ({ query }) => { route.query = query } },
     route, ...vue, approvalInvalidation: { syncSession: () => ({ key: 'test-tenant-session' }) },
     userStore: { permissions: new Set(['mes:pro-production-release:query', 'mes:pro-production-release:pqc-approve']) },
     getPqcProductionRelease: async applicationId => { authorityReads.push(applicationId); return { applicationId, pqcReleaseWorkTaskId: route.query.workTaskId, status: 'PQC_RELEASE_PENDING' } },
@@ -46,7 +47,7 @@ function pageHarness(overrides = {}, query = { applicationId: '224', workTaskId:
     onMounted: fn => mounted.push(fn), onBeforeUnmount: fn => unmounted.push(fn), onDeactivated() {}, ...overrides
   }
   const code = ts.transpileModule(statements.map(statement => statement.getText(ast)).join('\n'), { compilerOptions: { module: ts.ModuleKind.None, target: ts.ScriptTarget.ES2022 } }).outputText
-  const page = Function(...Object.keys(context), `${code}; return { loading, loadError, list, total, selectedRow, releaseDialogVisible, releaseForm, getList, activeView, queryParams, handleTabChange, handleQuery, resetQuery, detailVisible, detailLoading, detailError, detailApplicationId, detailReadOnly, rejectedDecision, orderDetail, openPqcReleaseFromRoute, openActiveOrderDetail, retryOrderDetail };`)(...Object.values(context))
+  const page = Function(...Object.keys(context), `${code}; return { loading, loadError, list, total, selectedRow, releaseDialogVisible, releaseForm, getList, activeView, queryParams, handleTabChange, handleQuery, resetQuery, detailVisible, detailLoading, detailError, detailApplicationId, detailReadOnly, rejectedDecision, orderDetail, openPqcReleaseFromRoute, openReleaseDialog, openActiveOrderDetail, retryOrderDetail };`)(...Object.values(context))
   return { page, route, reads, authorityReads, detailReads, writes, mount: async () => { for (const fn of mounted) await fn(); await tick() }, unmount: () => unmounted.forEach(fn => fn()) }
 }
 
@@ -592,7 +593,7 @@ test('normal detail invalidates outstanding DONE authority or detail and preserv
     const old = deferred()
     const normal = formalDetail({ activeOrderId: '1009200410', activeOrderStatus: { status: 'REPORT_UPLOAD_PENDING' } })
     const h = doneHarness({
-      getPqcProductionRelease: () => phase === 'authority' ? old.promise : Promise.resolve(formalDecision()),
+      getPqcProductionRelease: id => id === '225' ? Promise.resolve({ applicationId: '225', pqcReleaseWorkTaskId: '2734', status: 'PQC_RELEASE_PENDING' }) : phase === 'authority' ? old.promise : Promise.resolve(formalDecision()),
       getPqcProductionReleaseOrderDetail: id => id === '225' ? Promise.resolve(normal) : old.promise
     })
     const mounted = h.mount()
@@ -639,4 +640,162 @@ test('missing management representative keeps the pending row visible without op
   assert.equal(h.page.loadError.value, '')
   assert.equal(h.page.releaseDialogVisible.value, false)
   assert.equal(h.writes.length, 0)
+})
+
+test('menu and exact entry selections persist pending detail identity on refresh', async () => {
+  for (const query of [{}, { applicationId: '224', workTaskId: '2734' }]) {
+    const h = pageHarness({}, query)
+    await h.mount()
+    await h.page.openActiveOrderDetail(formalRow({ applicationId: '225', pqcReleaseWorkTaskId: '2736' }))
+    await tick()
+    assert.equal(h.route.query.applicationId, '225')
+    assert.equal(h.route.query.workTaskId, '2736')
+    assert.equal(h.route.query.releaseMode, 'detail')
+    assert.equal(h.page.detailApplicationId.value, '225')
+    assert.equal(h.page.releaseDialogVisible.value, false)
+    await h.page.openPqcReleaseFromRoute()
+    assert.equal(h.page.detailApplicationId.value, '225')
+    assert.equal(h.page.detailVisible.value, true)
+    assert.equal(h.page.releaseDialogVisible.value, false)
+  }
+})
+test('ordinary approved detail preserves dossier editing and signature validation', async () => {
+  const h = doneHarness({}, { applicationId: '224', workTaskId: '2734', releaseMode: 'detail' })
+  await h.mount()
+  assert.equal(h.page.detailReadOnly.value, false)
+  assert.equal(h.page.detailError.value, '')
+  const invalid = doneHarness({ getPqcProductionReleaseOrderDetail: async () => formalDetail({ pqcProductionRelease: { status: 'MANAGER_RELEASE_PENDING' } }) }, { applicationId: '224', workTaskId: '2734', releaseMode: 'detail' })
+  await invalid.mount()
+  assert.equal(invalid.page.detailReadOnly.value, false)
+  assert.notEqual(invalid.page.detailError.value, '')
+})
+test('cancelled selection leaves old URL and never displays the requested foreign detail', async () => {
+  const h = pageHarness({ router: { replace: async () => ({ type: 4 }) } })
+  await h.mount()
+  await h.page.openActiveOrderDetail(formalRow({ applicationId: '225', pqcReleaseWorkTaskId: '2736' }))
+  await tick()
+  assert.equal(h.route.query.applicationId, '224')
+  assert.notEqual(h.page.detailApplicationId.value, '225')
+})
+
+test('real router cancellation and fast selection keep only latest URL and suppress old failures', async () => {
+  const { createRouter, createMemoryHistory } = require('vue-router')
+  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/pqc', component: {} }] })
+  await router.push('/pqc?applicationId=224&workTaskId=2734')
+  const route = { get query() { return router.currentRoute.value.query }, get fullPath() { return router.currentRoute.value.fullPath } }
+  const messages = []
+  const source = fs.readFileSync(path.join(root, 'src/views/mes/pro/production-release/PqcProductionReleasePage.vue'), 'utf8')
+  const ast = ts.createSourceFile('selection.ts', parse(source).descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
+  const selected = ast.statements.filter(n => ts.isVariableStatement(n) && n.declarationList.declarations.some(d => ['selectionNavigationGeneration', 'selectionNavigationPending', 'navigatePqcReleaseSelection'].includes(d.name.getText(ast))))
+  const code = ts.transpileModule(selected.map(n => n.getText(ast)).join('\n'), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
+  const select = Function('router', 'route', 'approvalInvalidation', 'message', 'resolveErrorMessage', code + ';return navigatePqcReleaseSelection')(router, route, { syncSession: () => ({ key: 'session' }) }, { error: m => messages.push(m) }, e => e.message)
+  let cancel = router.beforeEach(() => false)
+  select(formalRow({ applicationId: '225', pqcReleaseWorkTaskId: '2736' }), 'detail')
+  await new Promise(resolve => setImmediate(resolve)); await tick()
+  assert.equal(route.query.applicationId, '224')
+  assert.equal(messages.length, 1)
+  cancel(); messages.length = 0
+  const held = deferred()
+  let entered = deferred()
+  cancel = router.beforeEach(to => {
+    if (to.query.applicationId === '225') { entered.resolve(); return held.promise }
+  })
+  select(formalRow({ applicationId: '225', pqcReleaseWorkTaskId: '2736' }), 'detail')
+  await entered.promise
+  select(formalRow({ applicationId: '226', pqcReleaseWorkTaskId: '2737' }), 'detail')
+  await new Promise(resolve => setImmediate(resolve)); await tick()
+  held.resolve(false)
+  await new Promise(resolve => setImmediate(resolve)); await tick()
+  assert.equal(route.query.applicationId, '226')
+  assert.equal(route.query.releaseMode, 'detail')
+  assert.deepEqual(messages, [])
+  cancel()
+  for (const mode of ['approval', 'detail']) {
+    await router.replace({ path: '/pqc', query: { applicationId: '224', workTaskId: '2734', ...(mode === 'detail' ? { releaseMode: 'detail' } : {}) } })
+    const gate = deferred(), started = deferred()
+    const remove = router.beforeEach(to => {
+      if (to.query.applicationId === '225') { started.resolve(); return gate.promise }
+    })
+    select(formalRow({ applicationId: '225', pqcReleaseWorkTaskId: '2736' }), mode)
+    await started.promise
+    select(formalRow(), mode)
+    await new Promise(resolve => setImmediate(resolve)); await tick()
+    gate.resolve(true)
+    await new Promise(resolve => setImmediate(resolve)); await tick()
+    assert.equal(route.query.applicationId, '224')
+    assert.equal(route.query.workTaskId, '2734')
+    assert.deepEqual(messages, [])
+    remove()
+  }
+})
+
+test('approval selection replaces both exact IDs and refresh reopens only selected approval', async () => {
+  const row = formalRow({ applicationId: '225', pqcReleaseWorkTaskId: '2736' })
+  const h = pageHarness({ getPqcProductionReleasePage: async q => ({ list: [q.applicationId === '225' ? row : formalRow()], total: 1 }) })
+  await h.mount()
+  h.page.openReleaseDialog(row)
+  await tick()
+  assert.equal(h.route.query.applicationId, '225')
+  assert.equal(h.route.query.workTaskId, '2736')
+  assert.equal(h.route.query.releaseMode, 'approval')
+  await h.page.openPqcReleaseFromRoute()
+  assert.equal(h.page.selectedRow.value.applicationId, '225')
+  assert.equal(h.page.selectedRow.value.pqcReleaseWorkTaskId, '2736')
+  assert.equal(h.page.releaseDialogVisible.value, true)
+})
+test('invalid or repeated display mode fails explicitly without reads', async () => {
+  for (const releaseMode of ['unknown', ['detail', 'approval'], null]) {
+    const h = pageHarness({}, { applicationId: '224', workTaskId: '2734', releaseMode })
+    await h.mount()
+    assert.notEqual(h.page.loadError.value, '')
+    assert.equal(h.authorityReads.length, 0)
+    assert.equal(h.detailReads.length, 0)
+  }
+})
+
+test('returning to current selection reopens its closed view while cancelling a pending selection', async () => {
+  for (const mode of ['approval', 'detail']) {
+    const pending = deferred()
+    const h = pageHarness({ router: { replace: () => pending.promise } }, { applicationId: '224', workTaskId: '2734', releaseMode: mode })
+    await h.mount()
+    h.page.releaseDialogVisible.value = false
+    h.page.detailVisible.value = false
+    const other = formalRow({ applicationId: '225', pqcReleaseWorkTaskId: '2736' })
+    if (mode === 'approval') {
+      h.page.openReleaseDialog(other)
+      h.page.openReleaseDialog(formalRow())
+      assert.equal(h.page.releaseDialogVisible.value, true)
+      assert.equal(h.page.selectedRow.value.applicationId, '224')
+    } else {
+      await h.page.openActiveOrderDetail(other)
+      await h.page.openActiveOrderDetail(formalRow())
+      assert.equal(h.page.detailVisible.value, true)
+      assert.equal(h.page.detailApplicationId.value, '224')
+    }
+    pending.resolve({ type: 16 })
+    await tick()
+  }
+})
+test('unmounted selection navigation failure cannot report into another page', async () => {
+  const pending = deferred(), errors = []
+  const h = pageHarness({ router: { replace: () => pending.promise }, message: { error: value => errors.push(value) } })
+  await h.mount()
+  h.page.openReleaseDialog(formalRow({ applicationId: '225', pqcReleaseWorkTaskId: '2736' }))
+  h.unmount()
+  pending.reject(Error('late navigation failure'))
+  await tick()
+  assert.deepEqual(errors, [])
+})
+
+test('explicit display mode requires both exact IDs before all business reads', async () => {
+  for (const releaseMode of ['detail', 'approval']) {
+    for (const ids of [{}, { applicationId: '224' }, { workTaskId: '2734' }]) {
+      const h = pageHarness({}, { releaseMode, ...ids })
+      await h.mount()
+      assert.notEqual(h.page.loadError.value, '')
+      assert.equal(h.authorityReads.length, 0)
+      assert.equal(h.reads.length, 0)
+      assert.equal(h.detailReads.length, 0)
+    }
+  }
 })

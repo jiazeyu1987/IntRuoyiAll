@@ -61,7 +61,9 @@ class MesProAdmissionListQueryTest {
         assertTrue(sql.startsWith("SELECT DISTINCT q.product_id"));
         assertTrue(sql.contains("q.base_reason_code IS NULL"));
         assertTrue(sql.indexOf("x.temporary_frozen=1") < sql.indexOf("x.blocking_schedule_order_id IS NOT NULL"));
-        assertTrue(sql.indexOf("x.blocking_schedule_order_id IS NOT NULL") < sql.indexOf("x.formal_erp_identity=0"));
+        assertTrue(sql.indexOf("x.blocking_schedule_order_id IS NOT NULL") < sql.indexOf("x.route_binding_count=0"));
+        assertFalse(sql.contains("mes_kingdee_production_order_sync_record"));
+        assertFalse(sql.contains("formal_erp_identity"));
         assertTrue(sql.contains("a.active_status IN ('ACTIVE','REMOVED')"));
         assertTrue(sql.contains("COALESCE(a.simulated,0)=0"));
         assertTrue(sql.contains("q.product_specification LIKE ?"));

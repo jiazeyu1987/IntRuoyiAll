@@ -41,6 +41,17 @@ class MesReportAllocationPoolQuantityServiceTest {
     }
 
     @Test
+    void reported6000WithSeparateLoss1KeepsAllocationPoolAt6000() {
+        var event = MesProProcessPoolEventDO.builder().id(176L)
+                .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                .reportOutputQuantity(new BigDecimal("6000"))
+                .rawPayload("{\"outputQuantity\":6000,\"lossQuantity\":1}")
+                .build();
+        assertEquals(0, new BigDecimal("6000").compareTo(service.requirePoolQuantity(event)));
+        assertEquals(0, new BigDecimal("6000").compareTo(service.requireSubmittedOutputQuantity(event)));
+    }
+
+    @Test
     void shouldRejectNonProductionEventAsAllocationRoot() {
         MesProProcessPoolEventDO event = MesProProcessPoolEventDO.builder()
                 .id(177L)

@@ -12,6 +12,7 @@ export type DccRegistrationCertificateStatus =
   | 'VOIDED'
 
 export type DccRegistrationCertificateReminderVisualState =
+  | 'EXPIRED'
   | 'NONE'
   | 'CLEARED'
   | 'T_30'
@@ -23,6 +24,7 @@ export type DccRegistrationCertificateReminderVisualState =
   | 'CE_T_3'
 
 export type DccRegistrationCertificateReminderFilterState =
+  | 'EXPIRED'
   | 'NORMAL'
   | 'T_30'
   | 'T_8'

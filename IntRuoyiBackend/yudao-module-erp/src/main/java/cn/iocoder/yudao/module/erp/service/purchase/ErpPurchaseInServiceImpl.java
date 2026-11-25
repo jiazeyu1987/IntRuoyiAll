@@ -75,7 +75,7 @@ public class ErpPurchaseInServiceImpl implements ErpPurchaseInService {
         // 1.1 校验采购订单已审核
         ErpPurchaseOrderDO purchaseOrder = purchaseOrderService.validatePurchaseOrder(createReqVO.getOrderId());
         // 1.2 校验入库项的有效性
-        List<ErpPurchaseInItemDO> purchaseInItems = validatePurchaseInItems(createReqVO.getItems());
+        List<ErpPurchaseInItemDO> purchaseInItems = validatePurchaseInItems(createReqVO.getItems(), createReqVO.getOrderId());
         // 1.3 校验结算账户
         accountService.validateAccount(createReqVO.getAccountId());
         // 1.4 生成入库单号，并校验唯一性
@@ -104,6 +104,7 @@ public class ErpPurchaseInServiceImpl implements ErpPurchaseInService {
     public void updatePurchaseIn(ErpPurchaseInSaveReqVO updateReqVO) {
         // 1.1 校验存在
         ErpPurchaseInDO purchaseIn = validatePurchaseInExists(updateReqVO.getId());
+        if (!java.util.Objects.equals(purchaseIn.getOrderId(), updateReqVO.getOrderId())) throw new IllegalArgumentException("不允许变更单据所属订单，请删除后重新创建");
         if (ErpAuditStatus.APPROVE.getStatus().equals(purchaseIn.getStatus())) {
             throw exception(PURCHASE_IN_UPDATE_FAIL_APPROVE, purchaseIn.getNo());
         }
@@ -112,7 +113,7 @@ public class ErpPurchaseInServiceImpl implements ErpPurchaseInService {
         // 1.3 校验结算账户
         accountService.validateAccount(updateReqVO.getAccountId());
         // 1.4 校验订单项的有效性
-        List<ErpPurchaseInItemDO> purchaseInItems = validatePurchaseInItems(updateReqVO.getItems());
+        List<ErpPurchaseInItemDO> purchaseInItems = validatePurchaseInItems(updateReqVO.getItems(), updateReqVO.getOrderId());
 
         // 2.1 更新入库
         ErpPurchaseInDO updateObj = BeanUtils.toBean(updateReqVO, ErpPurchaseInDO.class)
@@ -177,6 +178,11 @@ public class ErpPurchaseInServiceImpl implements ErpPurchaseInService {
 
         // 3. 变更库存
         List<ErpPurchaseInItemDO> purchaseInItems = purchaseInItemMapper.selectListByInId(id);
+        // Approval posts quantities in the current stock unit. Cancellation reverses the exact
+        // persisted quantities previously posted; revalidating against today's unit would block reversal.
+        if (approve) {
+            validatePurchaseInItems(convertList(purchaseInItems, item -> BeanUtils.toBean(item, ErpPurchaseInSaveReqVO.Item.class)), purchaseIn.getOrderId());
+        }
         Integer bizType = approve ? ErpStockRecordBizTypeEnum.PURCHASE_IN.getType()
                 : ErpStockRecordBizTypeEnum.PURCHASE_IN_CANCEL.getType();
         purchaseInItems.forEach(purchaseInItem -> {
@@ -190,6 +196,10 @@ public class ErpPurchaseInServiceImpl implements ErpPurchaseInService {
     @Override
     public void updatePurchaseInPaymentPrice(Long id, BigDecimal paymentPrice) {
         ErpPurchaseInDO purchaseIn = purchaseInMapper.selectById(id);
+        if (purchaseIn != null && org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            purchaseOrderService.lockOrder(purchaseIn.getOrderId());
+            purchaseIn = purchaseInMapper.selectByIdForUpdate(id);
+        }
         if (purchaseIn.getPaymentPrice().equals(paymentPrice)) {
             return;
         }
@@ -199,13 +209,21 @@ public class ErpPurchaseInServiceImpl implements ErpPurchaseInService {
         purchaseInMapper.updateById(new ErpPurchaseInDO().setId(id).setPaymentPrice(paymentPrice));
     }
 
-    private List<ErpPurchaseInItemDO> validatePurchaseInItems(List<ErpPurchaseInSaveReqVO.Item> list) {
+    private List<ErpPurchaseInItemDO> validatePurchaseInItems(List<ErpPurchaseInSaveReqVO.Item> list, Long orderId) {
         // 1. 校验产品存在
         List<ErpProductDO> productList = productService.validProductList(
                 convertSet(list, ErpPurchaseInSaveReqVO.Item::getProductId));
         Map<Long, ErpProductDO> productMap = convertMap(productList, ErpProductDO::getId);
         // 2. 转化为 ErpPurchaseInItemDO 列表
         return convertList(list, o -> BeanUtils.toBean(o, ErpPurchaseInItemDO.class, item -> {
+            var orderItem = purchaseOrderService.getPurchaseOrderItemListByOrderId(orderId).stream()
+                    .filter(line -> java.util.Objects.equals(line.getId(), item.getOrderItemId())).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("单据明细不属于所选订单"));
+            if (!java.util.Objects.equals(orderItem.getProductId(), item.getProductId())
+                    || !java.util.Objects.equals(orderItem.getProductUnitId(), productMap.get(item.getProductId()).getUnitId())
+                    || (item.getProductUnitId() != null && !java.util.Objects.equals(item.getProductUnitId(), orderItem.getProductUnitId()))) {
+                throw new IllegalArgumentException("单据物料或单位与订单/库存单位不一致，缺少可靠换算关系");
+            }
             item.setProductUnitId(productMap.get(item.getProductId()).getUnitId());
             item.setTotalPrice(MoneyUtils.priceMultiply(item.getProductPrice(), item.getCount()));
             if (item.getTotalPrice() == null) {
@@ -220,6 +238,10 @@ public class ErpPurchaseInServiceImpl implements ErpPurchaseInService {
     private void updatePurchaseInItemList(Long id, List<ErpPurchaseInItemDO> newList) {
         // 第一步，对比新老数据，获得添加、修改、删除的列表
         List<ErpPurchaseInItemDO> oldList = purchaseInItemMapper.selectListByInId(id);
+        var ownedIds = oldList.stream().map(item -> item.getId()).collect(java.util.stream.Collectors.toSet());
+        if (newList.stream().anyMatch(item -> item.getId() != null && !ownedIds.contains(item.getId()))) {
+            throw new IllegalArgumentException("明细ID不属于当前单据");
+        }
         List<List<ErpPurchaseInItemDO>> diffList = diffList(oldList, newList, // id 不同，就认为是不同的记录
                 (oldVal, newVal) -> oldVal.getId().equals(newVal.getId()));
 
@@ -241,6 +263,8 @@ public class ErpPurchaseInServiceImpl implements ErpPurchaseInService {
     public void deletePurchaseIn(List<Long> ids) {
         // 1. 校验不处于已审批
         List<ErpPurchaseInDO> purchaseIns = purchaseInMapper.selectByIds(ids);
+        purchaseIns.stream().map(ErpPurchaseInDO::getOrderId).distinct().sorted().forEach(purchaseOrderService::lockOrder);
+        purchaseIns = ids.stream().distinct().sorted().map(purchaseInMapper::selectByIdForUpdate).filter(java.util.Objects::nonNull).toList();
         if (CollUtil.isEmpty(purchaseIns)) {
             return;
         }
@@ -265,6 +289,10 @@ public class ErpPurchaseInServiceImpl implements ErpPurchaseInService {
 
     private ErpPurchaseInDO validatePurchaseInExists(Long id) {
         ErpPurchaseInDO purchaseIn = purchaseInMapper.selectById(id);
+        if (purchaseIn != null && org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            purchaseOrderService.lockOrder(purchaseIn.getOrderId());
+            purchaseIn = purchaseInMapper.selectByIdForUpdate(id);
+        }
         if (purchaseIn == null) {
             throw exception(PURCHASE_IN_NOT_EXISTS);
         }

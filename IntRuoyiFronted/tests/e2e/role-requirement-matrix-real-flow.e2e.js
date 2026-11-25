@@ -1972,44 +1972,6 @@ async function verifyScheduleOrderErpCandidateAdmission(page, config) {
     }
   }
 
-  const blockedQuery = {
-    pageNo: 1,
-    pageSize: 50,
-    admissionStatus: 'BLOCKED'
-  }
-  const blockedEndpoint = `${admissionDiffEndpoint}?${new URLSearchParams(
-    Object.entries(blockedQuery).map(([key, value]) => [key, String(value)])
-  ).toString()}`
-  const blockedResult = await fetchWithPageAuth(page, blockedEndpoint)
-  if (!blockedResult.ok || !isBusinessSuccess(blockedResult.body)) {
-    return {
-      key: evidenceKey,
-      label: '生产组长同步工单候选准入核验',
-      roleKey: 'productionLeader',
-      status: 'BLOCKED',
-      category: 'E2E_AC_M01_DATA',
-      acceptanceIds,
-      description: `缺 ERP 正式订单阻断样本查询失败，HTTP=${blockedResult.status}，业务=${responseMessage(blockedResult.body)}。`
-    }
-  }
-  const blockedFormalIdentityRows = extractAdmissionDiffRows(blockedResult.body)
-    .filter((row) => row.reasonCode === 'BLOCKED_ERP_SYNC_RECORD_MISSING' && row.selectable === false)
-  if (!blockedFormalIdentityRows.length) {
-    return {
-      key: evidenceKey,
-      label: '生产组长同步工单候选准入核验',
-      roleKey: 'productionLeader',
-      status: 'BLOCKED',
-      category: 'E2E_AC_M01_DATA',
-      acceptanceIds,
-      workOrderId: config.workOrderId,
-      workOrderCode: config.productionOrderCode,
-      admissionStatus: targetRow.admissionStatus,
-      selectable: targetRow.selectable,
-      description: '当前真实候选池缺少 BLOCKED_ERP_SYNC_RECORD_MISSING 阻断样本，不能证明缺正式 ERP ID/编号的订单不会进入可选候选。'
-    }
-  }
-
   return {
     key: 'scheduleOrderErpCandidateAdmission',
     label: '生产组长同步工单候选准入核验',
@@ -2022,8 +1984,7 @@ async function verifyScheduleOrderErpCandidateAdmission(page, config) {
     workOrderCode: targetRow.workOrderCode,
     admissionStatus: targetRow.admissionStatus,
     selectable: targetRow.selectable,
-    reasonCode: targetRow.reasonCode,
-    blockedFormalIdentityRowCount: blockedFormalIdentityRows.length
+    reasonCode: targetRow.reasonCode
   }
 }
 

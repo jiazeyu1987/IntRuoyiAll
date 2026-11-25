@@ -6,6 +6,13 @@ import java.time.LocalDate;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 class DccRegistrationCertificateFactsTest {
+ @Test void domesticUploadRequiresApprovalDateWithoutInventingIt(){
+  var f=base("DOMESTIC");f.setCertificateNo("CERT");f.setFirstObtainedDate(LocalDate.of(2020,1,1));
+  f.setEffectiveDate(LocalDate.of(2026,1,1));f.setExpiryDate(LocalDate.of(2027,1,1));
+  assertEquals("请填写批准日期",assertThrows(ServiceException.class,f::validateForUpload).getMessage());
+  assertNull(f.getApprovalDate());f.setApprovalDate(LocalDate.of(2025,12,1));assertDoesNotThrow(f::validateForUpload);
+ }
+
  @Test void fdaHasNoInventedEffectiveOrExpiryDates(){
   var facts=base("FDA");facts.setSubmissionType("TRADITIONAL_510K");facts.setCustomerHeld(true);
   facts.setApprovalLetterStatus("VALID");facts.setFactoryRegistrationStatus("ACTIVE");facts.setCertificateHolder("Customer A");

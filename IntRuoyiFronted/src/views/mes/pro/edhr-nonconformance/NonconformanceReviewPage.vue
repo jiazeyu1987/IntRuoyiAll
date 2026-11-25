@@ -270,6 +270,7 @@ import { handoffNavigationContext } from '@/api/mes/pro/handoff'
 defineOptions({ name: 'MesProFeedbackEdhrNonconformanceReview' })
 
 const route = useRoute()
+const router = useRouter()
 const message = useMessage()
 const selectedReviewReadOnly = ref(false)
 const orderDetailVisible = ref(false)
@@ -695,15 +696,20 @@ const closeReviewTab = () => {
   reviewTabOpen.value = false
 }
 
-const openReviewTab = (review: EdhrNonconformanceReviewRespVO) => {
+const openReviewTab = async (review: EdhrNonconformanceReviewRespVO) => {
   if (disposeLoading.value || assigningReviewer.value) return
-  invalidateReviewContext()
-  errorText.value = ''
-  selectedReview.value = review
-  unassignedReviewerId.value = undefined
-  fillDisposeForm(review)
-  reviewTabOpen.value = true
-  activeTab.value = 'review'
+  // Route loading owns identity validation and read-only state, including refreshes.
+  if (String(route.query.reviewId) === String(review.id)) {
+    await loadReviewEntry()
+    return
+  }
+  const entryPath = route.fullPath
+  try {
+    const navigationFailure = await router.replace({ query: { reviewId: String(review.id) } })
+    if (navigationFailure) throw new Error('评审详情导航未完成，请重新打开。')
+  } catch (error) {
+    if (route.fullPath === entryPath) errorText.value = resolveErrorMessage(error, '评审详情导航失败。')
+  }
 }
 
 const submitCreateReview = async () => {
@@ -741,6 +747,15 @@ const submitCreateReview = async () => {
     closeCreateDialog()
     activeTab.value = 'all'
     queryParams.pageNo = 1
+    if (autoCreate.value) {
+      const query = { ...route.query }
+      delete query.autoCreate
+      delete query.activeOrderId
+      message.success('不合格评审已创建，编号 ' + (review.reviewCode || '--'))
+      const navigationFailure = await router.replace({ query })
+      if (navigationFailure) throw new Error('自动新建入口未能清除，请勿重复创建，并从评审列表核对已创建单据。')
+      return
+    }
     message.success('不合格评审已创建，编号 ' + (review.reviewCode || '--'))
     try { await loadReviews() } catch (error) {
       if (approvalInvalidation.isCurrent(approvalEvent.session.key)) message.warning(`评审已创建，列表刷新失败：${resolveErrorMessage(error, '请刷新核对。')}`)
@@ -913,6 +928,7 @@ const requireReviewIdentity = (value: unknown): string => {
 }
 
 const loadReviewEntry = async () => {
+  unassignedReviewerId.value = undefined
   reviewTabOpen.value = false
   closeCreateDialog()
   invalidateReviewContext()

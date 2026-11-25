@@ -37,7 +37,7 @@ test('quantity overage allows release after production and inspection are comple
     '\nglobalThis.canRelease = canApplyActiveOrderRelease',
     { compilerOptions: { target: ts.ScriptTarget.ES2020 } }
   ).outputText, context)
-  const complete = { productionProgressPercent: 100, inspectionProgressPercent: 100, hasQuantityConflict: true, quantityConflict: true }
+  const complete = { productionProgressPercent: 100, inspectionProgressPercent: 100, formalProductionReviewComplete: true, hasQuantityConflict: true, quantityConflict: true }
   assert.equal(context.canRelease(complete), true)
   for (const condition of [{ productionProgressPercent: 99 }, { inspectionProgressPercent: 99 }, { abnormal: true }, { readBlocked: true }, { releaseApplicationStatus: 'PENDING' }]) {
     assert.equal(context.canRelease({ ...complete, ...condition }), false)
@@ -97,6 +97,40 @@ test('valid split enters signature confirmation and returning clears the credent
   context.back()
   assert.equal(context.allocationConfirming.value, false)
   assert.equal(context.reviewForm.reviewSignaturePassword, '')
+})
+
+test('6000 allocated out of 6000 remains valid with a separate loss of 1', () => {
+  const { context, errors } = harness([{ activeOrderId: 1, allocatedQuantity: 6000 }])
+  context.allocationSnapshot.value.poolQuantity = 6000
+  context.reviewEvent.value = { outputQuantity: 6000, lossQuantity: 1 }
+  context.prepare()
+  assert.equal(context.allocationConfirming.value, true)
+  assert.deepEqual(errors, [])
+  assert.equal(context.build()[0].allocatedQuantity, 6000)
+})
+
+test('missing allocation snapshot prevents signature confirmation', () => {
+  const { context, errors } = harness([{ activeOrderId: 1, allocatedQuantity: 10 }])
+  context.allocationSnapshot.value = undefined
+  context.prepare()
+  assert.equal(context.allocationConfirming.value, false)
+  assert.match(errors[0], /尚未加载完成/)
+})
+
+test('missing snapshot quantity cannot use the report list value to confirm', () => {
+  const { context, errors } = harness([{ activeOrderId: 1, allocatedQuantity: 10 }])
+  context.allocationSnapshot.value = {}
+  context.prepare()
+  assert.equal(context.allocationConfirming.value, false)
+  assert.match(errors[0], /本次报工数量必须为正整数/)
+})
+
+test('empty allocation reports missing quantity instead of exceeding the pool', () => {
+  const { context, errors } = harness([])
+  context.prepare()
+  assert.equal(context.allocationConfirming.value, false)
+  assert.match(errors[0], /大于0/)
+  assert.doesNotMatch(errors[0], /超过/)
 })
 
 for (const [name, rows] of [

@@ -50,7 +50,7 @@ test('late order response cannot replace another cycle', async () => {
 const ncrFile = 'edhr-nonconformance/NonconformanceReviewPage.vue'
 function entry(query, review) {
   const context = { route: { name: 'MesProFeedbackEdhrNonconformanceReview', query }, reviewTabOpen: ref(false), closeCreateDialog() {}, invalidateReviewContext() {},
-    selectedReview: ref(), errorText: ref(''), reviewContextGeneration: 0, reviews: ref([]), total: ref(0), listLoading: ref(false),
+    unassignedReviewerId: ref(), selectedReview: ref(), errorText: ref(''), reviewContextGeneration: 0, reviews: ref([]), total: ref(0), listLoading: ref(false),
     getNonconformanceReview: async () => review, parseExactIntegerJson: JSON.parse, SOURCE_TYPE_DEVIATION: 'DEVIATION',
     fillDisposeForm() {}, selectedReviewReadOnly: ref(false), activeTab: ref(''), loadReviews() {}, resolveErrorMessage: e => e.message }
   context.requireReviewIdentity = production(ncrFile, 'requireReviewIdentity', {})

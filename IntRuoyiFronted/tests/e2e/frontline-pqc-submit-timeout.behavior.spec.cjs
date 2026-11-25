@@ -71,7 +71,9 @@ function harness(t, delay = 35000, rejectWith) {
   // Only transport time is virtual; Axios merging and both production TS wrappers execute.
   service.interceptors.response.use(response => response.data)
   const request = load('src/config/axios/index.ts', { './service': { service }, './config': { config } }).default
-  const api = load('src/api/mes/pro/feedback/index.ts', { '@/config/axios': request, './pqcProjection': projection }).ProFeedbackApi
+  const returnCorrection = load('src/api/mes/pro/processpool/frontlineReturnCorrection.ts', { '@/config/axios': request })
+  const returnedSubmission = load('src/api/mes/pro/feedback/pqcReturnedSubmission.ts', { '../processpool/frontlineReturnCorrection': returnCorrection })
+  const api = load('src/api/mes/pro/feedback/index.ts', { '@/config/axios': request, './pqcProjection': projection, './pqcReturnedSubmission': returnedSubmission }).ProFeedbackApi
   return { api, calls, lastFailure: () => lastFailure }
 }
 

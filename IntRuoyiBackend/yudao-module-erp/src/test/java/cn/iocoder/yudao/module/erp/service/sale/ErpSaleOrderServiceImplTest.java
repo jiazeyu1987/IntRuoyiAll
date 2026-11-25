@@ -25,10 +25,14 @@ class ErpSaleOrderServiceImplTest {
     void setUp() {
         saleOrderService = new ErpSaleOrderServiceImpl();
         ReflectionTestUtils.setField(saleOrderService, "saleOrderMapper", saleOrderMapper);
+        ReflectionTestUtils.setField(saleOrderService, "saleOutMapper", org.mockito.Mockito.mock(
+                cn.iocoder.yudao.module.erp.dal.mysql.sale.ErpSaleOutMapper.class));
+        ReflectionTestUtils.setField(saleOrderService, "saleReturnMapper", org.mockito.Mockito.mock(
+                cn.iocoder.yudao.module.erp.dal.mysql.sale.ErpSaleReturnMapper.class));
     }
 
     @Test
-    void updateSaleOrderStatus_treatsMissingOutAndReturnCountsAsZero() {
+    void updateSaleOrderStatus_checksActualDocumentsBeforeReversingLegacyNullOrder() {
         ErpSaleOrderDO saleOrder = new ErpSaleOrderDO()
                 .setId(501L)
                 .setNo("XSDD20260613000001")

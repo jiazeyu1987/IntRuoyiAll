@@ -2,7 +2,6 @@ package cn.iocoder.yudao.module.mes.service.pro.scheduleorder;
 
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderAdmissionDiffPageReqVO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesKingdeeProductionOrderSyncRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProAdmissionListMapper;
@@ -34,7 +33,6 @@ class MesProAdmissionListServiceTest {
                     MesProWorkOrderDO.builder().id(101L).productId(21L).status(1).build(),
                     MesProWorkOrderDO.builder().id(102L).productId(21L).status(1).build()));
             when(fixture.schedule.selectListByWorkOrderIds(any())).thenReturn(List.of());
-            when(fixture.sync.selectByWorkOrderIds(anyCollection())).thenReturn(List.of(sync(101L), sync(102L)));
             var result = fixture.service.getAdmissionDiff(request);
             assertEquals(103L, result.getTotal());
             assertEquals(List.of(102L, 101L), result.getList().stream().map(row -> row.getWorkOrderId()).toList());
@@ -68,7 +66,7 @@ class MesProAdmissionListServiceTest {
     }
 
     @Test
-    void productCodeSearchChecksOnlyThePageAndBatchesFormalIdentities() {
+    void productCodeSearchChecksRoutesWithoutRequiringErpIdentities() {
         TenantContextHolder.setTenantId(1L);
         try {
             var fixture = new Fixture();
@@ -83,15 +81,13 @@ class MesProAdmissionListServiceTest {
                     MesProWorkOrderDO.builder().id(101L).productId(21L).status(1).build(),
                     MesProWorkOrderDO.builder().id(102L).productId(21L).status(1).build(),
                     MesProWorkOrderDO.builder().id(103L).productId(21L).status(1).build()));
-            when(fixture.sync.selectByWorkOrderIds(anyCollection())).thenReturn(List.of(sync(102L), sync(101L)));
 
             var result = fixture.service.getAdmissionDiff(request);
             assertEquals(24L, result.getTotal());
             assertEquals(3, result.getSummary().getBlockedCount());
-            assertEquals(List.of("BLOCKED_ERP_SYNC_RECORD_MISSING", "BLOCKED_MISSING_ROUTE", "BLOCKED_MISSING_ROUTE"),
+            assertEquals(List.of("BLOCKED_MISSING_ROUTE", "BLOCKED_MISSING_ROUTE", "BLOCKED_MISSING_ROUTE"),
                     result.getList().stream().map(row -> row.getReasonCode()).toList());
-            verify(fixture.sync).selectByWorkOrderIds(anyCollection());
-            verifyNoMoreInteractions(fixture.sync);
+            verifyNoInteractions(fixture.sync);
             verify(fixture.routeProduct).selectListByItemId(21L);
             verify(fixture.admission, never()).selectRouteCheckProductIds(any(), any());
         } finally { TenantContextHolder.clear(); }
@@ -119,11 +115,6 @@ class MesProAdmissionListServiceTest {
             assertEquals(20, second.getSummary().getBlockedCount());
             assertEquals(1, second.getSummary().getWarnCount());
         } finally { TenantContextHolder.clear(); }
-    }
-
-    private static MesKingdeeProductionOrderSyncRecordDO sync(Long workOrderId) {
-        return MesKingdeeProductionOrderSyncRecordDO.builder().workOrderId(workOrderId)
-                .sourceFid("ERP-ID").sourceBillNo("ERP-BILL").build();
     }
 
     private static final class Fixture {

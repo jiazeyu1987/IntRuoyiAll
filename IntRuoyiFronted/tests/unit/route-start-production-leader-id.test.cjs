@@ -10,6 +10,7 @@ const source = fs.readFileSync(path.join(root, 'src/views/mes/pro/route/RouteFlo
 const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
 const ast = ts.createSourceFile('designer.ts', script, ts.ScriptTarget.Latest, true)
 const names = [
+  'isProductionFlow', 'isRouteGroupTemplate',
   'createRouteStartProductionLeaderDraft', 'normalizeRouteStartProductionLeaders',
   'buildRouteStartProductionLeaderSaveItems', 'serializeRouteStartProductionLeaderSaveItems',
   'markRouteStartProductionLeadersClean', 'hasRouteStartProductionLeaderDraftChanges',
@@ -35,7 +36,8 @@ function page(routeId) {
   const requests = []
   const ctx = {
     exports: {},
-    props: { routeId, routeVersionEditContext: { routeVersionId: versionId, lifecycleStatus: 'DRAFT' } },
+    computed: fn => ({ get value() { return fn() } }),
+    props: { routeId, routeNodeType: 'FLOW', routeVersionEditContext: { routeVersionId: versionId, lifecycleStatus: 'DRAFT' } },
     routeStartProductionLeaderProductionLines: ref([]), routeStartProductionLeaders: ref([]),
     routeStartProductionLeadersLoaded: ref(false), routeStartProductionLeadersLoading: ref(false),
     routeStartProductionLeadersSaving: ref(false), routeStartProductionLeadersLoadError: ref(''),

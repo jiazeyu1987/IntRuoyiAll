@@ -67,6 +67,7 @@ for (const activeOrderId of [undefined, 123]) {
       const result = vm.runInNewContext(executable, {
         queryParams,
         activeTab: { value: tab },
+        listTab: { value: tab },
         REVIEW_STATUS_PENDING_REVIEW: 'pending_review',
         entryActiveOrderId: { value: activeOrderId },
         entrySourceType: { value: 'PQC_RELEASE' },

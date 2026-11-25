@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotificationService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotifier;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateChangeConfirmationService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateViewerRecipientResolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -38,12 +39,14 @@ class DccRegistrationCertificateBusinessEventNotifierTest {
             mock(DccRegistrationCertificateBusinessEventNotificationService.class);
     private final DccRegistrationCertificateChangeConfirmationService confirmations =
             mock(DccRegistrationCertificateChangeConfirmationService.class);
+    private final DccRegistrationCertificateViewerRecipientResolver viewers =
+            mock(DccRegistrationCertificateViewerRecipientResolver.class);
     private final DccRegistrationCertificateBusinessEventNotifier notifier =
-            new DccRegistrationCertificateBusinessEventNotifier(configService, notificationService, confirmations);
+            new DccRegistrationCertificateBusinessEventNotifier(configService, notificationService, confirmations, viewers);
 
     @BeforeEach
     void resetMocks() {
-        reset(configService, notificationService, confirmations);
+        reset(configService, notificationService, confirmations, viewers);
     }
 
     @Test
@@ -116,7 +119,7 @@ class DccRegistrationCertificateBusinessEventNotifierTest {
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> notifier.notifyChangeApprovalRecorded(
                         1L, 501L, 1001L, 8001L, 99L, "approval-key-001",
-                        " ", "NMPA-001", LocalDate.of(2026, 1, 1), LocalDate.of(2031, 1, 1)));
+                        " ", "NMPA-001", LocalDate.of(2026, 1, 1), LocalDate.of(2031, 1, 1), "DOMESTIC"));
 
         assertEquals(REGISTRATION_CERTIFICATE_REMINDER_TEMPLATE_PARAM_MISSING.getCode(), exception.getCode());
         verifyNoInteractions(configService);
@@ -126,17 +129,17 @@ class DccRegistrationCertificateBusinessEventNotifierTest {
     private void notifyChangeApprovalRecorded() {
         notifier.notifyChangeApprovalRecorded(
                 1L, 501L, 1001L, 8001L, 99L, "approval-key-001",
-                "变更后产品名称", "NMPA-001", LocalDate.of(2026, 1, 1), LocalDate.of(2031, 1, 1));
+                "变更后产品名称", "NMPA-001", LocalDate.of(2026, 1, 1), LocalDate.of(2031, 1, 1), "DOMESTIC");
     }
 
     private void notifyCertificateEvent(String eventType) {
         switch (eventType) {
             case "NEW_CERTIFICATE_FORMALIZED" -> notifier.notifyNewCertificateFormalized(
-                    186L, 501L, 1001L, 8001L, 99L, "event-key", "产品", "REG-001", null, null);
+                    186L, 501L, 1001L, 8001L, 99L, "event-key", "产品", "REG-001", null, null, "DOMESTIC", true);
             case "RENEWAL_CANDIDATE_UPLOADED" -> notifier.notifyRenewalCandidateUploaded(
-                    186L, 501L, 1001L, 8001L, 99L, "event-key", "产品", "REG-001", null, null);
+                    186L, 501L, 1001L, 8001L, 99L, "event-key", "产品", "REG-001", null, null, "DOMESTIC");
             case "RENEWAL_CANDIDATE_ACTIVATED" -> notifier.notifyRenewalCandidateActivated(
-                    186L, 501L, 1001L, 8001L, 99L, "event-key", "产品", "REG-001", null, null);
+                    186L, 501L, 1001L, 8001L, 99L, "event-key", "产品", "REG-001", null, null, "DOMESTIC");
             default -> throw new IllegalArgumentException(eventType);
         }
     }

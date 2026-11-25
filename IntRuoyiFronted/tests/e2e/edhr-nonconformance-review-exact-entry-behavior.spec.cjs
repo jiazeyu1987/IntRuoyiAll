@@ -37,7 +37,7 @@ function pageHarness(query = entry(), overrides = {}) {
     useUserTableColumns: (_key, columns) => ({ columns: vue.ref(columns), saving: vue.ref(false), isColumnVisible: () => true, getColumnWidth: () => undefined, handleHeaderDragend() {}, saveConfig() {} }),
     useTableQuickFilter: () => ({ state: {}, selectedDefinition: vue.ref(), operatorOptions: vue.ref([]), updateState() {}, applyQuickFilter() {} }),
     useUserStore: () => ({ getUser: { id: 12 } }),
-    ...vue, defineOptions() {}, useRoute: () => route,
+    ...vue, defineOptions() {}, useRoute: () => route, useRouter: () => ({ replace: async ({ query }) => { route.query = query } }),
     watch: (...args) => { const stop = vue.watch(...args); stops.push(stop); return stop },
     onMounted: fn => mounted.push(fn), onBeforeUnmount: fn => unmounted.push(fn),
     useMessage: () => ({ error: msg => messages.push(msg), success() {} }),
@@ -138,7 +138,7 @@ test('late old route result cannot replace a newer exact review', async () => {
 test('late response and error after route departure or unmount cannot reopen a dialog', async () => {
   for (const departure of ['query', 'name', 'unmount']) for (const failed of [false, true]) {
     const old = deferred()
-    const h = pageHarness(entry(), { getNonconformanceReview: () => old.promise }); await h.mount()
+    const h = pageHarness(entry(), { getNonconformanceReview: id => String(id) === '77' ? Promise.resolve(row({ id: 77, sourceType: 'ACTIVE_ORDER' })) : old.promise }); await h.mount()
     if (departure === 'query') h.route.query = {}
     else if (departure === 'name') h.route.name = 'OtherPage'
     else h.unmount()
@@ -166,7 +166,7 @@ test('malformed formal materials do not expose a writable selected object', asyn
 test('manual review or create action invalidates an outstanding route read', async () => {
   for (const action of ['review', 'create']) {
     const old = deferred()
-    const h = pageHarness(entry(), { getNonconformanceReview: () => old.promise }); await h.mount()
+    const h = pageHarness(entry(), { getNonconformanceReview: id => String(id) === '77' ? Promise.resolve(row({ id: 77, sourceType: 'ACTIVE_ORDER' })) : old.promise }); await h.mount()
     if (action === 'review') h.page.openReviewTab(row({ id: 77, sourceType: 'ACTIVE_ORDER' }))
     else await h.page.openCreateDialog()
     old.resolve(row()); await tick()

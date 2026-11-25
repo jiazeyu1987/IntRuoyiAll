@@ -325,6 +325,10 @@ const handleCategoryChanged = () => {
 
 const submit = async () => {
   submitError.value = ''
+  if (props.certificate && parseFacts(props.certificate.factsJson).certificateType === 'FDA') {
+    submitError.value = 'FDA不适用到期延续，请通过变更办理批准信函或产品资料更新'
+    return
+  }
   if (!formRef.value) return
   const valid = await formRef.value.validate(() => undefined)
   if (!valid) return

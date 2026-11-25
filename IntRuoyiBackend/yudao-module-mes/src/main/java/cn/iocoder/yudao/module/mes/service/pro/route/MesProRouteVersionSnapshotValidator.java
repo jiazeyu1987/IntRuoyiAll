@@ -60,6 +60,16 @@ final class MesProRouteVersionSnapshotValidator {
             if (nodes == null || nodes.isEmpty()) {
                 return false;
             }
+            for (Object value : nodes) {
+                if (!(value instanceof JSONObject node) || !node.containsKey("sopFileUrl")) {
+                    return false;
+                }
+                Object sopFileUrl = node.get("sopFileUrl");
+                // null 表示明确未绑定；字段缺失或其他类型不能进入生产冻结版本。
+                if (sopFileUrl != null && !(sopFileUrl instanceof String)) {
+                    return false;
+                }
+            }
             boolean structurallyComplete = isArrayOrObject(configSnapshots.get(PRODUCTS_KEY))
                     && isArrayOrObject(configSnapshots.get(SCHEDULE_CONFIGS_KEY))
                     && configSnapshots.get(BATCH_USE_CONFIGS_KEY) instanceof JSONArray

@@ -33,10 +33,10 @@ assert.match(
   'AC-M01 action must query candidates by the formal production order code.'
 )
 
-assert.match(
+assert.doesNotMatch(
   source,
-  /async function verifyScheduleOrderErpCandidateAdmission[\s\S]*?BLOCKED_ERP_SYNC_RECORD_MISSING[\s\S]*?selectable\s*===\s*false/,
-  'AC-M01 action must prove missing ERP formal identity rows are blocked and not selectable.'
+  /BLOCKED_ERP_SYNC_RECORD_MISSING/,
+  'AC-M01 must not require missing ERP identities to be blocked after admission policy removal.'
 )
 
 assert.match(

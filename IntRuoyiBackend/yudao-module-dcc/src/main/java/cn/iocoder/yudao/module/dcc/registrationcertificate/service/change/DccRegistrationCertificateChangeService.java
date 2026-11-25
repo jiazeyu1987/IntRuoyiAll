@@ -154,7 +154,7 @@ public class DccRegistrationCertificateChangeService {
         businessEventNotifier.notifyChangeApprovalRecorded(
                 command.tenantId(), state.ownerCompanyId(), command.certificateId(), state.versionId(),
                 command.actorId(), command.idempotencyKey(), target.productName(), notificationFacts.getCertificateNo(),
-                notificationFacts.getEffectiveDate(), notificationFacts.getExpiryDate());
+                notificationFacts.getEffectiveDate(), notificationFacts.getExpiryDate(), notificationFacts.getCertificateType());
         return new DccRegistrationCertificateChangeResult(command.certificateId(), changeId,
                 state.snapshotId(), resultingSnapshotId, "APPLIED");
     }
@@ -177,7 +177,9 @@ public class DccRegistrationCertificateChangeService {
                 command.expectedRowVersion());
         validateFactsReplacement(state.snapshot(), command.structuredValues());
         ensureNoOpenChangeApproval(command.tenantId(), command.certificateId());
-        businessEventNotifier.validateChangeConfirmationRecipients(command.tenantId());
+        businessEventNotifier.validateChangeConfirmationRecipients(command.tenantId(),
+                cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(
+                        state.snapshot().factsJson()).getCertificateType());
         Long eventId = insertLifecycleEvent(command, state, state.snapshotId(), EVENT_CHANGE_SUBMITTED,
                 payloadHash, selection.itemTypes());
         Long changeId = insertPendingChange(command, state, eventId, selection.itemTypes());
@@ -251,7 +253,7 @@ public class DccRegistrationCertificateChangeService {
         businessEventNotifier.notifyChangeApprovalRecorded(
                 tenantId, state.ownerCompanyId(), application.certificateId(), state.versionId(),
                 approverId, approvalKey.trim(), notificationProductName, notificationFacts.getCertificateNo(),
-                notificationFacts.getEffectiveDate(), notificationFacts.getExpiryDate());
+                notificationFacts.getEffectiveDate(), notificationFacts.getExpiryDate(), notificationFacts.getCertificateType());
         productCatalogRegistrationSyncService.syncByRegistrationCertificateId(application.certificateId());
         return new DccRegistrationCertificateChangeResult(application.certificateId(), application.changeId(),
                 state.snapshotId(), resultingSnapshotId, STATUS_APPLIED);

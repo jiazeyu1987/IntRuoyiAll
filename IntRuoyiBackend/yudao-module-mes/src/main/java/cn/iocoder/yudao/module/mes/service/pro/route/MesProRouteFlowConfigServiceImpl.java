@@ -1200,14 +1200,26 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     @Override
     public List<MesProRouteStartProductionLeaderProductionLineRespVO>
     getRouteStartProductionLeaderProductionLines(Long routeId, Long routeVersionId) {
-        validateRouteExists(routeId);
+        MesProRouteDO route = validateRouteExists(routeId);
+        if (!isProductionLeaderExecutionRoute(route)) {
+            if (routeVersionId != null) {
+                requireReadableRouteVersion(routeVersionId, routeId);
+            }
+            return List.of();
+        }
         return buildRouteStartProductionLeaderProductionLineRespList(routeId, routeVersionId);
     }
 
     @Override
     public List<MesProRouteStartProductionLeaderRespVO> getRouteStartProductionLeaders(
             Long routeId, Long routeVersionId) {
-        validateRouteExists(routeId);
+        MesProRouteDO route = validateRouteExists(routeId);
+        if (!isProductionLeaderExecutionRoute(route)) {
+            if (routeVersionId != null) {
+                requireReadableRouteVersion(routeVersionId, routeId);
+            }
+            return List.of();
+        }
         MesProRouteVersionDO routeVersion = routeVersionId == null
                 ? routeVersionMapper.selectActiveByRouteId(routeId)
                 : requireReadableRouteVersion(routeVersionId, routeId);
@@ -1224,6 +1236,10 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     @Transactional(rollbackFor = Exception.class)
     public void saveRouteStartProductionLeaders(MesProRouteStartProductionLeaderSaveReqVO saveReqVO) {
         MesProRouteDO route = validateRouteExists(saveReqVO.getRouteId());
+        if (!isProductionLeaderExecutionRoute(route)) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_START_PRODUCTION_LEADER_INVALID,
+                    "目录模板不参与生产组长执行授权，不能保存生产组长配置");
+        }
         requireRouteBatchRecordConfigEditAbility(route, "保存工序开始生产组长");
         MesProRouteVersionDO routeVersion = requireDraftCandidateVersion(saveReqVO.getRouteVersionId(), route.getId());
         Map<Long, MesProRouteStartProductionLeaderProductionLineRespVO> productionLineMap =
@@ -1234,6 +1250,18 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         List<MesProRouteStartProductionLeaderRespVO> result =
                 buildRouteStartProductionLeaderRespList(normalized, productionLineMap);
         saveRouteStartProductionLeaderSnapshot(routeVersion.getId(), result);
+    }
+
+    private boolean isProductionLeaderExecutionRoute(MesProRouteDO route) {
+        if ("GROUP".equals(route.getNodeType())) {
+            // 目录模板不承担生产执行授权；历史污染不参与解析。
+            return false;
+        }
+        if (!"FLOW".equals(route.getNodeType())) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_START_PRODUCTION_LEADER_INVALID,
+                    "流程节点类型无效：routeId=" + route.getId());
+        }
+        return true;
     }
 
     private List<MesProRouteStartProductionLeaderProductionLineRespVO>

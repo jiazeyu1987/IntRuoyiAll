@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "ApplicationDatabaseContract/v1",
+  "contracts": [
+    {
+      "id": "mes-pqc-rule-key",
+      "file": "mes-pqc-rule-key.sql"
+    }
+  ]
+}

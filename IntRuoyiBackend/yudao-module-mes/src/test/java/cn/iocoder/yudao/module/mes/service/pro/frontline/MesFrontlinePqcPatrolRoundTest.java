@@ -64,6 +64,7 @@ class MesFrontlinePqcPatrolRoundTest {
         assertEquals(2, service.createPatrolRound(10L, 1L, 1));
         assertEquals(3, service.createPatrolRound(10L, 1L, 2));
         assertEquals(6, tasks.size());
+        cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcWriterContractEvidence.record("patrol-round", tasks);
         assertThrows(ServiceException.class, () -> service.createPatrolRound(10L, 1L, 2));
         assertEquals(6, tasks.size());
         assertEquals(Set.of(1,2,3), tasks.stream().map(MesPqcInspectionTaskDO::getRoundNo).collect(java.util.stream.Collectors.toSet()));
@@ -382,6 +383,7 @@ class MesFrontlinePqcPatrolRoundTest {
         assertEquals(1, tasks.size());
         assertEquals(101L, tasks.get(0).getQaProcessId());
         assertEquals("FINAL", tasks.get(0).getInspectionType());
+        cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcWriterContractEvidence.record("final-inspection", tasks);
         assertEquals(Map.of("ratio",3,"fixed",3), MesPqcInspectionItemPlan.require(tasks.get(0)));
         assertThrows(ServiceException.class, () -> service.createFinalInspection(10L, 1L));
         assertEquals(1, tasks.size());

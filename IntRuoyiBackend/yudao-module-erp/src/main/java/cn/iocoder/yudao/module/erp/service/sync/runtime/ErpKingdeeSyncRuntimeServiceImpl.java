@@ -11,19 +11,21 @@ public class ErpKingdeeSyncRuntimeServiceImpl implements ErpKingdeeSyncRuntimeSe
 
     private final ErpKingdeeSyncRuntimeTransactionService transactionService;
     private final ErpKingdeeSyncCancellation cancellation;
+    private final cn.iocoder.yudao.module.erp.service.config.ErpKingdeeSourceLock sourceLock;
 
     @Override
     public ErpKingdeeSyncRunResult executeSync(ErpKingdeeSyncCommand command, ErpKingdeeSyncTask task) {
         String syncType = command.getSyncType().getType();
+        org.redisson.api.RLock source = sourceLock.acquire();
+        try {
         cancellation.lock(syncType);
         ErpKingdeeSyncExecution execution = null;
         try {
+            transactionService.recoverInterruptedAfterLock(syncType);
             execution = transactionService.start(command);
             cancellation.register(execution.getRunId());
             try {
-                ErpKingdeeSyncRunResult result = task.run(execution.getContext());
-                cancellation.check(execution.getRunId());
-                transactionService.complete(execution, result);
+                ErpKingdeeSyncRunResult result = transactionService.execute(execution, task, cancellation);
                 return result;
             } catch (RuntimeException failure) {
                 if (cancellation.isRequested(execution.getRunId())) {
@@ -39,6 +41,9 @@ public class ErpKingdeeSyncRuntimeServiceImpl implements ErpKingdeeSyncRuntimeSe
         } finally {
             if (execution != null) cancellation.unregister(execution.getRunId());
             cancellation.unlock(syncType);
+        }
+        } finally {
+            sourceLock.releaseAfterTransaction(source);
         }
     }
 }

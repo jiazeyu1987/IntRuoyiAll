@@ -95,12 +95,12 @@ const confirmBlock = blockBetween(
 )
 assert.match(
   confirmBlock,
-  /let submitPayloads: FrontlinePqcInspectionSubmitReqVO\[\][\s\S]*submitPayloads = buildPqcInspectionSubmitPayloads\(\)/,
+  /let submitPayloads: FrontlinePqcInspectionSubmitReqVO\[\][\s\S]*submitPayloads = cloneDeep\(buildPqcInspectionSubmitPayloads\(\)\)/,
   'PQC confirm handler must build all method payloads before issuing write requests.'
 )
 assert.match(
   confirmBlock,
-  /for \(const submitPayload of submitPayloads\)[\s\S]*ProFeedbackApi\.submitFrontlinePqcInspection\(\s*submitPayload\s*\)/,
+  /for \(let index = 0; index < submitPayloads\.length; index\+\+\)[\s\S]*const submitPayload = submitPayloads\[index\][\s\S]*ProFeedbackApi\.submitFrontlinePqcInspection\(\s*submitPayload, options\s*\)/,
   'PQC confirm handler must submit each current-process inspection method payload.'
 )
 assert.match(

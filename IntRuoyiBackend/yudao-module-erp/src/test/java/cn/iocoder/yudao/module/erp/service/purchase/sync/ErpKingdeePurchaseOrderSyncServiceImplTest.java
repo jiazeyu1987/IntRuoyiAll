@@ -19,6 +19,15 @@ import cn.iocoder.yudao.module.erp.enums.ErpAuditStatus;
 import cn.iocoder.yudao.module.erp.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.erp.service.config.ErpKingdeeConfigService;
 import cn.iocoder.yudao.module.erp.service.purchase.ErpPurchaseOrderService;
+import cn.iocoder.yudao.module.erp.service.purchase.ErpPurchaseOrderServiceImpl;
+import cn.iocoder.yudao.module.erp.service.purchase.ErpSupplierService;
+import cn.iocoder.yudao.module.erp.service.product.ErpProductService;
+import cn.iocoder.yudao.module.erp.service.product.ErpProductUnitService;
+import cn.iocoder.yudao.module.erp.dal.dataobject.purchase.ErpPurchaseOrderItemDO;
+import cn.iocoder.yudao.module.erp.dal.mysql.purchase.ErpPurchaseOrderItemMapper;
+import cn.iocoder.yudao.module.erp.dal.mysql.purchase.ErpPurchaseInMapper;
+import cn.iocoder.yudao.module.erp.dal.mysql.purchase.ErpPurchaseReturnMapper;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -77,6 +86,32 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
         syncService = new ErpKingdeePurchaseOrderSyncServiceImpl(
                 kingdeePurchaseOrderClient, kingdeeConfigService, syncRecordMapper, purchaseOrderMapper, purchaseOrderService,
                 supplierMapper, supplierSyncRecordMapper, productMapper, productCategoryMapper, productUnitMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(syncService, "transactionManager",
+                org.mockito.Mockito.mock(org.springframework.transaction.PlatformTransactionManager.class));
+    }
+
+    @Test
+    void batchFailureRollsBackOnlyFailedOrderAndContinues() {
+        var manager = org.mockito.Mockito.mock(org.springframework.transaction.PlatformTransactionManager.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(syncService, "transactionManager", manager);
+        var first = new ErpKingdeePurchaseOrder();
+        first.setFid("bad");
+        first.setBillNo("BAD");
+        var second = new ErpKingdeePurchaseOrder();
+        second.setFid("existing");
+        second.setBillNo("EXISTING");
+        when(kingdeePurchaseOrderClient.fetchPurchaseOrders(kingdeeProperties)).thenReturn(List.of(first, second));
+        when(syncRecordMapper.selectBySourceKey(ErpKingdeePurchaseOrder.FORM_ID, "bad"))
+                .thenThrow(new IllegalStateException("broken source"));
+        when(syncRecordMapper.selectBySourceKey(ErpKingdeePurchaseOrder.FORM_ID, "existing"))
+                .thenReturn(new ErpKingdeePurchaseOrderSyncRecordDO());
+        var failure = org.junit.jupiter.api.Assertions.assertThrows(
+                cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeOrderBatchSyncFailure.class,
+                () -> syncService.syncPurchaseOrdersFullSkipExisting());
+        assertEquals(1, failure.getFailedCount());
+        assertEquals(1, failure.getSuppressed().length);
+        verify(manager).rollback(org.mockito.ArgumentMatchers.any());
+        verify(manager).commit(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -172,7 +207,13 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
         assertEquals(1, result.getUpdatedCount());
         assertEquals(0, result.getSkippedCount());
         verify(purchaseOrderService, never()).createPurchaseOrder(any());
-        verify(purchaseOrderService).updatePurchaseOrder(any(ErpPurchaseOrderSaveReqVO.class));
+        verify(purchaseOrderService).updatePurchaseOrderFromKingdee(any(ErpPurchaseOrderSaveReqVO.class), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyList());
+        var lockOrder = org.mockito.Mockito.inOrder(purchaseOrderService);
+        lockOrder.verify(purchaseOrderService).lockOrder(org.mockito.ArgumentMatchers.anyLong());
+        lockOrder.verify(purchaseOrderService).getPurchaseOrder(org.mockito.ArgumentMatchers.anyLong());
+        lockOrder.verify(purchaseOrderService).getPurchaseOrderItemListByOrderId(org.mockito.ArgumentMatchers.anyLong());
+        lockOrder.verify(purchaseOrderService).updatePurchaseOrderFromKingdee(any(ErpPurchaseOrderSaveReqVO.class), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyList());
+
         verify(syncRecordMapper, never()).insert(any(ErpKingdeePurchaseOrderSyncRecordDO.class));
     }
 
@@ -191,7 +232,7 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
         assertEquals(1, result.getUpdatedCount());
         assertEquals(0, result.getSkippedCount());
         verify(purchaseOrderService, never()).createPurchaseOrder(any());
-        verify(purchaseOrderService).updatePurchaseOrder(any(ErpPurchaseOrderSaveReqVO.class));
+        verify(purchaseOrderService).updatePurchaseOrderFromKingdee(any(ErpPurchaseOrderSaveReqVO.class), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyList());
         verify(syncRecordMapper, never()).insert(any(ErpKingdeePurchaseOrderSyncRecordDO.class));
     }
 
@@ -215,7 +256,7 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
         verify(kingdeePurchaseOrderClient).fetchPurchaseOrdersModifiedBetween(kingdeeProperties, windowStart, windowEnd);
         verify(kingdeePurchaseOrderClient, never()).fetchPurchaseOrders(kingdeeProperties);
         verify(purchaseOrderService, never()).createPurchaseOrder(any());
-        verify(purchaseOrderService).updatePurchaseOrder(any(ErpPurchaseOrderSaveReqVO.class));
+        verify(purchaseOrderService).updatePurchaseOrderFromKingdee(any(ErpPurchaseOrderSaveReqVO.class), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyList());
         verify(syncRecordMapper, never()).insert(any(ErpKingdeePurchaseOrderSyncRecordDO.class));
     }
 
@@ -239,12 +280,11 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
         assertEquals(1, result.getUpdatedCount());
         assertEquals(0, result.getSkippedCount());
         ArgumentCaptor<ErpPurchaseOrderSaveReqVO> orderCaptor = ArgumentCaptor.forClass(ErpPurchaseOrderSaveReqVO.class);
-        verify(purchaseOrderService).updatePurchaseOrder(orderCaptor.capture());
+        verify(purchaseOrderService).updatePurchaseOrderFromKingdee(orderCaptor.capture(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyList());
         assertEquals(501L, orderCaptor.getValue().getId());
         assertEquals(10L, orderCaptor.getValue().getSupplierId());
         assertEquals(20L, orderCaptor.getValue().getItems().get(0).getProductId());
-        verify(purchaseOrderService).updatePurchaseOrderStatus(501L, ErpAuditStatus.PROCESS.getStatus());
-        verify(purchaseOrderService).updatePurchaseOrderStatus(501L, ErpAuditStatus.APPROVE.getStatus());
+        verify(purchaseOrderService, never()).updatePurchaseOrderStatus(any(), any());
         ArgumentCaptor<ErpPurchaseOrderDO> statusCaptor = ArgumentCaptor.forClass(ErpPurchaseOrderDO.class);
         verify(purchaseOrderMapper).updateById(statusCaptor.capture());
         assertEquals("B", statusCaptor.getValue().getKingdeeCloseStatus());
@@ -275,9 +315,14 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
                 .thenReturn(new ErpKingdeeSupplierSyncRecordDO().setSupplierId(10L));
         when(productMapper.selectByBarCode("MAT-NO-MAP")).thenReturn(null);
 
-        assertServiceException(() -> syncService.syncPurchaseOrders(),
-                ErrorCodeConstants.KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID,
-                "material detail is missing for material MAT-NO-MAP");
+        var failure = org.junit.jupiter.api.Assertions.assertThrows(
+                cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeOrderBatchSyncFailure.class,
+                syncService::syncPurchaseOrders);
+        assertEquals(1, failure.getFailedCount());
+        org.junit.jupiter.api.Assertions.assertInstanceOf(
+                cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeOrderSyncFailure.class, failure.getCause());
+        org.junit.jupiter.api.Assertions.assertTrue(failure.getMessage().contains("FID=10001, billNo=PO20260512001"));
+        org.junit.jupiter.api.Assertions.assertTrue(failure.getMessage().contains("material detail is missing for material MAT-NO-MAP"));
         verify(purchaseOrderService, never()).createPurchaseOrder(any());
         verify(syncRecordMapper, never()).insert(any(ErpKingdeePurchaseOrderSyncRecordDO.class));
     }
@@ -365,7 +410,7 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
             var request = ArgumentCaptor.forClass(ErpPurchaseOrderSaveReqVO.class);
             var record = ArgumentCaptor.forClass(ErpKingdeePurchaseOrderSyncRecordDO.class);
             if (updating) {
-                verify(purchaseOrderService).updatePurchaseOrder(request.capture());
+                verify(purchaseOrderService).updatePurchaseOrderFromKingdee(request.capture(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyList());
                 verify(syncRecordMapper).updateById(record.capture());
             } else {
                 verify(purchaseOrderService).createPurchaseOrder(request.capture());
@@ -389,6 +434,72 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
         }
     }
 
+    @Test
+    void incrementalSyncUsesRealOrderServiceToUpdateApprovedOrderWithLegacyNullQuantities() {
+        var realService = new ErpPurchaseOrderServiceImpl();
+        var itemMapper = org.mockito.Mockito.mock(ErpPurchaseOrderItemMapper.class);
+        when(itemMapper.updateSourceItem(any(), eq(501L))).thenReturn(1);
+        var inMapper = org.mockito.Mockito.mock(ErpPurchaseInMapper.class);
+        var returnMapper = org.mockito.Mockito.mock(ErpPurchaseReturnMapper.class);
+        var productService = org.mockito.Mockito.mock(ErpProductService.class);
+        var unitService = org.mockito.Mockito.mock(ErpProductUnitService.class);
+        ReflectionTestUtils.setField(realService, "purchaseOrderMapper", purchaseOrderMapper);
+        ReflectionTestUtils.setField(realService, "purchaseOrderItemMapper", itemMapper);
+        ReflectionTestUtils.setField(realService, "purchaseInMapper", inMapper);
+        ReflectionTestUtils.setField(realService, "purchaseReturnMapper", returnMapper);
+        ReflectionTestUtils.setField(realService, "purchaseInItemMapper", org.mockito.Mockito.mock(
+                cn.iocoder.yudao.module.erp.dal.mysql.purchase.ErpPurchaseInItemMapper.class));
+        ReflectionTestUtils.setField(realService, "purchaseReturnItemMapper", org.mockito.Mockito.mock(
+                cn.iocoder.yudao.module.erp.dal.mysql.purchase.ErpPurchaseReturnItemMapper.class));
+        ReflectionTestUtils.setField(realService, "productService", productService);
+        ReflectionTestUtils.setField(realService, "productUnitService", unitService);
+        ReflectionTestUtils.setField(realService, "supplierService", org.mockito.Mockito.mock(ErpSupplierService.class));
+        syncService = new ErpKingdeePurchaseOrderSyncServiceImpl(
+                kingdeePurchaseOrderClient, kingdeeConfigService, syncRecordMapper, purchaseOrderMapper, realService,
+                supplierMapper, supplierSyncRecordMapper, productMapper, productCategoryMapper, productUnitMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(syncService, "transactionManager",
+                org.mockito.Mockito.mock(org.springframework.transaction.PlatformTransactionManager.class));
+
+        var order = new ErpPurchaseOrderDO().setId(501L).setStatus(20); // Production failure: both totals are null.
+        when(purchaseOrderMapper.selectById(501L)).thenReturn(order);
+        when(purchaseOrderMapper.selectByIdForUpdate(501L)).thenReturn(order);
+        when(purchaseOrderMapper.updateByIdAndStatus(eq(501L), any(), any())).thenAnswer(call -> {
+            assertEquals(order.getStatus(), call.getArgument(1));
+            var update = call.getArgument(2, ErpPurchaseOrderDO.class);
+            order.setStatus(update.getStatus());
+            if (update.getInCount() != null) {
+                order.setInCount(update.getInCount()).setReturnCount(update.getReturnCount());
+            }
+            return 1;
+        });
+        when(unitService.getProductUnitMap(java.util.Set.of(40L)))
+                .thenReturn(Map.of(40L, new ErpProductUnitDO().setId(40L)));
+        when(productService.getProduct(20L)).thenReturn(new ErpProductDO().setId(20L));
+        when(itemMapper.selectListByOrderId(501L)).thenReturn(List.of(
+                new ErpPurchaseOrderItemDO().setId(701L).setOrderId(501L).setSourceEntryId("entry-1")));
+        var start = LocalDateTime.of(2026, 11, 24, 2, 0);
+        var end = start.plusHours(1);
+        when(kingdeePurchaseOrderClient.fetchPurchaseOrdersModifiedBetween(kingdeeProperties, start, end))
+                .thenReturn(List.of(buildKingdeeOrder("10001", "PO20260512001", "MAT-001")));
+        when(syncRecordMapper.selectBySourceKey(ErpKingdeePurchaseOrder.FORM_ID, "10001"))
+                .thenReturn(new ErpKingdeePurchaseOrderSyncRecordDO().setId(301L).setPurchaseOrderId(501L));
+
+        var result = syncService.syncPurchaseOrdersModifiedBetween(start, end);
+
+        assertEquals(1, result.getUpdatedCount());
+        assertEquals(20, order.getStatus());
+        assertEquals(BigDecimal.ZERO, order.getInCount());
+        assertEquals(BigDecimal.ZERO, order.getReturnCount());
+        verify(inMapper).selectListByOrderId(501L);
+        verify(returnMapper).selectListByOrderId(501L);
+        verify(itemMapper, never()).insertBatch(org.mockito.ArgumentMatchers.<java.util.Collection<ErpPurchaseOrderItemDO>>any());
+        verify(itemMapper, never()).deleteByIds(any());
+        verify(itemMapper).updateSourceItem(org.mockito.ArgumentMatchers.<ErpPurchaseOrderItemDO>argThat(row ->
+                row.getId().equals(701L) && BigDecimal.ZERO.equals(row.getInCount())), eq(501L));
+        verify(syncRecordMapper).updateById(any(ErpKingdeePurchaseOrderSyncRecordDO.class));
+        verifyNoInteractions(purchaseOrderService);
+    }
+
     private static ErpKingdeeProperties buildConfiguredProperties() {
         ErpKingdeeProperties properties = new ErpKingdeeProperties();
         properties.setBaseUrl("https://k3.example.com/K3Cloud");
@@ -409,6 +520,7 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
 
     private static ErpKingdeePurchaseOrder buildKingdeeOrder(String fid, String billNo, String materialNumber) {
         ErpKingdeePurchaseOrder.Line line = new ErpKingdeePurchaseOrder.Line();
+        line.setEntryId("entry-1");
         line.setUnitName("PCS");
         line.setPriceUnitName("PCS");
         line.setNetAmount(new BigDecimal("53.20"));

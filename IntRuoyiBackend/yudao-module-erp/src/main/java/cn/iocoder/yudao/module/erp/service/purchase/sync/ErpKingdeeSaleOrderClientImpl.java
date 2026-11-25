@@ -70,6 +70,7 @@ public class ErpKingdeeSaleOrderClientImpl implements ErpKingdeeSaleOrderClient 
             "FPriceUnitQty");
     private static final String INCREMENTAL_FIELD_KEYS = FIELD_KEYS + ",FModifyDate";
     private static final int FIELD_COUNT = 28;
+    private static final int INDEX_ENTRY_ID = 24;
     private static final int INDEX_SOURCE_MODIFY_TIME = 28;
     private static final int INCREMENTAL_FIELD_COUNT = 29;
 
@@ -89,52 +90,24 @@ public class ErpKingdeeSaleOrderClientImpl implements ErpKingdeeSaleOrderClient 
     private List<ErpKingdeeSaleOrder> fetchSaleOrders(ErpKingdeeProperties properties, boolean fullHistory) {
         properties.validateSaleOrderSyncConfig();
         String cookieHeader = login(properties);
-        int startRow = 0;
-        int pageLimit = Math.min(PAGE_LIMIT, properties.getSaleOrder().getQueryLimit());
-        Map<String, ErpKingdeeSaleOrder> orderMap = new LinkedHashMap<>();
-        Long lastFid = null;
-        Long lastEntryId = null;
-        while (true) {
-            long started = System.nanoTime();
-            JsonNode rows = executeBillQuery(properties, cookieHeader, fullHistory ? 0 : startRow,
-                    pageLimit, fullHistory, null, lastFid, lastEntryId);
-            if (!rows.isArray()) {
-                throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "SAL_SaleOrder response is not an array");
-            }
-            org.slf4j.LoggerFactory.getLogger(ErpKingdeeSaleOrderClientImpl.class).info(
-                    "SAL_SaleOrder query completed: fullHistory={}, offset={}, limit={}, rows={}, elapsedMs={}",
-                    fullHistory, startRow, pageLimit, rows.size(), (System.nanoTime() - started) / 1_000_000);
-            if (rows.isEmpty()) {
-                break;
-            }
-            for (JsonNode row : rows) {
-                if (!row.isArray() || row.size() < FIELD_COUNT) {
-                    throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID,
-                            "SAL_SaleOrder row field count mismatch: startRow=" + startRow
-                                    + ", expected=" + FIELD_COUNT + ", actual=" + row.size()
-                                    + ", response=" + StrUtil.maxLength(row.toString(), 800));
-                }
-                String fid = requiredText(row, 0, "FID");
-                if (fullHistory) {
-                    long sourceFid = numericSourceKey(row, 0, "FID");
-                    long sourceEntryId = numericSourceKey(row, 24, "FSaleOrderEntry_FEntryID");
-                    if (lastFid != null && (sourceFid > lastFid
-                            || (sourceFid == lastFid && sourceEntryId <= lastEntryId))) {
-                        throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID,
-                                "sale order source cursor did not advance: fid=" + fid + ", entryId=" + sourceEntryId);
-                    }
-                    lastFid = sourceFid;
-                    lastEntryId = sourceEntryId;
-                }
-                ErpKingdeeSaleOrder order = orderMap.computeIfAbsent(fid, key -> buildOrder(row));
-                addUniqueLine(order, row);
-            }
-            if (rows.size() < pageLimit) {
-                break;
-            }
-            startRow += rows.size();
+        int limit = Math.min(PAGE_LIMIT, properties.getSaleOrder().getQueryLimit());
+        String filter = "(FBillNo <> '') and (FMaterialId.FNumber <> '')";
+        if (!fullHistory) {
+            LocalDate today = LocalDate.now();
+            filter = "(FDate >= '" + today.minusDays(properties.getSaleOrder().getQueryDays())
+                    + "' and FDate < '" + today.plusDays(1) + "') and " + filter;
         }
-        return new ArrayList<>(orderMap.values());
+        Map<String, Object> discovery = new LinkedHashMap<>();
+        discovery.put("FormId", ErpKingdeeSaleOrder.FORM_ID);
+        discovery.put("FieldKeys", "FID,FModifyDate");
+        discovery.put("FilterString", filter);
+        discovery.put("StartRow", 0);
+        var rows = ErpKingdeeOrderWindowReader.readAll(discovery, limit, ErpKingdeeSaleOrder.FORM_ID,
+                filter, INCREMENTAL_FIELD_KEYS, "FSaleOrderEntry_FEntryID", INDEX_ENTRY_ID, INDEX_SOURCE_MODIFY_TIME,
+                query -> executeIncrementalBillQuery(properties, cookieHeader, null, null, query));
+        Map<String, ErpKingdeeSaleOrder> orders = new LinkedHashMap<>();
+        addRowsToOrders(rows, orders, true);
+        return new ArrayList<>(orders.values());
     }
 
     @Override
@@ -144,18 +117,19 @@ public class ErpKingdeeSaleOrderClientImpl implements ErpKingdeeSaleOrderClient 
             throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "sale order bill number is blank");
         }
         String cookieHeader = login(properties);
-        int startRow = 0;
-        int pageLimit = Math.min(PAGE_LIMIT, properties.getSaleOrder().getQueryLimit());
+        int limit = Math.min(PAGE_LIMIT, properties.getSaleOrder().getQueryLimit());
+        String filter = "(FBillNo <> '') and (FMaterialId.FNumber <> '') and (FBillNo = '"
+                + billNo.replace("'", "''") + "')";
+        Map<String, Object> discovery = new LinkedHashMap<>();
+        discovery.put("FormId", ErpKingdeeSaleOrder.FORM_ID);
+        discovery.put("FieldKeys", "FID,FModifyDate");
+        discovery.put("FilterString", filter);
+        discovery.put("StartRow", 0);
+        var rows = ErpKingdeeOrderWindowReader.readAll(discovery, limit, ErpKingdeeSaleOrder.FORM_ID,
+                filter, INCREMENTAL_FIELD_KEYS, "FSaleOrderEntry_FEntryID", INDEX_ENTRY_ID, INDEX_SOURCE_MODIFY_TIME,
+                query -> executeIncrementalBillQuery(properties, cookieHeader, null, null, query));
         Map<String, ErpKingdeeSaleOrder> orders = new LinkedHashMap<>();
-        while (true) {
-            JsonNode rows = executeBillQuery(properties, cookieHeader, startRow, pageLimit, true, billNo);
-            if (!rows.isArray()) {
-                throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "SAL_SaleOrder response is not an array");
-            }
-            addRowsToOrders(rows, orders, false);
-            if (rows.size() < pageLimit) break;
-            startRow += rows.size();
-        }
+        addRowsToOrders(rows, orders, true);
         return new ArrayList<>(orders.values());
     }
 
@@ -165,24 +139,12 @@ public class ErpKingdeeSaleOrderClientImpl implements ErpKingdeeSaleOrderClient 
                                                                     LocalDateTime windowEnd) {
         properties.validateSaleOrderSyncConfig();
         String cookieHeader = login(properties);
-        int startRow = 0;
         int pageLimit = Math.min(PAGE_LIMIT, properties.getSaleOrder().getQueryLimit());
+        var allRows = ErpKingdeeOrderWindowReader.read(windowStart, windowEnd, pageLimit,
+                ErpKingdeeSaleOrder.FORM_ID, "FBillNo <> ''", INCREMENTAL_FIELD_KEYS, "FSaleOrderEntry_FEntryID", INDEX_ENTRY_ID, 28,
+                query -> executeIncrementalBillQuery(properties, cookieHeader, windowStart, windowEnd, query));
         Map<String, ErpKingdeeSaleOrder> orderMap = new LinkedHashMap<>();
-        while (true) {
-            JsonNode rows = executeIncrementalBillQuery(properties, cookieHeader, windowStart, windowEnd, startRow,
-                    pageLimit);
-            if (!rows.isArray()) {
-                throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "SAL_SaleOrder response is not an array");
-            }
-            if (rows.isEmpty()) {
-                break;
-            }
-            addRowsToOrders(rows, orderMap, true);
-            if (rows.size() < pageLimit) {
-                break;
-            }
-            startRow += rows.size();
-        }
+        addRowsToOrders(allRows, orderMap, true);
         return new ArrayList<>(orderMap.values());
     }
 
@@ -277,19 +239,8 @@ public class ErpKingdeeSaleOrderClientImpl implements ErpKingdeeSaleOrderClient 
                                                  String cookieHeader,
                                                  LocalDateTime windowStart,
                                                  LocalDateTime windowEnd,
-                                                 int startRow,
-                                                 int limit) {
-        ErpKingdeeIncrementalQuerySpec spec = ErpKingdeeIncrementalQuerySpec.builder()
-                .formId(ErpKingdeeSaleOrder.FORM_ID)
-                .fieldKeys(INCREMENTAL_FIELD_KEYS)
-                .baseFilter("(FBillNo <> '') and (FMaterialId.FNumber <> '')")
-                .startRow(startRow)
-                .limit(limit)
-                .build();
-
+                                                 Map<String, Object> query) {
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-        var query = spec.toQuery(windowStart, windowEnd);
-        query.put("OrderString", "FModifyDate ASC,FID ASC,FSaleOrderEntry_FEntryID ASC");
         body.add("data", JsonUtils.toJsonString(query));
         ResponseEntity<String> response = restTemplate.postForEntity(
                 buildServiceUrl(properties.getBaseUrl(), QUERY_SERVICE),

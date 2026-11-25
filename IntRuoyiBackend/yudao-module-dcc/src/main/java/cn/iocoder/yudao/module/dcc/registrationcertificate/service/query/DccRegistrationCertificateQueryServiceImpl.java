@@ -64,7 +64,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
             "versionNo",
             "status",
             "expiryDate");
-    private static final Set<String> CURRENT_REMINDER_STATES = Set.of(
+    private static final Set<String> CURRENT_REMINDER_STATES = Set.of("EXPIRED",
             "NORMAL",
             "T_30",
             "T_8",

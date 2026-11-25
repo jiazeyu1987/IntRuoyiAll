@@ -88,6 +88,7 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
     private static final int INDEX_TAX_RATE = 13;
     private static final int INDEX_LINE_REMARK = 14;
     private static final int FIELD_COUNT = 27;
+    private static final int INDEX_ENTRY_ID = 24;
     private static final int INDEX_SOURCE_MODIFY_TIME = 27;
     private static final int INCREMENTAL_FIELD_COUNT = 28;
 
@@ -107,25 +108,17 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
     private List<ErpKingdeePurchaseOrder> fetchPurchaseOrders(ErpKingdeeProperties properties, boolean fullHistory) {
         properties.validatePurchaseOrderSyncConfig();
         String cookieHeader = login(properties);
-        com.fasterxml.jackson.databind.node.ArrayNode queryResponse = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.arrayNode();
-        int offset = 0;
-        int pageLimit = Math.min(PAGE_LIMIT, properties.getPurchaseOrder().getQueryLimit());
-        while (true) {
-            long started = System.nanoTime();
-            JsonNode page = executeBillQuery(properties, cookieHeader, offset, fullHistory);
-            if (!page.isArray()) { throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "purchase query is not an array"); }
-            org.slf4j.LoggerFactory.getLogger(ErpKingdeePurchaseOrderClientImpl.class).info(
-                    "PUR_PurchaseOrder query completed: fullHistory={}, offset={}, limit={}, rows={}, elapsedMs={}",
-                    fullHistory, offset, pageLimit, page.size(), (System.nanoTime() - started) / 1_000_000);
-            if (page.isEmpty()) { break; }
-            page.forEach(queryResponse::add);
-            offset += page.size();
-            if (page.size() < pageLimit) { break; }
-        }
-        if (!queryResponse.isArray()) {
-            throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "ExecuteBillQuery response is not an array");
-        }
-        return rowsToOrders(queryResponse);
+        int limit = Math.min(PAGE_LIMIT, properties.getPurchaseOrder().getQueryLimit());
+        String filter = buildPurchaseOrderQuery(properties, fullHistory).get("FilterString").toString();
+        Map<String, Object> discovery = new LinkedHashMap<>();
+        discovery.put("FormId", ErpKingdeePurchaseOrder.FORM_ID);
+        discovery.put("FieldKeys", "FID,FModifyDate");
+        discovery.put("FilterString", filter);
+        discovery.put("StartRow", 0);
+        var rows = ErpKingdeeOrderWindowReader.readAll(discovery, limit, ErpKingdeePurchaseOrder.FORM_ID,
+                filter, INCREMENTAL_FIELD_KEYS, "FPOOrderEntry_FEntryID", INDEX_ENTRY_ID, INDEX_SOURCE_MODIFY_TIME,
+                query -> executeIncrementalBillQuery(properties, cookieHeader, null, null, query));
+        return rowsToOrders(rows, true);
     }
 
     @Override
@@ -134,25 +127,11 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
                                                                             LocalDateTime windowEnd) {
         properties.validatePurchaseOrderSyncConfig();
         String cookieHeader = login(properties);
-        int startRow = 0;
         int pageLimit = Math.min(PAGE_LIMIT, properties.getPurchaseOrder().getQueryLimit());
-        List<JsonNode> allRows = new ArrayList<>();
-        while (true) {
-            JsonNode rows = executeIncrementalBillQuery(properties, cookieHeader, windowStart, windowEnd, startRow,
-                    pageLimit);
-            if (!rows.isArray()) {
-                throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "ExecuteBillQuery response is not an array");
-            }
-            if (rows.isEmpty()) {
-                break;
-            }
-            rows.forEach(allRows::add);
-            if (rows.size() < pageLimit) {
-                break;
-            }
-            startRow += rows.size();
-        }
-        return rowsToOrders(JsonUtils.parseTree(JsonUtils.toJsonString(allRows)), true);
+        var allRows = ErpKingdeeOrderWindowReader.read(windowStart, windowEnd, pageLimit,
+                ErpKingdeePurchaseOrder.FORM_ID, "FPurchaseOrgId.FNumber = '" + properties.getPurchaseOrder().getPurchaseOrgNumber().replace("'", "''") + "'", INCREMENTAL_FIELD_KEYS, "FPOOrderEntry_FEntryID", INDEX_ENTRY_ID, 27,
+                query -> executeIncrementalBillQuery(properties, cookieHeader, windowStart, windowEnd, query));
+        return rowsToOrders(allRows, true);
     }
 
     @Override
@@ -224,18 +203,8 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
                                                  String cookieHeader,
                                                  LocalDateTime windowStart,
                                                  LocalDateTime windowEnd,
-                                                 int startRow,
-                                                 int limit) {
-        ErpKingdeeIncrementalQuerySpec spec = ErpKingdeeIncrementalQuerySpec.builder()
-                .formId(ErpKingdeePurchaseOrder.FORM_ID)
-                .fieldKeys(INCREMENTAL_FIELD_KEYS)
-                .baseFilter("FPurchaseOrgId.FNumber = '" + properties.getPurchaseOrder().getPurchaseOrgNumber() + "'")
-                .startRow(startRow)
-                .limit(limit)
-                .build();
+                                                 Map<String, Object> query) {
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-        var query = spec.toQuery(windowStart, windowEnd);
-        query.put("OrderString", "FModifyDate ASC,FID ASC,FPOOrderEntry_FEntryID ASC");
         body.add("data", JsonUtils.toJsonString(query));
         ResponseEntity<String> response = restTemplate.postForEntity(
                 buildServiceUrl(properties.getBaseUrl(), QUERY_SERVICE),

@@ -106,19 +106,58 @@ test('project records retain applicant actions while decisions move to approval 
   assert.equal(page.includes('批准通过'), false)
   assert.ok(page.includes('修改后重提'))
   assert.ok(page.includes('重试写入'))
-  assert.ok(page.includes("path: '/approval-center/todo'"))
+  const { descriptor } = parse(page)
+  assert.doesNotMatch(descriptor.scriptSetup.content, /\b(?:review|approve)DccProjectProductRequest\b/)
+  const buttons = []
+  const visit = node => {
+    if (node.type === 1 && node.tag === 'el-button') buttons.push(node)
+    for (const child of node.children || []) visit(child)
+  }
+  visit(descriptor.template.ast)
+  const action = (label, handler, condition) => {
+    const button = buttons.find(node => node.children.some(child => child.type === 2 && child.content.trim() === label))
+    assert.ok(button, label + ' retains its real applicant action')
+    assert.equal(button.props.find(prop => prop.type === 7 && prop.name === 'on' && prop.arg?.content === 'click')?.exp?.content, handler)
+    assert.equal(button.props.find(prop => prop.type === 7 && prop.name === 'if')?.exp?.content, condition)
+    return button
+  }
+  const resubmit = action('修改后重提', 'editRejectedProjectProduct(row)', 'canResubmitProjectProductRequest(row, userStore.getUser.id)')
+  assert.equal(resubmit.props.find(prop => prop.type === 7 && prop.name === 'hasPermi')?.exp?.content, "['dcc:project-code:create']")
+  action('重试写入', 'handleProjectProductRetry(row)', "canPerformProjectAction(row, 'retry')")
 })
 test('approval center opens its existing decision dialog only for actionable pending project tasks', () => {
   const source = parse(read('src/views/approval-center/index.vue')).descriptor.scriptSetup.content
-  const context = { exports: {}, queryParams: { viewType: 'TODO' }, bpmMissingPermissionReason: () => '' }
-  vm.runInNewContext(ts.transpileModule(declarations(source, ['canReview']) + '\nexports.canReview=canReview', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context)
+  const opened = [], errors = []
+  const context = {
+    exports: {}, queryParams: { viewType: 'TODO' },
+    bpmMissingPermissionReason: row => row.permissionError || '',
+    openReviewDialog: row => opened.push(row), canReviewInModule: () => false,
+    ElMessage: { error: message => errors.push(message) }
+  }
+  vm.runInNewContext(ts.transpileModule(declarations(source, ['canReview', 'openReviewAction']) + '\nexports.canReview=canReview;exports.openReviewAction=openReviewAction', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context)
   for (const sourceTaskType of ['DCC_PROJECT_PRODUCT_REVIEW', 'DCC_PROJECT_PRODUCT_APPROVAL']) {
     const task = { moduleCode: 'DCC', sourceTaskType, availableActions: ['APPROVE', 'REJECT'] }
     assert.equal(context.exports.canReview(task), true)
-    assert.equal(context.exports.canReview({ ...task, availableActions: [] }), false)
-    assert.equal(context.exports.canReview({ ...task, businessDeleted: true }), false)
+    context.exports.openReviewAction(task)
+    assert.equal(opened.at(-1), task)
+    for (const denied of [
+      { ...task, availableActions: [] },
+      { ...task, availableActions: ['APPROVE'] },
+      { ...task, businessDeleted: true },
+      { ...task, permissionError: '缺少审批权限' }
+    ]) {
+      assert.equal(context.exports.canReview(denied), false)
+      const count = opened.length, errorCount = errors.length
+      context.exports.openReviewAction(denied)
+      assert.equal(opened.length, count)
+      assert.equal(errors.length, errorCount + 1)
+    }
     context.queryParams.viewType = 'DONE'
     assert.equal(context.exports.canReview(task), false)
+    const count = opened.length, errorCount = errors.length
+    context.exports.openReviewAction(task)
+    assert.equal(opened.length, count)
+    assert.equal(errors.length, errorCount + 1)
     context.queryParams.viewType = 'TODO'
   }
 })

@@ -184,7 +184,7 @@ class MesProRouteFlowConfigServiceImplTest {
 
     @Test
     void getRouteStartProductionLeaderProductionLines_shouldUseCurrentRouteAsResponsibleScope() {
-        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("RT-10").name("压力泵路线").build();
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).nodeType("FLOW").code("RT-10").name("压力泵路线").build();
         MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
                 .id(100L).routeId(10L).processId(1000L).sort(1).build();
         MesProProcessDO process = MesProProcessDO.builder().id(1000L).code("P1000").name("粗洗").build();

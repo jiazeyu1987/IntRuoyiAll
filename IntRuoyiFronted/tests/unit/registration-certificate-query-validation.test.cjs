@@ -9,15 +9,17 @@ const validation = {}
 new Function('exports', transpile(fs.readFileSync('src/views/dcc/registration-certificate/shared/queryValidation.ts', 'utf8')))(validation)
 const requests = {}
 new Function('exports', 'require', transpile(fs.readFileSync('src/hooks/web/useServerListFilter.ts', 'utf8')))(requests, () => vue)
+const exportScope = {}
+new Function('exports', transpile(fs.readFileSync('src/views/dcc/registration-certificate/index/exportScope.ts', 'utf8')))(exportScope)
 const page = parse(fs.readFileSync('src/views/dcc/registration-certificate/index/index.vue', 'utf8')).descriptor
 const ast = ts.createSourceFile('page.ts', page.scriptSetup.content, ts.ScriptTarget.Latest, true)
 const declarations = ast.statements.filter(statement => ts.isVariableStatement(statement) &&
-  statement.declarationList.declarations.some(item => ['loadPage', 'loadOldIndexPage'].includes(item.name.getText(ast))))
-const loadCode = transpile(declarations.map(item => item.getText(ast)).join('\n'))
+  statement.declarationList.declarations.some(item => ['loadPage', 'runCurrentQuery', 'loadOldIndexPage'].includes(item.name.getText(ast))))
+const loadCode = 'let submittedFilterKey = null;\n' + transpile(declarations.map(item => item.getText(ast)).join('\n'))
 function setup(api) {
   const messages = [], currentQueryError = vue.ref(''), oldQueryError = vue.ref('')
   const context = {
-    ...validation, currentQueryError, oldQueryError, message: { error: value => messages.push(value) },
+    ...validation, ...exportScope, currentTableRef: vue.ref(), currentQuerySucceeded: vue.ref(false), appliedExportQuery: vue.ref({}), loading: vue.ref(false), currentQueryError, oldQueryError, message: { error: value => messages.push(value) },
     queryParams: {}, oldQueryParams: {}, currentRequest: requests.useLatestListRequest(), oldRequest: requests.useLatestListRequest(),
     getRegistrationCertificatePage: api, getRegistrationCertificateOldIndexPage: api,
     list: vue.ref([]), total: vue.ref(0), selectedCertificates: vue.ref([]), oldList: vue.ref([]), oldTotal: vue.ref(0)

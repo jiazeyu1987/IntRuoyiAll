@@ -2795,6 +2795,49 @@ class MesProScheduleOrderServiceImplTest {
     }
 
     @Test
+    void updateScheduleOrder_shouldAllowPriorityOnlyWhenDatesAreMissing() {
+        assertPriorityOnlyUpdatePreservesDates(null, null);
+    }
+
+    @Test
+    void updateScheduleOrder_shouldPreserveExistingDatesWhenDatesAreOmitted() {
+        assertPriorityOnlyUpdatePreservesDates(LocalDate.of(2026, 11, 26),
+                LocalDateTime.of(2026, 11, 25, 8, 0));
+    }
+
+    private void assertPriorityOnlyUpdatePreservesDates(LocalDate promiseDate, LocalDateTime plannedStartTime) {
+        MesProScheduleOrderDO existing = MesProScheduleOrderDO.builder()
+                .id(900L).code("SCH-900").priorityNo(100)
+                .promiseDate(promiseDate).plannedStartTime(plannedStartTime)
+                .plannedEndTime(LocalDateTime.of(2026, 11, 26, 17, 42))
+                .frozen(Boolean.FALSE).build();
+        MesProScheduleOrderUpdateReqVO reqVO = new MesProScheduleOrderUpdateReqVO();
+        reqVO.setId(900L);
+        reqVO.setPriorityNo(99);
+        reqVO.setReason("单独调整优先级");
+        when(scheduleOrderMapper.selectById(900L)).thenReturn(existing);
+
+        scheduleOrderService.updateScheduleOrder(reqVO);
+
+        ArgumentCaptor<MesProScheduleOrderDO> orderCaptor = ArgumentCaptor.forClass(MesProScheduleOrderDO.class);
+        verify(scheduleOrderMapper).updateById(orderCaptor.capture());
+        assertEquals(99, orderCaptor.getValue().getPriorityNo());
+        assertNull(orderCaptor.getValue().getPromiseDate());
+        assertNull(orderCaptor.getValue().getPlannedStartTime());
+        assertNull(orderCaptor.getValue().getPlannedEndTime());
+        ArgumentCaptor<MesProScheduleOrderOperationLogDO> logCaptor =
+                ArgumentCaptor.forClass(MesProScheduleOrderOperationLogDO.class);
+        verify(scheduleOrderOperationLogMapper).insert(logCaptor.capture());
+        assertEquals("单独调整优先级", logCaptor.getValue().getReason());
+        MesProScheduleOrderDO after = JsonUtils.parseObject(logCaptor.getValue().getAfterSnapshotJson(),
+                MesProScheduleOrderDO.class);
+        assertEquals(99, after.getPriorityNo());
+        assertEquals(promiseDate, after.getPromiseDate());
+        assertEquals(plannedStartTime, after.getPlannedStartTime());
+        assertEquals(existing.getPlannedEndTime(), after.getPlannedEndTime());
+    }
+
+    @Test
     void updateScheduleOrder_shouldRejectFrozenScheduleOrder() {
         MesProScheduleOrderDO existing = MesProScheduleOrderDO.builder()
                 .id(900L)
@@ -3591,20 +3634,41 @@ class MesProScheduleOrderServiceImplTest {
     }
 
     @Test
-    void createFromWorkOrders_shouldFailFastWhenSelectedWorkOrderMissingErpFormalIdentity() {
+    void createFromWorkOrders_shouldAdmitMixedLocalAndErpOrders() {
         MesProScheduleOrderCreateFromWorkOrdersReqVO reqVO = new MesProScheduleOrderCreateFromWorkOrdersReqVO();
-        reqVO.setWorkOrderIds(List.of(100L));
+        reqVO.setWorkOrderIds(List.of(100L, 101L));
+        stubSimpleSchedulableWorkOrder(100L, "MO-LOCAL", 20L, 30L, 300L, 40L, 700L, 800L, "B010", "首道工序");
+        stubSimpleSchedulableWorkOrder(101L, "MO-ERP", 21L, 31L, 301L, 41L, 701L, 801L, "B011", "二道工序");
+        org.mockito.Mockito.lenient().when(syncRecordMapper.selectByWorkOrderId(100L)).thenReturn(null);
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(100L, 101L))).thenReturn(List.of());
+        doAnswer(invocation -> {
+            MesProScheduleOrderDO order = invocation.getArgument(0);
+            order.setId(order.getWorkOrderId() + 800L);
+            return 1;
+        }).when(scheduleOrderMapper).insert(any(MesProScheduleOrderDO.class));
+
+        assertEquals(List.of(900L, 901L), scheduleOrderService.createFromWorkOrders(reqVO));
+        verify(scheduleOrderMapper, times(2)).insert(any(MesProScheduleOrderDO.class));
+        verify(scheduleOrderProcessMapper, times(2)).insert(any(MesProScheduleOrderProcessDO.class));
+        org.mockito.Mockito.verifyNoInteractions(syncRecordMapper);
+    }
+
+    @Test
+    void createFromWorkOrder_shouldAdmitLocalOrderWithoutErpIdentity() {
+        MesProScheduleOrderCreateFromWorkOrderReqVO reqVO = new MesProScheduleOrderCreateFromWorkOrderReqVO();
+        reqVO.setWorkOrderId(100L);
         reqVO.setPromiseDate(LocalDate.of(2026, 7, 10));
-        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(100L))).thenReturn(List.of());
-        when(workOrderMapper.selectByIdForUpdate(100L)).thenReturn(workOrder(100L, "MO-100", 20L));
-        when(syncRecordMapper.selectByWorkOrderId(100L)).thenReturn(null);
+        stubSimpleSchedulableWorkOrder(100L, "MO-LOCAL", 20L, 30L, 300L, 40L, 700L, 800L, "B010", "首道工序");
+        org.mockito.Mockito.lenient().when(syncRecordMapper.selectByWorkOrderId(100L)).thenReturn(null);
+        doAnswer(invocation -> {
+            MesProScheduleOrderDO order = invocation.getArgument(0);
+            order.setId(900L);
+            return 1;
+        }).when(scheduleOrderMapper).insert(any(MesProScheduleOrderDO.class));
 
-        ServiceException exception = assertThrows(ServiceException.class,
-                () -> scheduleOrderService.createFromWorkOrders(reqVO));
-
-        assertEquals(1_040_270_023, exception.getCode());
-        verify(scheduleOrderMapper, never()).insert(any(MesProScheduleOrderDO.class));
-        verify(scheduleOrderProcessMapper, never()).insert(any(MesProScheduleOrderProcessDO.class));
+        assertEquals(900L, scheduleOrderService.createFromWorkOrder(reqVO));
+        verify(scheduleOrderProcessMapper).insert(any(MesProScheduleOrderProcessDO.class));
+        org.mockito.Mockito.verifyNoInteractions(syncRecordMapper);
     }
 
     @Test
@@ -3634,12 +3698,11 @@ class MesProScheduleOrderServiceImplTest {
         frozen.setTemporaryFrozen(Boolean.TRUE);
         MesProWorkOrderDO notConfirmed = workOrder(101L, "MO-101", 21L);
         notConfirmed.setStatus(MesProWorkOrderStatusEnum.PREPARE.getStatus());
-        MesProWorkOrderDO erpMissing = workOrder(102L, "MO-102", 22L);
+        MesProWorkOrderDO routeMissing = workOrder(102L, "MO-102", 22L);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(100L, 101L, 102L))).thenReturn(List.of());
         when(workOrderMapper.selectByIdForUpdate(100L)).thenReturn(frozen);
         when(workOrderMapper.selectByIdForUpdate(101L)).thenReturn(notConfirmed);
-        when(workOrderMapper.selectByIdForUpdate(102L)).thenReturn(erpMissing);
-        when(syncRecordMapper.selectByWorkOrderId(102L)).thenReturn(null);
+        when(workOrderMapper.selectByIdForUpdate(102L)).thenReturn(routeMissing);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> scheduleOrderService.createFromWorkOrders(reqVO));
@@ -3649,7 +3712,8 @@ class MesProScheduleOrderServiceImplTest {
         assertTrue(exception.getMessage().contains("MO-101"));
         assertTrue(exception.getMessage().contains("不是已确认状态"));
         assertTrue(exception.getMessage().contains("MO-102"));
-        assertTrue(exception.getMessage().contains("缺少 ERP 正式同步记录"));
+        assertTrue(exception.getMessage().contains(
+                cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_ROUTE_REQUIRED.getMsg()));
         verify(scheduleOrderMapper, never()).insert(any(MesProScheduleOrderDO.class));
         verify(scheduleOrderProcessMapper, never()).insert(any(MesProScheduleOrderProcessDO.class));
     }

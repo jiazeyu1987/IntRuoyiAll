@@ -17,7 +17,7 @@ export const REGISTRATION_CERTIFICATE_STATUS_META: Record<
 > = {
   DRAFT: { label: '草稿', tagType: 'info' },
   PENDING_EFFECTIVE: { label: '待生效', tagType: 'warning' },
-  CURRENT: { label: '当前有效', tagType: 'success' },
+  CURRENT: { label: '当前版本', tagType: 'success' },
   OLD: { label: '旧证', tagType: 'info' },
   VOIDED: { label: '已作废', tagType: 'danger' }
 }
@@ -30,15 +30,17 @@ export const REGISTRATION_CERTIFICATE_STATUS_OPTIONS = Object.entries(
 }))
 
 export const formatRegistrationCertificateStatus = (
-  status?: DccRegistrationCertificateStatus | string | null
+  status?: DccRegistrationCertificateStatus | string | null,
+  visualState?: string | null
 ) => {
+  if (status === 'CURRENT' && visualState === 'EXPIRED') return '已过期'
   if (!status) return '未返回状态'
   return REGISTRATION_CERTIFICATE_STATUS_META[status as DccRegistrationCertificateStatus]?.label ?? '未识别状态'
 }
 
 export const getRegistrationCertificateStatusTagType = (
-  status?: DccRegistrationCertificateStatus | string | null
-) => REGISTRATION_CERTIFICATE_STATUS_META[status as DccRegistrationCertificateStatus]?.tagType || 'info'
+  status?: DccRegistrationCertificateStatus | string | null, visualState?: string | null
+) => status === 'CURRENT' && visualState === 'EXPIRED' ? 'danger' : REGISTRATION_CERTIFICATE_STATUS_META[status as DccRegistrationCertificateStatus]?.tagType || 'info'
 
 export const formatMissingMarker = (present?: boolean | null) => (present ? '已提供' : '缺失')
 
@@ -50,6 +52,7 @@ export const REGISTRATION_CERTIFICATE_REMINDER_FILTER_OPTIONS: Array<{
   label: string
 }> = [
   { value: 'NORMAL', label: '正常' },
+  { value: 'EXPIRED', label: '已过期' },
   { value: 'T_30', label: '到期前 30 个月' },
   { value: 'T_8', label: '到期前 8 个月' },
   { value: 'T_2', label: '到期前 2 个月' },
@@ -60,6 +63,7 @@ export const REGISTRATION_CERTIFICATE_REMINDER_FILTER_OPTIONS: Array<{
 ]
 
 const REGISTRATION_CERTIFICATE_REMINDER_LABELS: Record<string, string> = {
+  EXPIRED: '已过期',
   NORMAL: '正常',
   NONE: '正常',
   CLEARED: '正常',

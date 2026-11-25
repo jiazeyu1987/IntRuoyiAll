@@ -30,7 +30,7 @@ public class DccRegistrationCertificateChangeConfirmationService {
     public void send(DccRegistrationCertificateBusinessEventNotificationCommand command,List<Long> recipients) {
         if (!Objects.equals(TenantContextHolder.getRequiredTenantId(),command.tenantId())
                 || !"CHANGE_APPROVAL_RECORDED".equals(command.eventType())
-                || recipients==null || recipients.isEmpty()
+                || recipients==null
                 || recipients.stream().anyMatch(id -> id==null || id<=0)) throw denied();
         var result=notifications.sendToUsers(command,recipients);
         LocalDateTime sentAt=clock.now();

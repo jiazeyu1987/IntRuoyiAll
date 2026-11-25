@@ -32,6 +32,22 @@ class DccRegistrationCertificateReminderServiceTest extends BaseDbUnitTest {
     private JdbcTemplate jdbcTemplate;
 
     @Test
+    void expiryDisplayChangesOnlyAfterDueDateAndRejectsFda() {
+        LocalDate due = LocalDate.of(2026, 11, 24);
+        for (String type : List.of("DOMESTIC", "CE")) {
+            var today = service.evaluateThreshold(type, due, due, false);
+            assertEquals(type.equals("CE") ? "CE_T_3" : "T_1", today.thresholdLevel());
+            assertEquals(0, today.daysUntilDue());
+            var expired = service.evaluateThreshold(type, due.plusDays(1), due, true);
+            assertEquals("EXPIRED", expired.thresholdLevel());
+            assertEquals("BRIGHT", expired.colorCode());
+            assertEquals(-1, expired.daysUntilDue());
+        }
+        org.junit.jupiter.api.Assertions.assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.evaluateThreshold("FDA", due.plusDays(1), due, false));
+    }
+
+    @Test
     void thresholdMatrixUsesCalendarBoundariesAndExpiredRemainsBright() {
         List<DccRegistrationCertificateReminderEvaluation> cases = List.of(
                 service.evaluateThreshold("DOMESTIC", LocalDate.of(2023, 2, 28), LocalDate.of(2025, 8, 28), false),
@@ -42,7 +58,7 @@ class DccRegistrationCertificateReminderServiceTest extends BaseDbUnitTest {
                 service.evaluateThreshold("DOMESTIC", LocalDate.of(2026, 4, 1), LocalDate.of(2026, 3, 31), false),
                 service.evaluateThreshold("DOMESTIC", LocalDate.of(2026, 7, 31), LocalDate.of(2027, 3, 31), true));
 
-        assertEquals(List.of("T_30", "T_30", "T_8", "T_2", "T_1", "T_1", "CLEARED"),
+        assertEquals(List.of("T_30", "T_30", "T_8", "T_2", "T_1", "EXPIRED", "CLEARED"),
                 cases.stream().map(DccRegistrationCertificateReminderEvaluation::thresholdLevel).toList());
         assertEquals(List.of("NORMAL", "NORMAL", "LIGHT", "BRIGHT", "BRIGHT", "BRIGHT", "CLEARED"),
                 cases.stream().map(DccRegistrationCertificateReminderEvaluation::colorCode).toList());

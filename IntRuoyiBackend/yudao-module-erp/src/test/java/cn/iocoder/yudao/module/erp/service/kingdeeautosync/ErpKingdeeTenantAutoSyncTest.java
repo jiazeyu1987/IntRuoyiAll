@@ -24,16 +24,32 @@ class ErpKingdeeTenantAutoSyncTest {
     private final ErpKingdeeTableAutoSyncPlanItemMapper items = mock(ErpKingdeeTableAutoSyncPlanItemMapper.class);
     private final ErpKingdeeTableAutoSyncServiceImpl service = new ErpKingdeeTableAutoSyncServiceImpl();
 
+    private final org.redisson.api.RLock lock = mock(org.redisson.api.RLock.class);
+
     private void prepare() {
+        var redisson = mock(org.redisson.api.RedissonClient.class);
+        when(redisson.getLock(anyString())).thenReturn(lock);
+        when(lock.tryLock()).thenReturn(true);
+        ReflectionTestUtils.setField(service, "redisson", redisson);
         TenantContextHolder.setTenantId(163L);
         ReflectionTestUtils.setField(service, "planMapper", plans);
         ReflectionTestUtils.setField(service, "planItemMapper", items);
         when(plans.selectCurrentTenantPlan()).thenReturn(new ErpKingdeeTableAutoSyncPlanDO()
                 .setId(7L).setEnabled(true).setDailyStartTime(LocalTime.MIDNIGHT));
+        when(plans.claimAutoAttempt(eq(7L), any())).thenReturn(1);
         when(items.selectListByPlanId(7L)).thenReturn(List.of(
                 new ErpKingdeeTableAutoSyncPlanItemDO().setSyncType("STOCK").setEnabled(true).setSortOrder(20),
                 new ErpKingdeeTableAutoSyncPlanItemDO().setSyncType("PRODUCT").setEnabled(true).setSortOrder(10),
                 new ErpKingdeeTableAutoSyncPlanItemDO().setSyncType("BOM").setEnabled(false).setSortOrder(30)));
+    }
+
+    @Test void activeWorkerDoesNotConsumeAutomaticBudget() {
+        prepare();
+        when(lock.tryLock()).thenReturn(false);
+        assertEquals("skipped: plan running", service.executeAutoForCurrentTenant());
+        verify(plans, never()).claimAutoAttempt(any(), any());
+        verifyNoInteractions(items);
+        verify(lock, never()).unlock();
     }
 
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
@@ -53,13 +69,13 @@ class ErpKingdeeTenantAutoSyncTest {
             order.verify(stock).execute(scoped);
             ArgumentCaptor<ErpKingdeeTableAutoSyncPlanDO> updates = ArgumentCaptor.forClass(ErpKingdeeTableAutoSyncPlanDO.class);
             verify(plans, times(2)).updateById(updates.capture());
-            assertEquals(LocalDate.now(), updates.getAllValues().get(0).getLastAutoRunDate());
+            assertEquals(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")), updates.getAllValues().get(0).getLastAutoRunDate());
             assertEquals("SUCCESS", updates.getAllValues().get(1).getLastStatus());
             spring.verify(() -> SpringUtil.getBean("kingdeeBomSyncJob"), never());
         }
     }
 
-    @Test void failedTableStopsSequenceAndDoesNotMarkDateSuccessful() throws Exception {
+    @Test void failedTableContinuesOtherTablesAndDoesNotMarkDateSuccessful() throws Exception {
         prepare();
         JobHandler product = mock(JobHandler.class), stock = mock(JobHandler.class);
         when(product.execute(any())).thenThrow(new IllegalStateException("source unavailable"));
@@ -67,11 +83,15 @@ class ErpKingdeeTenantAutoSyncTest {
             spring.when(() -> SpringUtil.getBean("kingdeeProductItemSyncJob")).thenReturn(product);
             spring.when(() -> SpringUtil.getBean("kingdeeStockSyncJob")).thenReturn(stock);
             assertThrows(RuntimeException.class, service::executeAutoForCurrentTenant);
-            verifyNoInteractions(stock);
+            verify(stock).execute(any());
             ArgumentCaptor<ErpKingdeeTableAutoSyncPlanDO> update = ArgumentCaptor.forClass(ErpKingdeeTableAutoSyncPlanDO.class);
             verify(plans).updateById(update.capture());
             assertEquals("FAILED", update.getValue().getLastStatus());
-            assertEquals("source unavailable", update.getValue().getLastMessage());
+            assertTrue(update.getValue().getLastMessage().contains("PRODUCT: source unavailable"));
+            assertTrue(update.getValue().getLastMessage().contains("success=1, failed=1"));
+            when(plans.claimAutoAttempt(eq(7L), any())).thenReturn(0);
+            assertEquals("skipped: retry interval or daily attempt limit", service.executeAutoForCurrentTenant());
+            verify(stock, times(1)).execute(any());
             assertNull(update.getValue().getLastAutoRunDate());
         }
     }
@@ -79,7 +99,7 @@ class ErpKingdeeTenantAutoSyncTest {
     @Test void completedDailyPlanIsNotExecutedAgain() {
         prepare();
         when(plans.selectCurrentTenantPlan()).thenReturn(new ErpKingdeeTableAutoSyncPlanDO()
-                .setId(7L).setEnabled(true).setDailyStartTime(LocalTime.MIDNIGHT).setLastAutoRunDate(LocalDate.now()));
+                .setId(7L).setEnabled(true).setDailyStartTime(LocalTime.MIDNIGHT).setLastAutoRunDate(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"))));
         assertEquals("skipped: already run today", service.executeAutoForCurrentTenant());
         verifyNoInteractions(items);
     }

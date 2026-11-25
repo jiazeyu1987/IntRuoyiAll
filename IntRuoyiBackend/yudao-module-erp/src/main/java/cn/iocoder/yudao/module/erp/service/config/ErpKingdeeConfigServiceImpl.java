@@ -50,6 +50,13 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
     @Resource
     private TenantConfigService tenantConfigService;
 
+    @Resource
+    private ErpKingdeeSourceLock sourceLock;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private java.util.List<ErpKingdeeSourceEvidenceProvider> sourceEvidenceProviders = java.util.Collections.emptyList();
+    @Resource
+    private cn.iocoder.yudao.module.erp.dal.mysql.sync.ErpKingdeeSourceEvidenceMapper sourceEvidenceMapper;
+
     @Override
     public ErpKingdeeConfigRespVO getConfig() {
         ErpKingdeeConnectionTypeEnum activeType = resolveActiveConnectionType();
@@ -63,6 +70,8 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void saveConfig(ErpKingdeeConfigSaveReqVO saveReqVO) {
+        org.redisson.api.RLock sourceBoundaryLock = sourceLock.acquire();
+        try {
         ErpKingdeeProperties effectiveProperties = cloneDefaultProperties();
         applyOverrides(effectiveProperties, saveReqVO);
         effectiveProperties.validateProductSyncConfig();
@@ -72,6 +81,14 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
         effectiveProperties.validateSaleOrderSyncConfig();
 
         ErpKingdeeConnectionTypeEnum activeType = resolveActiveConnectionType();
+        ConfigDO previous = tenantConfigService.getConfigByKey(CONFIG_KEY);
+        if (activeType == ErpKingdeeConnectionTypeEnum.TEST
+                && (previous == null || StrUtil.isBlank(previous.getValue()))) {
+            // Initialization is explicit: never infer an old source from application defaults.
+            assertNoSourceEvidence();
+        } else {
+            assertSourceUnchanged(resolveProperties(activeType), effectiveProperties);
+        }
         if (activeType == ErpKingdeeConnectionTypeEnum.TEST) {
             saveHiddenConfig(CONFIG_KEY, CONFIG_NAME, CONFIG_REMARK, JsonUtils.toJsonString(saveReqVO));
             return;
@@ -83,6 +100,7 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
         saveHiddenConfig(PRODUCTION_CONNECTION_CONFIG_KEY, PRODUCTION_CONNECTION_CONFIG_NAME,
                 PRODUCTION_CONNECTION_CONFIG_REMARK,
                 JsonUtils.toJsonString(ErpKingdeeConnectionConfig.from(saveReqVO)));
+        } finally { sourceLock.releaseAfterTransaction(sourceBoundaryLock); }
     }
 
     @Override
@@ -101,12 +119,36 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
     @Transactional(rollbackFor = Exception.class)
     public ErpKingdeeActiveConnectionRespVO updateActiveConnection(
             ErpKingdeeActiveConnectionSaveReqVO saveReqVO) {
+        org.redisson.api.RLock sourceBoundaryLock = sourceLock.acquire();
+        try {
         ErpKingdeeConnectionTypeEnum targetType =
                 ErpKingdeeConnectionTypeEnum.requiredOf(StrUtil.trim(saveReqVO.getConnectionType()));
         resolveProperties(targetType).validateBaseConfig();
+        ConfigDO currentSelection = tenantConfigService.getConfigByKey(ACTIVE_CONNECTION_CONFIG_KEY);
+        if (currentSelection == null || StrUtil.isBlank(currentSelection.getValue())) {
+            assertNoSourceEvidence();
+        } else {
+            assertSourceUnchanged(getEffectiveProperties(), resolveProperties(targetType));
+        }
         saveHiddenConfig(ACTIVE_CONNECTION_CONFIG_KEY, ACTIVE_CONNECTION_CONFIG_NAME,
                 ACTIVE_CONNECTION_CONFIG_REMARK, targetType.getType());
         return buildActiveConnectionResponse(targetType);
+        } finally { sourceLock.releaseAfterTransaction(sourceBoundaryLock); }
+    }
+
+    private void assertSourceUnchanged(ErpKingdeeProperties current, ErpKingdeeProperties target) {
+        boolean same = java.util.Objects.equals(current.getBaseUrl(), target.getBaseUrl())
+                && java.util.Objects.equals(current.getAcctId(), target.getAcctId());
+        if (!same) assertNoSourceEvidence();
+    }
+
+    private void assertNoSourceEvidence() {
+        Long tenantId = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        if (sourceEvidenceMapper.hasEvidence(tenantId)
+                || sourceEvidenceProviders.stream().anyMatch(provider -> provider.hasEvidence(tenantId))) {
+            throw exception(KINGDEE_CONNECTION_CONFIG_INVALID, "当前账套",
+                    "该租户已有金蝶同步数据、水位、运行记录或无法证明来源的物料，不能更换来源地址或账套。请先完成独立的数据迁移；修改同一来源的连接凭据和同步配置不受影响");
+        }
     }
 
     private ErpKingdeeProperties resolveProperties(ErpKingdeeConnectionTypeEnum connectionType) {

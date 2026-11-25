@@ -33,7 +33,7 @@ import { getMyRegistrationCertificateUpload, getUploadEntrustedEnterprises, getU
  type DccRegistrationCertificateUploadCompanyRespVO, type DccRegistrationCertificateUploadEntrustedEnterpriseRespVO, type DccRegistrationCertificateUploadProjectCodeRespVO } from '@/api/dcc/registrationCertificate'
 import { generateUUID } from '@/utils'
 import FactsFields from '../shared/FactsFields.vue'
-import { emptyFacts, validateFacts } from '../shared/facts'
+import { emptyFacts, validateUploadFacts } from '../shared/facts'
 const props = defineProps<{modelValue:boolean;requestId?:number|string;handlingTaskId?:number|string;taskProject?:{id:string;projectCode:string;projectName:string}}>()
 const emit = defineEmits<{'update:modelValue':[boolean]; saved:[]}>()
 let submitted = false
@@ -79,7 +79,7 @@ const submit=async()=>{
  if(saving.value)return
  error.value=''
  try{
-  validateFacts(facts.value)
+  validateUploadFacts(facts.value)
   if(facts.value.ownProduct&&(productLoading.value||productError.value||!facts.value.projectProduct))throw new Error(productError.value||'请先选择已绑定DCC产品的项目')
   if(!companyId.value||!productName.value.trim())throw new Error('请填写数据所属公司和产品中文名称')
   if(facts.value.ownProduct&&!projectCodeId.value)throw new Error('请选择实际项目代码')

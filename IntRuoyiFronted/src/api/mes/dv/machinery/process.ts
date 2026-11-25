@@ -1,8 +1,9 @@
 import request from '@/config/axios'
 
 export interface DvMachineryProcessVO {
-  id: number
-  machineryId: number
+  id: number | string
+  machineryId: number | string
+  processId?: number | string
   machineryCode: string
   lineName: string
   processName: string
@@ -15,9 +16,21 @@ export interface DvMachineryProcessVO {
 }
 
 export const DvMachineryProcessApi = {
-  getMachineryProcessList: async (machineryId: number) => {
+  saveCapacity: async (data: MachineryProcessCapacitySaveVO) => {
+    return await request.put({ url: '/mes/dv/machinery-process/capacity', data })
+  },
+  getMachineryProcessList: async (
+    machineryId: number | string
+  ): Promise<DvMachineryProcessVO[]> => {
     return await request.get({
       url: `/mes/dv/machinery-process/list-by-machinery?machineryId=` + machineryId
     })
   }
+}
+
+export interface MachineryProcessCapacitySaveVO {
+  machineryId: number | string
+  processId: number | string
+  standardHourlyCapacity: number
+  remark: string
 }

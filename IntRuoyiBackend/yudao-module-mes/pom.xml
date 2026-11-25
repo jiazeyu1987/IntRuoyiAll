@@ -500,6 +500,9 @@
                         <configuration>
                             <testIncludes>
                                 <testInclude>**/MesProScheduleOrderControllerTest.java</testInclude>
+                                <testInclude>**/MesProScheduleOrderServiceImplTest.java</testInclude>
+                                <testInclude>**/MesProScheduleOrderUpdateReqVOTest.java</testInclude>
+                                <testInclude>**/MesProTaskLockPermissionTest.java</testInclude>
                                 <testInclude>**/MesProScheduleOrderProgressServiceTest.java</testInclude>
                                 <testInclude>**/MesProScheduleOrderRespVOContractTest.java</testInclude>
                                 <testInclude>**/MesProAutoScheduleAlgorithmContractTest.java</testInclude>
@@ -534,6 +537,9 @@
                         <configuration>
                             <includes>
                                 <include>**/MesProScheduleOrderControllerTest.java</include>
+                                <include>**/MesProScheduleOrderServiceImplTest.java</include>
+                                <include>**/MesProScheduleOrderUpdateReqVOTest.java</include>
+                                <include>**/MesProTaskLockPermissionTest.java</include>
                                 <include>**/MesProScheduleOrderProgressServiceTest.java</include>
                                 <include>**/MesProScheduleOrderRespVOContractTest.java</include>
                                 <include>**/MesProAutoScheduleAlgorithmContractTest.java</include>

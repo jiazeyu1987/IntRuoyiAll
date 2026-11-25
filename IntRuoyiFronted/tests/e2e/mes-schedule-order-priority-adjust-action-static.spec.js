@@ -14,11 +14,13 @@ const operationColumnMatch = source.match(
 assert(operationColumnMatch, '排产工单页面必须存在行操作列模板。')
 
 const activeRowActionsMatch = operationColumnMatch[1].match(
-  /<div v-else class="schedule-order-pool__row-actions">([\s\S]*?)<\/div>/
+  /<div class="schedule-order-pool__row-actions">([\s\S]*?)<\/div>/
 )
-assert(activeRowActionsMatch, '排产工单页面必须存在非冻结行操作模板。')
+assert(activeRowActionsMatch, '排产工单页面必须存在行操作模板。')
 
 const activeRowActionsSource = activeRowActionsMatch[1]
+const adjustButton = activeRowActionsSource.match(/<el-button\b[^>]*@click="openPriorityDialog\(row\)"[^>]*>/)?.[0]
+assert(adjustButton?.includes('v-if="!row.removedFromSchedule && !row.frozen"'), '已删除或冻结工单不得显示调整按钮。')
 
 assert(
   /<el-button[\s\S]*v-hasPermi="\['mes:pro-schedule-order:update'\]"[\s\S]*@click="openPriorityDialog\(row\)"[\s\S]*>\s*调整\s*<\/el-button>/.test(
@@ -38,8 +40,11 @@ assert(source.includes('v-model="priorityForm.reason"'), '调整弹窗必须要�
 assert(source.includes('const openPriorityDialog = (row: MesProScheduleOrderVO) =>'), '调整入口必须有独立打开逻辑。')
 assert(source.includes('const submitPriorityAdjust = async () =>'), '调整弹窗必须有独立提交逻辑。')
 assert(source.includes("message.warning('优先级必须大于等于 1')"), '优先级调整必须 fail fast 校验优先级。')
-assert(source.includes("message.warning('承诺交期不能为空')"), '调整提交必须 fail fast 校验承诺交期。')
-assert(source.includes("message.warning('计划开工时间不能为空')"), '调整提交必须 fail fast 校验计划开工时间。')
+const submitSource = source.slice(source.indexOf('const submitPriorityAdjust ='), source.indexOf('const openPromiseDateDialog ='))
+assert(!submitSource.includes("message.warning('承诺交期不能为空')"), '单独调整优先级不得要求补填交期。')
+assert(!submitSource.includes("message.warning('计划开工时间不能为空')"), '单独调整优先级不得要求补填开工时间。')
+assert(submitSource.includes('promiseDate: priorityForm.promiseDate || undefined'), '空交期应不提交日期修改。')
+assert(submitSource.includes('plannedStartTime: priorityForm.plannedStartTime || undefined'), '空开工时间应不提交日期修改。')
 assert(source.includes("message.warning('修改原因不能为空')"), '调整提交必须 fail fast 校验修改原因。')
 assert(
   /MesProScheduleOrderApi\.updateScheduleOrder\(\{[\s\S]*id: priorityForm\.id[\s\S]*promiseDate: priorityForm\.promiseDate[\s\S]*plannedStartTime: priorityForm\.plannedStartTime[\s\S]*priorityNo: priorityForm\.priorityNo[\s\S]*remark: priorityForm\.remark[\s\S]*reason: priorityForm\.reason/.test(

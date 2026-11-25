@@ -63,6 +63,12 @@ public class DccRegistrationCertificateFacts {
         return facts;
     }
 
+    public void validateForUpload() {
+        validate();
+        if ("DOMESTIC".equals(certificateType) && approvalDate == null)
+            throw invalidParamException("请填写批准日期");
+    }
+
     public void validate() {
         if (!Set.of("DOMESTIC", "CE", "FDA").contains(certificateType == null ? "" : certificateType))
             throw invalidParamException("请选择国内、CE或FDA注册证类型");

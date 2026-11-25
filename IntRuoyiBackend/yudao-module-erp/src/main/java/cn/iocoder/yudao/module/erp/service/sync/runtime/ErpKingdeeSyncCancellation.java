@@ -64,6 +64,8 @@ public class ErpKingdeeSyncCancellation {
         return run != null && Integer.valueOf(40).equals(run.getStatus());
     }
 
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW, readOnly = true)
     public void check(Long runId) {
         if (isRequested(runId)) throw new CancellationException("同步任务已按删除请求停止");
     }

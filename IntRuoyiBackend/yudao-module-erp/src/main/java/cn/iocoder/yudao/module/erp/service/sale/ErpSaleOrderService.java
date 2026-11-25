@@ -18,6 +18,8 @@ import java.util.Map;
  * @author 瑛泰源码
  */
 public interface ErpSaleOrderService {
+    void lockOrder(Long id);
+
 
     /**
      * 创建销售订单
@@ -33,6 +35,10 @@ public interface ErpSaleOrderService {
      * @param updateReqVO 更新信息
      */
     void updateSaleOrder(@Valid ErpSaleOrderSaveReqVO updateReqVO);
+
+    /** Trusted source update preserving fulfillment references. */
+    void updateSaleOrderFromKingdee(ErpSaleOrderSaveReqVO req, Integer status,
+            List<ErpSaleOrderSaveReqVO.Item> previousItems);
 
     /**
      * 更新销售订单的状态

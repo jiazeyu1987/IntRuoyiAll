@@ -399,10 +399,15 @@ public class MesReportAllocationCommandService {
         Map<Long, MesTeamLeaderOrderProcessTarget> targets = validation.targets();
         BigDecimal desiredTotal = desired.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal allocationTotal = lockedTotal.add(desiredTotal);
-        if (allocationTotal.signum() <= 0 || allocationTotal.compareTo(pool) > 0) {
+        if (allocationTotal.signum() <= 0) {
             throw new cn.iocoder.yudao.framework.common.exception.ServiceException(
                     PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH.getCode(),
-                    "分配总量须大于0且不得超过本次报工数量：" + quantityText(pool));
+                    "分配总量必须大于0，请先完成订单和数量分配");
+        }
+        if (allocationTotal.compareTo(pool) > 0) {
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(
+                    PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH.getCode(),
+                    "分配总量不得超过本次报工数量：" + quantityText(pool));
         }
 
         Map<Long, BigDecimal> before = aggregateRows(editableOld);

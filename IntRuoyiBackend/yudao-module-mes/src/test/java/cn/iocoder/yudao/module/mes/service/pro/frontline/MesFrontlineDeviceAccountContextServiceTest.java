@@ -454,6 +454,7 @@ class MesFrontlineDeviceAccountContextServiceTest {
     private static MesProRouteDO route(Long id, String code, String name) {
         return MesProRouteDO.builder()
                 .id(id)
+                .nodeType("FLOW")
                 .code(code)
                 .name(name)
                 .status(CommonStatusEnum.ENABLE.getStatus())

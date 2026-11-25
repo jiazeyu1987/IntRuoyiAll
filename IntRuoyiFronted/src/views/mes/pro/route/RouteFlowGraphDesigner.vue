@@ -801,7 +801,23 @@
               <span>字段来源</span>
               <strong>当前工艺路线负责人配置</strong>
             </div>
+            <el-alert
+              v-if="isRouteGroupTemplate"
+              title="目录模板不参与生产授权，请在具体工艺流程中配置生产组长。"
+              :closable="false"
+              show-icon
+              type="info"
+              data-flow-panel="route-start-production-leader-template"
+            />
+            <el-alert
+              v-else-if="!isProductionFlow"
+              title="工艺路线节点类型缺失或无效，无法配置生产组长。"
+              :closable="false"
+              show-icon
+              type="error"
+            />
             <div
+              v-else
               v-loading="routeStartProductionLeadersLoading"
               class="route-flow-graph-designer__selected-detail-editor"
               :data-flow-field-editor="selectedBoundaryDetailFieldKey"
@@ -2383,6 +2399,7 @@ const DEFAULT_AUTO_LAYOUT_OPTIONS: AutoLayoutOptions = {}
 const props = defineProps<{
   routeId: MesRouteId
   routeName: string
+  routeNodeType?: ProRouteVO['nodeType']
   activeRouteVersionNo?: string
   activeRouteVersionId?: MesRouteId
   formType: string
@@ -2405,6 +2422,8 @@ const { wsCache } = useCache()
 const userStore = useUserStoreWithOut()
 const isRouteFlowMaximized = ref(false)
 const isEditable = computed(() => ['create', 'update'].includes(props.formType))
+const isRouteGroupTemplate = computed(() => props.routeNodeType === 'GROUP')
+const isProductionFlow = computed(() => props.routeNodeType === 'FLOW')
 const isFrozenRouteVersionView = computed(
   () =>
     Boolean(props.routeVersionEditContext?.routeVersionId) &&
@@ -10114,6 +10133,7 @@ const markRouteStartProductionLeadersClean = () => {
 }
 
 const hasRouteStartProductionLeaderDraftChanges = () =>
+  isProductionFlow.value &&
   routeStartProductionLeadersLoaded.value &&
   routeStartProductionLeadersBaseline.value !== serializeRouteStartProductionLeaderSaveItems()
 
@@ -10153,6 +10173,7 @@ const loadRouteStartProductionLeaderCandidateOptions = async (
 }
 
 const loadRouteStartProductionLeaders = async (force = false) => {
+  if (!isProductionFlow.value) return
   if (routeStartProductionLeadersLoaded.value && !force) return
   if (!props.routeId) {
     routeStartProductionLeadersLoadError.value = '请先保存工艺路线，再配置生产组长。'
@@ -10278,6 +10299,13 @@ const handleRouteStartProductionLeaderCandidateIdsChange = (
 }
 
 const requireRouteStartProductionLeaderSaveRouteVersionId = () => {
+  if (!isProductionFlow.value) {
+    throw new Error(
+      isRouteGroupTemplate.value
+        ? '目录模板不参与生产授权，请在具体工艺流程中配置生产组长。'
+        : '工艺路线节点类型缺失或无效，无法配置生产组长。'
+    )
+  }
   if (!props.routeId) {
     throw new Error('请先保存工艺路线，再保存生产组长。')
   }
@@ -10351,7 +10379,7 @@ const handleSelectBoundaryDetailField = (fieldKey: BoundaryDetailFieldKey) => {
   if (fieldKey === 'batchRecordAttachment' && !batchRecordAttachmentOwnersLoaded.value) {
     void loadBatchRecordAttachmentOwners()
   }
-  if (fieldKey === 'productionLeader' && !routeStartProductionLeadersLoaded.value) {
+  if (fieldKey === 'productionLeader' && isProductionFlow.value && !routeStartProductionLeadersLoaded.value) {
     void loadRouteStartProductionLeaders()
   }
 }
@@ -10368,6 +10396,7 @@ const batchRecordAttachmentOwnerControlsDisabled = computed(
 
 const routeStartProductionLeaderControlsDisabled = computed(
   () =>
+    !isProductionFlow.value ||
     routeFlowWriteControlsDisabled.value ||
     routeStartProductionLeadersLoading.value ||
     routeStartProductionLeadersSaving.value ||
@@ -10441,7 +10470,7 @@ watch(
 )
 
 watch(
-  () => [props.routeId, props.routeVersionEditContext?.routeVersionId],
+  () => [props.routeId, props.routeVersionEditContext?.routeVersionId, props.routeNodeType],
   () => {
     resetBatchRecordAttachmentOwners()
     resetRouteStartProductionLeaders()
@@ -10455,7 +10484,8 @@ watch(
       }
       if (
         selectedBoundaryType.value === 'START' &&
-        selectedBoundaryDetailFieldKey.value === 'productionLeader'
+        selectedBoundaryDetailFieldKey.value === 'productionLeader' &&
+        isProductionFlow.value
       ) {
         void loadRouteStartProductionLeaders()
       }

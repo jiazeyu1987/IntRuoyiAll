@@ -34,6 +34,7 @@
             @sort-change="handleCurrentSortChange"
             server-filter
             :server-filter-query="loadPage"
+            :server-filter-reset="resetCurrentQuery"
             :column-filter-definitions="listColumnFilterDefinitions0"
           >
             <template #actions>
@@ -262,7 +263,7 @@
                         详情
                       </el-button>
                       <el-button
-                        v-if="row.status === 'CURRENT' && canRenewRegistrationCertificate"
+                        v-if="row.status === 'CURRENT' && parseFacts(row.factsJson).certificateType !== 'FDA' && canRenewRegistrationCertificate"
                         link
                         type="primary"
                         @click="openRenewalDialog(row)"
@@ -377,8 +378,8 @@
                   v-bind="sortColumnAttrs('status')"
                 >
                   <template #default="{ row }">
-                    <el-tag :type="getRegistrationCertificateStatusTagType(row.status)">
-                      {{ row.status === 'OLD' ? '已被替换，原有效期至 ' + formatRegistrationCertificateDate(row.expiryDate) : formatRegistrationCertificateStatus(row.status) }}
+                    <el-tag :type="getRegistrationCertificateStatusTagType(row.status, row.visualState)">
+                      {{ row.status === 'OLD' ? '已被替换，原有效期至 ' + formatRegistrationCertificateDate(row.expiryDate) : formatRegistrationCertificateStatus(row.status, row.visualState) }}
                     </el-tag>
                   </template>
                 </el-table-column>
@@ -479,6 +480,7 @@
 import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 
+import { parseFacts } from '../shared/facts'
 import CategoryFilters from '../shared/CategoryFilters.vue'
 import { formatListCertificateType } from '../shared/listDisplay'
 import MyApplications from '../upload/MyApplications.vue'
@@ -1057,6 +1059,14 @@ const handleOldSortChange = (payload: RegistrationCertificateSortChange) => {
   )
 }
 
+const resetCurrentQuery = () => {
+  for (const key of Object.keys(queryParams)) {
+    if (key !== 'pageSize') delete (queryParams as Record<string, unknown>)[key]
+  }
+  queryParams.pageNo = 1
+  currentSortState.value = {}
+}
+
 const currentQuickFilter = useTableQuickFilter(
   'dcc.registrationCertificate.current',
   currentQuickFilterDefinitions,
@@ -1222,7 +1232,7 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
     key: 'status',
     label: '状态',
     type: 'text',
-    getValue: (row) => [formatRegistrationCertificateStatus(row.status)].join(' ')
+    getValue: (row) => [formatRegistrationCertificateStatus(row.status, row.visualState)].join(' ')
   },
   {
     key: 'reminder',
@@ -1254,7 +1264,7 @@ const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() =
       [
         row.status === 'OLD'
           ? '已被替换，原有效期至 ' + formatRegistrationCertificateDate(row.expiryDate)
-          : formatRegistrationCertificateStatus(row.status)
+          : formatRegistrationCertificateStatus(row.status, row.visualState)
       ].join(' ')
   }
 ])

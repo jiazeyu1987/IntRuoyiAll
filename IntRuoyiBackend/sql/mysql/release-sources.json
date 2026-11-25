@@ -1242,7 +1242,11 @@
     "20261123_dcc_registration_certificate_ce_reminder_thresholds.sql",
     "20261123_dcc_registration_certificate_ce_supporting_materials.sql",
     "20261123_dcc_registration_certificate_supporting_status_effective.sql",
-    "20261124_mes_pqc_patrol_rule_key_contract.sql"
+    "20261124_mes_pqc_patrol_rule_key_contract.sql",
+    "20261124_registration_certificate_workbook_import_permission.sql",
+    "20261124_erp_order_sync_integrity.sql",
+    "20261124_erp_kingdee_auto_sync_retry_budget.sql",
+    "20261125_mes_pqc_aggregate_production_submit_nullable.sql"
   ],
   "migrationScopes": [
     {

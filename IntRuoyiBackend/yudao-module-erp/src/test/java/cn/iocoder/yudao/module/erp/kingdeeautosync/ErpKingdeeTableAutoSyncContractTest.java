@@ -29,7 +29,7 @@ class ErpKingdeeTableAutoSyncContractTest {
         assertContains(source, "@PostMapping(\"/plan/run-once\")");
         assertContains(source, "@GetMapping(\"/run/page\")");
         assertContains(source, "@GetMapping(\"/watermark/list\")");
-        assertContains(source, "mes:pro-batch-record-execution:golden-finger");
+        assertContains(source, "erp:data-config:operate");
         assertFalse(source.contains("erp:kingdee-sync:query"), "Profile config APIs must use the profile config permission boundary.");
     }
 
@@ -66,12 +66,14 @@ class ErpKingdeeTableAutoSyncContractTest {
         assertContains(planSaveReq, "@JsonFormat(pattern = \"HH:mm:ss\")");
         assertContains(impl, "savePlanItems(");
         assertContains(impl, "markAutoRunDateAfterSuccess(");
-        int successMessageIndex = impl.indexOf("ERP 表格自动同步完成");
-        int markAutoRunDateIndex = impl.indexOf("markAutoRunDateAfterSuccess(plan.getId());");
+        assertContains(planDo, "lastAutoAttemptDate");
+        assertContains(impl, "claimAutoAttempt(plan.getId(), attemptDate)");
+        int failureGateIndex = impl.indexOf("if (!failures.isEmpty())");
+        int markAutoRunDateIndex = impl.indexOf("markAutoRunDateAfterSuccess(plan.getId(), plan.getLastAutoAttemptDate());");
         int failureHandlerIndex = impl.indexOf("} catch (Exception ex)");
-        assertTrue(successMessageIndex >= 0 && markAutoRunDateIndex > successMessageIndex
-                        && failureHandlerIndex > markAutoRunDateIndex,
-                "Auto retry date must be marked only after all selected handlers succeed.");
+        assertTrue(failureHandlerIndex >= 0 && failureGateIndex > failureHandlerIndex
+                        && markAutoRunDateIndex > failureGateIndex,
+                "Each table failure must be collected before marking a fully successful automatic run.");
         assertFalse(impl.contains("ErpNasTableSyncTypeEnum"), "ERP table auto sync must not reuse NAS export enum.");
         assertFalse(impl.contains("deleteByPlanId"), "Plan item save must not logical-delete rows before reinserting.");
     }
