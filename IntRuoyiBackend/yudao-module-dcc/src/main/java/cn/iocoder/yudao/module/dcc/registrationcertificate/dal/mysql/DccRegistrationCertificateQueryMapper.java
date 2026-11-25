@@ -488,6 +488,7 @@ public interface DccRegistrationCertificateQueryMapper {
 
         private static String currentWhere() {
             return commonWhere()
+                    + " <if test=\"query.exportVersionIds != null and !query.exportVersionIds.isEmpty()\"> AND v.id IN <foreach collection=\"query.exportVersionIds\" item=\"exportId\" open=\"(\" separator=\",\" close=\")\">#{exportId}</foreach></if>"
                     + " AND c.status IN ('ACTIVE', 'PENDING_FIRST_EFFECTIVE')"
                     + " AND (v.id = c.current_version_id OR v.id = c.pending_version_id)"
                     + " AND v.status IN ('CURRENT', 'PENDING_EFFECTIVE')"

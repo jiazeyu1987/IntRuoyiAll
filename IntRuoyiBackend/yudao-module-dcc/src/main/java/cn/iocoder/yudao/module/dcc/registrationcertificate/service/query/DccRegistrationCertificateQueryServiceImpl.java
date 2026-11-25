@@ -122,6 +122,30 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
     }
 
     @Override
+    public List<DccRegistrationCertificatePageItem> getExportRows(Long tenantId, Long actorId,
+            DccRegistrationCertificatePageQuery query, List<Long> versionIds, int limit) {
+        var normalized = normalize(query);
+        normalized.setBusinessDate(businessClock.businessDate());
+        validateSort(normalized, CURRENT_SORT_FIELDS);
+        validateCurrentReminderState(normalized);
+        normalized.setExportVersionIds(versionIds);
+        normalized.setListFilterWrapper(DccRegistrationCertificateQueryMapper.SqlProvider.listFilterWrapper(normalized, false));
+        var rows = queryMapper.selectPage(tenantId, scopedCompanyIds(actorId), normalized, limit + 1, 0);
+        if (rows.size() > limit) throw new ExportLimitExceeded();
+        var names = companyNames(tenantId, rows);
+        return rows.stream().map(row -> pageItem(tenantId, row, names.get(row.getOwnerCompanyId()))).toList();
+    }
+
+    @Override
+    public DccRegistrationCertificatePageItem getExportRow(Long tenantId, Long actorId, Long versionId) {
+        var rows = getExportRows(tenantId, actorId, DccRegistrationCertificatePageQuery.builder().build(), List.of(versionId), 1);
+        if (rows.isEmpty()) return null;
+        var row = rows.get(0);
+        accessPolicyService.assertFilePreviewAllowed(tenantId, actorId, row.getCertificateId(), row.getVersionId(), businessClock.now());
+        return row;
+    }
+
+    @Override
     public DccRegistrationCertificateDetail getDetail(
             Long tenantId, Long actorId, Long certificateId, Long versionId, DccRequestAuditContext auditContext) {
         List<Long> scopedCompanyIds = scopedCompanyIds(actorId);

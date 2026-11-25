@@ -150,6 +150,35 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void exportUsesListSortSelectedVersionIdsAndPersistsBatchAudit() throws Exception {
+        var b = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "EXPORT-B", false, 20L);
+        var a = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "EXPORT-A", false, 20L);
+        seedFormal(2L, 12L, "ACTIVE", "CURRENT", "EXPORT-OTHER-TENANT", false, 22L);
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any())).thenReturn(List.of(owner(10L,"Owner A")));
+        var query = DccRegistrationCertificatePageQuery.builder().certificateNo("EXPORT-").sortField("certificateNo").sortOrder("asc").build();
+        var rows = queryService.getExportRows(1L,99L,query,List.of(b.versionId(),a.versionId()),10);
+        assertEquals(List.of(a.versionId(),b.versionId()),rows.stream().map(DccRegistrationCertificatePageItem::getVersionId).toList());
+        var desc = DccRegistrationCertificatePageQuery.builder().sortField("certificateNo").sortOrder("desc").build();
+        assertEquals(List.of(b.versionId(),a.versionId()),queryService.getExportRows(1L,99L,desc,null,10).stream().map(DccRegistrationCertificatePageItem::getVersionId).toList());
+        assertThrows(DccRegistrationCertificateQueryService.ExportLimitExceeded.class,()->queryService.getExportRows(1L,99L,DccRegistrationCertificatePageQuery.builder().build(),null,1));
+        when(permissionApi.hasAnyPermissions(eq(99L),any(String[].class))).thenReturn(true);
+        var exports = new cn.iocoder.yudao.module.dcc.registrationcertificate.service.export.DccRegistrationCertificateExportService(
+                queryService,auditMapper,permissionApi,new DccRegistrationCertificateBusinessClock());
+        var req = new cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.query.vo.DccRegistrationCertificatePageReqVO();
+        req.setSortField("certificateNo");req.setSortOrder("asc");
+        var p=exports.preview(1L,99L,new cn.iocoder.yudao.module.dcc.registrationcertificate.service.export.DccRegistrationCertificateExportService.Scope("current","SELECTED",req,List.of(b.versionId(),a.versionId())));
+        exports.generate(1L,99L,p.snapshotId(),p.requestId());
+        exports.generate(1L,99L,p.snapshotId(),p.requestId());
+        var audits=auditMapper.selectListByCertificateId(a.certificateId());
+        assertEquals(1,audits.size());assertEquals("EXCEL_GENERATED",audits.get(0).getEventType());
+        assertTrue(audits.get(0).getDetailJson().contains("exported_record_ids"));
+        try(var stream=exports.open(1L,99L,p.requestId())){assertEquals(2,stream.status().exported());}
+        jdbcTemplate.update("UPDATE dcc_registration_certificate SET deleted=1 WHERE id=?",a.certificateId());
+        assertThrows(ServiceException.class,()->exports.open(1L,99L,p.requestId()));
+        assertEquals("INVALID",exports.status(1L,99L,p.requestId()).state());
+    }
+
+    @Test
     void detailContractExposesFormalRegistrationBusinessFileId() {
         assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("registrationFileId"),
                 "detail response must expose the formal registration business-file id");

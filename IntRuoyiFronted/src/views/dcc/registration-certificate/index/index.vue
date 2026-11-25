@@ -7,7 +7,7 @@
     >
       <el-tab-pane name="current" label="注册证">
         <div data-testid="registration-certificate-current-tab">
-          <CategoryFilters v-model:query="queryParams" @search="loadPage"/>
+          <CategoryFilters v-model:query="queryParams" @search="submitCurrentFilters"/>
           <el-alert v-if="currentQueryError" :title="currentQueryError" type="error" show-icon :closable="false" class="mb-12px" />
           <UnifiedListTemplate
             class="registration-certificate-current-list"
@@ -29,7 +29,7 @@
             @update:quick-filter-state="currentQuickFilter.updateState"
             @quick-filter-query="currentQuickFilter.applyQuickFilter"
             @column-change="saveCurrentColumnConfig"
-            @pagination="loadPage"
+            @pagination="loadCurrentPagination"
             v-model:sort-state="currentSortState"
             @sort-change="handleCurrentSortChange"
             server-filter
@@ -48,13 +48,21 @@
                 v-if="checkPermi(['dcc:registration-certificate:historical-import']) && checkPermi(['dcc:registration-certificate:upload:approve'])"
                 @imported="loadPage"
               />
+              <ExcelExportButton
+                v-if="checkPermi(['dcc:registration-certificate:query-current'])"
+                :query="appliedExportQuery"
+                :draft="queryParams"
+                :record-ids="selectedCertificates.map(row => row.versionId)"
+                :total="total"
+                :disabled-reason="exportDisabledReason"
+              />
               <el-button v-if="canUploadRegistrationCertificate" type="primary" @click="openUploadDialog">
                 <Icon icon="ep:upload" class="mr-5px" />上传注册证
               </el-button>
               <el-button
                 v-hasPermi="['dcc:registration-certificate:delete']"
                 type="danger"
-                :disabled="selectedCertificates.length === 0 || loading"
+                :disabled="selectedCurrentPage.length === 0 || loading"
                 :loading="deletingCertificate"
                 @click="handleDeleteCertificate"
               >
@@ -65,6 +73,7 @@
             <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <div class="registration-certificate-current-table-scroll-region">
                 <el-table
+                  ref="currentTableRef"
                   v-loading="loading || deletingCertificate"
                   class="registration-certificate-current-table"
                   data-user-table-column-explicit
@@ -80,7 +89,7 @@
                   @sort-change="handleTemplateSortChange"
                   @selection-change="handleCertificateSelectionChange"
                 >
-                <el-table-column type="selection" width="55" fixed="left" />
+                <el-table-column type="selection" :reserve-selection="true" width="55" fixed="left" />
                 <el-table-column
                   v-if="isCurrentColumnVisible('certificateNo')"
                   label="注册证编号"
@@ -487,6 +496,8 @@ import {
   type UserTableColumnDefinition
 } from '@/hooks/web/useUserTableColumns'
 import WorkbookImport from '../historical-import/WorkbookImport.vue'
+import ExcelExportButton from './ExcelExportButton.vue'
+import { cloneExportQuery, exportQueryKey } from './exportScope'
 import RegistrationCertificateUploadDialog from '../upload/UploadDialog.vue'
 import { getRegistrationCertificateQueryError } from '../shared/queryValidation'
 import RegistrationCertificateRenewalDialog from '../renewal/RenewalDialog.vue'
@@ -524,10 +535,21 @@ const loading = currentRequest.loading
 const oldLoading = oldRequest.loading
 const list = ref<DccRegistrationCertificatePageItemVO[]>([])
 const selectedCertificates = ref<DccRegistrationCertificatePageItemVO[]>([])
+const selectedCurrentPage = computed(() => {
+  const ids = new Set(list.value.map(row => String(row.versionId)))
+  return selectedCertificates.value.filter(row => ids.has(String(row.versionId)))
+})
+const currentTableRef = ref<{ clearSelection: () => void }>()
+const currentQuerySucceeded = ref(false)
+const appliedExportQuery = ref<DccRegistrationCertificatePageReqVO>({})
+let submittedFilterKey = ''
+const exportDisabledReason = computed(() => loading.value ? '正在查询'
+  : currentQueryError.value || !currentQuerySucceeded.value ? '查询失败，请重新查询'
+  : total.value === 0 ? '暂无可导出数据' : '')
 const deletingCertificate = ref(false)
 const message = useMessage()
 const handleCertificateSelectionChange = (rows: DccRegistrationCertificatePageItemVO[]) => {
-  selectedCertificates.value = rows
+  selectedCertificates.value = [...new Map(rows.map(row => [String(row.versionId), row])).values()]
 }
 const oldList = ref<DccRegistrationCertificateOldIndexItemVO[]>([])
 const total = ref(0)
@@ -887,22 +909,42 @@ const syncRegistrationCertificateQueryFromRoute = () => {
   }
 }
 
-const loadPage = async () => {
-  currentQueryError.value = getRegistrationCertificateQueryError(queryParams)
+const loadPage = async () => runCurrentQuery(cloneExportQuery(queryParams))
+const submitCurrentFilters = () => {
+  currentTableRef.value?.clearSelection()
+  selectedCertificates.value = []
+  return loadPage()
+}
+const loadCurrentPagination = async () => runCurrentQuery({ ...cloneExportQuery(appliedExportQuery.value), pageNo: queryParams.pageNo, pageSize: queryParams.pageSize })
+const runCurrentQuery = async (query: DccRegistrationCertificatePageReqVO) => {
+  const filterKey = exportQueryKey(query)
+  if (filterKey !== submittedFilterKey) {
+    currentTableRef.value?.clearSelection()
+    selectedCertificates.value = []
+    submittedFilterKey = filterKey
+  }
+  currentQuerySucceeded.value = false
+  currentQueryError.value = getRegistrationCertificateQueryError(query)
   if (currentQueryError.value) {
     currentRequest.invalidate()
     message.error(currentQueryError.value)
     return false
   }
-  return await currentRequest.run(() => getRegistrationCertificatePage({ ...queryParams }), (page) => {
-    list.value = page.list
-    total.value = page.total
-    selectedCertificates.value = []
-  })
+  try {
+    return await currentRequest.run(() => getRegistrationCertificatePage(query), (page) => {
+      list.value = page.list
+      total.value = page.total
+      appliedExportQuery.value = cloneExportQuery(query)
+      currentQuerySucceeded.value = true
+    })
+  } catch (error) {
+    if (!currentQuerySucceeded.value && !loading.value) currentQueryError.value = '查询失败，请重新查询'
+    throw error
+  }
 }
 
 const handleDeleteCertificate = async () => {
-  const rows = [...selectedCertificates.value]
+  const rows = [...selectedCurrentPage.value]
   if (rows.length === 0 || deletingCertificate.value) return
   deletingCertificate.value = true
   try {
@@ -924,6 +966,7 @@ const handleDeleteCertificate = async () => {
       message.error(`已删除 ${deletedCount} 条，${failures.length} 条删除失败：${failures.map((item) => item.certificateNo).join('、')}。历史证据已保留。`)
     }
     if (deletedCount > 0) {
+      currentTableRef.value?.clearSelection()
       selectedCertificates.value = []
       if (list.value.length === deletedCount && queryParams.pageNo > 1) queryParams.pageNo -= 1
       await loadPage()
@@ -986,7 +1029,7 @@ const handleCurrentSortChange = (payload: RegistrationCertificateSortChange) => 
       currentSortState.value = state
     },
     CURRENT_SERVER_SORT_FIELDS,
-    loadPage
+    () => runCurrentQuery({ ...cloneExportQuery(appliedExportQuery.value), pageNo: 1, pageSize: queryParams.pageSize, sortField: queryParams.sortField, sortOrder: queryParams.sortOrder })
   )
 }
 
