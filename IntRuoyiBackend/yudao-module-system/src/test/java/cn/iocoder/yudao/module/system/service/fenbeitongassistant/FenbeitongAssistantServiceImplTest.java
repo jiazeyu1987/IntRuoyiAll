@@ -9,6 +9,10 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -49,6 +53,43 @@ class FenbeitongAssistantServiceImplTest extends BaseMockitoUnitTest {
         properties.setNodeCommand(nodeCommand.toString());
         properties.setProbeIntervalMillis(1);
         properties.setStartupTimeoutSeconds(1);
+        bindPublicUrl("http://localhost:18734/");
+    }
+
+    private void bindPublicUrl(String value) {
+        new Binder(new MapConfigurationPropertySource(java.util.Map.of(
+                "yudao.erp.fenbeitong-assistant.public-url", value)))
+                .bind("yudao.erp.fenbeitong-assistant", Bindable.ofInstance(properties));
+    }
+
+    @Test
+    void statusPublishesConfiguredBrowserUrlWithoutChangingInternalProbe() {
+        properties.setAssistantHost("fenbeitong-assistant");
+        when(healthProbe.isRunning()).thenReturn(true);
+        for (String host : new String[]{"172.30.30.58", "172.30.30.57"}) {
+            bindPublicUrl("http://" + host + ":18734");
+            var json = new ObjectMapper().valueToTree(service.getStatus());
+            assertEquals("http://" + host + ":18734/", json.path("publicUrl").asText());
+            assertEquals("http://fenbeitong-assistant:18734/api/health", properties.getAssistantHealthUrl());
+        }
+    }
+
+    @Test
+    void missingPublicUrlBlocksEntryAndStartBeforeProcessLaunch() {
+        bindPublicUrl("");
+        ServiceException error = assertThrows(ServiceException.class, service::getStatus);
+        assertTrue(error.getMessage().contains("地址未配置"));
+        assertThrows(ServiceException.class, service::start);
+        verify(processStarter, never()).start();
+    }
+
+    @Test
+    void invalidPublicUrlsCannotReceiveTickets() {
+        for (String url : new String[]{"javascript:alert(1)", "http://user:pass@host:18734/",
+                "http://host:18734/?token=x", "http://host:18734/#fragment", "http://host:0/"}) {
+            bindPublicUrl(url);
+            assertThrows(IllegalArgumentException.class, service::getStatus);
+        }
     }
 
     @Test
