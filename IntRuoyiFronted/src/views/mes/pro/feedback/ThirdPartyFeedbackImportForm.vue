@@ -160,6 +160,7 @@
 </template>
 
 <script setup lang="ts">
+import { checkPermi } from '@/utils/permission'
 import ProcessCodeLink from '@/components/ProcessCodeLink.vue'
 import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import ProductCodeLink from '@/components/ProductCodeLink.vue'
@@ -269,7 +270,15 @@ const open = () => {
 
 defineExpose({ open })
 
+const canImportMode = (mode: ImportMode) =>
+  checkPermi(['mes:pro-feedback:create']) &&
+  (mode !== 'DIRECT_WORK_REPORT' || checkPermi(['mes:pro-feedback:update']))
+
 const submitForm = async () => {
+  if (!canImportMode(importMode.value)) {
+    message.error('当前账号没有该类型报工的导入权限')
+    return
+  }
   if (!selectedFile.value) {
     message.error('请上传 Excel 文件')
     return
@@ -546,6 +555,10 @@ const handleFileChange = async (file: UploadFile, files: UploadFiles) => {
     detectedImportMode.value = detectedMode
     if (!detectedMode) {
       message.warning('未识别 Excel 表头，请确认导入类型后再提交。')
+      return
+    }
+    if (!canImportMode(detectedMode)) {
+      message.error('当前账号没有该类型报工的导入权限')
       return
     }
     if (importMode.value !== detectedMode) {

@@ -1024,7 +1024,9 @@ public class MesProRouteServiceImpl implements MesProRouteService {
 
     private JSONObject buildCompleteRouteConfigSnapshots(Long routeId, Long routeVersionId) {
         JSONObject configSnapshots = new JSONObject(true);
-        configSnapshots.put(FLOW_GRAPH_KEY, JSON.toJSON(routeProcessFlowService.getGraph(routeId)));
+        // JSON.toJSON drops null bean fields before the snapshot writer can preserve an unbound SOP.
+        configSnapshots.put(FLOW_GRAPH_KEY, JSON.parseObject(MesProRouteVersionSnapshotIdentityWriter
+                .toSnapshotJson(routeProcessFlowService.getGraph(routeId))));
         configSnapshots.put(PRODUCTS_KEY, JSON.toJSON(routeProductMapper.selectListByRouteId(routeId)));
         configSnapshots.put(PRODUCT_BOMS_KEY, JSON.toJSON(routeProductBomMapper.selectList(routeId, null, null)));
         configSnapshots.put(SCHEDULE_CONFIGS_KEY,

@@ -357,6 +357,7 @@
     }
   ],
   "migrations": [
+    "20261125_mes_replan_request_receipt.sql",
     "20260512_ai_base_schema.sql",
     "20260512_ai_codex_seed.sql",
     "20260512_bpm_base_schema.sql",

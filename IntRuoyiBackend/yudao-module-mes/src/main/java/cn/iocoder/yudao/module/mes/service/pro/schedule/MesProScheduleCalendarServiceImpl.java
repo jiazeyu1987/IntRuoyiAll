@@ -800,13 +800,18 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
                 : ObjUtil.defaultIfNull(scheduleOrderProcessMapper.selectByIds(scheduleOrderProcessIds),
                         Collections.<MesProScheduleOrderProcessDO>emptyList()).stream()
                 .collect(Collectors.toMap(MesProScheduleOrderProcessDO::getId, item -> item, (left, right) -> left, LinkedHashMap::new));
-        Map<Long, List<MesProTaskDO>> tasksByProcess = tasks.stream()
-                .collect(Collectors.groupingBy(MesProTaskDO::getProcessId, LinkedHashMap::new, Collectors.toList()));
+        Map<String, List<MesProTaskDO>> tasksByProcess = tasks.stream()
+                .collect(Collectors.groupingBy(task -> {
+                    MesProTaskScheduleExtDO ext = extMap.get(task.getId());
+                    return ext != null && ext.getScheduleOrderProcessId() != null
+                            ? "SNAPSHOT:" + ext.getScheduleOrderProcessId()
+                            : "PROCESS:" + task.getProcessId();
+                }, LinkedHashMap::new, Collectors.toList()));
 
         List<MesProScheduleCalendarWorkOrderAnalysisRespVO.ProcessAnalysisItem> processItems = new ArrayList<>();
         int processSort = 1;
-        for (Map.Entry<Long, List<MesProTaskDO>> entry : tasksByProcess.entrySet()) {
-            Long processId = entry.getKey();
+        for (Map.Entry<String, List<MesProTaskDO>> entry : tasksByProcess.entrySet()) {
+            Long processId = entry.getValue().get(0).getProcessId();
             MesProProcessDO process = processMap.get(processId);
             List<MesProTaskDO> processTasks = entry.getValue();
             Set<Long> processLineIds = processTasks.stream()
@@ -825,14 +830,14 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
                     .processId(processId)
                     .processName(resolveCalendarProcessName(process, routeProcessSnapshot, processId))
                     .processSort(processSort++)
-                    .scheduledQuantity(processTasks.stream().map(MesProTaskDO::getQuantity).filter(Objects::nonNull)
-                            .max(BigDecimal::compareTo).orElse(workOrder.getQuantity()))
-                    .capacitySource(pool != null ? pool.capacitySource : routeProcessSnapshot != null ? CAPACITY_SOURCE_ROUTE_PROCESS : "WORKER")
-                    .workstationCount(pool != null ? pool.workstationCount : 0)
+                    .scheduledQuantity(processTasks.stream().anyMatch(task -> task.getQuantity() == null)
+                            ? null : processTasks.stream().map(MesProTaskDO::getQuantity).reduce(BigDecimal::add).orElse(null))
+                    .capacitySource(pool != null ? pool.capacitySource : routeProcessSnapshot != null ? CAPACITY_SOURCE_ROUTE_PROCESS : null)
+                    .workstationCount(pool != null ? pool.workstationCount : null)
                     .workstationNames(pool != null ? pool.workstationNames : Collections.emptyList())
-                    .machineCount(pool != null ? pool.machineCount : 0)
-                    .configuredWorkerCount(pool != null ? pool.configuredWorkerCount : 0)
-                    .currentWorkerCount(pool != null ? pool.currentWorkerCount : 0)
+                    .machineCount(pool != null ? pool.machineCount : null)
+                    .configuredWorkerCount(pool != null ? pool.configuredWorkerCount : null)
+                    .currentWorkerCount(pool != null ? pool.currentWorkerCount : null)
                     .effectiveHourlyCapacity(effectiveHourlyCapacity)
                     .plannedDurationMinutes(effectiveHourlyCapacity != null
                             ? calculateCalendarProcessMinutes(workOrder.getQuantity(), effectiveHourlyCapacity)

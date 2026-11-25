@@ -39,15 +39,32 @@
       :class="{ 'production-gantt-fullscreen-host--active': isFullscreen }"
     >
       <aside v-if="isFullscreen" class="production-gantt-fullscreen-rail">
-        <el-button type="primary" size="small" class="production-gantt-restore-button" @click="exitGanttFullscreen">
+        <el-button
+          type="primary"
+          size="small"
+          class="production-gantt-restore-button"
+          @click="exitGanttFullscreen"
+        >
           恢复
         </el-button>
         <div class="production-gantt-fullscreen-rail__title">视图控制</div>
         <div class="production-gantt-fullscreen-rail__hint">订单</div>
         <div class="production-gantt-fullscreen-rail__hint">工序</div>
       </aside>
-      <div class="production-gantt-chart-shell">
+      <div
+        v-loading="ganttLoading"
+        class="production-gantt-chart-shell"
+        :style="{ minHeight: `${ganttHeight}px` }"
+        element-loading-text="正在加载当前排产…"
+      >
+        <el-result v-if="ganttError" icon="error" title="当前排产加载失败" :sub-title="ganttError">
+          <template #extra
+            ><el-button type="primary" @click="loadCurrentGantt">重新加载</el-button></template
+          >
+        </el-result>
+        <el-empty v-else-if="!ganttLoading && !ganttTasks.length" description="暂无当前排产任务" />
         <GanttChart
+          v-if="!ganttLoading && !ganttError && ganttTasks.length"
           ref="ganttChartRef"
           :tasks="ganttTasks"
           :links="ganttLinks"
@@ -78,7 +95,9 @@ const ganttFullscreenHostRef = ref<HTMLElement>()
 const isFullscreen = ref(false)
 const GANTT_DATE_INTERVAL_STORAGE_KEY = 'mes.pro.task.gantt.dateIntervalDays'
 const DEFAULT_GANTT_DATE_INTERVAL_DAYS = 1
-let hasMountedGantt = false
+const ganttLoading = ref(false)
+const ganttError = ref('')
+let hasActivatedGantt = false
 let ganttHeightAnimationFrame: number | null = null
 
 const normalizeGanttDateIntervalDays = (value: unknown) => {
@@ -143,14 +162,24 @@ const updateGanttHeight = () => {
 }
 
 const loadCurrentGantt = async () => {
-  const tasks = await ProTaskApi.getGanttTaskList({})
-  ganttTasks.value = tasks
-  const taskIds = tasks
-    .filter((item: any) => item.type === 303 && item.originalId)
-    .map((item: any) => item.originalId)
-  ganttLinks.value = taskIds.length
-    ? await ProTaskAutoScheduleApi.getDependencies({ taskIds })
-    : []
+  if (ganttLoading.value) return
+  ganttLoading.value = true
+  ganttError.value = ''
+  try {
+    const tasks = await ProTaskApi.getGanttTaskList({})
+    const taskIds = tasks
+      .filter((item: any) => item.type === 303 && item.originalId)
+      .map((item: any) => item.originalId)
+    const links = taskIds.length ? await ProTaskAutoScheduleApi.getDependencies({ taskIds }) : []
+    // 两次读取全部成功后一起更新，避免显示缺少依赖关系的半成品。
+    ganttTasks.value = tasks
+    ganttLinks.value = links
+  } catch (error) {
+    console.error('[MES] 加载当前排产甘特图失败', error)
+    ganttError.value = error instanceof Error ? error.message : '读取排产任务或依赖关系失败，请重试'
+  } finally {
+    ganttLoading.value = false
+  }
 }
 
 const handleCollapseAllProjects = () => {
@@ -215,11 +244,12 @@ onMounted(async () => {
   window.addEventListener('resize', updateGanttHeight)
   document.addEventListener('fullscreenchange', syncGanttFullscreenState)
   await loadCurrentGantt()
-  hasMountedGantt = true
 })
 
 onActivated(async () => {
-  if (!hasMountedGantt) {
+  // KeepAlive 首次激活紧跟 mounted；只跳过这一次，与请求成败无关。
+  if (!hasActivatedGantt) {
+    hasActivatedGantt = true
     return
   }
   await loadCurrentGantt()

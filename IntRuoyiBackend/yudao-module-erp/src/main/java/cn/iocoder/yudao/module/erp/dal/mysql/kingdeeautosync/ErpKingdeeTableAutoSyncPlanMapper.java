@@ -8,7 +8,7 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface ErpKingdeeTableAutoSyncPlanMapper extends BaseMapperX<ErpKingdeeTableAutoSyncPlanDO> {
 
-    int MAX_DAILY_ATTEMPTS = 3;
+    int MAX_DAILY_ATTEMPTS = 10;
     int RETRY_INTERVAL_MINUTES = 15;
 
     default int claimAutoAttempt(Long id, java.time.LocalDate date) {

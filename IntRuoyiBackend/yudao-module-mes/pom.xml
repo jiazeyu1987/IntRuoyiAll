@@ -123,6 +123,63 @@
 
     <profiles>
         <profile>
+            <id>mes-route-snapshot-tests</id>
+            <properties>
+                <mes.test-output-directory>${project.build.directory}/route-snapshot-test-classes</mes.test-output-directory>
+            </properties>
+            <build><plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>
+                    <configuration><skip>false</skip><testIncludes>
+                        <testInclude>**/MesProBatchRecordRouteSnapshotTest.java</testInclude>
+                        <testInclude>**/MesProRouteVersionPublishProjectionServiceTest.java</testInclude>
+                        <testInclude>**/MesProBatchRecordRecognitionDeviceSyncServiceTest.java</testInclude>
+                        <testInclude>**/MesProBatchRecordProjectProcessTest.java</testInclude>
+                        <testInclude>**/MesProRouteVersionSnapshotValidatorTest.java</testInclude>
+                        <testInclude>**/MesProRouteVersionSnapshotWriteContractTest.java</testInclude>
+                        <testInclude>**/MesProRouteServiceImplTest.java</testInclude>
+                        <testInclude>**/MesSimpleParserPublishServiceTest.java</testInclude>
+                    </testIncludes></configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId>
+                    <configuration><skip>false</skip><skipTests>false</skipTests><includes>
+                        <include>**/MesProBatchRecordRouteSnapshotTest.java</include>
+                        <include>**/MesProRouteVersionPublishProjectionServiceTest.java</include>
+                        <include>**/MesProBatchRecordRecognitionDeviceSyncServiceTest.java</include>
+                        <include>**/MesProBatchRecordProjectProcessTest.java</include>
+                        <include>**/MesProRouteVersionSnapshotValidatorTest.java</include>
+                        <include>**/MesProRouteVersionSnapshotWriteContractTest.java</include>
+                        <include>**/MesProRouteServiceImplTest.java</include>
+                        <include>**/MesSimpleParserPublishServiceTest.java</include>
+                    </includes></configuration>
+                </plugin>
+            </plugins></build>
+        </profile>
+        <profile>
+            <id>mes-confirmed-scheduling-tests</id>
+            <build><plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>
+                    <configuration><skip>false</skip><testIncludes>
+                        <testInclude>**/MesProAutoScheduleServiceImplTest.java</testInclude>
+                        <testInclude>**/MesProReplan*Test.java</testInclude>
+                        <testInclude>**/SchedulePlannerTest.java</testInclude>
+                        <testInclude>**/MesProScheduleCalendarServiceImplTest.java</testInclude>
+                        <testInclude>**/MesProSchedulerWorkbenchServiceImplTest.java</testInclude>
+                        <testInclude>**/ThirdPartyFeedbackImportServiceImpl*Test.java</testInclude>
+                        <testInclude>**/MesProScheduleOrderDailyCompareRespVOTest.java</testInclude>
+                    </testIncludes></configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId>
+                    <configuration><skip>false</skip><skipTests>false</skipTests>
+                        <systemPropertyVariables><yudao.info.base-package>cn.iocoder.yudao.module.mes</yudao.info.base-package></systemPropertyVariables>
+                    </configuration>
+                </plugin>
+            </plugins></build>
+        </profile>
+        <profile>
             <id>mes-production-quantity-tests</id>
             <build><plugins>
                 <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>

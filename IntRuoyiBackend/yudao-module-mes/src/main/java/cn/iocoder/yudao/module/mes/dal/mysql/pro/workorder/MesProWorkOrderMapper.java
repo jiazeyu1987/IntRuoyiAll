@@ -183,6 +183,7 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
         }
         return selectList(new LambdaQueryWrapperX<MesProWorkOrderDO>()
                 .in(MesProWorkOrderDO::getId, ids)
+                .orderByAsc(MesProWorkOrderDO::getId)
                 .last("FOR UPDATE"));
     }
 
