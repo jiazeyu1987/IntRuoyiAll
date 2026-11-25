@@ -388,13 +388,15 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                             "changeType", "BATCH_RECORD_BINDING_CANDIDATE")))
                     .remark("eDHR Word导入更新逐工序批记录表单绑定，待发布后生效")
                     .build();
-            MesProRouteVersionSnapshotIdentityWriter.apply(candidate, snapshot.toJSONString());
+            MesProRouteVersionSnapshotIdentityWriter.apply(candidate,
+                    MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(snapshot));
             routeVersionMapper.insert(candidate);
             deviceIdentitySnapshots.captureCreated(candidate);
         } else {
             MesProRouteVersionDO update = new MesProRouteVersionDO();
             update.setId(candidate.getId());
-            MesProRouteVersionSnapshotIdentityWriter.apply(update, snapshot.toJSONString());
+            MesProRouteVersionSnapshotIdentityWriter.apply(update,
+                    MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(snapshot));
             update.setChangeSummaryJson(JSON.toJSONString(Map.of(
                     "source", "EDHR_WORD_IMPORT",
                     "changeType", "BATCH_RECORD_BINDING_CANDIDATE")));
@@ -720,7 +722,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         RouteProductBindingResult productBindingResult = bindRouteProducts(
                 route.getId(), normalizedProductNames, dccProjectCodeId);
         updateRouteVersionSnapshot(routeVersion, buildGeneratedRouteSnapshot(
-                route, generatedRouteProcesses, bindings, normalizedProductNames, bindBatchRecordReports,
+                route, generatedRouteProcesses, processes, bindings, normalizedProductNames, bindBatchRecordReports,
                 batchRecordPermissionScopeIds));
 
         return MesProBatchRecordRouteGenerationResult.builder()
@@ -993,7 +995,8 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                 .sourceRouteVersionId(sourceVersion == null ? null : sourceVersion.getId())
                 .remark(sourceVersion == null ? "eDHR Word导入自动生成路线版本" : "eDHR Word导入升版路线版本")
                 .build();
-        MesProRouteVersionSnapshotIdentityWriter.apply(routeVersion, snapshot.toJSONString());
+        MesProRouteVersionSnapshotIdentityWriter.apply(routeVersion,
+                MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(snapshot));
         routeVersionMapper.insert(routeVersion);
         deviceIdentitySnapshots.captureCreated(routeVersion);
         routeControlledContentAdapter.recordActiveRegistered(routeVersion,
@@ -1078,6 +1081,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
             process.put("processName", binding.processName());
             if (activeRouteProcess == null) {
                 process.put("clientRouteProcessId", -(long) (index + 1));
+                process.put("sopFileUrl", processDefinition.getSopFileUrl());
                 process.put("keyFlag", false);
                 process.put("checkFlag", false);
             } else {
@@ -1112,7 +1116,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                 BATCH_RECORD_ATTACHMENT_OWNERS_KEY, sourceVersion.getId());
         snapshot.put("configSnapshots", configSnapshots);
 
-        String snapshotJson = snapshot.toJSONString();
+        String snapshotJson = MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(snapshot);
         String changeSummaryJson =
                 "{\"source\":\"EDHR_WORD_IMPORT\",\"changeType\":\"ROUTE_REBUILD_CANDIDATE\"}";
         String remark = "eDHR Word导入更新路线候选版本，待发布后生效";
@@ -1480,7 +1484,8 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
     private void updateRouteVersionSnapshot(MesProRouteVersionDO routeVersion, JSONObject snapshot) {
         MesProRouteVersionDO update = new MesProRouteVersionDO();
         update.setId(routeVersion.getId());
-        MesProRouteVersionSnapshotIdentityWriter.apply(update, snapshot.toJSONString());
+        MesProRouteVersionSnapshotIdentityWriter.apply(update,
+                MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(snapshot));
         routeVersionMapper.updateById(update);
         routeVersion.setRouteSnapshotJson(update.getRouteSnapshotJson());
         routeVersion.setRouteSnapshotSha256(update.getRouteSnapshotSha256());
@@ -1489,6 +1494,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
 
     private JSONObject buildGeneratedRouteSnapshot(MesProRouteDO route,
                                                    List<MesProRouteProcessDO> routeProcesses,
+                                                   List<MesProProcessDO> processes,
                                                    List<RouteProcessReportBinding> bindings,
                                                    List<String> productNames,
                                                    boolean bindBatchRecordReports,
@@ -1509,6 +1515,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
             process.put("processId", routeProcess.getProcessId());
             process.put("sort", routeProcess.getSort());
             process.put("processName", binding.processName());
+            process.put("sopFileUrl", processes.get(index).getSopFileUrl());
             processSnapshots.add(process);
             if (!bindBatchRecordReports || binding.report() == null) {
                 continue;

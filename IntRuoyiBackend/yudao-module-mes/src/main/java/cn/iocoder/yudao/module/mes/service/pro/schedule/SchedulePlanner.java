@@ -66,12 +66,13 @@ public class SchedulePlanner {
     private static final String DAILY_REASON_CAPACITY_WINDOW_WITH_PROTECTED = "CAPACITY_WINDOW_WITH_PROTECTED";
 
     public List<MesProScheduleOrderDO> sortScheduleOrders(Collection<MesProScheduleOrderDO> scheduleOrders,
-                                                          Map<Long, List<MesProScheduleOrderProcessDO>> processMap) {
+            Map<Long, List<MesProScheduleOrderProcessDO>> processMap, String priorityRule) {
+        Comparator<MesProScheduleOrderDO> comparator = scheduleOrderComparator(processMap, priorityRule);
         if (scheduleOrders == null || scheduleOrders.isEmpty()) {
             return Collections.emptyList();
         }
         return scheduleOrders.stream()
-                .sorted(scheduleOrderComparator(processMap))
+                .sorted(comparator)
                 .toList();
     }
 
@@ -287,11 +288,20 @@ public class SchedulePlanner {
     }
 
     private Comparator<MesProScheduleOrderDO> scheduleOrderComparator(
-            Map<Long, List<MesProScheduleOrderProcessDO>> processMap) {
-        return Comparator
-                .comparing((MesProScheduleOrderDO order) -> !hasNightShiftScheduleProcess(order, processMap))
-                .thenComparing(MesProScheduleOrderDO::getPromiseDate, Comparator.nullsLast(LocalDate::compareTo))
-                .thenComparing(MesProScheduleOrderDO::getPriorityNo, Comparator.nullsLast(Integer::compareTo))
+            Map<Long, List<MesProScheduleOrderProcessDO>> processMap, String priorityRule) {
+        Comparator<MesProScheduleOrderDO> date = Comparator.comparing(
+                MesProScheduleOrderDO::getPromiseDate, Comparator.nullsLast(LocalDate::compareTo));
+        Comparator<MesProScheduleOrderDO> priority = Comparator.comparing(
+                MesProScheduleOrderDO::getPriorityNo, Comparator.nullsLast(Integer::compareTo));
+        Comparator<MesProScheduleOrderDO> rule = switch (Objects.requireNonNull(priorityRule, "priority rule required")) {
+            case "PROMISE_DATE" -> date.thenComparing(priority);
+            case "ORDER_PRIORITY" -> priority.thenComparing(date);
+            case "CREATED_TIME" -> Comparator.comparing(MesProScheduleOrderDO::getCreateTime,
+                    Comparator.nullsLast(LocalDateTime::compareTo));
+            default -> throw new IllegalArgumentException("未知排产排序策略：" + priorityRule);
+        };
+        return Comparator.comparing((MesProScheduleOrderDO order) -> !hasNightShiftScheduleProcess(order, processMap))
+                .thenComparing(rule)
                 .thenComparing(MesProScheduleOrderDO::getId, Comparator.nullsLast(Long::compareTo));
     }
 

@@ -147,15 +147,15 @@
               <el-option label="创建优先" value="CREATED_TIME" />
             </el-select>
           </el-form-item>
-          <el-form-item label="保护项" class="scheduler-workbench__policy-item scheduler-workbench__policy-checks">
-            <el-checkbox v-model="policySettingsForm.protectReportedTasks" :disabled="!canUpdateSettings">
-              保报工
+          <el-form-item title="强制保护，不可关闭：已报工、生产中、已完成和手工锁定任务不能被发布或重排覆盖。" label="强制保护" class="scheduler-workbench__policy-item scheduler-workbench__policy-checks">
+            <el-checkbox :model-value="true" disabled>
+              已报工/生产中
             </el-checkbox>
-            <el-checkbox v-model="policySettingsForm.protectCompletedTasks" :disabled="!canUpdateSettings">
-              保完成
+            <el-checkbox :model-value="true" disabled>
+              已完成
             </el-checkbox>
-            <el-checkbox v-model="policySettingsForm.protectLockedTasks" :disabled="!canUpdateSettings">
-              保锁定
+            <el-checkbox :model-value="true" disabled>
+              手工锁定
             </el-checkbox>
           </el-form-item>
           <el-form-item

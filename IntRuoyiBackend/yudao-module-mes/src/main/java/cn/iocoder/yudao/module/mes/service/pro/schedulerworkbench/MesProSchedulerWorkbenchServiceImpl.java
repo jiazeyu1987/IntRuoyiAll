@@ -442,12 +442,10 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
                 defaults.getNightlyReplanTime()));
         target.setPriorityRule(defaultIfBlank(source == null ? null : source.getPriorityRule(),
                 defaults.getPriorityRule()));
-        target.setProtectReportedTasks(source == null || source.getProtectReportedTasks() == null
-                ? defaults.getProtectReportedTasks() : source.getProtectReportedTasks());
-        target.setProtectCompletedTasks(source == null || source.getProtectCompletedTasks() == null
-                ? defaults.getProtectCompletedTasks() : source.getProtectCompletedTasks());
-        target.setProtectLockedTasks(source == null || source.getProtectLockedTasks() == null
-                ? defaults.getProtectLockedTasks() : source.getProtectLockedTasks());
+        // 发布和重排的强制保护规则；历史 false 配置读回时也统一为真实生效值。
+        target.setProtectReportedTasks(true);
+        target.setProtectCompletedTasks(true);
+        target.setProtectLockedTasks(true);
         target.setDefaultScheduleUseEnabled(source == null || source.getDefaultScheduleUseEnabled() == null
                 ? defaults.getDefaultScheduleUseEnabled() : source.getDefaultScheduleUseEnabled());
         target.setDefaultScheduleCapacityMode(defaultIfBlank(

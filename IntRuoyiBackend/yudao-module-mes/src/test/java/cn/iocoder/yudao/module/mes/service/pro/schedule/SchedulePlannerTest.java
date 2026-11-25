@@ -30,6 +30,37 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 class SchedulePlannerTest {
 
     @Test
+    void priorityRules_shouldControlOrderWithNightFirstAndStableIds() {
+        MesProScheduleOrderDO early = MesProScheduleOrderDO.builder().id(1L)
+                .promiseDate(LocalDate.of(2026, 1, 1)).priorityNo(3).build();
+        MesProScheduleOrderDO urgent = MesProScheduleOrderDO.builder().id(2L)
+                .promiseDate(LocalDate.of(2026, 1, 2)).priorityNo(1).build();
+        MesProScheduleOrderDO old = MesProScheduleOrderDO.builder().id(3L)
+                .promiseDate(LocalDate.of(2026, 1, 3)).priorityNo(2).build();
+        MesProScheduleOrderDO night = MesProScheduleOrderDO.builder().id(4L)
+                .promiseDate(LocalDate.of(2026, 1, 4)).priorityNo(4).build();
+        MesProScheduleOrderDO tied = MesProScheduleOrderDO.builder().id(5L)
+                .promiseDate(early.getPromiseDate()).priorityNo(early.getPriorityNo()).build();
+        early.setCreateTime(LocalDateTime.of(2026, 1, 2, 0, 0));
+        tied.setCreateTime(early.getCreateTime());
+        urgent.setCreateTime(LocalDateTime.of(2026, 1, 3, 0, 0));
+        old.setCreateTime(LocalDateTime.of(2026, 1, 1, 0, 0));
+        night.setCreateTime(LocalDateTime.of(2026, 1, 4, 0, 0));
+        List<MesProScheduleOrderDO> input = List.of(tied, old, urgent, night, early);
+        Map<Long, List<MesProScheduleOrderProcessDO>> processes = Map.of(4L,
+                List.of(MesProScheduleOrderProcessDO.builder().nightShiftEnabled(true).enabled(true).build()));
+        SchedulePlanner planner = new SchedulePlanner();
+        assertEquals(List.of(4L, 1L, 5L, 2L, 3L), planner.sortScheduleOrders(input, processes, "PROMISE_DATE")
+                .stream().map(MesProScheduleOrderDO::getId).toList());
+        assertEquals(List.of(4L, 2L, 3L, 1L, 5L), planner.sortScheduleOrders(input, processes, "ORDER_PRIORITY")
+                .stream().map(MesProScheduleOrderDO::getId).toList());
+        assertEquals(List.of(4L, 3L, 1L, 5L, 2L), planner.sortScheduleOrders(input, processes, "CREATED_TIME")
+                .stream().map(MesProScheduleOrderDO::getId).toList());
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> planner.sortScheduleOrders(input, processes, "UNKNOWN"));
+    }
+
+    @Test
     void planner_shouldExposePlanValueObjectsWithoutPersistenceDependencies() {
         assertNotNull(SchedulePlanner.ScheduleComputation.class);
         assertNotNull(SchedulePlanner.PlannedTask.class);
@@ -214,7 +245,7 @@ class SchedulePlannerTest {
         List<MesProScheduleOrderDO> sorted = planner.sortScheduleOrders(
                 List.of(normalSameDateHigherId, normalEarlier, nightLaterLowerPriority,
                         normalSameDateLowerId, nightEarlierHigherPriority),
-                processMap);
+                processMap, "PROMISE_DATE");
 
         assertEquals(List.of(12L, 11L, 10L, 13L, 14L),
                 sorted.stream().map(MesProScheduleOrderDO::getId).toList());

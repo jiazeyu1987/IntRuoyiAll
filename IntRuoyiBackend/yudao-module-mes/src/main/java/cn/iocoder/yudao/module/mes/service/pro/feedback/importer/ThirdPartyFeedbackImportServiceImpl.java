@@ -118,9 +118,20 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
     private MesMdAutoCodeRecordService autoCodeRecordService;
     @Resource
     private MesProFeedbackService feedbackService;
+    @Resource
+    private cn.iocoder.yudao.framework.security.core.service.SecurityFrameworkService securityFrameworkService;
+
+    private void requireImportPermission(boolean direct) {
+        if (!securityFrameworkService.hasPermission("mes:pro-feedback:create")
+                || (direct && !securityFrameworkService.hasPermission("mes:pro-feedback:update"))) {
+            throw new org.springframework.security.access.AccessDeniedException("无生产报工导入权限");
+        }
+    }
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ThirdPartyFeedbackImportResult importWorkbook(MultipartFile file) {
+        requireImportPermission(false);
         validateFile(file);
         byte[] fileBytes = getFileBytes(file);
         return importWorkbook(StrUtil.blankToDefault(file.getOriginalFilename(), "third-party-feedback.xlsx"), fileBytes);
@@ -129,6 +140,7 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ThirdPartyFeedbackImportResult importDirectWorkReportWorkbook(MultipartFile file) {
+        requireImportPermission(true);
         validateFile(file);
         byte[] fileBytes = getFileBytes(file);
         return importDirectWorkReportWorkbook(StrUtil.blankToDefault(file.getOriginalFilename(), "direct-work-report.xlsx"), fileBytes);
@@ -137,6 +149,7 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ThirdPartyFeedbackImportResult simulateImportWorkbook(Integer processCount) {
+        requireImportPermission(false);
         int targetProcessCount = validateSimulatedProcessCount(processCount);
         AdminUserDO currentUser = resolveCurrentUser();
         List<SimulatedFeedbackSource> sources = resolveSimulatedFeedbackSources(targetProcessCount);
@@ -198,6 +211,7 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
     }
 
     private ThirdPartyFeedbackImportResult importDirectWorkReportWorkbook(String sourceFileName, byte[] fileBytes) {
+        requireImportPermission(true);
         if (fileBytes == null || fileBytes.length == 0) {
             throw exception(PRO_FEEDBACK_IMPORT_FILE_EMPTY);
         }

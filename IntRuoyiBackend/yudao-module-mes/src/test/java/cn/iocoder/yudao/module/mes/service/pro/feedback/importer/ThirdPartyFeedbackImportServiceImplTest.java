@@ -114,8 +114,51 @@ class ThirdPartyFeedbackImportServiceImplTest {
     @Mock
     private MesMdAutoCodeRecordService autoCodeRecordService;
 
+    @Mock
+    private cn.iocoder.yudao.framework.security.core.service.SecurityFrameworkService securityFrameworkService;
+
+    @org.junit.jupiter.api.Test
+    void importWithoutCreatePermissionIsDeniedBeforeReadingFile() {
+        org.mockito.Mockito.when(securityFrameworkService.hasPermission("mes:pro-feedback:create")).thenReturn(false);
+        org.junit.jupiter.api.Assertions.assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> service.importWorkbook(null));
+    }
+
+    @Test
+    void ordinaryEntryCannotImportDirectTemplateWithoutUpdatePermission() throws Exception {
+        when(securityFrameworkService.hasPermission("mes:pro-feedback:update")).thenReturn(false);
+        MockMultipartFile file = new MockMultipartFile("file", "direct.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buildLiPingWorkbook());
+        org.junit.jupiter.api.Assertions.assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> service.importWorkbook(file));
+        org.mockito.Mockito.verifyNoInteractions(importRecordMapper, feedbackService);
+    }
+
+    @Test
+    void directEntryRequiresUpdatePermission() {
+        when(securityFrameworkService.hasPermission("mes:pro-feedback:update")).thenReturn(false);
+        org.junit.jupiter.api.Assertions.assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> service.importDirectWorkReportWorkbook(null));
+    }
+
+    @Test
+    void directEntryRequiresCreatePermissionEvenWithUpdatePermission() {
+        when(securityFrameworkService.hasPermission("mes:pro-feedback:create")).thenReturn(false);
+        org.junit.jupiter.api.Assertions.assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> service.importDirectWorkReportWorkbook(null));
+    }
+
+    @Test
+    void directEntryWithBothPermissionsReachesFileValidation() {
+        org.junit.jupiter.api.Assertions.assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.importDirectWorkReportWorkbook(null));
+        org.mockito.Mockito.verify(securityFrameworkService).hasPermission("mes:pro-feedback:create");
+        org.mockito.Mockito.verify(securityFrameworkService).hasPermission("mes:pro-feedback:update");
+    }
+
     @BeforeEach
     void stubCurrentRouteProcessIdentity() {
+        org.mockito.Mockito.lenient().when(securityFrameworkService.hasPermission(org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
         lenient().when(routeProcessService.resolveCurrentRouteProcess(
                         anyLong(), nullable(Long.class), nullable(Long.class)))
                 .thenAnswer(invocation -> MesProRouteProcessDO.builder()

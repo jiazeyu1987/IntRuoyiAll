@@ -63,7 +63,8 @@ public class MesProAutoScheduleController {
     @Operation(summary = "应用当前范围重排")
     @PreAuthorize("@ss.hasPermission('mes:pro-auto-schedule:replan')")
     public CommonResult<MesProAutoScheduleApplyRespVO> replanApply(
-            @Valid @RequestBody MesProAutoScheduleReplanReqVO reqVO) {
+            @org.springframework.validation.annotation.Validated(MesProAutoScheduleReplanReqVO.Apply.class)
+            @RequestBody MesProAutoScheduleReplanReqVO reqVO) {
         validateScope(reqVO);
         return success(autoScheduleService.replanApply(reqVO));
     }

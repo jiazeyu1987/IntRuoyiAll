@@ -1758,7 +1758,7 @@
               :disabled="!canApplyReplan"
               @click="applyReplan"
             >
-              <Icon icon="ep:refresh" class="mr-5px" /> 开始重排
+              <Icon icon="ep:refresh" class="mr-5px" /> {{ pendingReplanApply ? '重试原请求' : '开始重排' }}
             </el-button>
             <span
               v-if="hasReplanPermission && replanProjectionState.disabled"
@@ -1901,6 +1901,13 @@
     >
       <div class="schedule-order-pool__replan-start-date">
         <el-alert
+          v-if="pendingReplanApply"
+          title="上次应用结果尚未确认。重试只发送原日期、原范围和原参数，不采用当前修改；确认结果后才能发起新重排，请勿刷新页面。"
+          type="error"
+          :closable="false"
+          show-icon
+        />
+        <el-alert
           title="开始重排会按所选日期整天重新检查、预览并直接应用，应用成功后正式排程立即更新。"
           type="warning"
           :closable="false"
@@ -1910,6 +1917,7 @@
           <div class="schedule-order-pool__replan-start-label">请选择开始重排日期</div>
           <el-date-picker
             v-model="replanStartDate"
+            :disabled="!!pendingReplanApply"
             value-format="YYYY-MM-DD"
             type="date"
             placeholder="请选择开始日期"
@@ -1928,7 +1936,7 @@
             :loading="replanApplyLoading"
             @click="confirmApplyReplanStartChoice"
           >
-            确认应用重排
+            {{ pendingReplanApply ? '重试原请求' : '确认应用重排' }}
           </el-button>
         </div>
       </div>
@@ -2051,6 +2059,7 @@ import {
   type ProTaskAutoScheduleIssueVO,
   type ProTaskAutoSchedulePreviewReqVO,
   type ProTaskAutoScheduleApplyRespVO,
+  type ProTaskAutoScheduleReplanApplyReqVO,
   type ProTaskLatestScheduleApplyRespVO,
   type ProTaskAutoScheduleReplanPreviewRespVO
 } from '@/api/mes/pro/task/autoSchedule'
@@ -2983,7 +2992,8 @@ const notifySkippedSelectedReplanRows = (preview: ProTaskAutoScheduleReplanPrevi
 
 const canApplyReplan = computed(() => {
   return Boolean(
-    replanProjectionState.value.allowed && !replanPreviewLoading.value && !replanApplyLoading.value
+    (pendingReplanApply.value || replanProjectionState.value.allowed) &&
+      !replanPreviewLoading.value && !replanApplyLoading.value
   )
 })
 const resolveScheduleReplanProjection = () => {
@@ -4228,11 +4238,16 @@ const previewReplanForRequest = async (request: ProTaskAutoSchedulePreviewReqVO)
   }
 }
 
-const buildReplanApplyIdempotencyKey = (request: ProTaskAutoSchedulePreviewReqVO) => {
-  const scopeKey = [...request.scheduleOrderIds].sort((left, right) => left - right).join('-')
-  const startKey = dayjs(request.startTime).format('YYYYMMDDHHmmss')
-  return `MES-SCHEDULE-REPLAN-${scopeKey}-${startKey}-${generateUUID()}`
-}
+// 已发送但未收到成功结果时，保留原始请求，不能刷新 token 后换 key 重发。
+const pendingReplanApply = ref<{
+  payload: ProTaskAutoScheduleReplanApplyReqVO
+  preview: ProTaskAutoScheduleReplanPreviewRespVO
+} | null>(null)
+
+const buildReplanApplyIdempotencyKey = () => `MES-SCHEDULE-REPLAN-${generateUUID()}`
+
+// 这两个明确的业务拒绝发生在正式应用之前，可重新预览获取日历 token。
+const REPLAN_UNAPPLIED_CALENDAR_ERROR_CODES = new Set(['1040250011', '1040250012'])
 
 const buildReplanApplySuccessMessage = (result: ProTaskAutoScheduleApplyRespVO) => {
   const createdCount = result.createdTaskIds?.length ?? 0
@@ -4252,6 +4267,11 @@ const buildReplanApplySuccessMessage = (result: ProTaskAutoScheduleApplyRespVO) 
 }
 
 const applyReplan = async () => {
+  if (pendingReplanApply.value) {
+    replanStartDate.value = dayjs(pendingReplanApply.value.payload.startTime).format('YYYY-MM-DD')
+    replanStartDateDialogVisible.value = true
+    return
+  }
   const defaultStartDate = getDefaultReplanStartDate()
   try {
     buildReplanRequest(buildWholeDayReplanStartTime(defaultStartDate))
@@ -4259,42 +4279,58 @@ const applyReplan = async () => {
     message.error(error instanceof Error ? error.message : '请先确认重排范围')
     return
   }
-  replanStartDate.value = defaultStartDate
+  replanStartDate.value = pendingReplanApply.value
+    ? dayjs(pendingReplanApply.value.payload.startTime).format('YYYY-MM-DD')
+    : defaultStartDate
   replanStartDateDialogVisible.value = true
 }
 
 const confirmApplyReplanStartChoice = async () => {
-  const applyRequest = buildReplanRequest(buildWholeDayReplanStartTime(replanStartDate.value))
+  if (replanApplyLoading.value) return
+  const applyRequest =
+    pendingReplanApply.value?.payload ??
+    buildReplanRequest(buildWholeDayReplanStartTime(replanStartDate.value))
   replanForm.startTime = dayjs(applyRequest.startTime).format('YYYY-MM-DD')
   replanApplyLoading.value = true
   startReplanApplyProgress()
+  let applySucceeded = false
   try {
-    const preflight = await runPreflightForRequest(applyRequest)
-    if (preflight.result === 'BLOCKED' && preflightHasGlobalBlockedIssue.value) {
-      throw new Error('排产前检查存在无法归因到工单的阻断问题，不能应用重排')
+    let pending = pendingReplanApply.value
+    if (!pending) {
+      const preflight = await runPreflightForRequest(applyRequest)
+      if (preflight.result === 'BLOCKED' && preflightHasGlobalBlockedIssue.value) {
+        throw new Error('排产前检查存在无法归因到工单的阻断问题，不能应用重排')
+      }
+      const erpSourceWarningConfirmed = hasErpSourceWarning(preflight)
+      if (erpSourceWarningConfirmed) {
+        await message.confirm(
+          '排产范围内存在缺少 ERP 正式同步记录或正式 ID/编号的工单。确认后才会应用正式排程；请先确认这些工单来源可信。'
+        )
+      }
+      const freshPreview = await previewReplanForRequest(applyRequest)
+      if (!freshPreview?.calendarContextToken) {
+        throw new Error('重排预览缺少日历上下文，不能应用重排')
+      }
+      if (hasGlobalReplanBlockingIssue(freshPreview)) {
+        throw new Error('重排预览存在无法归因到工单的阻断问题，不能应用重排')
+      }
+      notifySkippedSelectedReplanRows(freshPreview)
+      pending = {
+        payload: {
+          ...applyRequest,
+          reason: replanForm.reason?.trim() || undefined,
+          calendarContextToken: freshPreview.calendarContextToken,
+          idempotencyKey: buildReplanApplyIdempotencyKey(),
+          ...(erpSourceWarningConfirmed ? { erpSourceRiskConfirmed: true } : {})
+        },
+        preview: freshPreview
+      }
+      pendingReplanApply.value = pending
     }
-    const erpSourceWarningConfirmed = hasErpSourceWarning(preflight)
-    if (erpSourceWarningConfirmed) {
-      await message.confirm(
-        '排产范围内存在缺少 ERP 正式同步记录或正式 ID/编号的工单。确认后才会应用正式排程；请先确认这些工单来源可信。'
-      )
-    }
-    const freshPreview = await previewReplanForRequest(applyRequest)
-    if (!freshPreview?.calendarContextToken) {
-      throw new Error('重排预览缺少日历上下文，不能应用重排')
-    }
-    if (hasGlobalReplanBlockingIssue(freshPreview)) {
-      throw new Error('重排预览存在无法归因到工单的阻断问题，不能应用重排')
-    }
-    notifySkippedSelectedReplanRows(freshPreview)
-    const applyResult = await ProTaskAutoScheduleApi.replanApply({
-      ...applyRequest,
-      reason: replanForm.reason?.trim() || undefined,
-      calendarContextToken: freshPreview.calendarContextToken,
-      idempotencyKey: buildReplanApplyIdempotencyKey(applyRequest),
-      ...(erpSourceWarningConfirmed ? { erpSourceRiskConfirmed: true } : {})
-    })
-    updateLastReplanParticipatingScheduleOrders(freshPreview)
+    const applyResult = await ProTaskAutoScheduleApi.replanApply(pending.payload)
+    applySucceeded = true
+    pendingReplanApply.value = null
+    updateLastReplanParticipatingScheduleOrders(pending.preview)
     message.success(buildReplanApplySuccessMessage(applyResult))
     await finishReplanApplyProgress()
     replanStartDateDialogVisible.value = false
@@ -4308,9 +4344,21 @@ const confirmApplyReplanStartChoice = async () => {
       scheduleOrderIds: lastReplanParticipatingScheduleOrderIds.value
     })
   } catch (error) {
+    if (
+      error instanceof Error &&
+      REPLAN_UNAPPLIED_CALENDAR_ERROR_CODES.has(String((error as Error & { code?: unknown }).code))
+    ) {
+      pendingReplanApply.value = null
+    }
     resetReplanApplyProgress()
     console.error('[MES] 应用重排失败', error)
-    message.error(error instanceof Error ? error.message : '应用重排失败，请查看接口返回信息')
+    message.error(
+      applySucceeded
+        ? '重排已应用成功，但页面刷新失败，请刷新列表核对结果'
+        : error instanceof Error
+          ? error.message
+          : '应用重排失败，请查看接口返回信息'
+    )
   } finally {
     replanApplyLoading.value = false
   }

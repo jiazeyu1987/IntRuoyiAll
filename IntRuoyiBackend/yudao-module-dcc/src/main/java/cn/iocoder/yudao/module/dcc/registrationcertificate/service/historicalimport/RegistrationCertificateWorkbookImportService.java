@@ -4,7 +4,6 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.migration.DccRegistrationCertificateMigrationService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.migration.DccRegistrationCertificateMigrationService.RowCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.migration.DccRegistrationCertificateMigrationService.WorkbookRow;
-import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -20,7 +19,6 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 @RequiredArgsConstructor
 public class RegistrationCertificateWorkbookImportService {
     private final JdbcTemplate jdbc;
-    private final MdmCompanyScopeApi companyScope;
     private final DccRegistrationCertificateMigrationService migration;
 
     public record ImportResult(Map<String,Integer> sheetCounts, int inserted, int existing) {}
@@ -57,7 +55,6 @@ public class RegistrationCertificateWorkbookImportService {
             rows.add(new WorkbookRow(command,f));
             counts.merge(entry.sheet(),1,Integer::sum);
         }
-        companyScope.validateUserCompanyAccessBatch(actor, new HashSet<>(companies.values()));
         String hash = HexFormat.of().withUpperCase().formatHex(org.apache.commons.codec.digest.DigestUtils.sha256(bytes));
         var result = migration.commitWorkbookRows(tenant, actor, hash, UUID.randomUUID().toString(), rows);
         return new ImportResult(counts,result.committedCount(),result.replayedCount());

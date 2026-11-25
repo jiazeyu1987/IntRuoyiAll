@@ -149,16 +149,19 @@ class ErpKingdeeSyncPersistenceTest {
         assertEquals("RUNNING", jdbc.queryForObject("SELECT last_status FROM erp_kingdee_table_auto_sync_plan WHERE id=1", String.class));
         assertEquals(0, mapper.claimAutoAttempt(1L, day));
         assertEquals(0, mapper.claimAutoAttempt(1L, day.minusDays(1)));
-        jdbc.update("UPDATE erp_kingdee_table_auto_sync_plan SET last_auto_attempt_time = ? WHERE id=1",
-                java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Shanghai")).minusMinutes(16));
-        assertEquals(1, mapper.claimAutoAttempt(1L, day));
-        jdbc.update("UPDATE erp_kingdee_table_auto_sync_plan SET last_auto_attempt_time = ? WHERE id=1",
-                java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Shanghai")).minusMinutes(16));
-        assertEquals(1, mapper.claimAutoAttempt(1L, day));
+        for (int attempt = 2; attempt <= 10; attempt++) {
+            jdbc.update("UPDATE erp_kingdee_table_auto_sync_plan SET last_auto_attempt_time = ? WHERE id=1",
+                    java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Shanghai")).minusMinutes(16));
+            assertEquals(1, mapper.claimAutoAttempt(1L, day), "attempt " + attempt + " should be allowed");
+            assertEquals(attempt, jdbc.queryForObject(
+                    "SELECT auto_attempt_count FROM erp_kingdee_table_auto_sync_plan WHERE id=1", Integer.class));
+        }
         jdbc.update("UPDATE erp_kingdee_table_auto_sync_plan SET last_auto_attempt_time = ? WHERE id=1",
                 java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Shanghai")).minusMinutes(16));
         assertEquals(0, mapper.claimAutoAttempt(1L, day));
         assertEquals(1, mapper.claimAutoAttempt(1L, day.plusDays(1)));
+        assertEquals(1, jdbc.queryForObject(
+                "SELECT auto_attempt_count FROM erp_kingdee_table_auto_sync_plan WHERE id=1", Integer.class));
         assertEquals(0, mapper.claimAutoAttempt(2L, day));
     }
 }

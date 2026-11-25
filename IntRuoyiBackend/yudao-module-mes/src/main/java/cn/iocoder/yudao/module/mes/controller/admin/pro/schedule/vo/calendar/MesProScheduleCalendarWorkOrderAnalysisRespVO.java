@@ -53,8 +53,10 @@ public class MesProScheduleCalendarWorkOrderAnalysisRespVO {
         private Long processId;
         private String processName;
         private Integer processSort;
+        // 任一任务段数量缺失时为 null，不能把部分数量显示为全单数量。
         private BigDecimal scheduledQuantity;
         private String capacitySource;
+        // 未匹配资源池时，以下资源计数为 null；匹配池中的真实零值保留。
         private Integer workstationCount;
         private List<String> workstationNames;
         private Integer machineCount;

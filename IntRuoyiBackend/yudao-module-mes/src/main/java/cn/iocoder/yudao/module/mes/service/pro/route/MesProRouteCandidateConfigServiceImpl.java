@@ -239,6 +239,14 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
         for (Object rawNode : nodes) {
             JSONObject node = requireObject(rawNode, routeVersionId);
             Long routeProcessId = node.getLong("routeProcessId");
+            // 新增候选工序通过明确的负数临时编号关联配置，发布投影后才有正式编号。
+            if (routeProcessId == null) {
+                Long clientRouteProcessId = node.getLong("clientRouteProcessId");
+                if (clientRouteProcessId == null || clientRouteProcessId >= 0) {
+                    throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+                }
+                routeProcessId = clientRouteProcessId;
+            }
             Long processId = node.getLong("processId");
             if (routeProcessId == null || processId == null
                     || expectedProcesses.putIfAbsent(routeProcessId, processId) != null) {

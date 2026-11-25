@@ -93,7 +93,8 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
 
         MesProRouteVersionDO update = new MesProRouteVersionDO();
         update.setId(activeVersion.getId());
-        MesProRouteVersionSnapshotIdentityWriter.apply(update, routeSnapshot.toJSONString());
+        MesProRouteVersionSnapshotIdentityWriter.apply(update,
+                MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(routeSnapshot));
         routeVersionMapper.updateById(update);
     }
 

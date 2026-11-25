@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -23,6 +24,7 @@ public class MesProScheduleOrderDailyCompareRespVO {
     private Long processId;
 
     @Schema(description = "计划日期")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate planDate;
 
     @Schema(description = "计划数量", example = "100.000000")

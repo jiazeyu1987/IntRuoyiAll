@@ -45,14 +45,29 @@ class ThirdPartyFeedbackImportServiceImplDbTest extends BaseDbUnitTest {
     @Resource
     private DataSource dataSource;
     @MockitoBean
+    private cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper adminUserMapper;
+    @MockitoBean
     private MesMdAutoCodeRecordService autoCodeRecordService;
     @MockitoBean
     private MesProFeedbackService feedbackService;
     @MockitoBean
     private MesProRouteProcessService routeProcessService;
 
+    @MockitoBean
+    private cn.iocoder.yudao.framework.security.core.service.SecurityFrameworkService securityFrameworkService;
+
+    @org.junit.jupiter.api.Test
+    void directImportWithoutUpdatePermissionDoesNotWriteRecords() {
+        org.mockito.Mockito.when(securityFrameworkService.hasPermission("mes:pro-feedback:update")).thenReturn(false);
+        long recordsBeforeImport = importRecordMapper.selectCount();
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> importService.importDirectWorkReportWorkbook(null));
+        assertEquals(recordsBeforeImport, importRecordMapper.selectCount());
+    }
+
     @BeforeEach
     void prepareSchema() throws Exception {
+        org.mockito.Mockito.lenient().when(securityFrameworkService.hasPermission(org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
         try (Connection connection = dataSource.getConnection();
              var statement = connection.createStatement()) {
             statement.execute("ALTER TABLE mes_pro_feedback_import_record ADD COLUMN IF NOT EXISTS attribution_status VARCHAR(32)");
