@@ -322,6 +322,7 @@ export interface ControlledFileUploadPreviewContext {
 }
 
 export interface ControlledFilePreviewMetadataVO {
+  receiptAcknowledged?: boolean
   previewRegisteredAt: string | null
   controlledFileId?: string
   distributionId?: string
@@ -1912,6 +1913,9 @@ export const parseControlledFilePreviewMetadata = (
   assertNoForbiddenDccFileCapabilityFields(payload, 'DCC preview metadata')
   const unavailableReason = readOptionalString(payload, 'previewUnavailableReason')
   if (unavailableReason) throw new DccControlledFileContractError(unavailableReason)
+  if (payload.receiptAcknowledged != null && typeof payload.receiptAcknowledged !== 'boolean') {
+    throw new DccControlledFileContractError('DCC preview metadata has invalid receiptAcknowledged')
+  }
   const previewRegisteredAt=readOptionalString(payload,'previewRegisteredAt')
   if(!previewRegisteredAt || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.test(previewRegisteredAt)
       || !Number.isFinite(Date.parse(previewRegisteredAt)))throw new DccControlledFileContractError('DCC preview metadata missing valid persisted preview registration time')
@@ -1927,6 +1931,7 @@ export const parseControlledFilePreviewMetadata = (
     controlledFileId: readOptionalString(payload, 'controlledFileId'),
     distributionId: readOptionalString(payload, 'distributionId'),
     recipientId: readOptionalString(payload, 'recipientId'),
+    receiptAcknowledged: payload.receiptAcknowledged ?? undefined,
     versionNo: readOptionalString(payload, 'versionNo'),
     approvalProcessInstanceId: readOptionalString(payload, 'approvalProcessInstanceId'),
     previewKind: assertRequiredPreviewKind(payload, 'previewKind', 'DCC preview metadata'),
