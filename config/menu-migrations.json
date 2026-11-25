@@ -1,5 +1,7 @@
 {
   "changes": [
+    {"source":"IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/folder-template/index.vue","kind":"page","value":"dcc/controlled-file/basic-data/folder-template/index","migrations":["IntRuoyiBackend/sql/mysql/20261125_dcc_folder_template_menu.sql"]},
+    {"source":"IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/folder-template/index.vue","kind":"permission","value":"dcc:project-code:update","migrations":["IntRuoyiBackend/sql/mysql/20261125_dcc_folder_template_menu.sql"]},
     {"source":"IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/query/DccRegistrationCertificateExportController.java","kind":"permission","value":"dcc:registration-certificate:query-current","reason":"注册证Tab的Excel台账导出复用现有当前注册证查询权限及租户和记录范围，不新增菜单、角色或套餐授权。"},
     {"source":"IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/service/export/DccRegistrationCertificateExportService.java","kind":"permission","value":"dcc:registration-certificate:query-current","reason":"Excel文件重取复核现有当前注册证查询权限，撤权时使原请求失效，无新增权限标识。"},
     {"source":"IntRuoyiFronted/src/views/dcc/registration-certificate/index/index.vue","kind":"permission","value":"dcc:registration-certificate:query-current","reason":"批量导出入口位于现有注册证Tab，沿用当前注册证查询权限，无独立菜单或新增授权。"},
