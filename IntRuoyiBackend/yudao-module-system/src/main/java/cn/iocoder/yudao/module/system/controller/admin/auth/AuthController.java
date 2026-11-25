@@ -320,6 +320,7 @@ public class AuthController {
         LocalDateTime expiresTime = LocalDateTime.now().plusSeconds(FENBEITONG_ASSISTANT_TICKET_TTL_SECONDS);
         FenbeitongAssistantTicketPayload payload = new FenbeitongAssistantTicketPayload(
                 loginUserId,
+                TenantContextHolder.getRequiredTenantId(),
                 permissions,
                 expiresTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
         stringRedisTemplate.opsForValue().set(
@@ -366,7 +367,8 @@ public class AuthController {
         } catch (RuntimeException ex) {
             return success(invalidFenbeitongAssistantTicket("malformed"));
         }
-        if (payload == null || payload.getUserId() == null || payload.getPermissions() == null
+        if (payload == null || payload.getUserId() == null || payload.getTenantId() == null
+                || payload.getTenantId() < 0 || payload.getPermissions() == null
                 || payload.getExpiresAtEpochMilli() == null) {
             return success(invalidFenbeitongAssistantTicket("malformed"));
         }
@@ -383,8 +385,11 @@ public class AuthController {
                 .permissions(new LinkedHashSet<>(payload.getPermissions()))
                 .expiresTime(LocalDateTime.ofInstant(
                         Instant.ofEpochMilli(payload.getExpiresAtEpochMilli()), ZoneId.systemDefault()))
-                .kingdeeConfig(buildFenbeitongAssistantKingdeeConfig())
                 .build();
+        // Resolve configuration only in the tenant bound to the server-issued ticket.
+        TenantUtils.execute(payload.getTenantId(), () -> {
+            respVO.setKingdeeConfig(buildFenbeitongAssistantKingdeeConfig());
+        });
         return success(respVO);
     }
 

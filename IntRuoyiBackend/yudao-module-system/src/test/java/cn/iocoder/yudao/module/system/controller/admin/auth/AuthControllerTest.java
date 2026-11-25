@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullSource;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -733,6 +734,7 @@ class AuthControllerTest extends BaseMockitoUnitTest {
 
     @Test
     void createFenbeitongAssistantTicketStoresPermissionsWhenUserCanQuery() {
+        TenantContextHolder.setTenantId(169L);
         Long loginUserId = 303L;
         AdminUserDO user = randomPojo(AdminUserDO.class).setId(loginUserId).setUsername("financeUser");
 
@@ -756,6 +758,7 @@ class AuthControllerTest extends BaseMockitoUnitTest {
             ArgumentCaptor<String> valueCaptor = ArgumentCaptor.forClass(String.class);
             verify(valueOperations).set(keyCaptor.capture(), valueCaptor.capture(), eq(120L), eq(TimeUnit.SECONDS));
             assertTrue(keyCaptor.getValue().startsWith("fenbeitong_assistant_ticket:"));
+            assertTrue(valueCaptor.getValue().contains("\"tenantId\":169"));
             assertTrue(valueCaptor.getValue().contains("erp:fenbeitong-voucher:query"));
             assertTrue(valueCaptor.getValue().contains("erp:fenbeitong-voucher:config"));
             assertTrue(valueCaptor.getValue().contains("erp:fenbeitong-voucher:save"));
@@ -786,7 +789,7 @@ class AuthControllerTest extends BaseMockitoUnitTest {
         String ticket = "fenbeitong-valid-ticket";
         String redisKey = "fenbeitong_assistant_ticket:" + ticket;
         long expiresAt = System.currentTimeMillis() + 60_000L;
-        String payload = "{\"userId\":303,\"permissions\":[\"erp:fenbeitong-voucher:query\","
+        String payload = "{\"userId\":303,\"tenantId\":169,\"permissions\":[\"erp:fenbeitong-voucher:query\","
                 + "\"erp:fenbeitong-voucher:save\"],\"expiresAtEpochMilli\":" + expiresAt + "}";
         AuthFenbeitongAssistantTicketValidateReqVO reqVO = new AuthFenbeitongAssistantTicketValidateReqVO();
         reqVO.setTicket(ticket);
@@ -837,7 +840,7 @@ class AuthControllerTest extends BaseMockitoUnitTest {
     void validateFenbeitongAssistantTicketRejectsExpiredTicket() {
         String ticket = "expired-ticket";
         String redisKey = "fenbeitong_assistant_ticket:" + ticket;
-        String payload = "{\"userId\":303,\"permissions\":[\"erp:fenbeitong-voucher:query\"],"
+        String payload = "{\"userId\":303,\"tenantId\":169,\"permissions\":[\"erp:fenbeitong-voucher:query\"],"
                 + "\"expiresAtEpochMilli\":" + (System.currentTimeMillis() - 1_000L) + "}";
         AuthFenbeitongAssistantTicketValidateReqVO reqVO = new AuthFenbeitongAssistantTicketValidateReqVO();
         reqVO.setTicket(ticket);
@@ -857,7 +860,7 @@ class AuthControllerTest extends BaseMockitoUnitTest {
     void validateFenbeitongAssistantTicketRejectsPermissionMismatch() {
         String ticket = "permission-mismatch-ticket";
         String redisKey = "fenbeitong_assistant_ticket:" + ticket;
-        String payload = "{\"userId\":303,\"permissions\":[\"erp:fenbeitong-voucher:config\"],"
+        String payload = "{\"userId\":303,\"tenantId\":169,\"permissions\":[\"erp:fenbeitong-voucher:config\"],"
                 + "\"expiresAtEpochMilli\":" + (System.currentTimeMillis() + 60_000L) + "}";
         AuthFenbeitongAssistantTicketValidateReqVO reqVO = new AuthFenbeitongAssistantTicketValidateReqVO();
         reqVO.setTicket(ticket);
@@ -877,7 +880,7 @@ class AuthControllerTest extends BaseMockitoUnitTest {
     void validateFenbeitongAssistantTicketFailsWhenKingdeeConfigMissing() {
         String ticket = "missing-config-ticket";
         String redisKey = "fenbeitong_assistant_ticket:" + ticket;
-        String payload = "{\"userId\":303,\"permissions\":[\"erp:fenbeitong-voucher:query\"],"
+        String payload = "{\"userId\":303,\"tenantId\":169,\"permissions\":[\"erp:fenbeitong-voucher:query\"],"
                 + "\"expiresAtEpochMilli\":" + (System.currentTimeMillis() + 60_000L) + "}";
         AuthFenbeitongAssistantTicketValidateReqVO reqVO = new AuthFenbeitongAssistantTicketValidateReqVO();
         reqVO.setTicket(ticket);
@@ -892,6 +895,79 @@ class AuthControllerTest extends BaseMockitoUnitTest {
         assertEquals(400, exception.getCode());
         assertTrue(exception.getMessage().contains("ERP 配置缺失"));
         verify(stringRedisTemplate).delete(eq(redisKey));
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(longs = {0L, 999L})
+    void validateFenbeitongAssistantTicketUsesIssuingTenantAndRestoresContext(Long incomingTenant) {
+        TenantContextHolder.setTenantId(incomingTenant);
+        TenantContextHolder.setIgnore(true);
+        var request = new AuthFenbeitongAssistantTicketValidateReqVO();
+        request.setTicket("tenant-ticket");
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get("fenbeitong_assistant_ticket:tenant-ticket"))
+                .thenReturn(fenbeitongTenantPayload("169")).thenReturn(null);
+        when(kingdeeConfigProvider.getCurrentConfigSnapshot()).thenAnswer(invocation -> {
+            assertEquals(169L, TenantContextHolder.getRequiredTenantId());
+            assertFalse(TenantContextHolder.isIgnore());
+            return KingdeeConfigSnapshot.builder().acctId("tenant-169-only").build();
+        });
+
+        var response = authController.validateFenbeitongAssistantTicket(request).getData();
+
+        assertTrue(response.getValid());
+        assertEquals("tenant-169-only", response.getKingdeeConfig().getAcctId());
+        assertEquals(incomingTenant, TenantContextHolder.getTenantId());
+        assertTrue(TenantContextHolder.isIgnore());
+        assertFalse(authController.validateFenbeitongAssistantTicket(request).getData().getValid());
+        verify(kingdeeConfigProvider).getCurrentConfigSnapshot();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "-1"})
+    void validateFenbeitongAssistantTicketRejectsUntrustedTenantWithoutReadingConfig(String tenant) {
+        var request = new AuthFenbeitongAssistantTicketValidateReqVO();
+        request.setTicket("invalid-tenant-ticket");
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get("fenbeitong_assistant_ticket:invalid-tenant-ticket"))
+                .thenReturn(fenbeitongTenantPayload(tenant));
+
+        var response = authController.validateFenbeitongAssistantTicket(request).getData();
+
+        assertFalse(response.getValid());
+        assertEquals("malformed", response.getReason());
+        assertEquals(null, TenantContextHolder.getTenantId());
+        verify(kingdeeConfigProvider, never()).getCurrentConfigSnapshot();
+    }
+
+    @Test
+    void validateFenbeitongAssistantTicketRestoresContextWhenConfigFails() {
+        TenantContextHolder.setTenantId(999L);
+        TenantContextHolder.setIgnore(true);
+        var request = new AuthFenbeitongAssistantTicketValidateReqVO();
+        request.setTicket("config-failure-ticket");
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get("fenbeitong_assistant_ticket:config-failure-ticket"))
+                .thenReturn(fenbeitongTenantPayload("169"));
+        when(kingdeeConfigProvider.getCurrentConfigSnapshot()).thenAnswer(invocation -> {
+            assertEquals(169L, TenantContextHolder.getRequiredTenantId());
+            assertFalse(TenantContextHolder.isIgnore());
+            throw new ServiceException(400, "分贝通费用报销助手 ERP 配置缺失：appId");
+        });
+
+        var error = assertThrows(ServiceException.class,
+                () -> authController.validateFenbeitongAssistantTicket(request));
+
+        assertEquals(400, error.getCode());
+        assertEquals(999L, TenantContextHolder.getTenantId());
+        assertTrue(TenantContextHolder.isIgnore());
+    }
+
+    private static String fenbeitongTenantPayload(String tenant) {
+        return "{\"userId\":303,\"tenantId\":" + tenant
+                + ",\"permissions\":[\"erp:fenbeitong-voucher:query\"],\"expiresAtEpochMilli\":"
+                + (System.currentTimeMillis() + 60_000L) + "}";
     }
 
     @Test
