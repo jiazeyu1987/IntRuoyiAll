@@ -97,6 +97,9 @@ const props = defineProps({
 const uploadRef = ref<UploadInstance>()
 const uploadList = ref<UploadUserFile[]>([])
 const fileList = ref<UploadUserFile[]>([])
+const isUploading = computed(() =>
+  fileList.value.some((file) => file.status === 'ready' || file.status === 'uploading')
+)
 const uploadNumber = ref<number>(0)
 const fileNameByUrl = new Map<string, string>()
 
@@ -211,7 +214,7 @@ watch(
     // 情况1：字符串
     if (isString(val)) {
       fileList.value.push(
-        ...val.split(',').map((url) => ({ name: resolveModelFileName(url), url }))
+        ...(props.limit === 1 ? [val] : val.split(',')).map((url) => ({ name: resolveModelFileName(url), url }))
       )
       return
     }
@@ -255,6 +258,7 @@ const emitUpdateModelValue = (emitNamesFirst = true) => {
   emit('update:modelValue', result)
   if (!emitNamesFirst) emitFileNames()
 }
+defineExpose({ isUploading })
 </script>
 <style lang="scss" scoped>
 .upload-file-uploader {

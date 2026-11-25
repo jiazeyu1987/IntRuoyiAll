@@ -132,6 +132,8 @@
                     <groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>
                     <configuration><skip>false</skip><testIncludes>
                         <testInclude>**/MesProBatchRecordRouteSnapshotTest.java</testInclude>
+                        <testInclude>**/MesProRouteCandidateConfigServiceTest.java</testInclude>
+                        <testInclude>**/MesProRouteVersionLifecycleServiceTest.java</testInclude>
                         <testInclude>**/MesProRouteVersionPublishProjectionServiceTest.java</testInclude>
                         <testInclude>**/MesProBatchRecordRecognitionDeviceSyncServiceTest.java</testInclude>
                         <testInclude>**/MesProBatchRecordProjectProcessTest.java</testInclude>
@@ -145,6 +147,8 @@
                     <groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId>
                     <configuration><skip>false</skip><skipTests>false</skipTests><includes>
                         <include>**/MesProBatchRecordRouteSnapshotTest.java</include>
+                        <include>**/MesProRouteCandidateConfigServiceTest.java</include>
+                        <include>**/MesProRouteVersionLifecycleServiceTest.java</include>
                         <include>**/MesProRouteVersionPublishProjectionServiceTest.java</include>
                         <include>**/MesProBatchRecordRecognitionDeviceSyncServiceTest.java</include>
                         <include>**/MesProBatchRecordProjectProcessTest.java</include>

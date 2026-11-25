@@ -53,6 +53,7 @@
       </el-row>
       <el-form-item label="SOP文件" prop="sopFileUrl">
         <UploadFile
+          ref="sopUploadRef"
           v-model="processSopFileUrl"
           :limit="1"
           :file-type="['pdf', 'png', 'jpg', 'jpeg', 'webp']"
@@ -133,7 +134,7 @@
     </template>
     <template #footer>
       <el-button v-if="formData.id && !isDetail" plain :disabled="formLoading" @click="sharedChangeDialog?.openReplacement('PROCESS', formData.id)">统一替换工序</el-button>
-      <el-button v-if="!isDetail" type="primary" @click="submitForm" :loading="formLoading">
+      <el-button v-if="!isDetail" type="primary" @click="submitForm" :loading="formLoading" :disabled="sopUploadRef?.isUploading">
         确 定
       </el-button>
       <el-button @click="dialogVisible = false">{{ isDetail ? '关 闭' : '取 消' }}</el-button>
@@ -203,6 +204,7 @@ const processSopFileUrl = computed({
   set: (url: string) => { formData.value.sopFileUrl = url }
 })
 const formRef = ref() // 表单 Ref
+const sopUploadRef = ref<InstanceType<typeof UploadFile>>()
 const canShowAssociatedConfig = computed(() =>
   Boolean(formData.value.id && selectedRouteId.value && selectedRouteProcessId.value && !routeContextError.value)
 )
@@ -352,6 +354,10 @@ const submitForm = async () => {
   if (!formRef) return
   const valid = await formRef.value.validate()
   if (!valid) return
+  if (sopUploadRef.value?.isUploading) {
+    message.warning('SOP文件正在上传，请等待上传完成后保存')
+    return
+  }
   if (formType.value !== 'create' && formData.value.id) {
     await sharedChangeDialog.value?.open({ subjectType: 'PROCESS', action: 'UPDATE', sourceId: formData.value.id, expectedFingerprint: sharedFingerprint.value, requestId: createSecureUuid(), process: { ...formData.value }, processContents: processContents.value.map(row => ({ ...row })), nodes: [], reason: '' })
     return
