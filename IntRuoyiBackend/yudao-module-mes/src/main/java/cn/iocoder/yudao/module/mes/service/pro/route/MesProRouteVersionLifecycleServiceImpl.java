@@ -138,6 +138,9 @@ public class MesProRouteVersionLifecycleServiceImpl implements MesProRouteVersio
                 || projection.projectedRouteProcessIds().isEmpty()) {
             throw new IllegalStateException("route projection result is required");
         }
+        if (!MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(projection.rewrittenSnapshotJson())) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidate.getId());
+        }
         MesProRouteSnapshotCanonicalizer.Validation validation =
                 routeSnapshotCanonicalizer.validate(candidate.getRouteId(), projection.rewrittenSnapshotJson());
         if (!validation.ready()) {

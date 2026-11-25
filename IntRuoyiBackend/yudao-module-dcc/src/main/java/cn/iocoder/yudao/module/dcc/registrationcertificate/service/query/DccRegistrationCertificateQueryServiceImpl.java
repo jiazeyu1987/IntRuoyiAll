@@ -64,7 +64,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
             "versionNo",
             "status",
             "expiryDate");
-    private static final Set<String> CURRENT_REMINDER_STATES = Set.of(
+    private static final Set<String> CURRENT_REMINDER_STATES = Set.of("EXPIRED",
             "NORMAL",
             "T_30",
             "T_8",
@@ -293,6 +293,8 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
         return DccRegistrationCertificateDetail.builder()
                 .certificateId(row.getCertificateId())
                 .rowVersion(row.getRowVersion())
+                .hasPendingChange(Boolean.TRUE.equals(row.getHasPendingChange()))
+                .hasPendingRenewal(Boolean.TRUE.equals(row.getHasPendingRenewal()))
                 .versionId(row.getVersionId())
                 .snapshotId(row.getSnapshotId())
                 .snapshotRevision(row.getSnapshotRevision())

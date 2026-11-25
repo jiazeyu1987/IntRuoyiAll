@@ -5,8 +5,48 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class MesProRouteVersionSnapshotValidatorTest {
+    @Test
+    void sopBindingMustBeExplicitAndCannotBeCoercedToAString() {
+        assertFalse(complete(""));
+        for (String invalid : new String[]{"123", "true", "[]", "{}"}) {
+            assertFalse(complete(",\"sopFileUrl\":" + invalid), invalid);
+        }
+        for (String valid : new String[]{"null", "\"\"", "\"/sop.pdf\""}) {
+            assertTrue(complete(",\"sopFileUrl\":" + valid), valid);
+        }
+    }
+
+    @Test
+    void everyProcessNeedsItsOwnSopBindingField() {
+        String snapshot = sopSnapshot(",\"sopFileUrl\":null");
+        snapshot = snapshot.replace("\"nodes\":[", "\"nodes\":[{\"routeProcessId\":2,\"processId\":2},");
+        snapshot = snapshot.replace("\"productionProcessConfigs\":[", """
+                "productionProcessConfigs":[{"routeProcessId":2,"processId":2,
+                  "overagePercent":0,"lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]},
+                """);
+        assertFalse(MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(snapshot));
+        assertTrue(MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(snapshot.replace(
+                "\"routeProcessId\":2,\"processId\":2}", "\"routeProcessId\":2,\"processId\":2,\"sopFileUrl\":null}")));
+    }
+
+    private boolean complete(String field) {
+        return MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(sopSnapshot(field));
+    }
+
+    private String sopSnapshot(String field) {
+        return """
+                {"routeId":1,"routeCode":"R1","routeName":"Route",
+                 "configSnapshots":{"flowGraph":{"nodes":[{"routeProcessId":1,"processId":1%s}]},
+                 "products":[],"scheduleConfigs":[],"batchUseConfigs":[],"scheduleUseConfigs":[],
+                 "productionProcessConfigSchemaVersion":1,
+                 "productionProcessConfigs":[{"routeProcessId":1,"processId":1,
+                   "overagePercent":0,"lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]}]}}
+                """.formatted(field);
+    }
     @Test
     void publishingRequiresAnExplicitNonemptyLeaderSource() {
         assertThrows(ServiceException.class, () -> validate("null"));

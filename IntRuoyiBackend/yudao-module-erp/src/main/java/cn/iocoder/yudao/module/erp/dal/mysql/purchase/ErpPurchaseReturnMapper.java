@@ -21,6 +21,8 @@ import java.util.Objects;
  */
 @Mapper
 public interface ErpPurchaseReturnMapper extends BaseMapperX<ErpPurchaseReturnDO> {
+    default ErpPurchaseReturnDO selectByIdForUpdate(Long id) { return selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ErpPurchaseReturnDO>().eq(ErpPurchaseReturnDO::getId, id).last("FOR UPDATE")); }
+
 
     default PageResult<ErpPurchaseReturnDO> selectPage(ErpPurchaseReturnPageReqVO reqVO) {
         MPJLambdaWrapperX<ErpPurchaseReturnDO> query = new MPJLambdaWrapperX<ErpPurchaseReturnDO>()
@@ -64,7 +66,8 @@ public interface ErpPurchaseReturnMapper extends BaseMapperX<ErpPurchaseReturnDO
     }
 
     default List<ErpPurchaseReturnDO> selectListByOrderId(Long orderId) {
-        return selectList(ErpPurchaseReturnDO::getOrderId, orderId);
+        return selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ErpPurchaseReturnDO>().eq(ErpPurchaseReturnDO::getOrderId, orderId)
+                .last(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive() ? "FOR UPDATE" : ""));
     }
 
 }

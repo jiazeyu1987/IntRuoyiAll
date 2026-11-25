@@ -155,7 +155,6 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_WORKER_QUANTITY_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_WORK_ORDER_DUPLICATE;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_WORK_ORDER_ERP_SYNC_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_WORK_ORDER_FROZEN;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_WORK_ORDER_NOT_CONFIRMED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_PRODUCTION_QUANTITY_FACTOR_INVALID;
@@ -285,8 +284,6 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                 .anyMatch(this::blocksScheduleOrderAdmission)) {
             throw exception(PRO_SCHEDULE_ORDER_WORK_ORDER_DUPLICATE);
         }
-        validateFormalErpSyncIdentity(workOrder);
-
         MesProRouteProductDO routeProduct = routeProductMapper.selectByItemId(workOrder.getProductId());
         if (routeProduct == null) {
             throw exception(PRO_SCHEDULE_ORDER_ROUTE_REQUIRED);
@@ -398,13 +395,12 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         if (reqVO.getPriorityNo() == null || reqVO.getPriorityNo() < 1) {
             throw exception(PRO_SCHEDULE_ORDER_PRIORITY_INVALID);
         }
-        if (reqVO.getPromiseDate() == null) {
-            throw exception(PRO_SCHEDULE_ORDER_PROMISE_DATE_REQUIRED);
-        }
         MesProScheduleOrderDO scheduleOrder = validateWritableScheduleOrder(reqVO.getId());
         MesProScheduleOrderDO updateObj = new MesProScheduleOrderDO();
         updateObj.setId(reqVO.getId());
-        updateObj.setPromiseDate(reqVO.getPromiseDate());
+        if (reqVO.getPromiseDate() != null) {
+            updateObj.setPromiseDate(reqVO.getPromiseDate());
+        }
         updateObj.setPriorityNo(reqVO.getPriorityNo());
         if (reqVO.getPlannedStartTime() != null) {
             updateObj.setPlannedStartTime(reqVO.getPlannedStartTime());
@@ -413,7 +409,9 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         scheduleOrderMapper.updateById(updateObj);
 
         MesProScheduleOrderDO after = copyForSnapshot(scheduleOrder);
-        after.setPromiseDate(reqVO.getPromiseDate());
+        if (reqVO.getPromiseDate() != null) {
+            after.setPromiseDate(reqVO.getPromiseDate());
+        }
         after.setPriorityNo(reqVO.getPriorityNo());
         if (reqVO.getPlannedStartTime() != null) {
             after.setPlannedStartTime(reqVO.getPlannedStartTime());
@@ -935,17 +933,9 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                 .selectListByWorkOrderIds(pageIds).stream().filter(this::blocksScheduleOrderAdmission)
                 .collect(Collectors.toMap(MesProScheduleOrderDO::getWorkOrderId, item -> item,
                         (left, right) -> left, LinkedHashMap::new));
-        var syncIds = workOrderById.values().stream()
-                .filter(order -> !Boolean.TRUE.equals(order.getTemporaryFrozen()))
-                .filter(order -> Objects.equals(order.getStatus(), MesProWorkOrderStatusEnum.CONFIRMED.getStatus()))
-                .map(MesProWorkOrderDO::getId)
-                .filter(id -> !scheduleOrderByWorkOrderId.containsKey(id)).toList();
-        Map<Long, MesKingdeeProductionOrderSyncRecordDO> syncById = syncIds.isEmpty() ? Map.of()
-                : syncRecordMapper.selectByWorkOrderIds(syncIds).stream()
-                        .collect(Collectors.toMap(MesKingdeeProductionOrderSyncRecordDO::getWorkOrderId, item -> item));
         return pageIds.stream()
                 .map(id -> buildAdmissionDiffRow(Objects.requireNonNull(workOrderById.get(id), "入池分页工单不存在"),
-                        scheduleOrderByWorkOrderId.get(id), syncById.get(id), routeCheckCache)).toList();
+                        scheduleOrderByWorkOrderId.get(id), routeCheckCache)).toList();
     }
 
     private MesProAdmissionListQuery.Outcome admissionRouteOutcome(Long productId, AdmissionRouteCheck check) {
@@ -1061,7 +1051,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
 
     private MesProScheduleOrderAdmissionDiffRespVO buildAdmissionDiffRow(
             MesProWorkOrderDO workOrder, MesProScheduleOrderDO scheduleOrder,
-            MesKingdeeProductionOrderSyncRecordDO syncRecord, Map<Long, AdmissionRouteCheck> routeCheckCache) {
+            Map<Long, AdmissionRouteCheck> routeCheckCache) {
         MesProScheduleOrderAdmissionDiffRespVO row = new MesProScheduleOrderAdmissionDiffRespVO();
         row.setWorkOrderId(workOrder.getId());
         row.setWorkOrderCode(workOrder.getCode());
@@ -1082,10 +1072,6 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         if (scheduleOrder != null) {
             row.setScheduleOrderId(scheduleOrder.getId());
             applyAdmissionBaseOutcome(row, "ALREADY_ADMITTED");
-            return row;
-        }
-        if (!hasFormalErpSyncIdentity(syncRecord, workOrder.getId())) {
-            applyAdmissionBaseOutcome(row, "BLOCKED_ERP_SYNC_RECORD_MISSING");
             return row;
         }
         AdmissionRouteCheck routeCheck = routeCheckCache.computeIfAbsent(workOrder.getProductId(),
@@ -1497,7 +1483,44 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
 
     @Override
     public List<MesProScheduleOrderProcessDO> getScheduleOrderProcessList(Long scheduleOrderId) {
-        return scheduleOrderProcessMapper.selectListByScheduleOrderId(scheduleOrderId);
+        List<MesProScheduleOrderProcessDO> processes =
+                scheduleOrderProcessMapper.selectListByScheduleOrderId(scheduleOrderId);
+        if (processes.isEmpty()) {
+            return processes;
+        }
+        // 入池快照不包含后续排程时间；详情只读取正式关联任务的当前计划。
+        Map<Long, MesProScheduleOrderProcessDO> processMap = processes.stream()
+                .collect(Collectors.toMap(MesProScheduleOrderProcessDO::getId, process -> process));
+        processes.forEach(process -> process.setPlannedStartTime(null).setPlannedEndTime(null));
+        List<MesProTaskScheduleExtDO> relations =
+                taskScheduleExtMapper.selectListByScheduleOrderProcessIds(processMap.keySet());
+        List<Long> taskIds = relations.stream().map(MesProTaskScheduleExtDO::getTaskId)
+                .filter(Objects::nonNull).distinct().toList();
+        if (taskIds.isEmpty()) {
+            return processes;
+        }
+        Map<Long, MesProTaskDO> taskMap = taskMapper.selectListByIds(taskIds).stream()
+                .collect(Collectors.toMap(MesProTaskDO::getId, task -> task));
+        for (MesProTaskScheduleExtDO relation : relations) {
+            MesProScheduleOrderProcessDO process = processMap.get(relation.getScheduleOrderProcessId());
+            MesProTaskDO task = taskMap.get(relation.getTaskId());
+            if (process == null || task == null
+                    || Objects.equals(task.getStatus(), MesProTaskStatusEnum.CANCELED.getStatus())) {
+                continue;
+            }
+            LocalDateTime start = task.getStartTime();
+            LocalDateTime end = task.getEndTime();
+            if (start == null || end == null || !end.isAfter(start)) {
+                throw new IllegalStateException("排产任务缺少有效的开始结束时间，无法读取工序计划，taskId=" + task.getId());
+            }
+            if (process.getPlannedStartTime() == null || start.isBefore(process.getPlannedStartTime())) {
+                process.setPlannedStartTime(start);
+            }
+            if (process.getPlannedEndTime() == null || end.isAfter(process.getPlannedEndTime())) {
+                process.setPlannedEndTime(end);
+            }
+        }
+        return processes;
     }
 
     @Override
@@ -2384,13 +2407,6 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         }
     }
 
-    private void validateFormalErpSyncIdentity(MesProWorkOrderDO workOrder) {
-        MesKingdeeProductionOrderSyncRecordDO syncRecord = syncRecordMapper.selectByWorkOrderId(workOrder.getId());
-        if (!hasFormalErpSyncIdentity(syncRecord, workOrder.getId())) {
-            throw exception(PRO_SCHEDULE_ORDER_WORK_ORDER_ERP_SYNC_REQUIRED);
-        }
-    }
-
     private boolean hasFormalErpSyncIdentity(MesKingdeeProductionOrderSyncRecordDO syncRecord, Long workOrderId) {
         return syncRecord != null
                 && Objects.equals(syncRecord.getWorkOrderId(), workOrderId)
@@ -2611,10 +2627,6 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
             if (!Objects.equals(workOrder.getStatus(), MesProWorkOrderStatusEnum.CONFIRMED.getStatus())) {
                 issues.add(new BatchAdmissionIssue(workOrderId, PRO_SCHEDULE_ORDER_WORK_ORDER_NOT_CONFIRMED.getCode(), workOrderCode,
                         "生产工单不是已确认状态"));
-            }
-            if (!hasFormalErpSyncIdentity(syncRecordMapper.selectByWorkOrderId(workOrder.getId()), workOrder.getId())) {
-                issues.add(new BatchAdmissionIssue(workOrderId, PRO_SCHEDULE_ORDER_WORK_ORDER_ERP_SYNC_REQUIRED.getCode(), workOrderCode,
-                        "生产工单缺少 ERP 正式同步记录"));
             }
         }
         return issues;

@@ -46,7 +46,7 @@ public class MesProRouteVersionSnapshotResolver {
         JSONObject node = matches.get(0);
         return new ResolvedRouteProcessSnapshot(resolvedVersion.routeId(), resolvedVersion.routeVersionId(),
                 routeProcessId, node.getLong("processId"), node.getLong("routeProcessWorkstationId"),
-                node.getInteger("sort"), node.getString("processName"), node.toJSONString(),
+                node.getInteger("sort"), node.getString("processName"), MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(node),
                 resolvedVersion.routeSnapshotSha256());
     }
 

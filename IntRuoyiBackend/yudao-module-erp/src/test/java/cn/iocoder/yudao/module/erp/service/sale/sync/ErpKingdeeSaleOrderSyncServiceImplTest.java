@@ -85,6 +85,32 @@ class ErpKingdeeSaleOrderSyncServiceImplTest {
         syncService = new ErpKingdeeSaleOrderSyncServiceImpl(
                 saleOrderClient, materialDetailClient, kingdeeConfigService, syncRecordMapper, saleOrderMapper, saleOrderService,
                 customerMapper, customerSyncRecordMapper, productMapper, productCategoryMapper, productUnitMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(syncService, "transactionManager",
+                org.mockito.Mockito.mock(org.springframework.transaction.PlatformTransactionManager.class));
+    }
+
+    @Test
+    void batchFailureRollsBackOnlyFailedOrderAndContinues() {
+        var manager = org.mockito.Mockito.mock(org.springframework.transaction.PlatformTransactionManager.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(syncService, "transactionManager", manager);
+        var first = new ErpKingdeeSaleOrder();
+        first.setFid("bad");
+        first.setBillNo("BAD");
+        var second = new ErpKingdeeSaleOrder();
+        second.setFid("existing");
+        second.setBillNo("EXISTING");
+        when(saleOrderClient.fetchSaleOrders(kingdeeProperties)).thenReturn(List.of(first, second));
+        when(syncRecordMapper.selectBySourceKey(ErpKingdeeSaleOrder.FORM_ID, "bad"))
+                .thenThrow(new IllegalStateException("broken source"));
+        when(syncRecordMapper.selectBySourceKey(ErpKingdeeSaleOrder.FORM_ID, "existing"))
+                .thenReturn(new ErpKingdeeSaleOrderSyncRecordDO());
+        var failure = org.junit.jupiter.api.Assertions.assertThrows(
+                cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeOrderBatchSyncFailure.class,
+                () -> syncService.syncSaleOrdersFullSkipExisting());
+        assertEquals(1, failure.getFailedCount());
+        assertEquals(1, failure.getSuppressed().length);
+        verify(manager).rollback(org.mockito.ArgumentMatchers.any());
+        verify(manager).commit(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -153,7 +179,13 @@ class ErpKingdeeSaleOrderSyncServiceImplTest {
         assertEquals(1, result.getUpdatedCount());
         assertEquals(0, result.getSkippedCount());
         verify(saleOrderService, never()).createSaleOrder(any(ErpSaleOrderSaveReqVO.class));
-        verify(saleOrderService).updateSaleOrder(any(ErpSaleOrderSaveReqVO.class));
+        verify(saleOrderService).updateSaleOrderFromKingdee(any(ErpSaleOrderSaveReqVO.class), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyList());
+        var lockOrder = org.mockito.Mockito.inOrder(saleOrderService);
+        lockOrder.verify(saleOrderService).lockOrder(org.mockito.ArgumentMatchers.anyLong());
+        lockOrder.verify(saleOrderService).getSaleOrder(org.mockito.ArgumentMatchers.anyLong());
+        lockOrder.verify(saleOrderService).getSaleOrderItemListByOrderId(org.mockito.ArgumentMatchers.anyLong());
+        lockOrder.verify(saleOrderService).updateSaleOrderFromKingdee(any(ErpSaleOrderSaveReqVO.class), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyList());
+
     }
 
     @Test
@@ -176,7 +208,7 @@ class ErpKingdeeSaleOrderSyncServiceImplTest {
         assertEquals(1, result.getUpdatedCount());
         assertEquals(0, result.getSkippedCount());
         verify(saleOrderService, never()).createSaleOrder(any(ErpSaleOrderSaveReqVO.class));
-        verify(saleOrderService).updateSaleOrder(any(ErpSaleOrderSaveReqVO.class));
+        verify(saleOrderService).updateSaleOrderFromKingdee(any(ErpSaleOrderSaveReqVO.class), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyList());
     }
 
     @Test
@@ -204,7 +236,7 @@ class ErpKingdeeSaleOrderSyncServiceImplTest {
         verify(saleOrderClient).fetchSaleOrdersModifiedBetween(kingdeeProperties, windowStart, windowEnd);
         verify(saleOrderClient, never()).fetchSaleOrders(kingdeeProperties);
         verify(saleOrderService, never()).createSaleOrder(any(ErpSaleOrderSaveReqVO.class));
-        verify(saleOrderService).updateSaleOrder(any(ErpSaleOrderSaveReqVO.class));
+        verify(saleOrderService).updateSaleOrderFromKingdee(any(ErpSaleOrderSaveReqVO.class), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyList());
     }
 
     @Test
@@ -232,12 +264,11 @@ class ErpKingdeeSaleOrderSyncServiceImplTest {
         assertEquals(1, result.getUpdatedCount());
         assertEquals(0, result.getSkippedCount());
         ArgumentCaptor<ErpSaleOrderSaveReqVO> orderCaptor = ArgumentCaptor.forClass(ErpSaleOrderSaveReqVO.class);
-        verify(saleOrderService).updateSaleOrder(orderCaptor.capture());
+        verify(saleOrderService).updateSaleOrderFromKingdee(orderCaptor.capture(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyList());
         assertEquals(501L, orderCaptor.getValue().getId());
         assertEquals(10L, orderCaptor.getValue().getCustomerId());
         assertEquals(20L, orderCaptor.getValue().getItems().get(0).getProductId());
-        verify(saleOrderService).updateSaleOrderStatus(501L, ErpAuditStatus.PROCESS.getStatus());
-        verify(saleOrderService).updateSaleOrderStatus(501L, ErpAuditStatus.APPROVE.getStatus());
+        verify(saleOrderService, never()).updateSaleOrderStatus(any(), any());
         ArgumentCaptor<cn.iocoder.yudao.module.erp.dal.dataobject.sale.ErpSaleOrderDO> statusCaptor =
                 ArgumentCaptor.forClass(cn.iocoder.yudao.module.erp.dal.dataobject.sale.ErpSaleOrderDO.class);
         verify(saleOrderMapper).updateById(statusCaptor.capture());
@@ -285,7 +316,7 @@ class ErpKingdeeSaleOrderSyncServiceImplTest {
                 .thenReturn(new ErpKingdeeCustomerSyncRecordDO().setCustomerId(10L));
         when(productMapper.selectByBarCode("MAT-001")).thenReturn(new ErpProductDO().setId(20L).setUnitId(40L));
         assertEquals(1, syncService.syncByCode("908XSDD00103"));
-        verify(saleOrderService).updateSaleOrder(any(ErpSaleOrderSaveReqVO.class));
+        verify(saleOrderService).updateSaleOrderFromKingdee(any(ErpSaleOrderSaveReqVO.class), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyList());
         verify(syncRecordMapper).updateById(any(ErpKingdeeSaleOrderSyncRecordDO.class));
         verify(saleOrderClient, never()).fetchAllSaleOrders(any());
         verify(saleOrderClient, never()).fetchSaleOrdersModifiedBetween(any(), any(), any());
@@ -293,6 +324,7 @@ class ErpKingdeeSaleOrderSyncServiceImplTest {
 
     private static ErpKingdeeSaleOrder buildSaleOrder() {
         ErpKingdeeSaleOrder.Line line = new ErpKingdeeSaleOrder.Line();
+        line.setEntryId("entry-1");
         line.setUnitName("PCS");
         line.setPriceUnitName("PCS");
         line.setNetAmount(new BigDecimal("8407"));

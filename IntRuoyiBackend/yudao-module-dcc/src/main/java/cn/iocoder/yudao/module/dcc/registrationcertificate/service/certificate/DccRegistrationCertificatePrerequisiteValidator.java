@@ -90,17 +90,25 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         validateRequiredText(draft);
         validateDates(draft);
         DccProjectCodeDO project = validateProjectCode(tenantId, actorId, draft.projectCodeId(), draft.productMasterId());
+        if (Boolean.TRUE.equals(facts.getOwnProduct()) && project == null) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("瑛泰产品必须选择已正式绑定DCC产品的系统项目");
         DccRegistrationCertificateProjectProduct projectProduct = null;
         String productName;
         if (Boolean.TRUE.equals(facts.getOwnProduct()) && project != null) {
-            projectProduct = resolveProjectProduct(project);
-            if (facts.getProjectProduct() != null && !Objects.equals(facts.getProjectProduct(), projectProduct)) {
-                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
-                        "项目的DCC产品关联已变更，请重新核对后提交");
+            var products = facts.getProjectProducts();
+            if (products == null || products.isEmpty()) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("产品关联信息缺失，请先执行一证多产品迁移并重新选择项目");
+            var ids = new java.util.HashSet<Long>();
+            for (var product : products) {
+                if (product == null || product.projectCodeId() == null || !ids.add(product.productCatalogId()))
+                    throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("产品关联无效或重复");
+                var live = resolveProjectProduct(validateProjectCode(tenantId, actorId, product.projectCodeId(), null));
+                if (!Objects.equals(product, live)) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("项目的DCC产品关联已变更，请重新核对后提交");
             }
+            projectProduct = products.get(0);
+            if (!Objects.equals(projectProduct.projectCodeId(), draft.projectCodeId()) || !Objects.equals(projectProduct, facts.getProjectProduct()))
+                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("首个项目与产品关联不一致");
             productName = resolveProductName(draft);
         } else {
-            if (facts.getProjectProduct() != null) throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID);
+            if (facts.getProjectProduct() != null || facts.getProjectProducts() != null && !facts.getProjectProducts().isEmpty()) throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID);
             productName = resolveProductName(draft);
         }
 
@@ -150,7 +158,7 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         return projectProductService.resolve(project);
     }
 
-    private DccProjectCodeDO validateProjectCode(Long tenantId, Long actorId, Long projectCodeId, Long productMasterId) {
+    public DccProjectCodeDO validateProjectCode(Long tenantId, Long actorId, Long projectCodeId, Long productMasterId) {
         if (projectCodeId == null) {
             return null;
         }

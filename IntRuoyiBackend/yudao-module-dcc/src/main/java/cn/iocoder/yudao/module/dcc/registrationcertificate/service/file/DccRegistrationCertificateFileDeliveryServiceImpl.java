@@ -103,6 +103,8 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
         this.transactionTemplate = new TransactionTemplate(require(transactionManager, "transactionManager"));
     }
 
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService productBindings;
+
     @Override
     public DccRegistrationCertificateFileDownloadResult download(Long tenantId, Long userId, Long businessFileId,
                                                                  String attemptKey,
@@ -121,8 +123,9 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
             DccRegistrationCertificateSnapshotDO snapshot = requireFileSnapshot(tenantId, version.getId(), businessFile);
             grant = accessPolicyService.requireDownloadGrant(tenantId, userId, businessFileId, now);
             DccRegistrationCertificateAccessRequestDO request = requireRequest(tenantId, grant.getRequestId());
-            DccProjectCodeDO projectCode = resolveLiveProjectCode(request.getProjectCodeId(),
-                    certificate.getProductMasterId());
+            if (request.getProjectCodeId()!=null && !productBindings.containsProject(tenantId,certificate.getId(),request.getProjectCodeId()))
+                throw new ServiceException(REGISTRATION_CERTIFICATE_DOWNLOAD_PROJECT_CODE_INVALID);
+            DccProjectCodeDO projectCode = resolveLiveProjectCode(request.getProjectCodeId(), null);
             String fileName = buildFileName(projectCode, certificate, version, snapshot, businessFile);
             String lockKey = tenantId + ":" + grant.getId() + ":" + businessFileId;
             Object lock = downloadLocks.computeIfAbsent(lockKey, ignored -> new Object());
@@ -372,7 +375,20 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
         }
         var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshot.getFactsJson());
         boolean changed = "CHANGE".equals(businessFile.getOwnerType());
-        boolean expired = facts.isExpired(businessClock.businessDate());
+        boolean expired = "OLD".equals(version.getStatus()) || facts.isExpired(businessClock.businessDate());
+        String productName = snapshot.getProductName();
+        // Only current domestic change deliveries use the latest formal product name.
+        // Dates and certificate numbers still belong to the selected historical document.
+        if (changed && "DOMESTIC".equals(facts.getCertificateType())
+                && Objects.equals(certificate.getCurrentVersionId(), version.getId())) {
+            var currentSnapshot = certificate.getCurrentSnapshotId() == null ? null
+                    : snapshotMapper.selectById(certificate.getCurrentSnapshotId());
+            if (currentSnapshot == null || !Objects.equals(currentSnapshot.getTenantId(), certificate.getTenantId())
+                    || !Objects.equals(currentSnapshot.getVersionId(), version.getId())) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
+            }
+            productName = currentSnapshot.getProductName();
+        }
         LocalDate date = facts.getApprovalDate();
         String number = facts.getCertificateNo();
         if (changed) date = jdbcTemplate.query("SELECT approval_date FROM dcc_registration_certificate_change WHERE tenant_id=? AND id=? AND status='APPLIED' AND deleted=0",
@@ -402,8 +418,8 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
             actualProjectCode=requireText(facts.getProjectCode(),"国内其他注册证实际项目代码");
         }
         return safeSegment(actualProjectCode) + "_" + date.format(APPROVAL_DATE_FORMAT) + "_"
-                + safeSegment(snapshot.getProductName()) + (changed ? "变更文件" : "") + "_"
-                + safeSegment(number) + (expired ? "已失效" : "") + extension;
+                + safeSegment(productName) + (changed ? "变更文件" : "") + "_"
+                + safeSegment(number) + (expired ? "_已失效" : "") + extension;
     }
 
     private static String extensionOf(String originalName) {

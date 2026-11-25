@@ -16,7 +16,7 @@ function fixture(query, review = { id: '123', reviewStatus: 'PENDING_REVIEW' }) 
   const calls = { get: [], list: 0, fill: 0, handoff: 0 }
   const context = {
     route: { name: 'MesProFeedbackEdhrNonconformanceReview', query },
-    reviewTabOpen: box(false), selectedReview: box(undefined), selectedReviewReadOnly: box(false),
+    unassignedReviewerId: box(undefined), reviewTabOpen: box(false), selectedReview: box(undefined), selectedReviewReadOnly: box(false),
     reviews: box([]), total: box(0), listLoading: box(false), errorText: box(''), activeTab: box('pending'),
     autoCreate: box(false), entryActiveOrderId: box(undefined), reviewContextGeneration: 0,
     closeCreateDialog() {}, invalidateReviewContext() { context.reviewContextGeneration++ },

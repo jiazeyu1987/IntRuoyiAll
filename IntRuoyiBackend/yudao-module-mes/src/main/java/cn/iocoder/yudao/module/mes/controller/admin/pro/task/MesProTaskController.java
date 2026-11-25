@@ -119,7 +119,7 @@ public class MesProTaskController {
 
     @PutMapping("/lock")
     @Operation(summary = "锁定生产任务")
-    @PreAuthorize("@ss.hasPermission('mes:pro-task:update')")
+    @PreAuthorize("@ss.hasPermission('mes:pro-schedule-order:update')")
     public CommonResult<Boolean> lockTask(@Valid @RequestBody MesProTaskLockReqVO reqVO) {
         taskService.lockTask(reqVO.getTaskId(), reqVO.getLockedReason());
         return success(true);
@@ -128,7 +128,7 @@ public class MesProTaskController {
     @PutMapping("/unlock")
     @Operation(summary = "解锁生产任务")
     @Parameter(name = "taskId", description = "任务编号", required = true)
-    @PreAuthorize("@ss.hasPermission('mes:pro-task:update')")
+    @PreAuthorize("@ss.hasPermission('mes:pro-schedule-order:update')")
     public CommonResult<Boolean> unlockTask(@RequestParam("taskId") Long taskId) {
         taskService.unlockTask(taskId);
         return success(true);

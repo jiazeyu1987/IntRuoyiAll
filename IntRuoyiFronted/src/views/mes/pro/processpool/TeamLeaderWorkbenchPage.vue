@@ -3752,6 +3752,7 @@
         v-if="reviewDialogMode === 'ALLOCATION' && !allocationConfirming"
         type="primary"
         data-team-leader-allocation-next
+        :disabled="!allocationSnapshot"
         @click="prepareAllocationConfirmation"
       >确认分配</el-button>
       <el-button v-else type="primary" :loading="reviewSubmitting" data-team-leader-review-submit @click="submitReview">{{
@@ -4605,6 +4606,27 @@ const submissionMaterialNameCache = ref<Record<string, string>>({})
 const detail = ref<ProcessPoolTimelineDetailVO>()
 const reviewEvent = ref<ProcessPoolTimelineEventVO>()
 const correctionEvent = ref<ProcessPoolTimelineEventVO>()
+const correctionGuard = createFormalActionGuard(() => JSON.stringify([
+  approvalInvalidation.syncSession().key, route.fullPath
+]))
+const resetCorrectionContext = () => {
+  correctionGuard.invalidate()
+  correctionSubmitting.value = false
+  correctionForm.signaturePassword = ''
+}
+watch(correctionVisible, (visible) => {
+  if (!visible) resetCorrectionContext()
+}, { flush: 'sync' })
+watch(() => route.fullPath, () => {
+  resetCorrectionContext()
+  correctionVisible.value = false
+}, { flush: 'sync' })
+watch(() => approvalInvalidation.syncSession().key, () => {
+  resetCorrectionContext()
+  correctionVisible.value = false
+}, { flush: 'sync' })
+onBeforeUnmount(resetCorrectionContext)
+onDeactivated(resetCorrectionContext)
 const activeOrderOptions = ref<TeamLeaderActiveOrderRespVO[]>([])
 const activeOrderConflictSelectedOrder = ref<TeamLeaderActiveOrderRespVO>()
 const activeOrderConflictDetail = ref<TeamLeaderActiveOrderDetailRespVO>()
@@ -7329,7 +7351,7 @@ const prefillSelectedOrderAllocation = (
 }
 
 const getAllocationPoolQuantity = () => requirePositiveInteger(
-  allocationSnapshot.value?.poolQuantity ?? reviewEvent.value?.outputQuantity,
+  allocationSnapshot.value?.poolQuantity,
   '本次报工数量必须为正整数'
 )
 
@@ -7361,10 +7383,16 @@ const assertUniqueAllocationActiveOrders = () => {
 }
 
 const buildAllocationSubmitLines = (): TeamLeaderReportAllocationLine[] => {
+  if (!allocationSnapshot.value) {
+    throw new Error('分配信息尚未加载完成，请重新打开分配窗口')
+  }
   assertUniqueAllocationActiveOrders()
   const totalQuantity = allocationRows.value.reduce((total, line) =>
     total + normalizeAllocationSubmitQuantity(line.allocatedQuantity, '分配数量必须为0或正整数'), 0
   )
+  if (totalQuantity <= 0) {
+    throw new Error('请先选择目标订单并填写大于0的分配数量')
+  }
   if (totalQuantity > getAllocationPoolQuantity()) {
     throw new Error('分配总量不能超过本次报工数量')
   }
@@ -9002,6 +9030,7 @@ const openProductionReject = (event: ProcessPoolTimelineEventVO) => {
 
 const openAllocation = async (event: ProcessPoolTimelineEventVO) => {
   if (!requireWritableHandoff()) return
+  reviewVisible.value = false
   resetLeaderReviewContext()
   requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
   if (!canAllocateSubmission(event)) {
@@ -9069,6 +9098,11 @@ const submitReview = async () => {
   try {
     const leaderType = resolveCurrentLeaderType()
     const reviewRemark = reviewForm.reviewRemark.trim() || undefined
+    if (productionLeader && status === 'APPROVED' &&
+        (!allocationSnapshot.value || allocationSnapshot.value.eventId !== eventId ||
+         !Number.isInteger(allocationSnapshot.value.version))) {
+      throw new Error('分配信息尚未加载完成，请重新打开分配窗口')
+    }
     if (mode === 'REJECTION') {
       const reviewSignaturePayload = buildReviewSignaturePayload()
       await reviewTeamLeaderSubmission({
@@ -9204,7 +9238,11 @@ const resetCorrectionFormForEvent = (
   correctionEvent.value = event
 }
 
-const openProductionCorrection = async (event: ProcessPoolTimelineEventVO, eventId: number) => {
+const openProductionCorrection = async (
+  event: ProcessPoolTimelineEventVO,
+  eventId: number,
+  isCurrent: () => boolean
+) => {
   const outputQuantity = Number(event.outputQuantity)
   if (!Number.isFinite(outputQuantity) || outputQuantity <= 0) {
     throw new Error('报工记录缺少有效的完成数量，不能修改')
@@ -9249,19 +9287,21 @@ const openProductionCorrection = async (event: ProcessPoolTimelineEventVO, event
     .map(toCorrectionParameterRow)
     .filter((item): item is ProductionReportCorrectionParameterRow => Boolean(item))
 
-  resetCorrectionFormForEvent(event, eventId, 'PRODUCTION')
-  correctionForm.outputQuantity = outputQuantity
-  correctionForm.materialDetails = enrichCorrectionMaterialParameterRows(
+  const materialDetails = enrichCorrectionMaterialParameterRows(
     event,
     await resolveCorrectionMaterialNames(resolveProductionMaterialRows(event))
   )
-  for (const material of correctionForm.materialDetails) {
+  if (!isCurrent()) return
+  for (const material of materialDetails) {
     if (!material.lossDetails.some((detail) => String(detail.reasonId) === '-1')) {
       material.lossDetails.push({
         reasonId: '-1', reasonCode: 'SYSTEM_OTHER_LOSS', reasonName: '其他损耗', quantity: 0
       })
     }
   }
+  resetCorrectionFormForEvent(event, eventId, 'PRODUCTION')
+  correctionForm.outputQuantity = outputQuantity
+  correctionForm.materialDetails = materialDetails
   initializeCorrectionMaterialDeviceTabs(correctionForm.materialDetails)
   correctionForm.lossDetails = [...lossRowMap.values()]
   correctionForm.deviceParameterReadings = parameterRows
@@ -9322,6 +9362,10 @@ const openPqcCorrection = (event: ProcessPoolTimelineEventVO, eventId: number) =
 
 const openCorrection = async (event: ProcessPoolTimelineEventVO) => {
   if (!requireWritableHandoff()) return
+  if (correctionSubmitting.value) return
+  correctionVisible.value = false
+  correctionGuard.invalidate()
+  const isCurrent = correctionGuard.capture()
   try {
     const eventId = requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
     if (isPqcSubmissionRow(event) && event.released) {
@@ -9336,6 +9380,7 @@ const openCorrection = async (event: ProcessPoolTimelineEventVO) => {
     }
     if (isPqcSubmissionRow(event)) {
       const current = await getTeamLeaderSubmissionDetail(eventId, resolveCurrentLeaderType())
+      if (!isCurrent()) return
       if (Number(current.id) !== eventId || current.released || !canCorrectSubmission(current)) {
         throw new Error('当前PQC记录已变化或已放行，请刷新后核对')
       }
@@ -9343,9 +9388,11 @@ const openCorrection = async (event: ProcessPoolTimelineEventVO) => {
       return
     }
     const current = await getTeamLeaderSubmissionDetail(eventId, resolveCurrentLeaderType())
+    if (!isCurrent()) return
     if (Number(current.id) !== eventId || !canCorrectSubmission(current)) throw new Error('记录已变化，请刷新后核对')
-    await openProductionCorrection(current, eventId)
+    await openProductionCorrection(current, eventId, isCurrent)
   } catch (error) {
+    if (!isCurrent()) return
     ElMessage.error(resolveErrorMessage(error, '修改入口打开失败'))
   }
 }
@@ -9496,11 +9543,13 @@ const buildPqcCorrectionRequest = () => {
 
 const submitCorrection = async () => {
   if (!requireWritableHandoff()) return
+  if (!correctionVisible.value || correctionSubmitting.value) return
+  let isCurrent = correctionGuard.capture()
   const eventId = requirePositiveNumber(correctionEvent.value?.id, '工序池提交事件编号不能为空')
   const approvalEvent = correctionEvent.value?.submissionReviewStatus === 'REJECTED'
     ? approvalInvalidation.captureHandoffSourceSuccess('PROCESS_POOL_EVENT', eventId) : undefined
   const valid = await correctionFormRef.value?.validate?.().catch(() => false)
-  if (valid === false) return
+  if (!isCurrent() || valid === false || correctionSubmitting.value) return
   correctionSubmitting.value = true
   let writeSucceeded = false
   try {
@@ -9512,13 +9561,16 @@ const submitCorrection = async () => {
     }
     if (approvalEvent) approvalInvalidation.publishEdhrSuccess(approvalEvent)
     writeSucceeded = true
+    if (!isCurrent()) return
     if (approvalEvent && !approvalInvalidation.isCurrent(approvalEvent.session.key)) return
     ElMessage.success(
       isPqcCorrection ? 'PQC表单修改已提交，修改日志已记录' : '修改已提交，修改日志已记录'
     )
     correctionVisible.value = false
+    isCurrent = correctionGuard.capture()
     await getSubmissionList()
   } catch (error) {
+    if (!isCurrent()) return
     ElMessage.error(
       resolveErrorMessage(
         error,
@@ -9526,7 +9578,7 @@ const submitCorrection = async () => {
       )
     )
   } finally {
-    correctionSubmitting.value = false
+    if (isCurrent()) correctionSubmitting.value = false
   }
 }
 

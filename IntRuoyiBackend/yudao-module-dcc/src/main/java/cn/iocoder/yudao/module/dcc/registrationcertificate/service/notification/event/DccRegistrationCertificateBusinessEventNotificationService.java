@@ -58,6 +58,21 @@ public class DccRegistrationCertificateBusinessEventNotificationService {
     public DccRegistrationCertificateBusinessEventNotificationResult sendToUsers(
             DccRegistrationCertificateBusinessEventNotificationCommand command,
             List<Long> configuredRecipientUserIds) {
+        return sendToUsers(command, configuredRecipientUserIds, true);
+    }
+
+    /** 按查看权限算出的收件名单必须原样使用，不自动加入没有查看权的操作者。 */
+    public DccRegistrationCertificateBusinessEventNotificationResult sendToExactUsers(
+            DccRegistrationCertificateBusinessEventNotificationCommand command, List<Long> recipientUserIds) {
+        if (recipientUserIds == null || recipientUserIds.stream().anyMatch(id -> id == null || id <= 0)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_TEMPLATE_PARAM_MISSING);
+        }
+        return sendToUsers(command, recipientUserIds, false);
+    }
+
+    private DccRegistrationCertificateBusinessEventNotificationResult sendToUsers(
+            DccRegistrationCertificateBusinessEventNotificationCommand command,
+            List<Long> configuredRecipientUserIds, boolean includeActor) {
         ValidatedCommand validated = validateEvent(command);
         LinkedHashSet<Long> recipientUserIds = new LinkedHashSet<>();
         if (configuredRecipientUserIds != null) {
@@ -65,7 +80,9 @@ public class DccRegistrationCertificateBusinessEventNotificationService {
                     .filter(userId -> userId != null && userId > 0)
                     .forEach(recipientUserIds::add);
         }
-        if (!"CHANGE_APPROVAL_RECORDED".equals(validated.eventType())) recipientUserIds.add(validated.actorId());
+        if (includeActor && !"CHANGE_APPROVAL_RECORDED".equals(validated.eventType())) {
+            recipientUserIds.add(validated.actorId());
+        }
         LinkedHashMap<Long, Long> messageIds = new LinkedHashMap<>();
         for (Long userId : recipientUserIds) {
             sendToRecipient(validated, userId, messageIds);

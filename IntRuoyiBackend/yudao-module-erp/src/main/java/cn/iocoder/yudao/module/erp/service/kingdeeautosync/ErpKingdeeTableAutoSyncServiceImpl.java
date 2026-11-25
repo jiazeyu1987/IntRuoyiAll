@@ -61,6 +61,7 @@ import static cn.iocoder.yudao.module.erp.enums.ErrorCodeConstants.KINGDEE_TABLE
 @Validated
 public class ErpKingdeeTableAutoSyncServiceImpl implements ErpKingdeeTableAutoSyncService {
 
+    private static final java.time.ZoneId BUSINESS_ZONE = java.time.ZoneId.of("Asia/Shanghai");
     private static final String HANDLER_NAME = "erpKingdeeTableAutoSyncJob";
     private static final String DISPATCHER_CRON = "0 * * * * ?";
     private static final String STATUS_SUCCESS = "SUCCESS";
@@ -70,6 +71,8 @@ public class ErpKingdeeTableAutoSyncServiceImpl implements ErpKingdeeTableAutoSy
     private ErpKingdeeTableAutoSyncPlanMapper planMapper;
     @Resource
     private ErpKingdeeTableAutoSyncPlanItemMapper planItemMapper;
+    @Resource
+    private org.redisson.api.RedissonClient redisson;
     @Resource
     private JobService jobService;
     @Resource
@@ -103,7 +106,10 @@ public class ErpKingdeeTableAutoSyncServiceImpl implements ErpKingdeeTableAutoSy
         if (Boolean.TRUE.equals(plan.getEnabled())) {
             plan.setJobId(ensureDispatcherJob());
         }
-        planMapper.updateById(plan);
+        // Persist configuration only: a concurrent automatic claim owns its retry counters/status.
+        planMapper.updateById(new ErpKingdeeTableAutoSyncPlanDO().setId(plan.getId())
+                .setEnabled(plan.getEnabled()).setDailyStartTime(plan.getDailyStartTime())
+                .setCronExpression(plan.getCronExpression()).setJobId(plan.getJobId()));
 
         savePlanItems(plan.getId(), tenantId, items);
         return buildPlanResp(plan);
@@ -119,7 +125,14 @@ public class ErpKingdeeTableAutoSyncServiceImpl implements ErpKingdeeTableAutoSy
 
     @Override
     public ErpKingdeeTableAutoSyncRunOnceRespVO runOnce() {
-        return executeSelectedSyncs(validateExecutablePlan(), false);
+        ErpKingdeeTableAutoSyncPlanDO plan = validateExecutablePlan();
+        org.redisson.api.RLock lock = planLock(plan);
+        if (!lock.tryLock()) throw new IllegalStateException("ERP sync plan is running");
+        try {
+            return executeSelectedSyncs(plan, false);
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override
@@ -144,9 +157,26 @@ public class ErpKingdeeTableAutoSyncServiceImpl implements ErpKingdeeTableAutoSy
         if (alreadyRanToday(plan)) {
             return "skipped: already run today";
         }
+        org.redisson.api.RLock lock = planLock(plan);
+        if (!lock.tryLock()) return "skipped: plan running";
+        try {
+        LocalDate attemptDate = LocalDate.now(BUSINESS_ZONE);
+        if (planMapper.claimAutoAttempt(plan.getId(), attemptDate) != 1) {
+            return "skipped: retry interval or daily attempt limit";
+        }
+        plan.setLastAutoAttemptDate(attemptDate);
         ErpKingdeeTableAutoSyncRunOnceRespVO result = executeSelectedSyncs(plan, true);
         return "status=" + result.getStatus() + ", selected=" + result.getTotalSyncCount()
                 + ", success=" + result.getSuccessSyncCount();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private org.redisson.api.RLock planLock(ErpKingdeeTableAutoSyncPlanDO plan) {
+        // Watchdog renewal covers the entire synchronous worker lifetime.
+        return redisson.getLock("erp:kingdee:auto-plan:" + TenantContextHolder.getRequiredTenantId()
+                + ":" + plan.getId());
     }
 
     private ErpKingdeeTableAutoSyncPlanRespVO defaultPlanResp() {
@@ -305,38 +335,40 @@ public class ErpKingdeeTableAutoSyncServiceImpl implements ErpKingdeeTableAutoSy
                 .setSuccessSyncCount(0);
         List<ErpKingdeeTableAutoSyncRunItemRespVO> runItems = new ArrayList<>();
         int successCount = 0;
-        try {
-            for (ErpKingdeeTableAutoSyncPlanItemDO item : enabledItems) {
-                ErpKingdeeTableAutoSyncTypeEnum type = validateSyncType(item.getSyncType());
-                JobHandler handler = resolveJobHandler(type);
-                String message = handler.execute(TenantJobParam.forTenant(
+        List<String> failures = new ArrayList<>();
+        for (ErpKingdeeTableAutoSyncPlanItemDO item : enabledItems) {
+            ErpKingdeeTableAutoSyncTypeEnum type = validateSyncType(item.getSyncType());
+            var runItem = new ErpKingdeeTableAutoSyncRunItemRespVO()
+                    .setSyncType(type.getSyncType()).setLabel(type.getLabel()).setHandlerName(type.getHandlerName());
+            try {
+                String message = resolveJobHandler(type).execute(TenantJobParam.forTenant(
                         TenantContextHolder.getRequiredTenantId(), ""));
-                runItems.add(new ErpKingdeeTableAutoSyncRunItemRespVO()
-                        .setSyncType(type.getSyncType())
-                        .setLabel(type.getLabel())
-                        .setHandlerName(type.getHandlerName())
-                        .setStatus(STATUS_SUCCESS)
-                        .setMessage(message));
+                runItem.setStatus(STATUS_SUCCESS).setMessage(message);
                 successCount++;
+            } catch (Exception ex) {
+                String message = type.getSyncType() + ": " + rootMessage(ex);
+                runItem.setStatus(STATUS_FAILED).setMessage(message);
+                failures.add(message);
             }
-            String message = "ERP 表格自动同步完成：selected=" + enabledItems.size() + ", success=" + successCount;
-            respVO.setItems(runItems).setSuccessSyncCount(successCount);
-            if (autoRun) {
-                markAutoRunDateAfterSuccess(plan.getId());
-            }
-            updateLastStatus(plan.getId(), STATUS_SUCCESS, message);
-            return respVO;
-        } catch (Exception ex) {
-            String failureMessage = rootMessage(ex);
-            updateLastStatus(plan.getId(), STATUS_FAILED, failureMessage);
-            throw exception(KINGDEE_TABLE_AUTO_SYNC_EXECUTE_FAILED, failureMessage);
+            runItems.add(runItem);
         }
+        respVO.setItems(runItems).setSuccessSyncCount(successCount);
+        String message = "ERP同步：selected=" + enabledItems.size() + ", success=" + successCount
+                + ", failed=" + failures.size();
+        if (!failures.isEmpty()) {
+            message += "; " + String.join("; ", failures);
+            updateLastStatus(plan.getId(), STATUS_FAILED, message);
+            throw exception(KINGDEE_TABLE_AUTO_SYNC_EXECUTE_FAILED, message);
+        }
+        if (autoRun) markAutoRunDateAfterSuccess(plan.getId(), plan.getLastAutoAttemptDate());
+        updateLastStatus(plan.getId(), STATUS_SUCCESS, message);
+        return respVO;
     }
 
-    private void markAutoRunDateAfterSuccess(Long planId) {
+    private void markAutoRunDateAfterSuccess(Long planId, LocalDate attemptDate) {
         planMapper.updateById(new ErpKingdeeTableAutoSyncPlanDO()
                 .setId(planId)
-                .setLastAutoRunDate(LocalDate.now()));
+                .setLastAutoRunDate(attemptDate));
     }
 
     private JobHandler resolveJobHandler(ErpKingdeeTableAutoSyncTypeEnum type) {
@@ -357,7 +389,7 @@ public class ErpKingdeeTableAutoSyncServiceImpl implements ErpKingdeeTableAutoSy
                 .setId(planId)
                 .setLastRunTime(LocalDateTime.now())
                 .setLastStatus(status)
-                .setLastMessage(message));
+                .setLastMessage(StrUtil.sub(message, 0, 1000)));
     }
 
     private List<ErpKingdeeTableAutoSyncPlanItemDO> enabledItems(ErpKingdeeTableAutoSyncPlanDO plan) {
@@ -370,11 +402,11 @@ public class ErpKingdeeTableAutoSyncServiceImpl implements ErpKingdeeTableAutoSy
 
     private boolean isAutoDue(ErpKingdeeTableAutoSyncPlanDO plan) {
         LocalTime startTime = plan.getDailyStartTime();
-        return startTime != null && !LocalTime.now().isBefore(startTime);
+        return startTime != null && !LocalTime.now(BUSINESS_ZONE).isBefore(startTime);
     }
 
     private boolean alreadyRanToday(ErpKingdeeTableAutoSyncPlanDO plan) {
-        return plan.getLastAutoRunDate() != null && LocalDate.now().equals(plan.getLastAutoRunDate());
+        return plan.getLastAutoRunDate() != null && LocalDate.now(BUSINESS_ZONE).equals(plan.getLastAutoRunDate());
     }
 
     private static String buildBusinessCron(LocalTime time) {
@@ -382,10 +414,6 @@ public class ErpKingdeeTableAutoSyncServiceImpl implements ErpKingdeeTableAutoSy
     }
 
     private static String rootMessage(Throwable throwable) {
-        Throwable current = throwable;
-        while (current.getCause() != null) {
-            current = current.getCause();
-        }
-        return StrUtil.blankToDefault(current.getMessage(), current.getClass().getSimpleName());
+        return StrUtil.blankToDefault(throwable.getMessage(), throwable.getClass().getSimpleName());
     }
 }

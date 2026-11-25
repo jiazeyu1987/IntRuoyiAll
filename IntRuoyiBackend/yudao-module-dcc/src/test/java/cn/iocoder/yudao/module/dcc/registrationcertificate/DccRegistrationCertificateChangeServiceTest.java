@@ -94,7 +94,7 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
         org.mockito.Mockito.doAnswer(invocation -> {
             notificationConfig.resolveChangeConfirmationRecipientUserIds(1L);
             return null;
-        }).when(businessEventNotifier).validateChangeConfirmationRecipients(1L);
+        }).when(businessEventNotifier).validateChangeConfirmationRecipients(1L, "DOMESTIC");
         assertCode(required.getCode(), () -> service.submitChangeForApproval(command(
                 "missing-confirmation", 3, Map.of("PRODUCT_NAME", "Product B"), null, null, null, null)));
         assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_change"));
@@ -171,7 +171,7 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
         verify(businessEventNotifier).notifyChangeApprovalRecorded(
                 eq(1L), eq(10L), eq(1001L), eq(2001L), eq(99L),
                 eq("change-product"), eq("Product B"), eq("CERT-001"),
-                eq(LocalDate.of(2021, 3, 1)), eq(LocalDate.of(2026, 8, 20)));
+                eq(LocalDate.of(2021, 3, 1)), eq(LocalDate.of(2026, 8, 20)), eq("DOMESTIC"));
     }
 
     @Test

@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
@@ -103,6 +105,18 @@ class MesProRouteVersionSnapshotResolverTest {
         MesProRouteVersionSnapshotResolver.ResolvedRouteVersionSnapshot resolved = resolver.resolveVersion(11L);
 
         assertEquals(snapshot, resolved.routeSnapshotJson());
+    }
+
+    @Test
+    void resolvedProcessPreservesExplicitUnboundSop() {
+        var root = com.alibaba.fastjson.JSON.parseObject(snapshot(9L, 101L, "P1"));
+        root.getJSONObject("configSnapshots").getJSONObject("flowGraph").getJSONArray("nodes")
+                .getJSONObject(0).put("sopFileUrl", null);
+        String json = MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(root);
+        when(mapper.selectById(11L)).thenReturn(publishedVersion(11L, 9L, json));
+        var process = com.alibaba.fastjson.JSON.parseObject(resolver.resolve(11L, 101L).configSnapshotJson());
+        assertTrue(process.containsKey("sopFileUrl"));
+        assertNull(process.get("sopFileUrl"));
     }
 
     private MesProRouteVersionDO publishedVersion(Long id, Long routeId, String snapshot) {

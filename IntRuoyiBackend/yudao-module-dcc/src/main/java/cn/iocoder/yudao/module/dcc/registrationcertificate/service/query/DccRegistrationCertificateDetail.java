@@ -16,6 +16,8 @@ public class DccRegistrationCertificateDetail {
 
     private Long certificateId;
     private Integer rowVersion;
+    private Boolean hasPendingChange;
+    private Boolean hasPendingRenewal;
     private Long versionId;
     private Long snapshotId;
     private Integer snapshotRevision;

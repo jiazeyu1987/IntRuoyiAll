@@ -25,8 +25,19 @@ class ErpKingdeePurchaseOrderClientImplTest {
         server.expect(requestTo(base + "AuthService.ValidateUser.common.kdsvc"))
                 .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.SET_COOKIE, "session=test"));
-        server.expect(requestTo(base + "DynamicFormService.ExecuteBillQuery.common.kdsvc"))
-                .andRespond(withSuccess("[[158553,\"test\",\"2023-02-13T00:00:00\",\"Z\",\"A\",\"A\",\"881\",null,null,null,null,0,0,0,null,null,0,0,0,0,0,0,0,0,\"1\",null,0]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("FID+%3E+0")))
+                .andRespond(withSuccess("[[158553, \"2026-01-01 09:00:00\"]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("FPOOrderEntry_FEntryID+%3E+0")))
+                .andRespond(withSuccess("[[158553, \"test\", \"2023-02-13T00:00:00\", \"Z\", \"A\", \"A\", \"881\", null, null, null, null, 0, 0, 0, null, null, 0, 0, 0, 0, 0, 0, 0, 0, \"1\", null, 0, \"2026-01-01 09:00:00\"]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("%22FieldKeys%22%3A%22FID%2CFModifyDate%22")))
+                .andRespond(withSuccess("[[158553, \"2026-01-01 09:00:00\"]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("FID+%3E+158553")))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+
         var orders = new ErpKingdeePurchaseOrderClientImpl(rest).fetchAllPurchaseOrders(buildConfiguredProperties());
         assertEquals(1, orders.size());
         assertEquals("158553", orders.get(0).getFid());
@@ -54,16 +65,18 @@ class ErpKingdeePurchaseOrderClientImplTest {
                 .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.SET_COOKIE, "kdservice-sessionid=abc; Path=/"));
 
-        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
-                .andExpect(method(org.springframework.http.HttpMethod.POST))
-                .andExpect(header(HttpHeaders.COOKIE, containsString("kdservice-sessionid=abc")))
-                .andExpect(content().string(allOf(
-                        containsString("PUR_PurchaseOrder"),
-                        containsString("FPurchaseOrgId.FNumber"),
-                        containsString("FCreateDate"))))
-                .andRespond(withSuccess("""
-[[10001, "PO20260512001", "2026-05-12T09:30:00", "C", "A", "A", "881", "SUP-001", "Supplier A", "MAT-001", "Material A", 3.5, 15.2, 13, "Line remark", "PCS", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, "100", "PCS", 3.5], [10001, "PO20260512001", "2026-05-12T09:30:00", "C", "A", "A", "881", "SUP-001", "Supplier A", "MAT-002", "Material B", 1, 20, 0, "Second line", "PCS", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, "101", "PCS", 1]]
-""", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("FID+%3E+0")))
+                .andRespond(withSuccess("[[10001, \"2026-01-01 09:00:00\"]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("FPOOrderEntry_FEntryID+%3E+0")))
+                .andRespond(withSuccess("[[10001, \"PO20260512001\", \"2026-05-12T09:30:00\", \"C\", \"A\", \"A\", \"881\", \"SUP-001\", \"Supplier A\", \"MAT-001\", \"Material A\", 3.5, 15.2, 13, \"Line remark\", \"PCS\", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, \"100\", \"PCS\", 3.5, \"2026-01-01 09:00:00\"], [10001, \"PO20260512001\", \"2026-05-12T09:30:00\", \"C\", \"A\", \"A\", \"881\", \"SUP-001\", \"Supplier A\", \"MAT-002\", \"Material B\", 1, 20, 0, \"Second line\", \"PCS\", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, \"101\", \"PCS\", 1, \"2026-01-01 09:00:00\"]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("%22FieldKeys%22%3A%22FID%2CFModifyDate%22")))
+                .andRespond(withSuccess("[[10001, \"2026-01-01 09:00:00\"]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("FID+%3E+10001")))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
 
         List<ErpKingdeePurchaseOrder> orders = client.fetchPurchaseOrders(properties);
 
@@ -112,17 +125,19 @@ class ErpKingdeePurchaseOrderClientImplTest {
                         .header(HttpHeaders.SET_COOKIE, "kdservice-sessionid=abc; Path=/"));
 
         server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
-                .andExpect(method(org.springframework.http.HttpMethod.POST))
-                .andExpect(content().string(containsString("FModifyDate")))
-                .andExpect(content().string(containsString("FCloseStatus")))
-                .andExpect(content().string(containsString("FCancelStatus")))
-                .andExpect(content().string(containsString("FModifyDate+%3E%3D+%272026-01-01+08%3A30%3A00%27")))
-                .andExpect(content().string(containsString("FModifyDate+%3C+%272026-01-02+08%3A30%3A00%27")))
-                .andExpect(content().string(containsString("FModifyDate+ASC")))
-                .andExpect(content().string(containsString("FPurchaseOrgId.FNumber+%3D+%27881%27")))
+                .andExpect(content().string(containsString("FID+%3E+0")))
+                .andRespond(withSuccess("[[10001, \"2026-01-01 09:00:00\"]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
+                .andExpect(content().string(containsString("FPOOrderEntry_FEntryID+%3E+0")))
                 .andRespond(withSuccess("""
 [[10001, "PO20260512001", "2026-05-12T09:30:00", "C", "B", "A", "881", "SUP-001", "Supplier A", "MAT-001", "Material A", 3.5, 15.2, 13, "Line remark", "PCS", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, "100", "PCS", 3.5, "2026-01-01 09:00:00"]]
 """, MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
+                .andExpect(content().string(containsString("%22FieldKeys%22%3A%22FID%2CFModifyDate%22")))
+                .andRespond(withSuccess("[[10001, \"2026-01-01 09:00:00\"]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
+                .andExpect(content().string(containsString("FID+%3E+10001")))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
 
         List<ErpKingdeePurchaseOrder> orders = client.fetchPurchaseOrdersModifiedBetween(properties,
                 LocalDateTime.of(2026, 1, 1, 8, 30, 0),
@@ -162,12 +177,25 @@ class ErpKingdeePurchaseOrderClientImplTest {
                 .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.SET_COOKIE, "session=test"));
         String url = "https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc";
-        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A0")))
-                .andRespond(withSuccess("[[10001, \"PO20260512001\", \"2026-05-12T09:30:00\", \"C\", \"B\", \"A\", \"881\", \"SUP-001\", \"Supplier A\", \"MAT-001\", \"Material A\", 3.5, 15.2, 13, \"Line remark\", \"PCS\", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, \"101\", \"PCS\", 3.5, \"2026-01-01 09:00:00\"]]",MediaType.APPLICATION_JSON));
-        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A1")))
-                .andRespond(withSuccess("[[10001, \"PO20260512001\", \"2026-05-12T09:30:00\", \"C\", \"B\", \"A\", \"881\", \"SUP-001\", \"Supplier A\", \"MAT-001\", \"Material A\", 3.5, 15.2, 13, \"Line remark\", \"PCS\", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, \"102\", \"PCS\", 3.5, \"2026-01-01 09:00:00\"]]",MediaType.APPLICATION_JSON));
-        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A2")))
-                .andRespond(withSuccess("[]",MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
+                .andExpect(content().string(containsString("FID+%3E+0")))
+                .andRespond(withSuccess("[[10001, \"2026-01-01 09:00:00\"]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
+                .andExpect(content().string(containsString("FPOOrderEntry_FEntryID+%3E+0")))
+                .andRespond(withSuccess("[[10001, \"PO20260512001\", \"2026-05-12T09:30:00\", \"C\", \"B\", \"A\", \"881\", \"SUP-001\", \"Supplier A\", \"MAT-001\", \"Material A\", 3.5, 15.2, 13, \"Line remark\", \"PCS\", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, \"101\", \"PCS\", 3.5, \"2026-01-01 09:00:00\"]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
+                .andExpect(content().string(containsString("FPOOrderEntry_FEntryID+%3E+101")))
+                .andRespond(withSuccess("[[10001, \"PO20260512001\", \"2026-05-12T09:30:00\", \"C\", \"B\", \"A\", \"881\", \"SUP-001\", \"Supplier A\", \"MAT-001\", \"Material A\", 3.5, 15.2, 13, \"Line remark\", \"PCS\", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, \"102\", \"PCS\", 3.5, \"2026-01-01 09:00:00\"]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
+                .andExpect(content().string(containsString("FPOOrderEntry_FEntryID+%3E+102")))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
+                .andExpect(content().string(containsString("%22FieldKeys%22%3A%22FID%2CFModifyDate%22")))
+                .andRespond(withSuccess("[[10001, \"2026-01-01 09:00:00\"]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
+                .andExpect(content().string(containsString("FID+%3E+10001")))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+
         var rows = new ErpKingdeePurchaseOrderClientImpl(rest).fetchPurchaseOrdersModifiedBetween(properties,
                 LocalDateTime.of(2026,1,1,0,0),LocalDateTime.of(2026,1,2,0,0));
         assertEquals(1, rows.size());
@@ -185,12 +213,25 @@ class ErpKingdeePurchaseOrderClientImplTest {
                 .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.SET_COOKIE, "session=test"));
         String url = "https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc";
-        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A0")))
-                .andRespond(withSuccess("[[10001, \"PO20260512001\", \"2026-05-12T09:30:00\", \"C\", \"A\", \"A\", \"881\", \"SUP-001\", \"Supplier A\", \"MAT-001\", \"Material A\", 3.5, 15.2, 13, \"Line remark\", \"PCS\", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, \"101\", \"PCS\", 3.5]]", MediaType.APPLICATION_JSON));
-        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A1")))
-                .andRespond(withSuccess("[[10001, \"PO20260512001\", \"2026-05-12T09:30:00\", \"C\", \"A\", \"A\", \"881\", \"SUP-001\", \"Supplier A\", \"MAT-001\", \"Material A\", 3.5, 15.2, 13, \"Line remark\", \"PCS\", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, \"102\", \"PCS\", 3.5]]", MediaType.APPLICATION_JSON));
-        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A2")))
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("FID+%3E+0")))
+                .andRespond(withSuccess("[[10001, \"2026-01-01 09:00:00\"]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("FPOOrderEntry_FEntryID+%3E+0")))
+                .andRespond(withSuccess("[[10001, \"PO20260512001\", \"2026-05-12T09:30:00\", \"C\", \"A\", \"A\", \"881\", \"SUP-001\", \"Supplier A\", \"MAT-001\", \"Material A\", 3.5, 15.2, 13, \"Line remark\", \"PCS\", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, \"101\", \"PCS\", 3.5, \"2026-01-01 09:00:00\"]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("FPOOrderEntry_FEntryID+%3E+101")))
+                .andRespond(withSuccess("[[10001, \"PO20260512001\", \"2026-05-12T09:30:00\", \"C\", \"A\", \"A\", \"881\", \"SUP-001\", \"Supplier A\", \"MAT-001\", \"Material A\", 3.5, 15.2, 13, \"Line remark\", \"PCS\", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, \"102\", \"PCS\", 3.5, \"2026-01-01 09:00:00\"]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("FPOOrderEntry_FEntryID+%3E+102")))
                 .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("%22FieldKeys%22%3A%22FID%2CFModifyDate%22")))
+                .andRespond(withSuccess("[[10001, \"2026-01-01 09:00:00\"]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("FID+%3E+10001")))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+
         var orders = new ErpKingdeePurchaseOrderClientImpl(rest).fetchPurchaseOrders(properties);
         assertEquals(1, orders.size());
         assertEquals(2, orders.get(0).getLines().size());

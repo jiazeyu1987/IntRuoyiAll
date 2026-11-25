@@ -23,6 +23,19 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteVersionWorkflowServiceImplTest {
+    @Test
+    void publishPrecheckRejectsMissingSopButAllowsIntentionallyUnbound() {
+        var active = activeVersion();
+        var candidate = draftCandidate(active);
+        when(routeVersionMapper.selectById(candidate.getId())).thenReturn(candidate);
+        when(routeVersionMapper.selectActiveByRouteId(candidate.getRouteId())).thenReturn(active);
+        org.junit.jupiter.api.Assertions.assertTrue(service.getPublishBlockers(candidate.getId()).getPublishable());
+        candidate.setRouteSnapshotJson(candidate.getRouteSnapshotJson().replace(",\"sopFileUrl\":null", ""));
+        org.junit.jupiter.api.Assertions.assertFalse(service.getPublishBlockers(candidate.getId()).getPublishable());
+        org.mockito.Mockito.verifyNoInteractions(platformAdapter);
+        org.mockito.Mockito.verify(routeVersionMapper, org.mockito.Mockito.never()).updateById(any(MesProRouteVersionDO.class));
+    }
+
     @org.mockito.Mock
     private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
 
@@ -97,7 +110,7 @@ class MesProRouteVersionWorkflowServiceImplTest {
     private String completeRouteSnapshot() {
         return """
                 {"routeId":9001,"routeCode":"ROUTE-XLSX-00001","routeName":"route",
-                 "configSnapshots":{"flowGraph":{"nodes":[{"routeProcessId":922483,"processId":201}]},
+                 "configSnapshots":{"flowGraph":{"nodes":[{"routeProcessId":922483,"processId":201,"sopFileUrl":null}]},
                  "products":[],"scheduleConfigs":[],"batchUseConfigs":[],"scheduleUseConfigs":[],
                  "productionProcessConfigSchemaVersion":1,
                  "productionProcessConfigs":[{"routeProcessId":922483,"processId":201,

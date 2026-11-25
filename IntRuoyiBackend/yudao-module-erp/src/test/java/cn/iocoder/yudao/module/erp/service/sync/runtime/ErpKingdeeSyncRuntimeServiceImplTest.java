@@ -36,12 +36,34 @@ class ErpKingdeeSyncRuntimeServiceImplTest {
     @Mock
     private ErpKingdeeSyncCancellation cancellation;
 
+    @Mock
+    private cn.iocoder.yudao.module.erp.service.config.ErpKingdeeSourceLock sourceLock;
+
     private ErpKingdeeSyncRuntimeServiceImpl runtimeService;
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(runMapper.update(any(), any())).thenReturn(1);
         runtimeService = new ErpKingdeeSyncRuntimeServiceImpl(
-                new ErpKingdeeSyncRuntimeTransactionService(watermarkMapper, runMapper), cancellation);
+                new ErpKingdeeSyncRuntimeTransactionService(watermarkMapper, runMapper), cancellation, sourceLock);
+    }
+
+    @Test
+    void identifiedOrderFailureRecordsContextAndZeroCommittedCountsWithoutAdvancingWatermark() {
+        var failure = new ErpKingdeeOrderSyncFailure("PurchaseOrder", "10001", "PO-1", "更新已有订单", 12,
+                new IllegalStateException("入库数量不一致"));
+        assertSame(failure, assertThrows(ErpKingdeeOrderSyncFailure.class, () -> runtimeService.executeSync(
+                buildCommand(), context -> { throw failure; })));
+        var update = ArgumentCaptor.forClass(ErpKingdeeSyncRunDO.class);
+        verify(runMapper).update(update.capture(), any());
+        assertEquals(ErpKingdeeSyncRunStatusEnum.FAILED.getStatus(), update.getValue().getStatus());
+        assertEquals(0, update.getValue().getCreatedCount());
+        assertEquals(0, update.getValue().getUpdatedCount());
+        assertEquals(1, update.getValue().getFailedCount());
+        org.junit.jupiter.api.Assertions.assertTrue(update.getValue().getFailureMessage().contains("FID=10001, billNo=PO-1"));
+        org.junit.jupiter.api.Assertions.assertTrue(update.getValue().getFailureMessage().contains("step=更新已有订单, fetched=12"));
+        verify(watermarkMapper, never()).insert(any(ErpKingdeeSyncWatermarkDO.class));
+        verify(watermarkMapper, never()).updateById(any(ErpKingdeeSyncWatermarkDO.class));
     }
 
     @Test
@@ -92,7 +114,7 @@ class ErpKingdeeSyncRuntimeServiceImplTest {
         assertEquals(windowEnd, watermarkUpdateCaptor.getValue().getLastSuccessTime());
 
         ArgumentCaptor<ErpKingdeeSyncRunDO> runUpdateCaptor = ArgumentCaptor.forClass(ErpKingdeeSyncRunDO.class);
-        verify(runMapper).updateById(runUpdateCaptor.capture());
+        verify(runMapper).update(runUpdateCaptor.capture(), any());
         assertEquals(ErpKingdeeSyncRunStatusEnum.SUCCESS.getStatus(), runUpdateCaptor.getValue().getStatus());
         assertEquals(2, runUpdateCaptor.getValue().getCreatedCount());
         assertEquals(3, runUpdateCaptor.getValue().getUpdatedCount());
@@ -108,7 +130,7 @@ class ErpKingdeeSyncRuntimeServiceImplTest {
         ErpKingdeeSyncRunResult result = runtimeService.executeSync(
                 buildCommand(windowEnd),
                 context -> {
-                    assertEquals(windowEnd.minusSeconds(1), context.getWindowStart());
+                    assertEquals(LocalDateTime.of(1970, 1, 1, 0, 0), context.getWindowStart());
                     assertEquals(windowEnd, context.getWindowEnd());
                     assertEquals(true, context.isInitialSync());
                     return ErpKingdeeSyncRunResult.success(windowEnd, 0, 0, 0, 0);
@@ -117,7 +139,7 @@ class ErpKingdeeSyncRuntimeServiceImplTest {
         assertEquals(0, result.getCreatedCount());
         ArgumentCaptor<ErpKingdeeSyncRunDO> runInsertCaptor = ArgumentCaptor.forClass(ErpKingdeeSyncRunDO.class);
         verify(runMapper).insert(runInsertCaptor.capture());
-        assertEquals(windowEnd.minusSeconds(1), runInsertCaptor.getValue().getWindowStartTime());
+        assertEquals(LocalDateTime.of(1970, 1, 1, 0, 0), runInsertCaptor.getValue().getWindowStartTime());
         assertEquals(windowEnd, runInsertCaptor.getValue().getWindowEndTime());
 
         ArgumentCaptor<ErpKingdeeSyncWatermarkDO> watermarkInsertCaptor =
@@ -166,7 +188,7 @@ class ErpKingdeeSyncRuntimeServiceImplTest {
         verify(watermarkMapper, never()).insert(any(ErpKingdeeSyncWatermarkDO.class));
         verify(watermarkMapper, never()).updateById(any(ErpKingdeeSyncWatermarkDO.class));
         ArgumentCaptor<ErpKingdeeSyncRunDO> runUpdateCaptor = ArgumentCaptor.forClass(ErpKingdeeSyncRunDO.class);
-        verify(runMapper).updateById(runUpdateCaptor.capture());
+        verify(runMapper).update(runUpdateCaptor.capture(), any());
         assertEquals(ErpKingdeeSyncRunStatusEnum.FAILED.getStatus(), runUpdateCaptor.getValue().getStatus());
         assertEquals("Kingdee API timeout", runUpdateCaptor.getValue().getFailureMessage());
     }
@@ -183,7 +205,7 @@ class ErpKingdeeSyncRuntimeServiceImplTest {
                 }));
 
         ArgumentCaptor<ErpKingdeeSyncRunDO> runUpdateCaptor = ArgumentCaptor.forClass(ErpKingdeeSyncRunDO.class);
-        verify(runMapper).updateById(runUpdateCaptor.capture());
+        verify(runMapper).update(runUpdateCaptor.capture(), any());
         assertEquals(ErpKingdeeSyncRunStatusEnum.FAILED.getStatus(), runUpdateCaptor.getValue().getStatus());
         assertEquals(1000, runUpdateCaptor.getValue().getFailureMessage().length());
         assertEquals(longMessage.substring(0, 1000), runUpdateCaptor.getValue().getFailureMessage());
@@ -202,6 +224,24 @@ class ErpKingdeeSyncRuntimeServiceImplTest {
         verify(cancellation).unlock(ErpKingdeeSyncTypeEnum.PRODUCTION_ORDER.getType());
     }
 
+    @Test
+    void resultContainingFailuresCannotAdvanceWatermarkOrReportSuccess() {
+        assertThrows(IllegalStateException.class, () -> runtimeService.executeSync(buildCommand(),
+                context -> ErpKingdeeSyncRunResult.success(context.getWindowEnd(), 2, 0, 0, 1)));
+        verify(watermarkMapper, never()).insert(any(ErpKingdeeSyncWatermarkDO.class));
+        verify(watermarkMapper, never()).updateById(any(ErpKingdeeSyncWatermarkDO.class));
+        ArgumentCaptor<ErpKingdeeSyncRunDO> update = ArgumentCaptor.forClass(ErpKingdeeSyncRunDO.class);
+        verify(runMapper).update(update.capture(), any());
+        assertEquals(ErpKingdeeSyncRunStatusEnum.FAILED.getStatus(), update.getValue().getStatus());
+    }
+    @Test
+    void stopBetweenCancellationCheckAndFinalizeRejectsSuccess() {
+        var service = new ErpKingdeeSyncRuntimeTransactionService(watermarkMapper, runMapper);
+        when(runMapper.update(any(), any())).thenReturn(0);
+        var execution = service.start(buildCommand());
+        assertThrows(java.util.concurrent.CancellationException.class, () -> service.complete(execution,
+                ErpKingdeeSyncRunResult.success(null, 1, 0, 0, 0)));
+    }
     private static ErpKingdeeSyncCommand buildCommand() {
         return buildCommand(LocalDateTime.of(2026, 6, 12, 2, 0));
     }

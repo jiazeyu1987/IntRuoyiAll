@@ -35,8 +35,27 @@
         label-width="80px"
         v-loading="formLoading"
       >
+        <el-alert
+          v-if="postLoadError"
+          :title="postLoadError"
+          type="error"
+          :closable="false"
+          class="mb-10px"
+        />
+        <el-alert
+          v-else-if="!postLoading && postList.length === 0"
+          title="没有可用岗位。候选来自已启用的组织角色，请由有权限的管理员新增或启用岗位后刷新。"
+          type="warning"
+          :closable="false"
+          class="mb-10px"
+        />
         <el-form-item label="岗位" prop="postId">
-          <el-select v-model="formData.postId" placeholder="请选择岗位" class="!w-1/1">
+          <el-select
+            v-model="formData.postId"
+            placeholder="请选择岗位"
+            :loading="postLoading"
+            class="!w-1/1"
+          >
             <el-option
               v-for="post in postList"
               :key="post.id"
@@ -44,6 +63,12 @@
               :value="post.id!"
             />
           </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button :loading="postLoading" @click="loadPosts">刷新岗位</el-button>
+          <el-button v-hasPermi="['system:post:create']" @click="postFormRef?.open('create')"
+            >新增岗位（组织角色）</el-button
+          >
         </el-form-item>
         <el-form-item label="数量" prop="quantity">
           <el-input-number
@@ -58,16 +83,23 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="submitForm" type="primary" :disabled="formLoading">确 定</el-button>
+        <el-button
+          @click="submitForm"
+          type="primary"
+          :disabled="formLoading || postLoading || !!postLoadError || !postList.length"
+          >确 定</el-button
+        >
         <el-button @click="dialogVisible = false">取 消</el-button>
       </template>
     </Dialog>
+    <PostForm ref="postFormRef" @success="loadPosts" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { MdWorkstationWorkerApi, MdWorkstationWorkerVO } from '@/api/mes/md/workstation/worker'
 import * as PostApi from '@/api/system/post'
+import PostForm from '@/views/system/post/PostForm.vue'
 
 defineOptions({ name: 'WorkstationWorkerList' })
 
@@ -83,6 +115,22 @@ const isDetail = computed(() => props.formType === 'detail') // 是否详情模�
 const loading = ref(false) // 列表的加载中
 const list = ref<MdWorkstationWorkerVO[]>([]) // 列表的数据
 const postList = ref<PostApi.PostVO[]>([]) // 岗位下拉列表
+const postFormRef = ref()
+const postLoading = ref(false)
+const postLoadError = ref('')
+const loadPosts = async () => {
+  postLoading.value = true
+  postLoadError.value = ''
+  postList.value = []
+  try {
+    postList.value = await PostApi.getSimplePostList()
+  } catch (error) {
+    postLoadError.value = '岗位加载失败，请检查错误提示后重试；当前不能保存人力配置。'
+    throw error
+  } finally {
+    postLoading.value = false
+  }
+}
 
 /** 查询列表 */
 const getList = async () => {
@@ -119,7 +167,7 @@ const openForm = async (type: string, row?: MdWorkstationWorkerVO) => {
   dialogFormType.value = type
   resetForm()
   // 加载岗位列表
-  postList.value = await PostApi.getSimplePostList()
+  await loadPosts()
   // 修改时，设置数据
   if (type === 'update' && row) {
     formData.value = { ...row }

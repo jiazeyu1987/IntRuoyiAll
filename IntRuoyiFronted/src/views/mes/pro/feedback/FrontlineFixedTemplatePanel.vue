@@ -6162,11 +6162,13 @@ const handleConfirmPqcSubmit = async () => {
         : `PQC正式提交成功，事件编号 ${eventIds}`
     )
     resetPqcSubmissionDrafts(submitPayloads.map((payload) => payload.pqcTaskId))
+    // Reset intentionally changes the submit context; guard the resulting read context.
+    const isRefreshCurrent = pqcSubmitGuard.capture()
     const orderId = submitPayloads[0].activeOrderId
     const selectedProcess = deviceState.selectedProcess
     try {
       const processes = await ProFeedbackApi.getPqcProcesses(orderId, currentLoginUserId.value)
-      if (!isCurrent() || deviceState.selectedActiveOrder?.activeOrderId !== orderId ||
+      if (!isRefreshCurrent() || deviceState.selectedActiveOrder?.activeOrderId !== orderId ||
           deviceState.selectedProcess !== selectedProcess) return
       deviceState.processOptions = processes
       if (isFrontlinePqcProcess(selectedProcess)) {
@@ -6174,13 +6176,28 @@ const handleConfirmPqcSubmit = async () => {
           process.regulationVersionId === selectedProcess.regulationVersionId &&
           process.qaProcessId === selectedProcess.qaProcessId)
         if (!refreshedProcess) throw new Error('刷新后缺少原PQC工序')
-        await handleSelectProcess(refreshedProcess)
+        // Refresh the same process atomically; keep the selected employee and permission context.
+        try {
+          deviceState.selectedProcess = refreshedProcess
+          applyPqcTaskSnapshotToDraft(refreshedProcess)
+        } catch (error) {
+          showFrontlineError(`提交已成功，但已提交数据刷新失败：${resolveErrorMessage(error)}。请刷新订单后查看。`)
+          return
+        }
       }
       if (route.query.returnTaskId !== undefined && route.query.handoffType === 'PQC_RETURN') {
-        await router.replace({ path: route.path, query: {} })
+        const isCleanupCurrent = pqcSubmitGuard.capture()
+        try {
+          const navigationFailure = await router.replace({ path: route.path, query: {} })
+          if (navigationFailure) throw navigationFailure
+        } catch (error) {
+          if (isCleanupCurrent()) {
+            showFrontlineError(`提交已成功，但退回任务页面清理失败：${resolveErrorMessage(error)}。请刷新订单后查看。`)
+          }
+        }
       }
     } catch (error) {
-      if (deviceState.selectedActiveOrder?.activeOrderId === orderId) {
+      if (isRefreshCurrent() && deviceState.selectedActiveOrder?.activeOrderId === orderId) {
         showFrontlineError(`提交已成功，但已提交数据刷新失败：${resolveErrorMessage(error)}。请刷新订单后查看。`)
       }
     }

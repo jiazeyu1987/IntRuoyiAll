@@ -24,7 +24,11 @@ import cn.iocoder.yudao.module.erp.enums.ErpAuditStatus;
 import cn.iocoder.yudao.module.erp.service.purchase.ErpPurchaseOrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import cn.iocoder.yudao.module.erp.service.sync.runtime.*;
+import jakarta.annotation.Resource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
@@ -53,8 +57,12 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
     private final ErpProductCategoryMapper productCategoryMapper;
     private final ErpProductUnitMapper productUnitMapper;
 
+    @Resource
+    private PlatformTransactionManager transactionManager;
+    @Resource
+    private ErpKingdeeSyncRuntimeTransactionService runtimeTransactionService;
+
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public ErpKingdeePurchaseOrderSyncResult syncPurchaseOrders() {
         ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
         kingdeeProperties.validatePurchaseOrderSyncConfig();
@@ -63,7 +71,6 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public ErpKingdeePurchaseOrderSyncResult syncAllWithUpdates() {
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         properties.validatePurchaseOrderSyncConfig();
@@ -71,13 +78,11 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public ErpKingdeePurchaseOrderSyncResult syncPurchaseOrdersFullSkipExisting() {
         return syncPurchaseOrdersFullSkipExisting(null, null);
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public ErpKingdeePurchaseOrderSyncResult syncPurchaseOrdersFullSkipExisting(LocalDateTime windowStart, LocalDateTime windowEnd) {
         ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
         kingdeeProperties.validatePurchaseOrderSyncConfig();
@@ -87,7 +92,6 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public ErpKingdeePurchaseOrderSyncResult syncPurchaseOrdersModifiedBetween(LocalDateTime windowStart,
                                                                                LocalDateTime windowEnd) {
         ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
@@ -103,28 +107,65 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
         Map<String, ErpKingdeeMaterialDetail> materialDetails = new HashMap<>();
 
         ErpKingdeePurchaseOrderSyncResult result = new ErpKingdeePurchaseOrderSyncResult();
+        List<ErpKingdeeOrderSyncFailure> failures = new ArrayList<>();
         for (ErpKingdeePurchaseOrder purchaseOrder : purchaseOrders) {
-            ErpKingdeePurchaseOrderSyncRecordDO syncRecord =
-                    syncRecordMapper.selectBySourceKey(ErpKingdeePurchaseOrder.FORM_ID, purchaseOrder.getFid());
-            if (syncRecord != null) {
-                if (skipExisting) {
-                    result.addSkipped(purchaseOrder.getFid());
-                    continue;
+            if (Thread.currentThread().isInterrupted()) { throw new java.util.concurrent.CancellationException("ERP同步已停止"); }
+            String[] step = {"读取本地同步关联"};
+            try {
+                TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+                transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                ErpKingdeePurchaseOrderSyncResult single = transaction.execute(status -> {
+                ErpKingdeePurchaseOrderSyncResult itemResult = new ErpKingdeePurchaseOrderSyncResult();
+                ErpKingdeePurchaseOrderSyncRecordDO syncRecord =
+                        syncRecordMapper.selectBySourceKey(ErpKingdeePurchaseOrder.FORM_ID, purchaseOrder.getFid());
+                if (syncRecord != null) {
+                    if (skipExisting) {
+                        itemResult.addSkipped(purchaseOrder.getFid());
+                        recordProgress(itemResult);
+                        return itemResult;
+                    }
+                    step[0] = "更新已有订单及明细";
+                    updateExistingPurchaseOrder(kingdeeProperties, purchaseOrder, syncRecord, materialDetails);
+                    itemResult.addUpdated(syncRecord.getPurchaseOrderId());
+                } else {
+                    step[0] = "构建并新增订单";
+                    ErpPurchaseOrderSaveReqVO createReqVO = buildCreateReqVO(kingdeeProperties, purchaseOrder, materialDetails);
+                    Long purchaseOrderId = purchaseOrderService.createPurchaseOrder(createReqVO);
+                    step[0] = "写入源状态及同步记录";
+                    updateKingdeeSourceStatus(purchaseOrderId, purchaseOrder);
+                    if (isApproved(purchaseOrder)) {
+                        purchaseOrderService.updatePurchaseOrderStatus(purchaseOrderId, ErpAuditStatus.APPROVE.getStatus());
+                    }
+                    syncRecordMapper.insert(buildSyncRecord(purchaseOrder, purchaseOrderId));
+                    itemResult.addCreated(purchaseOrderId);
                 }
-                updateExistingPurchaseOrder(kingdeeProperties, purchaseOrder, syncRecord, materialDetails);
-                result.addUpdated(syncRecord.getPurchaseOrderId());
-            } else {
-                ErpPurchaseOrderSaveReqVO createReqVO = buildCreateReqVO(kingdeeProperties, purchaseOrder, materialDetails);
-                Long purchaseOrderId = purchaseOrderService.createPurchaseOrder(createReqVO);
-                updateKingdeeSourceStatus(purchaseOrderId, purchaseOrder);
-                if (isApproved(purchaseOrder)) {
-                    purchaseOrderService.updatePurchaseOrderStatus(purchaseOrderId, ErpAuditStatus.APPROVE.getStatus());
-                }
-                syncRecordMapper.insert(buildSyncRecord(purchaseOrder, purchaseOrderId));
-                result.addCreated(purchaseOrderId);
+                recordProgress(itemResult);
+                return itemResult;
+                });
+                single.getCreatedPurchaseOrderIds().forEach(result::addCreated);
+                single.getUpdatedPurchaseOrderIds().forEach(result::addUpdated);
+                single.getSkippedSourceFids().forEach(result::addSkipped);
+            } catch (java.util.concurrent.CancellationException ex) {
+                throw ex;
+            } catch (RuntimeException ex) {
+                org.slf4j.LoggerFactory.getLogger(ErpKingdeePurchaseOrderSyncServiceImpl.class).error(
+                        "ERP订单同步失败 form={} fid={} billNo={} step={} errorType={}",
+                        ErpKingdeePurchaseOrder.FORM_ID, purchaseOrder.getFid(), purchaseOrder.getBillNo(),
+                        step[0], ex.getClass().getSimpleName());
+                failures.add(new ErpKingdeeOrderSyncFailure(
+                        "PurchaseOrder", purchaseOrder.getFid(), purchaseOrder.getBillNo(), step[0], purchaseOrders.size(), ex));
             }
         }
+        if (!failures.isEmpty()) { throw new ErpKingdeeOrderBatchSyncFailure(failures); }
         return result;
+    }
+
+    private void recordProgress(ErpKingdeePurchaseOrderSyncResult result) {
+        Long runId = ErpKingdeeOrderSyncContext.getRunId();
+        if (runId != null) {
+            runtimeTransactionService.recordOrderProgress(runId, ErpKingdeeSyncRunResult.success(null,
+                    result.getCreatedCount(), result.getUpdatedCount(), result.getSkippedCount(), 0));
+        }
     }
 
     private void updateExistingPurchaseOrder(ErpKingdeeProperties kingdeeProperties,
@@ -132,24 +173,27 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
                                              ErpKingdeePurchaseOrderSyncRecordDO syncRecord,
                                              Map<String, ErpKingdeeMaterialDetail> materialDetails) {
         Long purchaseOrderId = syncRecord.getPurchaseOrderId();
+        purchaseOrderService.lockOrder(purchaseOrderId);
         ErpPurchaseOrderDO localOrder = purchaseOrderService.getPurchaseOrder(purchaseOrderId);
         if (localOrder == null) {
             throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID,
                     "local purchase order is missing for source fid " + purchaseOrder.getFid());
         }
-        boolean wasApproved = ErpAuditStatus.APPROVE.getStatus().equals(localOrder.getStatus());
-        if (wasApproved) {
-            purchaseOrderService.updatePurchaseOrderStatus(purchaseOrderId, ErpAuditStatus.PROCESS.getStatus());
-        }
-
         ErpPurchaseOrderSaveReqVO updateReqVO = buildCreateReqVO(kingdeeProperties, purchaseOrder, materialDetails);
         updateReqVO.setId(purchaseOrderId);
-        purchaseOrderService.updatePurchaseOrder(updateReqVO);
+        List<ErpPurchaseOrderSaveReqVO.Item> previousItems = List.of();
+        if (purchaseOrderService.getPurchaseOrderItemListByOrderId(purchaseOrderId).stream()
+                .anyMatch(item -> StrUtil.isBlank(item.getSourceEntryId()))) {
+            if (StrUtil.isBlank(syncRecord.getRawPayload())) {
+                throw new IllegalStateException("历史订单缺少原始ERP快照，无法绑定明细EntryID");
+            }
+            previousItems = buildItems(kingdeeProperties,
+                    JsonUtils.parseObject(syncRecord.getRawPayload(), ErpKingdeePurchaseOrder.class), materialDetails);
+        }
+        purchaseOrderService.updatePurchaseOrderFromKingdee(updateReqVO,
+                isApproved(purchaseOrder) ? ErpAuditStatus.APPROVE.getStatus() : ErpAuditStatus.PROCESS.getStatus(), previousItems);
         updateKingdeeSourceStatus(purchaseOrderId, purchaseOrder);
 
-        if (isApproved(purchaseOrder)) {
-            purchaseOrderService.updatePurchaseOrderStatus(purchaseOrderId, ErpAuditStatus.APPROVE.getStatus());
-        }
         syncRecordMapper.updateById(new ErpKingdeePurchaseOrderSyncRecordDO()
                 .setId(syncRecord.getId())
                 .setSourceBillNo(purchaseOrder.getBillNo())
@@ -222,6 +266,7 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
         List<ErpPurchaseOrderSaveReqVO.Item> items = new ArrayList<>(kingdeeOrder.getLines().size());
         for (ErpKingdeePurchaseOrder.Line line : kingdeeOrder.getLines()) {
             ErpPurchaseOrderSaveReqVO.Item item = new ErpPurchaseOrderSaveReqVO.Item();
+            item.setSourceEntryId(line.getEntryId());
             item.setProductId(resolveProductId(kingdeeProperties, line, materialDetails));
             item.setProductUnitId(StrUtil.isBlank(line.getUnitName()) ? null : ensureOrderUnit(line.getUnitName()));
             // Source drafts may have no unit. Preserve their reported price without inventing a conversion.

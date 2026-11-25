@@ -1215,6 +1215,8 @@ public class AdminUserServiceImpl implements AdminUserService {
             successfulRows.put(updateUser.getId(), importUser);
         });
         restoreImportedDepartmentLeaders(successfulRows, importDepartments, isUpdateSupport);
+        successfulRows.keySet().forEach(userId -> signatureAuthorization.authorizeProvisionedUser(
+                userId, "用户导入自动授予电子签名授权"));
         return respVO;
     }
 

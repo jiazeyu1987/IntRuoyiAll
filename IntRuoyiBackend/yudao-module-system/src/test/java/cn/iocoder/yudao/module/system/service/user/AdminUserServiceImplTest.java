@@ -1620,6 +1620,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         assertEquals("RESET_REQUIRED", user.getPasswordCredentialStatus());
         assertEquals(0, respVO.getUpdateUsernames().size());
         assertEquals(0, respVO.getFailureUsernames().size());
+        verify(signatureAuthorization).authorizeProvisionedUser(user.getId(), "用户导入自动授予电子签名授权");
     }
 
     /**
@@ -1655,6 +1656,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         assertEquals(0, respVO.getUpdateUsernames().size());
         assertEquals(1, respVO.getFailureUsernames().size());
         assertEquals(USER_USERNAME_EXISTS.getMsg(), respVO.getFailureUsernames().get(importUser.getUsername()));
+        verifyNoInteractions(signatureAuthorization);
     }
 
     /**
@@ -1694,6 +1696,34 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         AdminUserDO user = userMapper.selectByUsername(respVO.getUpdateUsernames().get(0));
         assertPojoEquals(importUser, user);
         assertEquals(0, respVO.getFailureUsernames().size());
+        verify(signatureAuthorization).authorizeProvisionedUser(user.getId(), "用户导入自动授予电子签名授权");
+    }
+
+    @Test
+    public void testImportUserList_authorizationFailureRollsBackCreatedAndUpdatedUsers() {
+        var existing = randomAdminUserDO(user -> {
+            user.setUsername("existing01");
+            user.setCanonicalUsername("existing01");
+            user.setNickname("原姓名");
+            user.setPassword("original-password-hash");
+            user.setTenantId(1L);
+            user.setDeptId(null);
+        });
+        userMapper.insert(existing);
+        when(passwordEncoder.encode(TEST_INIT_PASSWORD)).thenReturn("hash");
+        var created = UserImportExcelVO.builder().username("imported01").nickname("新用户").status(0).build();
+        var updated = UserImportExcelVO.builder().username("existing01").nickname("新姓名").status(0).build();
+        doThrow(new IllegalStateException("AUTHORIZATION_WRITE_FAILED"))
+                .when(signatureAuthorization).authorizeProvisionedUser(eq(existing.getId()), anyString());
+
+        var error = assertThrows(IllegalStateException.class,
+                () -> userService.importUserList(List.of(created, updated), true));
+
+        assertEquals("AUTHORIZATION_WRITE_FAILED", error.getMessage());
+        assertNull(userMapper.selectByUsername("imported01"));
+        assertEquals("原姓名", userMapper.selectById(existing.getId()).getNickname());
+        assertEquals("original-password-hash", userMapper.selectById(existing.getId()).getPassword());
+        assertEquals(1L, userMapper.selectCount());
     }
 
     @Test

@@ -77,6 +77,7 @@
           ref="routeFlowGraphDesignerRef"
           :route-id="formData.id"
           :route-name="formData.name"
+          :route-node-type="formData.nodeType"
           :active-route-version-no="formData.activeRouteVersionNo"
           :active-route-version-id="formData.activeRouteVersionId"
           :form-type="productionConfigFormType"

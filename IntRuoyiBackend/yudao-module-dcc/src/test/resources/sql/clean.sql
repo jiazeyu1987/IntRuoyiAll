@@ -121,3 +121,5 @@ DELETE FROM dcc_obsolete_form_runtime_snapshot;
 DELETE FROM `dcc_controlled_file_preview_view_session`;
 DELETE FROM dcc_project_file_reference;
 DELETE FROM dcc_controlled_file_source_ownership;
+
+DELETE FROM dcc_registration_certificate_product;

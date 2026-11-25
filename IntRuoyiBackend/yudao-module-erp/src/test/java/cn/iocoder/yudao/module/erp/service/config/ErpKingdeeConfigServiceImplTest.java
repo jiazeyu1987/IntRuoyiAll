@@ -37,11 +37,17 @@ class ErpKingdeeConfigServiceImplTest {
     @Mock
     private TenantConfigService tenantConfigService;
 
+    @Mock
+    private ErpKingdeeSourceLock sourceLock;
+    @Mock
+    private cn.iocoder.yudao.module.erp.dal.mysql.sync.ErpKingdeeSourceEvidenceMapper sourceEvidenceMapper;
+
     @InjectMocks
     private ErpKingdeeConfigServiceImpl kingdeeConfigService;
 
     @BeforeEach
     void setUp() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
         ErpKingdeeProperties defaultProperties = new ErpKingdeeProperties();
         defaultProperties.setBaseUrl("http://172.30.30.8/K3Cloud");
         defaultProperties.setAcctId("6977227150362f");
@@ -61,6 +67,90 @@ class ErpKingdeeConfigServiceImplTest {
         defaultProperties.getSaleOrder().setQueryDays(365);
         defaultProperties.getSaleOrder().setQueryLimit(1000);
         ReflectionTestUtils.setField(kingdeeConfigService, "defaultKingdeeProperties", defaultProperties);
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearTenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+    }
+
+    @Test
+    void saveConfig_rejectsInitializationWithUnknownHistoricalSource() {
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY, "TEST"));
+        when(sourceEvidenceMapper.hasEvidence(1L)).thenReturn(true);
+        assertThrows(RuntimeException.class, () -> kingdeeConfigService.saveConfig(buildSaveReqVO()));
+        verify(tenantConfigService, never()).createConfig(any());
+        verify(tenantConfigService, never()).updateConfig(any());
+    }
+
+    @Test
+    void saveConfig_rejectsChangingSourceWithHistory() {
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY, "TEST"));
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(savedTestConfig());
+        when(sourceEvidenceMapper.hasEvidence(1L)).thenReturn(true);
+        ErpKingdeeConfigSaveReqVO request = buildSaveReqVO();
+        request.setAcctId("different-account");
+        assertThrows(RuntimeException.class, () -> kingdeeConfigService.saveConfig(request));
+        verify(tenantConfigService, never()).updateConfig(any());
+    }
+
+    @Test
+    void saveConfig_allowsSameSourceCredentialChangeWithHistory() {
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY, "TEST"));
+        ErpKingdeeConfigSaveReqVO request = buildSaveReqVO();
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY))
+                .thenReturn(config(1L, ErpKingdeeConfigServiceImpl.CONFIG_KEY, JsonUtils.toJsonString(request)));
+        request.setPassword("rotated-password");
+        assertDoesNotThrow(() -> kingdeeConfigService.saveConfig(request));
+        verify(sourceEvidenceMapper, never()).hasEvidence(any());
+        verify(tenantConfigService).updateConfig(any());
+        verify(tenantConfigService, never()).createConfig(any());
+    }
+
+    @Test
+    void updateActiveConnection_rejectsInactiveDifferentSourceWithHistory() {
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY, "TEST"));
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(savedTestConfig());
+        ErpKingdeeConfigSaveReqVO production = buildSaveReqVO();
+        production.setAcctId("inactive-other-source");
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
+                .thenReturn(config(3L, ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY,
+                        JsonUtils.toJsonString(production)));
+        when(sourceEvidenceMapper.hasEvidence(1L)).thenReturn(true);
+        ErpKingdeeActiveConnectionSaveReqVO request = new ErpKingdeeActiveConnectionSaveReqVO();
+        request.setConnectionType("PRODUCTION");
+        assertThrows(RuntimeException.class, () -> kingdeeConfigService.updateActiveConnection(request));
+        verify(tenantConfigService, never()).createConfig(any());
+        verify(tenantConfigService, never()).updateConfig(any());
+    }
+
+    @Test
+    void saveConfig_rejectsUnknownSourceWhenOnlyDeployedModuleHasEvidence() {
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY, "TEST"));
+        ErpKingdeeSourceEvidenceProvider provider = org.mockito.Mockito.mock(ErpKingdeeSourceEvidenceProvider.class);
+        when(provider.hasEvidence(1L)).thenReturn(true);
+        ReflectionTestUtils.setField(kingdeeConfigService, "sourceEvidenceProviders", List.of(provider));
+        assertThrows(RuntimeException.class, () -> kingdeeConfigService.saveConfig(buildSaveReqVO()));
+        verify(provider).hasEvidence(1L);
+        verify(tenantConfigService, never()).createConfig(any());
+    }
+
+    @Test
+    void saveConfig_propagatesDeployedModuleEvidenceFailure() {
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY, "TEST"));
+        ErpKingdeeSourceEvidenceProvider provider = org.mockito.Mockito.mock(ErpKingdeeSourceEvidenceProvider.class);
+        IllegalStateException missingSchema = new IllegalStateException("missing module evidence table");
+        when(provider.hasEvidence(1L)).thenThrow(missingSchema);
+        ReflectionTestUtils.setField(kingdeeConfigService, "sourceEvidenceProviders", List.of(provider));
+        org.junit.jupiter.api.Assertions.assertSame(missingSchema,
+                assertThrows(IllegalStateException.class, () -> kingdeeConfigService.saveConfig(buildSaveReqVO())));
+        verify(tenantConfigService, never()).createConfig(any());
     }
 
     @Test

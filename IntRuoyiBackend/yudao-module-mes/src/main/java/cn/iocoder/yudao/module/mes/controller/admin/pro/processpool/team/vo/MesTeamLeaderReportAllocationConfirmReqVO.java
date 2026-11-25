@@ -34,7 +34,8 @@ public class MesTeamLeaderReportAllocationConfirmReqVO {
     @Schema(description = "电子签名密码，复核入口提交时提供", example = "******")
     private String signaturePassword;
 
-    @Schema(description = "客户端读取的分配版本", example = "1")
+    @Schema(description = "客户端读取的分配版本", requiredMode = Schema.RequiredMode.REQUIRED, example = "1")
+    @NotNull(message = "分配信息尚未加载完成，请重新打开分配窗口")
     private Integer expectedVersion;
 
     @Schema(description = "请求幂等键", example = "allocation-1001-uuid")

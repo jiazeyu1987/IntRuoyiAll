@@ -35,6 +35,9 @@ public class ErpPurchaseOrderItemDO extends BaseDO {
      * 关联 {@link ErpPurchaseOrderDO#getId()}
      */
     private Long orderId;
+
+    /** Stable Kingdee EntryID; never inferred from source row order. */
+    private String sourceEntryId;
     /**
      * 产品编号
      *

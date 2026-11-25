@@ -3,7 +3,7 @@
     <SimpleParserHeader
       v-model:project-id="projectId"
       :requires-project="false"
-      show-project
+      :show-project="false"
       title="通用编制"
       import-accept=".doc,.docx"
       :projects="projects"
@@ -19,18 +19,6 @@
       @restore="restoreLocal"
       @preview="preview"
     />
-    <el-button
-      v-hasPermi="['mes:qc-template:query']"
-      class="mb-16px"
-      @click="
-        router.push({
-          path: '/mes/pro/process-pool/common-regulation',
-          query: publishedResult ? { regulationId: publishedResult.regulationId } : {}
-        })
-      "
-    >
-      查看已发布规程
-    </el-button>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <section v-if="published" class="parser-published-result">
       <el-result

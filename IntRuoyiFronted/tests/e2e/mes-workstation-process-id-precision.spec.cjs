@@ -73,8 +73,8 @@ async function verifyListFailureAndRetry() {
     compilerOptions: { target: ts.ScriptTarget.ES2020 }
   }).outputText
   const getList = new Function('loading', 'listLoadError', 'list', 'total', 'MdWorkstationApi',
-    'buildWorkstationPageParams', 'failedWorkstationId', `${getListCode}; return getList`)(
-      loading, listLoadError, list, total, MdWorkstationApi, () => ({}), failedWorkstationId
+    'buildWorkstationPageParams', 'failedWorkstationId', 'route', `let workstationListSequence = 0; ${getListCode}; return getList`)(
+      loading, listLoadError, list, total, MdWorkstationApi, () => ({}), failedWorkstationId, { fullPath: '/mes/md/workstation' }
     )
   await assert.rejects(getList(), (error) => error === failure)
   assert.equal(listLoadError.value, failure.message)

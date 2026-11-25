@@ -10,7 +10,7 @@ final class DccRegistrationCertificateTestFacts {
     static String domestic(JdbcTemplate jdbc, Long versionId) {
         return jdbc.queryForObject("""
             SELECT v.certificate_no,v.approval_date,v.effective_date,v.expiry_date,v.classification,v.remark,
-                   c.first_obtained_date,c.product_master_id
+                   c.first_obtained_date,c.product_master_id,c.project_code_id
               FROM dcc_registration_certificate_version v
               JOIN dcc_registration_certificate c ON c.id=v.certificate_id AND c.tenant_id=v.tenant_id
              WHERE v.id=?
@@ -18,6 +18,12 @@ final class DccRegistrationCertificateTestFacts {
                 var facts=new DccRegistrationCertificateFacts();
                 facts.setCertificateType("DOMESTIC");facts.setCertificateStatus("VALID");
                 facts.setOwnProduct(rs.getObject("product_master_id")!=null);
+                if (rs.getObject("project_code_id") != null) {
+                    var product = new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateProjectProduct(
+                            rs.getLong("project_code_id"),663L,"0313170202","Product A",
+                            java.util.List.of(new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateProjectProduct.Binding("CONFIRMED",56L)));
+                    facts.setProjectProduct(product);facts.setProjectProducts(java.util.List.of(product));
+                }
                 facts.setCertificateNo(rs.getString("certificate_no"));facts.setClassification(rs.getString("classification"));
                 facts.setRemark(rs.getString("remark"));
                 facts.setFirstObtainedDate(rs.getObject("first_obtained_date",LocalDate.class));

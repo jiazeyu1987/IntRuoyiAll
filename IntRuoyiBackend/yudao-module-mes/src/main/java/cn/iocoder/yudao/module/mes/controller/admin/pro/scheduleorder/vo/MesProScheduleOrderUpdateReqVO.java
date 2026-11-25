@@ -17,8 +17,7 @@ public class MesProScheduleOrderUpdateReqVO {
     @NotNull(message = "排产工单不能为空")
     private Long id;
 
-    @Schema(description = "承诺交期", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "承诺交期不能为空")
+    @Schema(description = "承诺交期，不传则保持原值")
     private LocalDate promiseDate;
 
     @Schema(description = "优先级排序", requiredMode = Schema.RequiredMode.REQUIRED, example = "10")
@@ -26,7 +25,7 @@ public class MesProScheduleOrderUpdateReqVO {
     @Min(value = 1, message = "排产工单优先级必须大于等于 1")
     private Integer priorityNo;
 
-    @Schema(description = "计划开工时间")
+    @Schema(description = "计划开工时间，不传则保持原值")
     private LocalDateTime plannedStartTime;
 
     @Schema(description = "备注")

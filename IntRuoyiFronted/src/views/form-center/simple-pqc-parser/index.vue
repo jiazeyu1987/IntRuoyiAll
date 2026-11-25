@@ -329,24 +329,34 @@
         @locate="(index) => editIssue(issues[index])"
       >
         <template #action="{ issue }">
-          <el-select
-            v-if="issue.field === 'equipment'"
-            :model-value="issueEquipment(issue).equipmentOptions.map((e) => e.equipmentId)"
-            class="issue-equipment-select"
-            multiple
-            filterable
-            :disabled="busy || published"
-            :aria-label="`${issue.message}：选择设备编号`"
-            placeholder="选择设备编号"
-            @change="(ids) => selectIssueEquipment(issue, ids)"
-          >
-            <el-option
-              v-for="m in machinery"
-              :key="m.id"
-              :label="`${m.code} / ${m.name}`"
-              :value="m.id"
+          <div v-if="issue.field === 'equipment'" class="issue-equipment-actions">
+            <el-switch
+              :model-value="needsEquipment(issueEquipment(issue))"
+              :disabled="busy || published"
+              :aria-label="`${issue.message}：是否需要设备`"
+              inline-prompt
+              active-text="需要设备"
+              inactive-text="无需设备"
+              @change="(required) => toggleIssueEquipment(issue, required)"
             />
-          </el-select>
+            <el-select
+              :model-value="issueEquipment(issue).equipmentOptions.map((e) => e.equipmentId)"
+              class="issue-equipment-select"
+              multiple
+              filterable
+              :disabled="busy || published"
+              :aria-label="`${issue.message}：选择设备编号`"
+              placeholder="选择设备编号"
+              @change="(ids) => selectIssueEquipment(issue, ids)"
+            >
+              <el-option
+                v-for="m in machinery"
+                :key="m.id"
+                :label="`${m.code} / ${m.name}`"
+                :value="m.id"
+              />
+            </el-select>
+          </div>
           <el-button v-else link type="primary" :disabled="busy" @click="editIssue(issue)">
             定位修改
           </el-button>
@@ -450,24 +460,34 @@
           @locate="(index) => editIssue(issues[index])"
         >
           <template #action="{ issue }">
-            <el-select
-              v-if="issue.field === 'equipment'"
-              :model-value="issueEquipment(issue).equipmentOptions.map((e) => e.equipmentId)"
-              class="issue-equipment-select"
-              multiple
-              filterable
-              :disabled="busy || published"
-              :aria-label="`${issue.message}：选择设备编号`"
-              placeholder="选择设备编号"
-              @change="(ids) => selectIssueEquipment(issue, ids)"
-            >
-              <el-option
-                v-for="m in machinery"
-                :key="m.id"
-                :label="`${m.code} / ${m.name}`"
-                :value="m.id"
+            <div v-if="issue.field === 'equipment'" class="issue-equipment-actions">
+              <el-switch
+                :model-value="needsEquipment(issueEquipment(issue))"
+                :disabled="busy || published"
+                :aria-label="`${issue.message}：是否需要设备`"
+                inline-prompt
+                active-text="需要设备"
+                inactive-text="无需设备"
+                @change="(required) => toggleIssueEquipment(issue, required)"
               />
-            </el-select>
+              <el-select
+                :model-value="issueEquipment(issue).equipmentOptions.map((e) => e.equipmentId)"
+                class="issue-equipment-select"
+                multiple
+                filterable
+                :disabled="busy || published"
+                :aria-label="`${issue.message}：选择设备编号`"
+                placeholder="选择设备编号"
+                @change="(ids) => selectIssueEquipment(issue, ids)"
+              >
+                <el-option
+                  v-for="m in machinery"
+                  :key="m.id"
+                  :label="`${m.code} / ${m.name}`"
+                  :value="m.id"
+                />
+              </el-select>
+            </div>
             <el-button
               v-else
               link
@@ -858,12 +878,18 @@ function selectIssueEquipment(issue: DraftIssue, ids: number[]) {
   if (busy.value || published.value) return
   selectEquipment(ids, issueEquipment(issue))
 }
-function toggleEquipment(required: boolean) {
-  item.value!.equipmentRequired = required
+function toggleIssueEquipment(issue: DraftIssue, required: boolean) {
+  if (busy.value || published.value) return
+  toggleEquipment(required, issueEquipment(issue))
+}
+function toggleEquipment(required: boolean, target = item.value!) {
+  if (busy.value || published.value) return
+  target.equipmentRequired = required
   if (!required) {
-    item.value!.equipmentOptions = []
-    item.value!.equipmentUnboundReason = undefined
+    target.equipmentOptions = []
+    target.equipmentUnboundReason = undefined
   }
+  confirmedUnbound.value = confirmedUnbound.value.filter((code) => code !== target.itemCode)
 }
 function selectEquipment(ids: number[], target = item.value!) {
   target.equipmentOptions = ids.map((id, index) => {
@@ -1086,6 +1112,16 @@ void searchProjects()
 </script>
 
 <style scoped>
+.issue-equipment-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+:deep(.parser-issue) {
+  flex-wrap: wrap;
+}
 .issue-equipment-select {
   width: 320px;
   max-width: 100%;

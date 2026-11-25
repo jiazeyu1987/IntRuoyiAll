@@ -115,8 +115,14 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     @MockitoBean
     private PermissionApi permissionApi;
 
+    @MockitoBean
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService productBindings;
+
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(productBindings.containsProject(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(invocation -> jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dcc_registration_certificate WHERE tenant_id=? AND id=? AND project_code_id=? AND deleted=0", Long.class, invocation.getArgument(0), invocation.getArgument(1), invocation.getArgument(2)) > 0);
+
         reset(projectCodeService, fileService, permissionApi);
     }
 
@@ -256,7 +262,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void changeUsesItsApprovalDateAndHistoricalUnexpiredFileDoesNotClaimExpiration() throws Exception {
+    void changeUsesItsApprovalDateAndSupersededFileIsMarkedInvalid() throws Exception {
         FormalFixture changeFixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND", "change.pdf");
         jdbcTemplate.update("""
                 INSERT INTO dcc_registration_certificate_change
@@ -276,9 +282,21 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
         when(fileService.getFileContent(changeFixture.infraConfigId(), changeFixture.infraPath()))
                 .thenReturn("CHANGE".getBytes(StandardCharsets.UTF_8));
 
+        var renamed = snapshotMapper.selectById(changeFixture.snapshotId());
+        renamed.setId(null);
+        renamed.setRevisionNo(2);
+        renamed.setProductName("RenamedProduct");
+        snapshotMapper.insert(renamed);
+        jdbcTemplate.update("UPDATE dcc_registration_certificate SET current_snapshot_id=? WHERE id=?",
+                renamed.getId(), changeFixture.certificateId());
+        var unlinked = snapshotMapper.selectById(renamed.getId());
+        unlinked.setId(null);
+        unlinked.setRevisionNo(3);
+        unlinked.setProductName("NotCurrentProduct");
+        snapshotMapper.insert(unlinked);
         DccRegistrationCertificateFileDownloadResult changeResult = deliveryService.download(
                 1L, 99L, changeFixture.businessFileId(), "attempt-change-name", context("REQ-CHANGE-NAME"));
-        assertEquals("PRJ-001_20260817_ProductA变更文件_CERT-DL-001.pdf", changeResult.fileName());
+        assertEquals("PRJ-001_20260817_RenamedProduct变更文件_CERT-DL-001.pdf", changeResult.fileName());
 
         FormalFixture oldFixture = seedGrantedDownload("ACTIVE", "OLD", "BOUND", "old.pdf");
         when(fileService.getFile(oldFixture.infraFileId())).thenReturn(infraFile(oldFixture, "old.pdf"));
@@ -286,7 +304,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
                 .thenReturn("OLD".getBytes(StandardCharsets.UTF_8));
         DccRegistrationCertificateFileDownloadResult oldResult = deliveryService.download(
                 1L, 99L, oldFixture.businessFileId(), "attempt-old-name", context("REQ-OLD-NAME"));
-        assertEquals("PRJ-001_20200201_ProductA_CERT-DL-001.pdf", oldResult.fileName());
+        assertEquals("PRJ-001_20200201_ProductA_CERT-DL-001_已失效.pdf", oldResult.fileName());
     }
 
     @Test
@@ -530,6 +548,25 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
         revision.setCertificateNo("CE002-CHG01");updated.setFactsJson(facts.toJson());snapshotMapper.insert(updated);
         var result=deliveryService.download(1L,99L,fixture.businessFileId(),"ce-dates",context("REQ-CE-DATES"));
         assertEquals("ProductA_CODE-CE_20260304_CE002-CHG01.pdf",result.fileName());
+    }
+
+    @Test
+    void oldCeDownloadKeepsHistoricalFactsAndMarksInvalidBeforeExpiry() throws Exception {
+        var fixture = seedGrantedDownload("ACTIVE", "OLD", "BOUND", "certificate.pdf");
+        var facts = new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts();
+        facts.setCertificateType("CE"); facts.setCertificateStatus("VALID"); facts.setOwnProduct(true);
+        facts.setApprovalDate(LocalDate.of(2026, 3, 4)); facts.setExpiryDate(LocalDate.of(2030, 1, 1));
+        facts.setProductCode("OLD-CODE");
+        var revision = new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.CeCertificate();
+        revision.setCertificateNo("CE-OLD"); facts.setCeCertificates(java.util.List.of(revision));
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=?",
+                facts.toJson(), fixture.snapshotId());
+        when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "certificate.pdf"));
+        when(projectCodeService.getProjectCode(40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 20L));
+        when(fileService.getFileContent(fixture.infraConfigId(), fixture.infraPath())).thenReturn(new byte[]{7, 8});
+        var result = deliveryService.download(1L, 99L, fixture.businessFileId(), "ce-old", context("REQ-CE-OLD"));
+        assertEquals("ProductA_OLD-CODE_20260304_CE-OLD_已失效.pdf", result.fileName());
+        assertArrayEquals(new byte[]{7, 8}, result.bytes());
     }
 
     @Test

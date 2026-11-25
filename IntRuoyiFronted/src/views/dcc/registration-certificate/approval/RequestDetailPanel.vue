@@ -12,6 +12,10 @@
         <el-descriptions-item v-if="detail.rejectReason" label="驳回原因">{{ detail.rejectReason }}</el-descriptions-item>
         <el-descriptions-item v-if="detail.withdrawReason" label="撤回原因">{{ detail.withdrawReason }}</el-descriptions-item>
       </el-descriptions>
+      <el-descriptions v-if="detail.submission?.operation === 'CHANGE_CERTIFICATE'" :column="2" border class="mt-16px">
+        <el-descriptions-item label="本次变更批件批准日">{{ detail.submission?.approvalDate || '未记录' }}</el-descriptions-item>
+        <el-descriptions-item label="原主证批准日">{{ detail.originalApprovalDate || '未记录' }}</el-descriptions-item>
+      </el-descriptions>
       <el-form v-if="facts" class="mt-16px" label-width="140px"><FactsFields :model-value="facts" readonly /></el-form>
       <el-descriptions v-if="draft" :column="2" border>
         <el-descriptions-item v-for="(label, key) in draftLabels" :key="key" :label="label">{{ display(draft[key], key) }}</el-descriptions-item>
@@ -52,13 +56,15 @@ const facts = computed(() => {
   return json ? parseFacts(json) : undefined
 })
 const statusLabels: Record<string,string> = {SUBMITTED:'已提交',BPM_BOUND:'审批中',APPROVED:'已批准',REJECTED:'已驳回',WITHDRAWN:'已撤回'}
-const draftLabels: Record<string,string> = {productName:'产品中文名称',registrantName:'注册人',modelSpecification:'型号规格',structureComposition:'结构组成',intendedUse:'适用范围',technicalRequirements:'技术要求',residenceAddress:'住所',productionAddress:'生产地址',selfProduction:'自产',entrustedProduction:'委托生产',entrustedEnterpriseIds:'受托企业编号',entrustedEnterprisesJson:'受托企业'}
+const draftLabels: Record<string,string> = {productName:'产品中文名称',registrantName:'注册人',modelSpecification:'型号规格',structureComposition:'结构组成',intendedUse:'适用范围',technicalRequirements:'技术要求',residenceAddress:'住所',productionAddress:'生产地址',selfProduction:'自产',entrustedProduction:'委托生产',entrustedEnterprisesJson:'受托企业'}
 const fileLabels: Record<string,string> = {REGISTRATION_CERTIFICATE:'注册证',CHANGE_APPROVAL:'变更批件',CERTIFICATE_ATTACHMENT:'附件',FDA_PRODUCT_DESCRIPTION:'FDA产品描述',RENEWAL_ACCEPTANCE_RECEIPT:'续证受理回执',RENEWAL_SUPPLEMENT_NOTICE:'续证补充通知'}
 const nestedLabels: Record<string,string> = {draft:'本次完整信息',factsJson:'注册证信息',ceCertificates:'证书Rev.记录',revision:'Rev.',issueDate:'签发日期'}
 const display = (value: any, key = '', type: CertificateType = facts.value?.certificateType || 'DOMESTIC'): string => {
   if (key === 'entrustedEnterprisesJson') {
     try {
       if (value != null && typeof value !== 'string') throw new Error('受托企业记录格式异常')
+      if (draft.value?.entrustedEnterpriseDisplayError) return draft.value.entrustedEnterpriseDisplayError
+      if (!value && draft.value?.entrustedEnterpriseIds?.length) return '受托企业名称未记录，无法核对'
       return formatEntrustedEnterpriseNames(value, '无')
     } catch {
       return '受托企业数据格式异常'

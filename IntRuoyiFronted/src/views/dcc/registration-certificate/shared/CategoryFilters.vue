@@ -9,7 +9,7 @@
   <el-form-item v-if="query.certificateType==='CE'" label="证书编号"><el-input v-model="query.ceCertificateNo" clearable/></el-form-item>
   <el-form-item v-for="date in dateFields" :key="date.start" :label="date.label"><el-date-picker v-model="query[date.start]" type="date" value-format="YYYY-MM-DD" placeholder="此日或之后" clearable/><span class="mx-4px">至</span><el-date-picker v-model="query[date.end]" type="date" value-format="YYYY-MM-DD" placeholder="此日或之前" clearable/></el-form-item>
   <el-form-item label="按字段排序"><el-select v-model="query.sortField" clearable><el-option v-for="key in sorts" :key="key" :value="key" :label="factLabels[key]||key"/></el-select><el-select v-model="query.sortOrder" class="ml-8px"><el-option label="正序" value="asc"/><el-option label="倒序" value="desc"/></el-select></el-form-item>
-  <el-form-item><el-button type="primary" @click="apply">组合查询</el-button><el-button @click="clear">重置分类筛选</el-button></el-form-item>
+  <el-form-item><el-button type="primary" @click="apply">组合查询</el-button><el-button @click="clear">重置分类、日期与排序</el-button></el-form-item>
  </el-form></el-collapse-item></el-collapse>
 </template>
 <script setup lang="ts">

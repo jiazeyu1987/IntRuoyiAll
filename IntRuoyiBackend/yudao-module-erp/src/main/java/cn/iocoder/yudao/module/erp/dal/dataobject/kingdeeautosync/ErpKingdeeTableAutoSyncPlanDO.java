@@ -35,6 +35,11 @@ public class ErpKingdeeTableAutoSyncPlanDO extends BaseDO {
     private String cronExpression;
     private Long jobId;
     private LocalDate lastAutoRunDate;
+
+    /** Most recent automatic attempt, including failure. */
+    private LocalDate lastAutoAttemptDate;
+    private Integer autoAttemptCount;
+    private LocalDateTime lastAutoAttemptTime;
     private LocalDateTime lastRunTime;
     private String lastStatus;
     private String lastMessage;

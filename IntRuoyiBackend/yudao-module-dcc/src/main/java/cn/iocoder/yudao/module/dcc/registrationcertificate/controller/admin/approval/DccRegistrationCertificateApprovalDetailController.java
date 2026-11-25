@@ -72,6 +72,35 @@ public class DccRegistrationCertificateApprovalDetailController {
             }
             submission.put("certificateName",String.join("；", names.stream().map(String::trim).distinct().toList()));
         }
+        if (submission.get("draft") instanceof Map<?, ?> rawDraft
+                && !rawDraft.containsKey("entrustedEnterprisesJson")
+                && rawDraft.get("entrustedEnterpriseIds") instanceof java.util.List<?> ids) {
+            Map<String, Object> draft = new LinkedHashMap<>((Map<String, Object>) rawDraft);
+            java.util.List<Map<String, Object>> enterprises = new java.util.ArrayList<>();
+            for (Object id : ids) {
+                var names = jdbc.queryForList("SELECT name FROM mdm_enterprise WHERE tenant_id=? AND id=? AND deleted=0",
+                        String.class, tenantId, id);
+                if (names.size() != 1 || names.get(0) == null || names.get(0).isBlank()) {
+                    draft.put("entrustedEnterpriseDisplayError", "申请受托企业不存在或名称缺失，无法完整核对");
+                    continue;
+                }
+                enterprises.add(Map.of("enterpriseName", names.get(0)));
+            }
+            draft.put("entrustedEnterprisesJson", JsonUtils.toJsonString(enterprises));
+            submission.put("draft", draft);
+        }
+        if ("CHANGE_CERTIFICATE".equals(submission.get("operation"))) {
+            var dates = jdbc.queryForList("""
+                SELECT s.facts_json FROM dcc_registration_certificate_change c
+                JOIN dcc_registration_certificate_version v ON v.id=c.source_version_id
+                 AND v.tenant_id=c.tenant_id AND v.deleted=0
+                JOIN dcc_registration_certificate_snapshot s ON s.id=c.source_snapshot_id
+                 AND s.version_id=v.id AND s.tenant_id=v.tenant_id AND s.deleted=0
+                WHERE c.tenant_id=? AND c.approval_request_id=? AND c.deleted=0
+                """, String.class, tenantId, requestId);
+            result.put("originalApprovalDate", dates.size() == 1 && dates.get(0) != null
+                    ? JsonUtils.parseObject(dates.get(0), Map.class).get("approvalDate") : null);
+        }
         result.put("submission", submission);
         result.put("files", jdbc.queryForList("""
             SELECT f.id,f.file_kind AS fileKind,f.original_name AS originalName

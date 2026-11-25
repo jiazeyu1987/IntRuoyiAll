@@ -5,6 +5,8 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.query.DccRegi
 import org.apache.ibatis.scripting.xmltags.XMLLanguageDriver;
 import org.apache.ibatis.session.Configuration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -13,6 +15,22 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DccRegistrationCertificateListFilterTest {
+
+    @ParameterizedTest
+    @CsvSource({"false,CE,ce", "false,FDA,fda", "false,国内,国内",
+            "true,CE,ce", "true,FDA,fda", "true,国内,国内"})
+    void certificateTypeFiltersDisplayLabelsInCountAndRows(boolean oldIndex, String label, String expected) {
+        var query = DccRegistrationCertificatePageQuery.builder()
+                .listFilters("[{\"key\":\"certificateType\",\"operator\":\"contains\",\"value\":\"" + label + "\"}]")
+                .build();
+        query.setListFilterWrapper(DccRegistrationCertificateQueryMapper.SqlProvider.listFilterWrapper(query, oldIndex));
+        assertSql(oldIndex ? DccRegistrationCertificateQueryMapper.SqlProvider.countOldIndex()
+                : DccRegistrationCertificateQueryMapper.SqlProvider.countPage(), query, false);
+        assertSql(oldIndex ? DccRegistrationCertificateQueryMapper.SqlProvider.selectOldIndexPage()
+                : DccRegistrationCertificateQueryMapper.SqlProvider.selectPage(), query, true);
+        assertTrue(query.getListFilterWrapper().getSqlSegment().contains("$.certificateType"));
+        assertTrue(query.getListFilterWrapper().getParamNameValuePairs().containsValue("%" + expected + "%"));
+    }
 
     @Test
     void currentCountAndRowsBindSameFilterBeforePaginationAndKeepTenantScope() {

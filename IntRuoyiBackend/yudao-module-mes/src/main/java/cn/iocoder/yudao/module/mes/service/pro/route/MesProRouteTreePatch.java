@@ -13,8 +13,9 @@ import static cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameter
  * routeProcessId 仅为某版本的引用，不能用作跨路线的工序身份。
  */
 public final class MesProRouteTreePatch {
+    // 执行授权属于具体流程，不能从父模板继承，也不能随目录变更覆盖子流程。
     private static final Set<String> LOCAL_CONFIGS = Set.of("products", "productBoms", "craftChangeId",
-            "sharedSourceSnapshots");
+            "sharedSourceSnapshots", "routeStartProductionLeaders");
     private static final Set<String> REFERENCES = Set.of("routeProcessId", "sourceRouteProcessId",
             "targetRouteProcessId", "predecessorRouteProcessId", "nextRouteProcessId", "clientRouteProcessId");
     private static final Set<String> SYSTEM_FIELDS = Set.of("id", "routeId", "routeVersionId", "routeFlowConfigId",
@@ -413,6 +414,6 @@ public final class MesProRouteTreePatch {
         for (int i = 1; i < ids.size(); i++) if (!actual.contains(ids.get(i - 1) + "/" + ids.get(i))) return false;
         return true;
     }
-    private static Object cloneValue(Object value) { return value == null ? null : JSON.parse(JSON.toJSONString(value)); }
-    private static JSONObject copy(JSONObject value) { return JSON.parseObject(value.toJSONString()); }
+    private static Object cloneValue(Object value) { return value == null ? null : JSON.parse(MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(value)); }
+    private static JSONObject copy(JSONObject value) { return JSON.parseObject(MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(value)); }
 }

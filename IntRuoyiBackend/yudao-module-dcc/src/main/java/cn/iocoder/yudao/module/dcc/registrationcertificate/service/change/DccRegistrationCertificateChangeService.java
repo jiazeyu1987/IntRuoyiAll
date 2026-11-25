@@ -154,7 +154,7 @@ public class DccRegistrationCertificateChangeService {
         businessEventNotifier.notifyChangeApprovalRecorded(
                 command.tenantId(), state.ownerCompanyId(), command.certificateId(), state.versionId(),
                 command.actorId(), command.idempotencyKey(), target.productName(), notificationFacts.getCertificateNo(),
-                notificationFacts.getEffectiveDate(), notificationFacts.getExpiryDate());
+                notificationFacts.getEffectiveDate(), notificationFacts.getExpiryDate(), notificationFacts.getCertificateType());
         return new DccRegistrationCertificateChangeResult(command.certificateId(), changeId,
                 state.snapshotId(), resultingSnapshotId, "APPLIED");
     }
@@ -186,7 +186,9 @@ public class DccRegistrationCertificateChangeService {
             }
         }
         ensureNoOpenChangeApproval(command.tenantId(), command.certificateId());
-        businessEventNotifier.validateChangeConfirmationRecipients(command.tenantId());
+        businessEventNotifier.validateChangeConfirmationRecipients(command.tenantId(),
+                cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(
+                        state.snapshot().factsJson()).getCertificateType());
         Long eventId = insertLifecycleEvent(command, state, state.snapshotId(), EVENT_CHANGE_SUBMITTED,
                 payloadHash, selection.itemTypes());
         Long changeId = insertPendingChange(command, state, eventId, selection.itemTypes());
@@ -261,7 +263,7 @@ public class DccRegistrationCertificateChangeService {
         businessEventNotifier.notifyChangeApprovalRecorded(
                 tenantId, state.ownerCompanyId(), application.certificateId(), state.versionId(),
                 approverId, approvalKey.trim(), notificationProductName, notificationFacts.getCertificateNo(),
-                notificationFacts.getEffectiveDate(), notificationFacts.getExpiryDate());
+                notificationFacts.getEffectiveDate(), notificationFacts.getExpiryDate(), notificationFacts.getCertificateType());
         productCatalogRegistrationSyncService.syncByRegistrationCertificateId(application.certificateId());
         return new DccRegistrationCertificateChangeResult(application.certificateId(), application.changeId(),
                 state.snapshotId(), resultingSnapshotId, STATUS_APPLIED);
@@ -355,7 +357,7 @@ public class DccRegistrationCertificateChangeService {
             throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID);
         Map<?,?> oldValues=JsonUtils.parseObject(before.factsJson(),Map.class);
         Map<?,?> newValues=JsonUtils.parseObject(changes.get("CERTIFICATE_INFORMATION"),Map.class);
-        Set<String> protectedFields = Set.of("ownProduct", "projectProduct", "projectCode", "ownerCompanyId", "projectCodeId", "productMasterId");
+        Set<String> protectedFields = Set.of("ownProduct", "projectProduct", "projectProducts", "projectCode", "ownerCompanyId", "projectCodeId", "productMasterId");
         for (String field : protectedFields) if (!Objects.equals(oldValues.get(field), newValues.get(field)))
             throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID);
         for(var entry:oldValues.entrySet()) if(entry.getValue()!=null && !newValues.containsKey(entry.getKey()))

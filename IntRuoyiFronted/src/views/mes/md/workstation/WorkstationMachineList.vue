@@ -22,8 +22,16 @@
       <el-table-column label="设备名称" align="center" prop="machineryName" />
       <el-table-column label="数量" align="center" prop="quantity" width="100" />
       <el-table-column label="备注" align="center" prop="remark" />
-      <el-table-column v-if="!isDetail" label="操作" align="center" width="80">
+      <el-table-column v-if="!isDetail" label="操作" align="center" width="200">
         <template #default="scope">
+          <el-button
+            v-if="processId"
+            v-hasPermi="['mes:dv-machinery:update']"
+            link
+            type="primary"
+            @click="capacityFormRef?.open(scope.row.machineryId, processId)"
+            >维护工序产能</el-button
+          >
           <el-button link type="danger" @click="handleDelete(scope.row.id)">删除</el-button>
         </template>
       </el-table-column>
@@ -63,6 +71,7 @@
     </Dialog>
 
     <MachineryForm ref="machineryFormRef" @success="getList" />
+    <MachineryProcessCapacityForm ref="capacityFormRef" @success="handleCapacitySaved" />
   </div>
 </template>
 
@@ -70,13 +79,22 @@
 import { MdWorkstationMachineApi, MdWorkstationMachineVO } from '@/api/mes/md/workstation/machine'
 import DvMachinerySelect from '@/views/mes/dv/machinery/components/DvMachinerySelect.vue'
 import MachineryForm from '@/views/mes/dv/machinery/MachineryForm.vue'
+import MachineryProcessCapacityForm from '@/views/mes/dv/machinery/MachineryProcessCapacityForm.vue'
 
 defineOptions({ name: 'WorkstationMachineList' })
 
 const props = defineProps<{
   workstationId: number
   formType: string
+  processId?: number | string
 }>()
+
+const capacityFormRef = ref()
+const emit = defineEmits(['success'])
+const handleCapacitySaved = async () => {
+  await getList()
+  emit('success')
+}
 
 const { t } = useI18n()
 const message = useMessage()

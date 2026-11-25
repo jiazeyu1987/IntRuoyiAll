@@ -40,14 +40,14 @@ class ErpKingdeeHistoricalOrderProductTest {
         if (sale) {
             var req = new ErpSaleOrderSaveReqVO();
             var item = new ErpSaleOrderSaveReqVO.Item();
-            item.setProductId(7L); item.setProductUnitId(8L);
+            item.setSourceEntryId("e1"); item.setProductId(7L); item.setProductUnitId(8L);
             item.setProductPrice(BigDecimal.TEN); item.setCount(BigDecimal.ONE);
             req.setItems(List.of(item)); req.setKingdeeAmounts(historical ? source : null);
             return req;
         }
         var req = new ErpPurchaseOrderSaveReqVO();
         var item = new ErpPurchaseOrderSaveReqVO.Item();
-        item.setProductId(7L); item.setProductUnitId(8L);
+        item.setSourceEntryId("e1"); item.setProductId(7L); item.setProductUnitId(8L);
         item.setProductPrice(BigDecimal.TEN); item.setCount(BigDecimal.ONE);
         req.setItems(List.of(item)); req.setKingdeeAmounts(historical ? source : null);
         return req;

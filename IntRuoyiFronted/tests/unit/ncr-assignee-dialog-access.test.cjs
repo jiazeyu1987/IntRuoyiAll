@@ -59,40 +59,40 @@ test('other QA and administrator can view details but cannot process another QA 
     assert.equal(h.isAssignedQaReviewer(review()), false)
     const rendered = await renderAction(h, review())
     assert.match(rendered, /详情/); assert.doesNotMatch(rendered, /处理/)
-    h.openReviewTab(review())
+    await h.openReviewTab(review())
     assert.equal(h.context.reviewTabOpen.value, true)
     assert.equal(h.canDisposeSelectedReview.value, false)
-    assert.deepEqual(h.calls, ['invalidate', 'fill'])
+    assert.deepEqual(h.calls, ['invalidate', 'fill', 'list'])
   }
 })
 
 test('only assigned QA opens processing; numeric and string user identities agree', async () => {
   const h = harness('12')
   assert.match(await renderAction(h, review()), /处理/)
-  h.openReviewTab(review())
+  await h.openReviewTab(review())
   assert.equal(h.context.reviewTabOpen.value, true)
   assert.equal(h.canDisposeSelectedReview.value, true)
   assert.equal(h.reviewTabTitle.value, '处理不合格评审')
-  assert.deepEqual(h.calls, ['invalidate', 'fill'])
+  assert.deepEqual(h.calls, ['invalidate', 'fill', 'list'])
 })
 
 test('unassigned review retains details but missing login identity cannot process it', async () => {
-  const h = harness(null)
+  const h = harness(null, true, review(null))
   assert.equal(h.isAssignedQaReviewer(undefined), false)
   const rendered = await renderAction(h, review(null))
   assert.match(rendered, /详情/); assert.doesNotMatch(rendered, /处理/)
-  h.openReviewTab(review(null))
+  await h.openReviewTab(review(null))
   assert.equal(h.context.reviewTabOpen.value, true)
   assert.equal(h.canDisposeSelectedReview.value, false)
 })
 
 test('assigned QA without disposition permission or with completed review gets view only', async () => {
   for (const [permission, status] of [[false, 'pending_review'], [true, 'closed']]) {
-    const h = harness(12, permission)
     const row = review(12, status)
+    const h = harness(12, permission, row)
     assert.match(await renderAction(h, row), /详情/)
     assert.doesNotMatch(await renderAction(h, row), /处理/)
-    h.openReviewTab(row)
+    await h.openReviewTab(row)
     assert.equal(h.context.reviewTabOpen.value, true)
     assert.equal(h.canDisposeSelectedReview.value, false)
     assert.equal(h.reviewTabTitle.value, '评审详情')

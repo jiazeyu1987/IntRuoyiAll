@@ -16,6 +16,9 @@ import cn.iocoder.yudao.module.erp.dal.dataobject.product.ErpProductDO;
 import cn.iocoder.yudao.module.erp.service.product.ErpProductService;
 import cn.iocoder.yudao.module.erp.service.product.sync.ErpKingdeeProductSyncResult;
 import cn.iocoder.yudao.module.erp.service.product.sync.ErpKingdeeProductSyncService;
+import cn.iocoder.yudao.module.erp.service.sync.runtime.*;
+import cn.iocoder.yudao.module.erp.enums.sync.ErpKingdeeSyncTypeEnum;
+import cn.iocoder.yudao.module.erp.enums.sync.ErpKingdeeSyncTriggerTypeEnum;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -45,6 +48,9 @@ import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.
 @RequestMapping("/erp/product")
 @Validated
 public class ErpProductController {
+
+    @Resource
+    private ErpKingdeeSyncRuntimeService syncRuntimeService;
 
     @Resource
     private ErpProductService productService;
@@ -160,7 +166,18 @@ public class ErpProductController {
     @Operation(summary = "同步金蝶产品")
     @PreAuthorize("@ss.hasPermission('erp:product:create')")
     public CommonResult<ErpKingdeeProductSyncRespVO> syncKingdeeProducts() {
-        ErpKingdeeProductSyncResult result = kingdeeProductSyncService.syncProducts();
+        java.util.concurrent.atomic.AtomicReference<ErpKingdeeProductSyncResult> imported = new java.util.concurrent.atomic.AtomicReference<>();
+        syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
+                .syncType(ErpKingdeeSyncTypeEnum.PRODUCT)
+                .triggerType(ErpKingdeeSyncTriggerTypeEnum.MANUAL)
+                .windowEnd(java.time.LocalDateTime.now()).build(), context -> {
+            ErpKingdeeProductSyncResult value = kingdeeProductSyncService.syncProducts();
+            imported.set(value);
+            // This legacy entry does not prove completion of the runtime's time window.
+            return ErpKingdeeSyncRunResult.success(null,
+                    value.getCreatedCount(), value.getUpdatedCount(), value.getSkippedCount(), 0);
+        });
+        ErpKingdeeProductSyncResult result = imported.get();
         return success(buildKingdeeProductSyncRespVO(result));
     }
 
@@ -169,7 +186,18 @@ public class ErpProductController {
     @PreAuthorize("@ss.hasPermission('erp:product:create')")
     public CommonResult<ErpKingdeeProductSyncRespVO> syncKingdeeProductsByCodes(
             @Valid @RequestBody ErpKingdeeProductCodeSyncReqVO reqVO) {
-        ErpKingdeeProductSyncResult result = kingdeeProductSyncService.syncProductsByNumbers(reqVO.getProductCodes());
+        java.util.concurrent.atomic.AtomicReference<ErpKingdeeProductSyncResult> imported = new java.util.concurrent.atomic.AtomicReference<>();
+        syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
+                .syncType(ErpKingdeeSyncTypeEnum.PRODUCT)
+                .triggerType(ErpKingdeeSyncTriggerTypeEnum.MANUAL)
+                .windowEnd(java.time.LocalDateTime.now()).build(), context -> {
+            ErpKingdeeProductSyncResult value = kingdeeProductSyncService.syncProductsByNumbers(reqVO.getProductCodes());
+            imported.set(value);
+            // This legacy entry does not prove completion of the runtime's time window.
+            return ErpKingdeeSyncRunResult.success(null,
+                    value.getCreatedCount(), value.getUpdatedCount(), value.getSkippedCount(), 0);
+        });
+        ErpKingdeeProductSyncResult result = imported.get();
         return success(buildKingdeeProductSyncRespVO(result));
     }
 

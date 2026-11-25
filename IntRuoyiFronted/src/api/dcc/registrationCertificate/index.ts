@@ -12,6 +12,7 @@ export type DccRegistrationCertificateStatus =
   | 'VOIDED'
 
 export type DccRegistrationCertificateReminderVisualState =
+  | 'EXPIRED'
   | 'NONE'
   | 'CLEARED'
   | 'T_30'
@@ -23,6 +24,7 @@ export type DccRegistrationCertificateReminderVisualState =
   | 'CE_T_3'
 
 export type DccRegistrationCertificateReminderFilterState =
+  | 'EXPIRED'
   | 'NORMAL'
   | 'T_30'
   | 'T_8'
@@ -137,6 +139,8 @@ export interface DccRegistrationCertificateOldIndexItemVO {
 }
 
 export interface DccRegistrationCertificateDetailVO {
+  hasPendingChange?: boolean
+  hasPendingRenewal?: boolean
   factsJson?: string
   certificateId: number | string
   rowVersion: number
@@ -288,6 +292,8 @@ export interface DccRegistrationCertificateUploadCompanyRespVO {
 }
 
 export interface DccRegistrationCertificateUploadProjectCodeRespVO {
+  disabled?: boolean
+  bindingMessage?: string
   id: number | string
   projectCode?: string
   projectName?: string
@@ -521,7 +527,7 @@ export const getUploadOwnerCompanies = async (params?: { keyword?: string }) => 
   })
 }
 
-export const getUploadProjectCodes = async (params?: { keyword?: string }) => {
+export const getUploadProjectCodes = async (params?: { keyword?: string; sourceRequestId?:number|string }) => {
   return await request.get<DccRegistrationCertificateUploadProjectCodeRespVO[]>({
     url: '/dcc/registration-certificates/uploads/project-codes',
     params
@@ -669,3 +675,6 @@ export const submitRegistrationCertificateRenewal = async (
 export const getMyRegistrationCertificateUploads = () => request.get<any[]>({url:'/dcc/registration-certificates/uploads/my-requests'})
 export const getMyRegistrationCertificateUpload = (id:number|string) => request.get<any>({url:'/dcc/registration-certificates/uploads/my-request',params:{id}})
 export const getRegistrationCertificateEvidence = (id:number|string,versionId?:number|string) => request.get<any>({url:`/dcc/registration-certificates/${id}/evidence`,params:{versionId}})
+
+export const addRegistrationCertificateProducts = (id:number|string, data:{expectedRowVersion:number;projectCodeIds:Array<number|string>}) =>
+  request.post<boolean>({url:`/dcc/registration-certificates/${id}/products`,data})

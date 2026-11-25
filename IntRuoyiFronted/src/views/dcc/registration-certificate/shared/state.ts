@@ -17,7 +17,7 @@ export const REGISTRATION_CERTIFICATE_STATUS_META: Record<
 > = {
   DRAFT: { label: '草稿', tagType: 'info' },
   PENDING_EFFECTIVE: { label: '待生效', tagType: 'warning' },
-  CURRENT: { label: '当前有效', tagType: 'success' },
+  CURRENT: { label: '当前版本', tagType: 'success' },
   OLD: { label: '旧证', tagType: 'info' },
   VOIDED: { label: '已作废', tagType: 'danger' }
 }
@@ -30,15 +30,19 @@ export const REGISTRATION_CERTIFICATE_STATUS_OPTIONS = Object.entries(
 }))
 
 export const formatRegistrationCertificateStatus = (
-  status?: DccRegistrationCertificateStatus | string | null
+  status?: DccRegistrationCertificateStatus | string | null,
+  visualState?: string | null,
+  expiryDate?: DccRegistrationCertificateLocalDateValue | null
 ) => {
+  if (status === 'CURRENT' && (visualState === 'EXPIRED' || isRegistrationCertificateExpired(expiryDate))) return '已过期'
   if (!status) return '未返回状态'
   return REGISTRATION_CERTIFICATE_STATUS_META[status as DccRegistrationCertificateStatus]?.label ?? '未识别状态'
 }
 
 export const getRegistrationCertificateStatusTagType = (
-  status?: DccRegistrationCertificateStatus | string | null
-) => REGISTRATION_CERTIFICATE_STATUS_META[status as DccRegistrationCertificateStatus]?.tagType || 'info'
+  status?: DccRegistrationCertificateStatus | string | null, visualState?: string | null,
+  expiryDate?: DccRegistrationCertificateLocalDateValue | null
+) => status === 'CURRENT' && (visualState === 'EXPIRED' || isRegistrationCertificateExpired(expiryDate)) ? 'danger' : REGISTRATION_CERTIFICATE_STATUS_META[status as DccRegistrationCertificateStatus]?.tagType || 'info'
 
 export const formatMissingMarker = (present?: boolean | null) => (present ? '已提供' : '缺失')
 
@@ -50,6 +54,7 @@ export const REGISTRATION_CERTIFICATE_REMINDER_FILTER_OPTIONS: Array<{
   label: string
 }> = [
   { value: 'NORMAL', label: '正常' },
+  { value: 'EXPIRED', label: '已过期' },
   { value: 'T_30', label: '到期前 30 个月' },
   { value: 'T_8', label: '到期前 8 个月' },
   { value: 'T_2', label: '到期前 2 个月' },
@@ -60,6 +65,7 @@ export const REGISTRATION_CERTIFICATE_REMINDER_FILTER_OPTIONS: Array<{
 ]
 
 const REGISTRATION_CERTIFICATE_REMINDER_LABELS: Record<string, string> = {
+  EXPIRED: '已过期',
   NORMAL: '正常',
   NONE: '正常',
   CLEARED: '正常',
@@ -85,8 +91,10 @@ const REGISTRATION_CERTIFICATE_WORKFLOW_STATUS_LABELS: Record<string, string> = 
 }
 
 export const formatRegistrationCertificateReminder = (
-  state?: DccRegistrationCertificateReminderVisualState | string | null
+  state?: DccRegistrationCertificateReminderVisualState | string | null,
+  expiryDate?: DccRegistrationCertificateLocalDateValue | null
 ) => {
+  if (isRegistrationCertificateExpired(expiryDate)) return '\u5df2\u8fc7\u671f'
   if (!state) return '正常'
   return REGISTRATION_CERTIFICATE_REMINDER_LABELS[state] ?? '提醒状态异常'
 }
@@ -96,7 +104,11 @@ export const formatRegistrationCertificateWorkflowStatus = (status?: string | nu
   return REGISTRATION_CERTIFICATE_WORKFLOW_STATUS_LABELS[status] ?? '未识别状态'
 }
 
-export const getRegistrationCertificateReminderTagType = (color?: string | null): TagProps['type'] => {
+export const getRegistrationCertificateReminderTagType = (
+  color?: string | null,
+  expiryDate?: DccRegistrationCertificateLocalDateValue | null
+): TagProps['type'] => {
+  if (isRegistrationCertificateExpired(expiryDate)) return 'danger'
   if (color === 'BRIGHT') return 'danger'
   if (color === 'LIGHT') return 'warning'
   return 'success'
@@ -165,6 +177,19 @@ export const formatRegistrationCertificateDate = (
     String(month).padStart(2, '0'),
     String(day).padStart(2, '0')
   ].join('-')
+}
+
+// Calendar expiry includes the due date; business dates always use Beijing time.
+export const isRegistrationCertificateExpired = (
+  expiryDate?: DccRegistrationCertificateLocalDateValue | null,
+  now: Date = new Date()
+) => {
+  if (expiryDate === undefined || expiryDate === null || expiryDate === '') return false
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(now)
+  const part = (type: string) => parts.find(value => value.type === type)!.value
+  return formatRegistrationCertificateDate(expiryDate) < `${part('year')}-${part('month')}-${part('day')}`
 }
 
 interface EntrustedEnterpriseSnapshot {

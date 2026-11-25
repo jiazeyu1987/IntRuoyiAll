@@ -82,8 +82,14 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     @MockitoBean
     private DccProjectCodeService projectCodeService;
 
+    @MockitoBean
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService productBindings;
+
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(productBindings.containsProject(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(invocation -> jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dcc_registration_certificate WHERE tenant_id=? AND id=? AND project_code_id=? AND deleted=0", Long.class, invocation.getArgument(0), invocation.getArgument(1), invocation.getArgument(2)) > 0);
+
         reset(projectCodeService);
         jdbcTemplate.update("DELETE FROM mdm_enterprise");
         jdbcTemplate.update("INSERT INTO mdm_enterprise (id,name,type,status,tenant_id,deleted) VALUES (10,'测试所属公司','OWNED_COMPANY','ENABLE',1,0)");
@@ -213,6 +219,16 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     }
 
     @Test
+    void omittedFileSelectionIncludesAllCurrentCertificateFiles() {
+        FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND");
+        when(projectCodeService.getProjectCode(40L)).thenReturn(projectCode(1L,20L,DccProjectCodeStatusConstants.ENABLE));
+        Long second = seedBusinessFile("VERSION",fixture.versionId(),"REGISTRATION_CERTIFICATE","second.pdf");
+        var result = service.submit(1L,99L,"download-multiple",download(fixture.certificateId(),null,List.of()));
+        assertEquals(java.util.Set.of(fixture.fileId(),second),new java.util.HashSet<>(result.businessFileIds()));
+        assertEquals(2,count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request_file WHERE request_id=?",result.requestId()));
+    }
+
+    @Test
     void submitDownloadRequestAcceptsSpecifiedOldCertificateAndChangeApprovalFiles() {
         FormalFixture current = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND");
         Long oldVersionId = seedAdditionalVersion(current.certificateId(), 2, "CERT-ACCESS-OLD", "OLD");
@@ -339,23 +355,33 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     }
 
     @Test
-    void downloadProjectCodeWhenPresentMustBeEnabledSameTenantAndSameProductBeforeInsert() {
+    void downloadProjectMustBeEnabledAndBoundToTheSelectedCertificateBeforeInsert() {
         FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND");
         when(projectCodeService.getProjectCode(40L)).thenReturn(projectCode(1L, 20L,
                 DccProjectCodeStatusConstants.DISABLE));
         ServiceException disabled = assertThrows(ServiceException.class, () -> service.submit(1L, 99L,
                 "disabled-project", download(fixture.certificateId(), 40L, List.of(fixture.fileId()))));
 
-        when(projectCodeService.getProjectCode(40L)).thenReturn(projectCode(1L, 21L,
-                DccProjectCodeStatusConstants.ENABLE));
+        when(productBindings.containsProject(1L,fixture.certificateId(),40L)).thenReturn(false);
         ServiceException mismatch = assertThrows(ServiceException.class, () -> service.submit(1L, 99L,
                 "product-mismatch", download(fixture.certificateId(), 40L, List.of(fixture.fileId()))));
 
         assertEquals(REGISTRATION_CERTIFICATE_PROJECT_CODE_DISABLED.getCode(), disabled.getCode());
-        assertEquals(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH.getCode(), mismatch.getCode());
+        assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID.getCode(), mismatch.getCode());
         assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request "
                 + "WHERE request_key IN ('disabled-project', 'product-mismatch')"));
         assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request_file"));
+    }
+
+    @Test
+    void anotherBoundProjectCanRequestTheSameFormalCertificateFile() {
+        var fixture=seedFormalCertificate("ACTIVE","CURRENT","BOUND");
+        var secondary=projectCode(1L,21L,DccProjectCodeStatusConstants.ENABLE);secondary.setId(41L);
+        when(projectCodeService.getProjectCode(41L)).thenReturn(secondary);
+        when(productBindings.containsProject(1L,fixture.certificateId(),41L)).thenReturn(true);
+        var result=service.submit(1L,99L,"shared-certificate",download(fixture.certificateId(),41L,List.of(fixture.fileId())));
+        assertEquals(41L,requestMapper.selectById(result.requestId()).getProjectCodeId());
+        assertEquals(List.of(fixture.fileId()),result.businessFileIds());
     }
 
     @Test

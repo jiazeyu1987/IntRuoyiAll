@@ -75,7 +75,7 @@ public class ErpSaleOutServiceImpl implements ErpSaleOutService {
         // 1.1 校验销售订单已审核
         ErpSaleOrderDO saleOrder = saleOrderService.validateSaleOrder(createReqVO.getOrderId());
         // 1.2 校验出库项的有效性
-        List<ErpSaleOutItemDO> saleOutItems = validateSaleOutItems(createReqVO.getItems());
+        List<ErpSaleOutItemDO> saleOutItems = validateSaleOutItems(createReqVO.getItems(), createReqVO.getOrderId());
         // 1.3 校验结算账户
         accountService.validateAccount(createReqVO.getAccountId());
         // 1.4 校验销售人员
@@ -108,6 +108,7 @@ public class ErpSaleOutServiceImpl implements ErpSaleOutService {
     public void updateSaleOut(ErpSaleOutSaveReqVO updateReqVO) {
         // 1.1 校验存在
         ErpSaleOutDO saleOut = validateSaleOutExists(updateReqVO.getId());
+        if (!java.util.Objects.equals(saleOut.getOrderId(), updateReqVO.getOrderId())) throw new IllegalArgumentException("不允许变更单据所属订单，请删除后重新创建");
         if (ErpAuditStatus.APPROVE.getStatus().equals(saleOut.getStatus())) {
             throw exception(SALE_OUT_UPDATE_FAIL_APPROVE, saleOut.getNo());
         }
@@ -120,7 +121,7 @@ public class ErpSaleOutServiceImpl implements ErpSaleOutService {
             adminUserApi.validateUser(updateReqVO.getSaleUserId());
         }
         // 1.5 校验订单项的有效性
-        List<ErpSaleOutItemDO> saleOutItems = validateSaleOutItems(updateReqVO.getItems());
+        List<ErpSaleOutItemDO> saleOutItems = validateSaleOutItems(updateReqVO.getItems(), updateReqVO.getOrderId());
 
         // 2.1 更新出库
         ErpSaleOutDO updateObj = BeanUtils.toBean(updateReqVO, ErpSaleOutDO.class)
@@ -185,6 +186,11 @@ public class ErpSaleOutServiceImpl implements ErpSaleOutService {
 
         // 3. 变更库存
         List<ErpSaleOutItemDO> saleOutItems = saleOutItemMapper.selectListByOutId(id);
+        // Approval posts quantities in the current stock unit. Cancellation reverses the exact
+        // persisted quantities previously posted; revalidating against today's unit would block reversal.
+        if (approve) {
+            validateSaleOutItems(convertList(saleOutItems, item -> BeanUtils.toBean(item, ErpSaleOutSaveReqVO.Item.class)), saleOut.getOrderId());
+        }
         Integer bizType = approve ? ErpStockRecordBizTypeEnum.SALE_OUT.getType()
                 : ErpStockRecordBizTypeEnum.SALE_OUT_CANCEL.getType();
         saleOutItems.forEach(saleOutItem -> {
@@ -198,6 +204,10 @@ public class ErpSaleOutServiceImpl implements ErpSaleOutService {
     @Override
     public void updateSaleInReceiptPrice(Long id, BigDecimal receiptPrice) {
         ErpSaleOutDO saleOut = saleOutMapper.selectById(id);
+        if (saleOut != null && org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            saleOrderService.lockOrder(saleOut.getOrderId());
+            saleOut = saleOutMapper.selectByIdForUpdate(id);
+        }
         if (saleOut.getReceiptPrice().equals(receiptPrice)) {
             return;
         }
@@ -207,13 +217,21 @@ public class ErpSaleOutServiceImpl implements ErpSaleOutService {
         saleOutMapper.updateById(new ErpSaleOutDO().setId(id).setReceiptPrice(receiptPrice));
     }
 
-    private List<ErpSaleOutItemDO> validateSaleOutItems(List<ErpSaleOutSaveReqVO.Item> list) {
+    private List<ErpSaleOutItemDO> validateSaleOutItems(List<ErpSaleOutSaveReqVO.Item> list, Long orderId) {
         // 1. 校验产品存在
         List<ErpProductDO> productList = productService.validProductList(
                 convertSet(list, ErpSaleOutSaveReqVO.Item::getProductId));
         Map<Long, ErpProductDO> productMap = convertMap(productList, ErpProductDO::getId);
         // 2. 转化为 ErpSaleOutItemDO 列表
         return convertList(list, o -> BeanUtils.toBean(o, ErpSaleOutItemDO.class, item -> {
+            var orderItem = saleOrderService.getSaleOrderItemListByOrderId(orderId).stream()
+                    .filter(line -> java.util.Objects.equals(line.getId(), item.getOrderItemId())).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("单据明细不属于所选订单"));
+            if (!java.util.Objects.equals(orderItem.getProductId(), item.getProductId())
+                    || !java.util.Objects.equals(orderItem.getProductUnitId(), productMap.get(item.getProductId()).getUnitId())
+                    || (item.getProductUnitId() != null && !java.util.Objects.equals(item.getProductUnitId(), orderItem.getProductUnitId()))) {
+                throw new IllegalArgumentException("单据物料或单位与订单/库存单位不一致，缺少可靠换算关系");
+            }
             item.setProductUnitId(productMap.get(item.getProductId()).getUnitId());
             item.setTotalPrice(MoneyUtils.priceMultiply(item.getProductPrice(), item.getCount()));
             if (item.getTotalPrice() == null) {
@@ -228,6 +246,10 @@ public class ErpSaleOutServiceImpl implements ErpSaleOutService {
     private void updateSaleOutItemList(Long id, List<ErpSaleOutItemDO> newList) {
         // 第一步，对比新老数据，获得添加、修改、删除的列表
         List<ErpSaleOutItemDO> oldList = saleOutItemMapper.selectListByOutId(id);
+        var ownedIds = oldList.stream().map(item -> item.getId()).collect(java.util.stream.Collectors.toSet());
+        if (newList.stream().anyMatch(item -> item.getId() != null && !ownedIds.contains(item.getId()))) {
+            throw new IllegalArgumentException("明细ID不属于当前单据");
+        }
         List<List<ErpSaleOutItemDO>> diffList = diffList(oldList, newList, // id 不同，就认为是不同的记录
                 (oldVal, newVal) -> oldVal.getId().equals(newVal.getId()));
 
@@ -249,6 +271,8 @@ public class ErpSaleOutServiceImpl implements ErpSaleOutService {
     public void deleteSaleOut(List<Long> ids) {
         // 1. 校验不处于已审批
         List<ErpSaleOutDO> saleOuts = saleOutMapper.selectByIds(ids);
+        saleOuts.stream().map(ErpSaleOutDO::getOrderId).distinct().sorted().forEach(saleOrderService::lockOrder);
+        saleOuts = ids.stream().distinct().sorted().map(saleOutMapper::selectByIdForUpdate).filter(java.util.Objects::nonNull).toList();
         if (CollUtil.isEmpty(saleOuts)) {
             return;
         }
@@ -273,6 +297,10 @@ public class ErpSaleOutServiceImpl implements ErpSaleOutService {
 
     private ErpSaleOutDO validateSaleOutExists(Long id) {
         ErpSaleOutDO saleOut = saleOutMapper.selectById(id);
+        if (saleOut != null && org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            saleOrderService.lockOrder(saleOut.getOrderId());
+            saleOut = saleOutMapper.selectByIdForUpdate(id);
+        }
         if (saleOut == null) {
             throw exception(SALE_OUT_NOT_EXISTS);
         }

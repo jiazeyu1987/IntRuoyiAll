@@ -47,6 +47,8 @@ class MesRouteStartProductionLeaderAuthorizationServiceTest {
     private PermissionApi permissionApi;
     @Mock
     private AdminUserApi adminUserApi;
+    @Mock
+    private MesPackagingLeaderAccess packagingAccess;
 
     private MesRouteStartProductionLeaderAuthorizationService service;
 
@@ -55,7 +57,13 @@ class MesRouteStartProductionLeaderAuthorizationServiceTest {
         service = new MesRouteStartProductionLeaderAuthorizationServiceImpl(routeMapper, routeProcessMapper,
                 routeVersionMapper, permissionApi);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "adminUserApi", adminUserApi);
-        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", packagingAccess);
+        lenient().when(routeMapper.selectById(org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(invocation -> flowRoute(invocation.getArgument(0)));
+        lenient().when(routeMapper.selectBatchIds(any())).thenAnswer(invocation -> {
+            java.util.Collection<Long> ids = invocation.getArgument(0);
+            return ids.stream().map(MesRouteStartProductionLeaderAuthorizationServiceTest::flowRoute).toList();
+        });
     }
 
     @Test
@@ -147,7 +155,7 @@ class MesRouteStartProductionLeaderAuthorizationServiceTest {
                 activeRouteVersion(9001L, 101L, routeStartLeaderSnapshot(101L, "USER", ADMIN_USER_ID)),
                 activeRouteVersion(9002L, 102L, emptyRouteStartLeaderSnapshot(102L))));
         when(routeMapper.selectBatchIds(Set.of(101L))).thenReturn(List.of(
-                MesProRouteDO.builder().id(101L).code("R-PUMP").name("球囊扩张压力泵").build()));
+                MesProRouteDO.builder().id(101L).nodeType("FLOW").code("R-PUMP").name("球囊扩张压力泵").build()));
 
         List<MesProRouteDO> result = service.listResponsibleRoutes(ADMIN_USER_ID);
 
@@ -163,7 +171,7 @@ class MesRouteStartProductionLeaderAuthorizationServiceTest {
                 activeRouteVersion(9002L, 102L, routeStartLeaderSnapshot(102L, "ROLE", 77L))));
         when(permissionApi.getUserRoleIdListByUserId(3001L)).thenReturn(Set.of(77L));
         when(routeMapper.selectBatchIds(Set.of(102L))).thenReturn(List.of(
-                MesProRouteDO.builder().id(102L).code("R-PRESS").name("按压式球囊扩充压力泵").build()));
+                MesProRouteDO.builder().id(102L).nodeType("FLOW").code("R-PRESS").name("按压式球囊扩充压力泵").build()));
 
         List<MesProRouteDO> result = service.listResponsibleRoutes(3001L);
 
@@ -176,7 +184,7 @@ class MesRouteStartProductionLeaderAuthorizationServiceTest {
         when(routeVersionMapper.selectActiveListWithExistingRoutes()).thenReturn(List.of(
                 activeRouteVersion(9001L, 101L, routeStartLeaderSnapshot(101L, "USER", ADMIN_USER_ID))));
         when(routeMapper.selectBatchIds(Set.of(101L))).thenReturn(List.of(
-                MesProRouteDO.builder().id(101L).code("R-PUMP").name("球囊扩张压力泵").build()));
+                MesProRouteDO.builder().id(101L).nodeType("FLOW").code("R-PUMP").name("球囊扩张压力泵").build()));
 
         List<MesProRouteDO> result = service.listResponsibleRoutes(ADMIN_USER_ID);
 
@@ -241,6 +249,91 @@ class MesRouteStartProductionLeaderAuthorizationServiceTest {
         assertThrows(ServiceException.class, () -> service.assertCanMaintainRouteProcess(ADMIN_USER_ID, 1001L));
 
         verify(permissionApi, never()).getUserRoleIdListByUserId(ADMIN_USER_ID);
+    }
+
+    @Test
+    void listResponsibleRoutes_ignoresMalformedGroupSnapshotBeforeParsingFlowResponsibilities() {
+        when(routeVersionMapper.selectActiveListWithExistingRoutes()).thenReturn(List.of(
+                activeRouteVersion(41L, 201L, routeStartLeaderSnapshot(101L, "USERS", 3001L)),
+                activeRouteVersion(48L, 101L, routeStartLeaderSnapshot(101L, "USERS", 3001L))));
+        when(routeMapper.selectBatchIds(Set.of(201L, 101L))).thenReturn(List.of(groupRoute(201L), flowRoute(101L)));
+
+        assertEquals(List.of(101L), service.listResponsibleRoutes(3001L).stream().map(MesProRouteDO::getId).toList());
+    }
+
+    @Test
+    void listAuthorizedRouteProcesses_ignoresGroupSnapshotAndPackagingGroupScope() {
+        when(routeVersionMapper.selectActiveListWithExistingRoutes()).thenReturn(List.of(
+                activeRouteVersion(41L, 201L, "{malformed"),
+                activeRouteVersion(48L, 101L, routeStartLeaderSnapshot(101L, "USERS", 3001L))));
+        when(routeMapper.selectBatchIds(Set.of(201L, 101L))).thenReturn(List.of(groupRoute(201L), flowRoute(101L)));
+        when(packagingAccess.activeRouteIds(3001L)).thenReturn(Set.of(201L));
+        when(routeMapper.selectBatchIds(Set.of(201L))).thenReturn(List.of(groupRoute(201L)));
+        when(routeProcessMapper.selectListByRouteIds(Set.of(101L))).thenReturn(List.of(routeProcess(1001L, 101L, 1L, 1)));
+
+        assertEquals(List.of(1001L), service.listAuthorizedRouteProcesses(3001L).stream()
+                .map(MesProRouteProcessDO::getId).toList());
+        verify(routeProcessMapper, never()).selectListByRouteIds(Set.of(201L, 101L));
+    }
+
+    @Test
+    void listResponsibleRoutes_doesNotReturnPackagingGroupWithoutFlowResponsibility() {
+        when(packagingAccess.activeRouteIds(3001L)).thenReturn(Set.of(201L));
+        when(routeMapper.selectBatchIds(Set.of(201L))).thenReturn(List.of(groupRoute(201L)));
+
+        assertEquals(List.of(), service.listResponsibleRoutes(3001L));
+    }
+
+    @Test
+    void assertCanJoinRoute_rejectsGroupBeforeReadingItsInheritedSnapshot() {
+        when(routeMapper.selectById(201L)).thenReturn(groupRoute(201L));
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.assertCanJoinRoute(3001L, 201L));
+
+        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED.getCode(), error.getCode());
+        verify(routeVersionMapper, never()).selectActiveByRouteId(201L);
+    }
+
+    @Test
+    void assertCanMaintainRouteProcess_rejectsGroupEvenWithMatchingLeader() {
+        when(routeProcessMapper.selectById(2001L)).thenReturn(routeProcess(2001L, 201L, 1L, 1));
+        when(routeMapper.selectById(201L)).thenReturn(groupRoute(201L));
+
+        assertThrows(ServiceException.class, () -> service.assertCanMaintainRouteProcess(3001L, 2001L));
+
+        verify(routeVersionMapper, never()).selectActiveByRouteId(201L);
+    }
+
+    @Test
+    void malformedFlowSnapshotStillFailsBothWorkbenchListsAndDirectPermissions() {
+        MesProRouteVersionDO brokenFlow = activeRouteVersion(48L, 101L,
+                routeStartLeaderSnapshot(999L, "USERS", 3001L));
+        when(routeVersionMapper.selectActiveListWithExistingRoutes()).thenReturn(List.of(brokenFlow));
+        when(routeVersionMapper.selectActiveByRouteId(101L)).thenReturn(brokenFlow);
+        when(routeProcessMapper.selectById(1001L)).thenReturn(routeProcess(1001L, 101L, 1L, 1));
+
+        for (org.junit.jupiter.api.function.Executable call : List.<org.junit.jupiter.api.function.Executable>of(
+                () -> service.listResponsibleRoutes(3001L), () -> service.listAuthorizedRouteProcesses(3001L),
+                () -> service.assertCanJoinRoute(3001L, 101L), () -> service.assertCanMaintainRouteProcess(3001L, 1001L))) {
+            ServiceException error = assertThrows(ServiceException.class, call);
+            org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("routeVersionId=48"));
+        }
+    }
+
+    @Test
+    void unknownRouteTypeFailsInsteadOfGrantingExecutionScope() {
+        when(routeMapper.selectById(101L)).thenReturn(flowRoute(101L).setNodeType(null));
+
+        assertThrows(ServiceException.class, () -> service.assertCanJoinRoute(3001L, 101L));
+        verify(routeVersionMapper, never()).selectActiveByRouteId(101L);
+    }
+
+    private static MesProRouteDO flowRoute(Long id) {
+        return MesProRouteDO.builder().id(id).nodeType("FLOW").code("FLOW-" + id).name("流程" + id).build();
+    }
+
+    private static MesProRouteDO groupRoute(Long id) {
+        return MesProRouteDO.builder().id(id).nodeType("GROUP").code("GROUP-" + id).name("模板" + id).build();
     }
 
     private static MesProRouteProcessDO routeProcess(Long id, Long routeId, Long processId, Integer sort) {

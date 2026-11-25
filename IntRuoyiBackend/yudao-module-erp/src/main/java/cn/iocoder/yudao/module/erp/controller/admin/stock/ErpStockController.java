@@ -19,6 +19,9 @@ import cn.iocoder.yudao.module.erp.service.stock.ErpStockService;
 import cn.iocoder.yudao.module.erp.service.stock.ErpWarehouseService;
 import cn.iocoder.yudao.module.erp.service.stock.sync.ErpKingdeeStockSyncResult;
 import cn.iocoder.yudao.module.erp.service.stock.sync.ErpKingdeeStockSyncService;
+import cn.iocoder.yudao.module.erp.service.sync.runtime.*;
+import cn.iocoder.yudao.module.erp.enums.sync.ErpKingdeeSyncTypeEnum;
+import cn.iocoder.yudao.module.erp.enums.sync.ErpKingdeeSyncTriggerTypeEnum;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
@@ -48,6 +51,9 @@ import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.
 @RequestMapping("/erp/stock")
 @Validated
 public class ErpStockController {
+
+    @Resource
+    private ErpKingdeeSyncRuntimeService syncRuntimeService;
 
     @Resource
     private ErpStockService stockService;
@@ -92,7 +98,18 @@ public class ErpStockController {
     @Operation(summary = "从 Kingdee K3Cloud 同步即时库存")
     @PreAuthorize("@ss.hasPermission('erp:data-stock:operate') or @ss.hasPermission('erp:data-config:operate')")
     public CommonResult<ErpKingdeeStockSyncRespVO> syncKingdeeStocks() {
-        ErpKingdeeStockSyncResult result = kingdeeStockSyncService.syncStocks();
+        java.util.concurrent.atomic.AtomicReference<ErpKingdeeStockSyncResult> imported = new java.util.concurrent.atomic.AtomicReference<>();
+        syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
+                .syncType(ErpKingdeeSyncTypeEnum.STOCK)
+                .triggerType(ErpKingdeeSyncTriggerTypeEnum.MANUAL)
+                .windowEnd(java.time.LocalDateTime.now()).build(), context -> {
+            ErpKingdeeStockSyncResult value = kingdeeStockSyncService.syncStocks();
+            imported.set(value);
+            // This legacy entry does not prove completion of the runtime's time window.
+            return ErpKingdeeSyncRunResult.success(null,
+                    value.getCreatedCount(), value.getUpdatedCount(), value.getSkippedCount(), 0);
+        });
+        ErpKingdeeStockSyncResult result = imported.get();
         return success(BeanUtils.toBean(result, ErpKingdeeStockSyncRespVO.class));
     }
 
