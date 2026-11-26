@@ -11,6 +11,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 @Data
 public class DccRegistrationCertificateFacts {
     private DccRegistrationCertificateProjectProduct projectProduct;
+    private List<DccRegistrationCertificateProjectProduct> projectProducts;
     private String historicalSheet;
     private Integer historicalRow;
     private java.util.Map<String, String> historicalValues;
@@ -38,6 +39,7 @@ public class DccRegistrationCertificateFacts {
     private String factoryRegistrationStatus;
     private Boolean ownProduct;
     private String changeDescription;
+    private String otherContentDescription;
     private String certificateNo;
     private String classification;
     private String remark;
@@ -63,10 +65,24 @@ public class DccRegistrationCertificateFacts {
         return facts;
     }
 
-    public void validateForUpload() {
+    public void validateCreation() {
+        if (changeDescription != null) throw invalidParamException("新建注册证不支持变更描述字段");
+        if (!"FDA".equals(certificateType) && approvalDate != null)
+            throw invalidParamException("国内和CE新建注册证不支持批准日期字段");
+        if ("CE".equals(certificateType) && (firstObtainedDate != null || modelSpecifications != null))
+            throw invalidParamException("CE新建注册证不支持首次获证日期和型号规格字段");
         validate();
-        if ("DOMESTIC".equals(certificateType) && approvalDate == null)
-            throw invalidParamException("请填写批准日期");
+    }
+
+    public void validateChangeFrom(DccRegistrationCertificateFacts before) {
+        validate();
+        boolean modelsChanged = "CE".equals(certificateType) && !java.util.Objects.equals(before.modelSpecifications, modelSpecifications);
+        boolean approvalChanged = isFda() && (!java.util.Objects.equals(before.submissionType, submissionType)
+                || !java.util.Objects.equals(before.kpNumber, kpNumber) || !java.util.Objects.equals(before.regulationCode, regulationCode)
+                || !java.util.Objects.equals(before.productCode, productCode) || !java.util.Objects.equals(before.approvalDate, approvalDate)
+                || !java.util.Objects.equals(before.listingNumber, listingNumber) || !java.util.Objects.equals(before.listingDate, listingDate));
+        if ((modelsChanged || approvalChanged) && (blank(changeDescription) || java.util.Objects.equals(before.changeDescription == null ? null : before.changeDescription.trim(), changeDescription == null ? null : changeDescription.trim())))
+            throw invalidParamException(modelsChanged ? "CE型号调整必须填写本次调整说明" : "新增或替代FDA批准信息必须填写本次变更描述");
     }
 
     public void validate() {

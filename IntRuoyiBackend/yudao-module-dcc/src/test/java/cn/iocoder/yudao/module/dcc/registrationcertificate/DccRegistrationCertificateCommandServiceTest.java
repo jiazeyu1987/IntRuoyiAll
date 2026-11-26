@@ -171,6 +171,9 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
 
     private DccRegistrationCertificateCommandService service;
 
+    @MockitoBean
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService productBindings;
+
     @BeforeEach
     void setUp() {
         reset(dbCompanyScopeApi, dbEnterpriseApi, dbProductApi, dbProjectCodeService, dbProjectionService,
@@ -204,7 +207,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
         reset(transactionService);
         when(terminalAuditService.find(1L, "create-1")).thenReturn(successAudit(first, 1001L));
 
-        DccRegistrationCertificateDraftData padded = new DccRegistrationCertificateDraftData(
+        DccRegistrationCertificateDraftData padded = withProducts(new DccRegistrationCertificateDraftData(
                 draft.ownerCompanyId(), draft.productMasterId(), draft.projectCodeId(),
                 draft.firstObtainedDate(), "  " + draft.certificateNo() + "  ",
                 draft.approvalDate(), draft.effectiveDate(), draft.expiryDate(),
@@ -217,7 +220,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
                 "  " + draft.residenceAddress() + "  ",
                 "  " + draft.productionAddress() + "  ",
                 draft.entrustedProduction(), draft.selfProduction(), draft.entrustedEnterpriseIds(),
-                draft.remark());
+                draft.remark()));
 
         Long replayed = assertDoesNotThrow(
                 () -> service.createDraft(1L, 99L, "create-1", "trace-2", padded));
@@ -471,6 +474,8 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
     private static String catalogFacts(DccRegistrationCertificateDraftData source) {
         var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(source.factsJson());
         facts.setEffectiveDate(LocalDate.of(2026, 8, 1));
+        facts.setProjectProduct(new DccRegistrationCertificateProjectProduct(40L,663L,"0313170202","Product A",List.of(new DccRegistrationCertificateProjectProduct.Binding("CONFIRMED",56L))));
+        facts.setProjectProducts(List.of(facts.getProjectProduct()));
         return facts.toJson();
     }
 
@@ -537,9 +542,20 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void statedCertificateNameIsSavedWithoutChangingItsAssociatedProduct() {
+        configureDbValidDependencies();
+        var d = validDraft();
+        var stated = new DccRegistrationCertificateDraftData(d.ownerCompanyId(),d.productMasterId(),"证载产品名称",d.projectCodeId(),d.firstObtainedDate(),d.certificateNo(),d.approvalDate(),d.effectiveDate(),d.expiryDate(),d.classification(),d.registrantName(),d.modelSpecification(),d.structureComposition(),d.intendedUse(),d.technicalRequirements(),d.residenceAddress(),d.productionAddress(),d.entrustedProduction(),d.selfProduction(),d.entrustedEnterpriseIds(),d.remark(),d.factsJson());
+        Long certificateId = dbCommandService.createDraft(1L,99L,"stated-product-name","trace-stated",stated);
+        assertEquals("证载产品名称",jdbcTemplate.queryForObject("SELECT s.product_name FROM dcc_registration_certificate_snapshot s JOIN dcc_registration_certificate_version v ON v.id=s.version_id WHERE v.certificate_id=?",String.class,certificateId));
+        assertEquals(20L,dbCertificateMapper.selectById(certificateId).getProductMasterId());
+        assertEquals("Product A",cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(stated.factsJson()).getProjectProduct().productName());
+    }
+
+    @Test
     void infrastructureFailuresFromAllFormalPrerequisitesRemainVisible() {
         for (String dependency : List.of("owner", "product", "project")) {
-            reset(dbCompanyScopeApi, dbEnterpriseApi, dbProductApi, dbProjectCodeService);
+            reset(dbCompanyScopeApi, dbEnterpriseApi, dbProductApi, dbProjectCodeService, dbProjectProductService);
             configureDbValidDependencies();
             IllegalStateException outage = new IllegalStateException(dependency + " unavailable");
             DccRegistrationCertificateDraftData draft = validDraft();
@@ -548,7 +564,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
             } else if ("owner".equals(dependency)) {
                 when(dbEnterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any())).thenThrow(outage);
             } else if ("product".equals(dependency)) {
-                when(dbProductApi.getEnabledDccProduct(20L)).thenThrow(outage);
+                when(dbProjectProductService.resolve(any())).thenThrow(outage);
             } else {
                 draft = copyDraft(draft, draft.firstObtainedDate(), draft.approvalDate(), draft.effectiveDate(),
                         draft.expiryDate(), 40L, draft.certificateNo(), true, false, List.of(30L));
@@ -569,7 +585,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
     @Test
     void createUpdateAndDeleteFailuresLeaveRealDatabaseBusinessFactsUnchanged() {
         configureDbValidDependencies();
-        when(dbProductApi.getEnabledDccProduct(20L)).thenReturn(null);
+        when(dbProjectProductService.resolve(any())).thenThrow(new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID));
         ServiceException createFailure = assertThrows(ServiceException.class,
                 () -> dbCommandService.createDraft(1L, 99L, "create-no-partial", "trace-create", validDraft()));
         assertEquals(REGISTRATION_CERTIFICATE_PRODUCT_INVALID.getCode(), createFailure.getCode());
@@ -577,7 +593,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
         assertEquals("FAILURE", dbAuditMapper.selectByTenantIdAndEventKey(
                 1L, "create-no-partial").getResult());
 
-        reset(dbProductApi);
+        reset(dbProductApi, dbProjectProductService);
         configureDbValidDependencies();
         DraftFixture fixture = seedDraft(LocalDate.of(2026, 9, 1));
         DccRegistrationCertificateDraftData update = copyDraft(
@@ -689,7 +705,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
             DccRegistrationCertificateDraftData request = invalid.get(index);
             ServiceException error = assertThrows(ServiceException.class,
                     () -> dbCommandService.createDraft(1L, 99L, key, "trace-" + key, request));
-            assertEquals(REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT.getCode(), error.getCode());
+            assertEquals(400, error.getCode());
             assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate WHERE tenant_id = 1"));
             assertEquals("FAILURE", dbAuditMapper.selectByTenantIdAndEventKey(1L, key).getResult());
         }
@@ -723,7 +739,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
         jdbcTemplate.update("UPDATE dcc_registration_certificate SET product_master_id=NULL,project_code_id=NULL WHERE id=?",fixture.certificateId());
         var snapshot=dbSnapshotMapper.selectById(fixture.snapshotId());
         var facts=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshot.getFactsJson());
-        facts.setOwnProduct(false);facts.setProjectCode("CUSTOMER-PRJ-01");snapshot.setFactsJson(facts.toJson());jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=?",facts.toJson(),fixture.snapshotId());
+        facts.setOwnProduct(false);facts.setProjectProduct(null);facts.setProjectProducts(null);facts.setProjectCode("CUSTOMER-PRJ-01");snapshot.setFactsJson(facts.toJson());jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=?",facts.toJson(),fixture.snapshotId());
         var result=dbCommandService.formalizeApprovedUpload(1L,99L,99L,"other-approval","other-approval-trace",fixture.certificateId(),1,1,fixture.fileId());
         assertEquals(fixture.certificateId(),result);
         var master=dbCertificateMapper.selectById(result);assertEquals("ACTIVE",master.getStatus());assertNull(master.getProductMasterId());assertNull(master.getProjectCodeId());
@@ -808,6 +824,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
                 new DccRegistrationCertificateCommandTransactionService(
                         certificateMapper, versionMapper, snapshotMapper, entrustedMapper,
                         repository, validator, formalization, audit);
+        org.springframework.test.util.ReflectionTestUtils.setField(worker,"productBindings",productBindings);
         DccRegistrationCertificateDraftData updated = copyDraft(
                 validDraft(), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 2, 1),
                 LocalDate.of(2026, 9, 1), LocalDate.of(2031, 9, 1), null, "CERT-001",
@@ -849,6 +866,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
                 new DccRegistrationCertificateCommandTransactionService(
                         certificateMapper, versionMapper, snapshotMapper, entrustedMapper,
                         repository, validator, formalization, audit);
+        org.springframework.test.util.ReflectionTestUtils.setField(worker,"productBindings",productBindings);
         DccRegistrationCertificateDraftState state = draftState(10L, "DRAFT");
         DccRegistrationCertificateResolvedDraft resolved = mock(DccRegistrationCertificateResolvedDraft.class);
         DccRegistrationCertificateCommandContext context =
@@ -930,13 +948,11 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void validatorAllowsNoProjectCodeWithoutGrantingAProjectVisibilityLookup() {
-        DccRegistrationCertificatePrerequisiteValidator validator = validValidator();
-
-        DccRegistrationCertificateResolvedDraft resolved = validator.validate(1L, 99L, validDraft());
-
-        assertEquals("Product A", resolved.productName());
-        verify(projectCodeService, never()).getProjectCode(any(), any());
+    void validatorRejectsOwnProductWithoutFormalSystemProject() {
+        var source=validDraft();
+        var draft=new DccRegistrationCertificateDraftData(source.ownerCompanyId(),source.productMasterId(),null,source.firstObtainedDate(),source.certificateNo(),source.approvalDate(),source.effectiveDate(),source.expiryDate(),source.classification(),source.registrantName(),source.modelSpecification(),source.structureComposition(),source.intendedUse(),source.technicalRequirements(),source.residenceAddress(),source.productionAddress(),source.entrustedProduction(),source.selfProduction(),source.entrustedEnterpriseIds(),source.remark());
+        assertThrows(ServiceException.class,()->validValidator().validate(1L,99L,draft));
+        verify(projectCodeService,never()).getProjectCode(any(),any());
     }
 
     @Test
@@ -952,7 +968,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
         DccRegistrationCertificateResolvedDraft resolved = validator.validate(1L, 99L, draft);
 
         assertEquals("Product A", resolved.productName());
-        verify(projectCodeService).getProjectCode(99L, 40L);
+        verify(projectCodeService,times(2)).getProjectCode(99L, 40L);
     }
 
     @Test
@@ -1128,19 +1144,21 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
         when(dbEnterpriseApi.getEnabledEnterprises(eq(List.of(30L)), any()))
                 .thenReturn(List.of(MdmEnterpriseRespDTO.builder()
                         .id(30L).tenantId(1L).name("Factory A").build()));
-        when(dbProductApi.getEnabledDccProduct(20L)).thenReturn(
+        lenient().when(dbProductApi.getEnabledDccProduct(20L)).thenReturn(
                 MdmProductRespDTO.builder().id(20L).nameCn("Product A").build());
+        lenient().when(dbProjectCodeService.getProjectCode(99L,40L)).thenReturn(projectCode(1L,20L,DccProjectCodeStatusConstants.ENABLE));
+        lenient().when(dbProjectProductService.resolve(any())).thenReturn(new DccRegistrationCertificateProjectProduct(40L,663L,"0313170202","Product A",List.of(new DccRegistrationCertificateProjectProduct.Binding("CONFIRMED",56L))));
     }
 
     private void configureDbValidDependenciesWithProductBarrier() {
         configureDbValidDependencies();
         CountDownLatch productCalls = new CountDownLatch(2);
-        when(dbProductApi.getEnabledDccProduct(20L)).thenAnswer(invocation -> {
+        when(dbProjectProductService.resolve(any())).thenAnswer(invocation -> {
             productCalls.countDown();
             if (!productCalls.await(5, TimeUnit.SECONDS)) {
                 throw new IllegalStateException("both command instances did not enter validation");
             }
-            return MdmProductRespDTO.builder().id(20L).nameCn("Product A").build();
+            return new DccRegistrationCertificateProjectProduct(40L,663L,"0313170202","Product A",List.of(new DccRegistrationCertificateProjectProduct.Binding("CONFIRMED",56L)));
         });
     }
 
@@ -1195,7 +1213,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
     private DraftFixture seedDraft(LocalDate effectiveDate) {
         DccRegistrationCertificateDO certificate = DccRegistrationCertificateDO.builder()
                 .ownerCompanyId(10L)
-                .productMasterId(20L)
+                .productMasterId(20L).projectCodeId(40L)
                 .firstObtainedDate(LocalDate.of(2026, 1, 1))
                 .status("DRAFT")
                 .rowVersion(1)
@@ -1352,6 +1370,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
                         .id(30L).tenantId(1L).name("Factory A").build()));
         lenient().when(productApi.getEnabledDccProduct(20L)).thenReturn(
                 MdmProductRespDTO.builder().id(20L).nameCn("Product A").build());
+        lenient().when(projectCodeService.getProjectCode(99L,40L)).thenReturn(projectCode(1L,20L,DccProjectCodeStatusConstants.ENABLE));
         return validatorAt("2026-08-17T01:00:00Z");
     }
 
@@ -1373,6 +1392,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
         DccRegistrationCertificateSnapshotDO snapshot = DccRegistrationCertificateSnapshotDO.builder()
                 .id(3001L).versionId(2001L).revisionNo(1).build();
         snapshot.setTenantId(1L);
+        snapshot.setFactsJson(validDraft().factsJson());
         return new DccRegistrationCertificateDraftState(certificate, version, snapshot, List.of());
     }
 
@@ -1394,13 +1414,21 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
                 .build();
     }
 
+    private static DccRegistrationCertificateDraftData withProducts(DccRegistrationCertificateDraftData d) {
+        if (d.productMasterId()==null) return d;
+        var facts=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(d.factsJson());
+        var product=new DccRegistrationCertificateProjectProduct(d.projectCodeId()==null?40L:d.projectCodeId(),663L,"0313170202","Product A",List.of(new DccRegistrationCertificateProjectProduct.Binding("CONFIRMED",56L)));
+        facts.setProjectProduct(product);facts.setProjectProducts(List.of(product));
+        return new DccRegistrationCertificateDraftData(d.ownerCompanyId(),d.productMasterId(),"Product A",product.projectCodeId(),d.firstObtainedDate(),d.certificateNo(),d.approvalDate(),d.effectiveDate(),d.expiryDate(),d.classification(),d.registrantName(),d.modelSpecification(),d.structureComposition(),d.intendedUse(),d.technicalRequirements(),d.residenceAddress(),d.productionAddress(),d.entrustedProduction(),d.selfProduction(),d.entrustedEnterpriseIds(),d.remark(),facts.toJson());
+    }
+
     static DccRegistrationCertificateDraftData validDraft() {
-        return new DccRegistrationCertificateDraftData(
+        return withProducts(new DccRegistrationCertificateDraftData(
                 10L, 20L, null,
                 LocalDate.of(2026, 1, 1), "CERT-001",
                 LocalDate.of(2026, 2, 1), LocalDate.of(2026, 9, 1), LocalDate.of(2031, 9, 1),
                 "II", "Registrant", "Model", "Structure", "Use", "Requirements",
-                "Residence", "Production", true, false, List.of(30L), "Draft remark");
+                "Residence", "Production", true, false, List.of(30L), "Draft remark"));
     }
 
     private static DccRegistrationCertificateDraftData copyDraft(
@@ -1418,24 +1446,24 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
             LocalDate firstObtainedDate, LocalDate approvalDate, LocalDate effectiveDate, LocalDate expiryDate,
             Long projectCodeId, String certificateNo, Boolean entrustedProduction, Boolean selfProduction,
             List<Long> entrustedEnterpriseIds, Long ownerCompanyId) {
-        return new DccRegistrationCertificateDraftData(
+        return withProducts(new DccRegistrationCertificateDraftData(
                 ownerCompanyId, source.productMasterId(), projectCodeId, firstObtainedDate,
                 certificateNo, approvalDate, effectiveDate, expiryDate, source.classification(),
                 source.registrantName(), source.modelSpecification(), source.structureComposition(),
                 source.intendedUse(), source.technicalRequirements(), source.residenceAddress(),
                 source.productionAddress(), entrustedProduction, selfProduction, entrustedEnterpriseIds,
-                source.remark());
+                source.remark()));
     }
 
     private static DccRegistrationCertificateDraftData draftWithText(
             DccRegistrationCertificateDraftData source,
             String certificateNo, String classification, String registrantName) {
-        return new DccRegistrationCertificateDraftData(
+        return withProducts(new DccRegistrationCertificateDraftData(
                 source.ownerCompanyId(), source.productMasterId(), source.projectCodeId(),
                 source.firstObtainedDate(), certificateNo, source.approvalDate(), source.effectiveDate(),
                 source.expiryDate(), classification, registrantName, source.modelSpecification(),
                 source.structureComposition(), source.intendedUse(), source.technicalRequirements(),
                 source.residenceAddress(), source.productionAddress(), source.entrustedProduction(),
-                source.selfProduction(), source.entrustedEnterpriseIds(), source.remark());
+                source.selfProduction(), source.entrustedEnterpriseIds(), source.remark()));
     }
 }

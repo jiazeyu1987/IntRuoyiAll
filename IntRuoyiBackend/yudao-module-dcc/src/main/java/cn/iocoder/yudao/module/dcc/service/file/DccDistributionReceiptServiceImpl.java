@@ -101,7 +101,8 @@ public class DccDistributionReceiptServiceImpl implements DccDistributionReceipt
         if (recipient == null || !Objects.equals(distributionId, recipient.getDistributionId())
                 || !Objects.equals(userId, recipient.getUserId()))
             throw exception(CONTROLLED_FILE_DISTRIBUTION_RECEIPT_NOT_ALLOWED);
-        if (recipient.getAcknowledgedAt() != null) return;
+        if (recipient.getAcknowledgedAt() != null)
+            throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DISTRIBUTION_ALREADY_ACKNOWLEDGED);
         if (request == null || StrUtil.isBlank(request.getPassword())
                 || request.getComment() != null && request.getComment().length() > 1000)
             throw new IllegalArgumentException("签收密码必填，可选意见不得超过1000字");

@@ -42,6 +42,15 @@ class DccDataRelationServiceImplTest extends BaseMockitoUnitTest {
     @Mock
     private DccProductCatalogRegistrationSyncService productCatalogRegistrationSyncService;
 
+    @Mock
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService productBindings;
+
+    @org.junit.jupiter.api.BeforeEach
+    void bindProductFixture() {
+        org.mockito.Mockito.lenient().when(productBindings.containsProduct(null,33L,11L)).thenReturn(true);
+        org.mockito.Mockito.lenient().when(productBindings.containsProject(null,33L,22L)).thenReturn(true);
+    }
+
     @ParameterizedTest
     @CsvSource({"22,false", "23,true"})
     void approvedProductCannotBeReboundOrRequireAnotherProjectOnlyBinding(long approvedProjectId, boolean withCertificate) {

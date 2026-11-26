@@ -83,7 +83,7 @@
             查看项目及产品申请
           </el-button>
           <el-button v-if="dccOfflineTrainingNavigation" type="primary" @click="navigateToDccOfflineTraining">上传线下培训记录</el-button>
-          <el-button v-if="dccDistributionNavigation" type="primary" @click="handleContentClick">查看下发文件并签收</el-button>
+          <el-button v-if="dccDistributionNavigation" type="primary" @click="handleContentClick">查看下发文件</el-button>
           <el-button v-if="dccRelationRemediationNavigation" type="primary" data-testid="dcc-relation-remediation-notification-open" @click="navigateToDccRelationRemediation">查看来源受控申请</el-button>
           <el-button v-if="applicationRestart" type="primary" :loading="restartLoading" data-testid="dcc-application-restart" @click="restartApplication">重新发起本次任务</el-button>
         </div>

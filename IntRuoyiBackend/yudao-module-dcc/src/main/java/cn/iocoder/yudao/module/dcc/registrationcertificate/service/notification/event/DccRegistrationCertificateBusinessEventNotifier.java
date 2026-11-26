@@ -45,7 +45,7 @@ public class DccRegistrationCertificateBusinessEventNotifier {
                                                String certificateType, boolean current) {
         send(tenantId, ownerCompanyId, certificateId, versionId, actorId, EVENT_NEW_CERTIFICATE_FORMALIZED,
                 eventKey, "已入库", productName, certificateNo, effectiveDate, expiryDate,
-                isCe(certificateType) && current);
+                certificateType, isCe(certificateType) && current);
     }
 
     public void notifyRenewalCandidateUploaded(Long tenantId, Long ownerCompanyId, Long certificateId,
@@ -53,7 +53,7 @@ public class DccRegistrationCertificateBusinessEventNotifier {
                                                String productName, String certificateNo,
                                                LocalDate effectiveDate, LocalDate expiryDate, String certificateType) {
         send(tenantId, ownerCompanyId, certificateId, versionId, actorId, EVENT_RENEWAL_CANDIDATE_UPLOADED,
-                eventKey, "延续版本已入库", productName, certificateNo, effectiveDate, expiryDate, isCe(certificateType));
+                eventKey, "延续版本已入库", productName, certificateNo, effectiveDate, expiryDate, certificateType, isCe(certificateType));
     }
 
     public void notifyRenewalCandidateActivated(Long tenantId, Long ownerCompanyId, Long certificateId,
@@ -61,14 +61,14 @@ public class DccRegistrationCertificateBusinessEventNotifier {
                                                 String productName, String certificateNo,
                                                 LocalDate effectiveDate, LocalDate expiryDate, String certificateType) {
         send(tenantId, ownerCompanyId, certificateId, versionId, actorId, EVENT_RENEWAL_CANDIDATE_ACTIVATED,
-                eventKey, "延续版本已生效", productName, certificateNo, effectiveDate, expiryDate, isCe(certificateType));
+                eventKey, "延续版本已生效", productName, certificateNo, effectiveDate, expiryDate, certificateType, isCe(certificateType));
     }
 
     public void notifyChangeApprovalRecorded(Long tenantId, Long ownerCompanyId, Long certificateId,
                                              Long versionId, Long actorId, String eventKey,
                                              String productName, String certificateNo,
                                              LocalDate effectiveDate, LocalDate expiryDate, String certificateType) {
-        Map<String,Object> params=detailParams("变更已生效，请确认",productName,certificateNo,effectiveDate,expiryDate);
+        Map<String,Object> params=detailParams("变更已生效，请确认",productName,certificateNo,effectiveDate,expiryDate,certificateType);
         changeConfirmationService.send(new DccRegistrationCertificateBusinessEventNotificationCommand(
                 tenantId,ownerCompanyId,certificateId,versionId,actorId,EVENT_CHANGE_APPROVAL_RECORDED,
                 eventKey,List.of(),null,params),resolveChangeRecipients(tenantId, certificateType));
@@ -81,9 +81,10 @@ public class DccRegistrationCertificateBusinessEventNotifier {
 
     private void send(Long tenantId, Long ownerCompanyId, Long certificateId, Long versionId, Long actorId,
                       String eventType, String eventKey, String eventTitle, String productName,
-                      String certificateNo, LocalDate effectiveDate, LocalDate expiryDate, boolean notifyViewers) {
+                      String certificateNo, LocalDate effectiveDate, LocalDate expiryDate,
+                      String certificateType, boolean notifyViewers) {
         Map<String, Object> detailParams = detailParams(eventTitle, productName, certificateNo,
-                effectiveDate, expiryDate);
+                effectiveDate, expiryDate, certificateType);
         var command = new DccRegistrationCertificateBusinessEventNotificationCommand(
                 tenantId, ownerCompanyId, certificateId, versionId, actorId, eventType, eventKey,
                 List.of(), null, detailParams);
@@ -102,11 +103,17 @@ public class DccRegistrationCertificateBusinessEventNotifier {
     }
 
     private static Map<String, Object> detailParams(String eventTitle, String productName, String certificateNo,
-                                                    LocalDate effectiveDate, LocalDate expiryDate) {
-        if (isBlank(eventTitle) || isBlank(productName)) {
+                                                    LocalDate effectiveDate, LocalDate expiryDate, String certificateType) {
+        if (isBlank(eventTitle) || isBlank(productName) || isBlank(certificateType)) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_TEMPLATE_PARAM_MISSING);
         }
         LinkedHashMap<String, Object> params = new LinkedHashMap<>();
+        params.put("certificateTypeName", switch (certificateType) {
+            case "DOMESTIC" -> "国内注册证";
+            case "CE" -> "CE证书";
+            case "FDA" -> "FDA证书";
+            default -> throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_TEMPLATE_PARAM_MISSING);
+        });
         params.put("eventTitle", eventTitle.trim());
         params.put("productName", productName.trim());
         params.put("certificateNo", isBlank(certificateNo) ? "证件未载明编号" : certificateNo.trim());

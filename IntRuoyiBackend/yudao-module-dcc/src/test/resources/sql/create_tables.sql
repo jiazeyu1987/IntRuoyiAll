@@ -2377,7 +2377,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_file` (
   CONSTRAINT `chk_dcc_reg_cert_file_owner_type` CHECK
     (`owner_type` IN ('VERSION', 'CHANGE', 'SUPPORTING_DOCUMENT')),
   CONSTRAINT `chk_dcc_reg_cert_file_kind` CHECK (`file_kind` IN
-    ('REGISTRATION_CERTIFICATE', 'CERTIFICATE_ATTACHMENT', 'FDA_PRODUCT_DESCRIPTION', 'CHANGE_APPROVAL', 'RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE', 'CE_RENEWAL_CONTRACT', 'CE_RENEWAL_QUOTATION')),
+    ('REGISTRATION_CERTIFICATE', 'CERTIFICATE_ATTACHMENT', 'FDA_PRODUCT_DESCRIPTION', 'CHANGE_APPROVAL', 'RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')),
   CONSTRAINT `chk_dcc_reg_cert_file_status` CHECK
     (`status` IN ('STAGED', 'BOUND', 'CLEANUP_REQUIRED', 'VOIDED')),
   UNIQUE KEY `uk_dcc_reg_cert_bound_file` (`tenant_id`, `bound_file_unique_flag`),
@@ -2500,7 +2500,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_supporting_document` (
   `deleted` TINYINT NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   CONSTRAINT `chk_dcc_reg_cert_support_type` CHECK (`document_type` IN
-    ('RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE', 'CE_RENEWAL_CONTRACT', 'CE_RENEWAL_QUOTATION')),
+    ('RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')),
   CONSTRAINT `chk_dcc_reg_cert_support_status` CHECK (`status` IN
     ('EFFECTIVE', 'REJECTED', 'VOIDED')),
   CONSTRAINT `chk_dcc_reg_cert_support_reject_reason` CHECK (
@@ -2519,7 +2519,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_change` (
   `resulting_snapshot_id` BIGINT NULL,
   `event_id` BIGINT NOT NULL,
   `approval_request_id` BIGINT NULL,
-  `approval_date` DATE NOT NULL,
+  `approval_date` DATE NULL,
   `selected_change_types_json` VARCHAR(8000) NOT NULL,
   `selected_item_count` INT NULL,
   `status` VARCHAR(32) NOT NULL,
@@ -3331,4 +3331,11 @@ CREATE TABLE IF NOT EXISTS dcc_project_file_reference (
  folder_id BIGINT NOT NULL, master_id BIGINT NOT NULL, selected_controlled_file_id BIGINT NOT NULL,
  created_by BIGINT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
  UNIQUE(tenant_id,project_id,folder_id,master_id)
+);
+
+CREATE TABLE IF NOT EXISTS dcc_registration_certificate_product (
+ tenant_id BIGINT NOT NULL, product_catalog_id BIGINT NOT NULL, certificate_id BIGINT NOT NULL,
+ project_code_id BIGINT NOT NULL, product_code VARCHAR(128) NOT NULL, product_name VARCHAR(255) NOT NULL,
+ state VARCHAR(16) NOT NULL, created_by BIGINT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(tenant_id,product_catalog_id), UNIQUE(tenant_id,project_code_id)
 );

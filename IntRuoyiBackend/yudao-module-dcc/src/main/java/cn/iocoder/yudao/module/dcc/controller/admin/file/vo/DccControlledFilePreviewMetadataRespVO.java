@@ -11,6 +11,7 @@ public class DccControlledFilePreviewMetadataRespVO {
     private Long distributionId;
     @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
     private Long recipientId;
+    private Boolean receiptAcknowledged;
     private String versionNo;
     private String approvalProcessInstanceId;
 

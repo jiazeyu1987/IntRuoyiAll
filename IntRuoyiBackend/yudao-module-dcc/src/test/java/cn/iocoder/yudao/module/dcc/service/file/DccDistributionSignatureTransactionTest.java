@@ -181,7 +181,7 @@ class DccDistributionSignatureTransactionTest extends BaseDbUnitTest {
         assertTrue(event.getIdempotencyKey().startsWith("DCC_RECEIPT_SIGNATURE:"));assertTrue(event.getIdempotencyKey().length()<128);
         var query=new ElectronicSignatureQueryServiceImpl();wire(query,"signatureRecordMapper",signatures);
         assertEquals("VALID",query.verifyEvidence(signatures.selectList().get(0).getId()).verificationStatus());
-        acknowledge("","fixture-valid-password");assertEquals(1L,signatures.selectCount());assertEquals(2L,audits.selectCount());assertEquals(1L,bindingMapper.selectCount());
+        assertThrows(ServiceException.class, () -> acknowledge("","fixture-valid-password"));assertEquals(1L,signatures.selectCount());assertEquals(2L,audits.selectCount());assertEquals(1L,bindingMapper.selectCount());
     }
     @Test void optionalEmptyStringAlsoPersistsNoInventedOpinion(){
         acknowledge("","fixture-valid-password");assertEquals("",signatures.selectList().get(0).getReason());assertEquals("",projections.selectList().get(0).getComment());
@@ -287,7 +287,7 @@ class DccDistributionSignatureTransactionTest extends BaseDbUnitTest {
         assertNotNull(ack);assertTrue(bindingService.verifyPublishedCopyBinding(ack,files.selectById(42L)).valid());
         assertEquals(6L,bindingMapper.selectCount());assertEquals(6L,projections.selectCount());assertEquals(1L,signatures.selectCount());
         unchangedPublishedFact(pdf,before);assertNull(recipients.selectById(71L).getReadAt());
-        acknowledge(null,"fixture-valid-password");assertEquals(6L,bindingMapper.selectCount());assertEquals(6L,projections.selectCount());assertEquals(1L,signatures.selectCount());
+        assertThrows(ServiceException.class, () -> acknowledge(null,"fixture-valid-password"));assertEquals(6L,bindingMapper.selectCount());assertEquals(6L,projections.selectCount());assertEquals(1L,signatures.selectCount());
         unchangedPublishedFact(pdf,before);assertEquals(1L,jobMapper.selectCount());
     }
     @Test void publishedCopyUnreadableRollsBackNewSignatureProjectionAndReceiptWithoutTouchingFive()throws Exception{
