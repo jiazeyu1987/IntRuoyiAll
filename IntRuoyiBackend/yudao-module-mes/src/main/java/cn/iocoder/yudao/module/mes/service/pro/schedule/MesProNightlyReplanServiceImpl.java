@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrd
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -24,7 +25,7 @@ public class MesProNightlyReplanServiceImpl implements MesProNightlyReplanServic
     private final MesProAutoScheduleService autoScheduleService;
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public MesProNightlyReplanResult executeNightlyReplan(LocalDateTime startTime) {
         List<MesProScheduleOrderDO> scheduleOrders = scheduleOrderMapper.selectListForNightlyReplan();
         MesProNightlyReplanResult result = new MesProNightlyReplanResult();

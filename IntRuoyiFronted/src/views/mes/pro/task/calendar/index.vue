@@ -868,15 +868,18 @@
               {{ buildCapacitySourceLabel(row.capacitySource) }}
             </template>
           </el-table-column>
-          <el-table-column label="工作站数" prop="workstationCount" width="100" align="center" />
-          <el-table-column label="设备数" prop="machineCount" width="90" align="center" />
-          <el-table-column
-            label="配置人数"
-            prop="configuredWorkerCount"
-            width="100"
-            align="center"
-          />
-          <el-table-column label="在岗人数" prop="currentWorkerCount" width="100" align="center" />
+          <el-table-column label="工作站数" width="100" align="center">
+            <template #default="{ row }">{{ row.workstationCount ?? '未匹配' }}</template>
+          </el-table-column>
+          <el-table-column label="设备数" width="90" align="center">
+            <template #default="{ row }">{{ row.machineCount ?? '未匹配' }}</template>
+          </el-table-column>
+          <el-table-column label="配置人数" width="100" align="center">
+            <template #default="{ row }">{{ row.configuredWorkerCount ?? '未匹配' }}</template>
+          </el-table-column>
+          <el-table-column label="在岗人数" width="100" align="center">
+            <template #default="{ row }">{{ row.currentWorkerCount ?? '未匹配' }}</template>
+          </el-table-column>
           <el-table-column label="有效小时产能" width="120" align="center">
             <template #default="{ row }">
               {{ buildCapacityLabel(row.effectiveHourlyCapacity, '件/小时') }}
@@ -2561,14 +2564,14 @@ function buildWorkOrderAnalysisBottleneckLabel() {
 }
 
 function buildProcessWorkstationLabel(process: ProScheduleCalendarWorkOrderAnalysisProcessVO) {
-  return (process.workstationNames || []).filter(Boolean).join(' / ') || '--'
+  return (process.workstationNames || []).filter(Boolean).join(' / ') || '未匹配'
 }
 
-function buildCapacitySourceLabel(source?: string) {
-  return source === 'MACHINE' ? '设备' : '人力'
+function buildCapacitySourceLabel(source?: string | null) {
+  return ({ MACHINE: '设备', WORKER: '人力', ROUTE_PROCESS: '工序快照' } as Record<string, string>)[source || ''] || '未知'
 }
 
-function buildQuantityLabel(value?: number, suffix = '') {
+function buildQuantityLabel(value?: number | null, suffix = '') {
   if (value === undefined || value === null || Number.isNaN(Number(value))) {
     return '--'
   }

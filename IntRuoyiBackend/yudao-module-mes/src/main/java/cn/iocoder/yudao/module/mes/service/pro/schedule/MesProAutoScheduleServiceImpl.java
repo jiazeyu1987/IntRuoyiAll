@@ -1,5 +1,9 @@
 package cn.iocoder.yudao.module.mes.service.pro.schedule;
 
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProReplanRequestMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProReplanRequestDO;
+import org.springframework.transaction.annotation.Isolation;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
@@ -291,16 +295,32 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public MesProAutoScheduleApplyRespVO apply(MesProAutoSchedulePreviewReqVO reqVO) {
         return applyInternal(reqVO, OPERATION_AUTO_APPLY, null);
     }
+
+    @jakarta.annotation.Resource
+    private MesProReplanRequestMapper replanRequestMapper;
 
     private MesProAutoScheduleApplyRespVO applyInternal(MesProAutoSchedulePreviewReqVO reqVO, String operationType,
                                                         String replanTriggerSource) {
         prepareApplyReason(reqVO, operationType);
         scheduleApplyGuard.validateCalendarContextTokenProvided(reqVO.getCalendarContextToken());
+        List<Long> scopedWorkOrderIds = CollUtil.isNotEmpty(reqVO.getScheduleOrderIds())
+                ? scheduleOrderMapper.selectByIds(reqVO.getScheduleOrderIds().stream()
+                        .filter(Objects::nonNull).distinct().toList()).stream()
+                        .map(MesProScheduleOrderDO::getWorkOrderId).filter(Objects::nonNull).toList()
+                : reqVO.getWorkOrderIds();
+        Set<Long> lockedScope = scopedWorkOrderIds == null ? Collections.emptySet() : new TreeSet<>(scopedWorkOrderIds);
+        if (!lockedScope.isEmpty()) {
+            workOrderMapper.selectListByIdsForUpdate(lockedScope);
+        }
         ScheduleComputation computation = computeSchedule(reqVO, true);
+        if (reqVO.getWorkOrderIds() != null && !lockedScope.containsAll(reqVO.getWorkOrderIds())) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
+                    "排产范围已变化，请重新预览后提交");
+        }
         validateNoFrozenWorkOrders(reqVO.getWorkOrderIds());
         scheduleApplyGuard.validateCalendarContextToken(reqVO.getCalendarContextToken(),
                 computation.calendarContext == null ? null : computation.calendarContext.token);
@@ -313,9 +333,6 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         List<Long> applyWorkOrderIds = reqVO.getWorkOrderIds().stream()
                 .filter(workOrderId -> !blockedWorkOrderIds.contains(workOrderId))
                 .toList();
-        if (CollUtil.isNotEmpty(applyWorkOrderIds)) {
-            workOrderMapper.selectListByIdsForUpdate(applyWorkOrderIds);
-        }
 
         List<Long> existingScopeTaskIds = computation.scopeTasks.stream()
                 .filter(task -> !computation.nonBlockingSkippedWorkOrderIds.contains(task.getWorkOrderId()))
@@ -557,13 +574,32 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public MesProAutoScheduleApplyRespVO replanApply(MesProAutoScheduleReplanReqVO reqVO) {
-        return applyInternal(reqVO, OPERATION_REPLAN_APPLY, REPLAN_TRIGGER_MANUAL);
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        Long operatorId = SecurityFrameworkUtils.getLoginUserId();
+        if (operatorId == null || reqVO.getIdempotencyKey() == null || !reqVO.getIdempotencyKey().matches("[A-Za-z0-9_-]{1,128}")) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("重排必须提供登录用户和不超过128字符的幂等键");
+        }
+        String key = reqVO.getIdempotencyKey();
+        String hash = DigestUtil.sha256Hex(JsonUtils.toJsonString(reqVO));
+        replanRequestMapper.claim(tenantId, operatorId, key, hash);
+        MesProReplanRequestDO receipt = replanRequestMapper.lock(tenantId, operatorId, key);
+        if (receipt == null || !hash.equals(receipt.getPayloadHash())) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("该重排幂等键已用于不同请求，请重新预览后提交");
+        }
+        if (receipt.getResultJson() != null) {
+            return JsonUtils.parseObject(receipt.getResultJson(), MesProAutoScheduleApplyRespVO.class);
+        }
+        MesProAutoScheduleApplyRespVO result = applyInternal(reqVO, OPERATION_REPLAN_APPLY, REPLAN_TRIGGER_MANUAL);
+        if (replanRequestMapper.complete(tenantId, operatorId, key, JsonUtils.toJsonString(result)) != 1) {
+            throw new IllegalStateException("重排幂等结果保存失败");
+        }
+        return result;
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public MesProAutoScheduleApplyRespVO replanApplyForNightly(MesProAutoScheduleReplanReqVO reqVO) {
         return applyInternal(reqVO, OPERATION_REPLAN_APPLY, REPLAN_TRIGGER_NIGHTLY);
     }
@@ -971,12 +1007,21 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long cancelNightShift(@Valid MesProAutoScheduleCancelNightShiftReqVO reqVO) {
-        MesProTaskDO task = taskMapper.selectById(reqVO.getTaskId());
+        List<MesProTaskDO> lockedTasks = taskMapper.selectListByIdsForUpdate(List.of(reqVO.getTaskId()));
+        MesProTaskDO task = lockedTasks.isEmpty() ? null : lockedTasks.get(0);
         if (task == null) {
             throw new IllegalStateException("night shift task not found, id=" + reqVO.getTaskId());
         }
         if (!"NIGHT".equals(resolveShiftCodeForTask(task))) {
             throw new IllegalStateException("task is not a night shift task");
+        }
+
+        ScheduleComputation protection = new ScheduleComputation();
+        protection.feedbackByTaskId = feedbackMapper.selectListByTaskIds(List.of(task.getId())).stream()
+                .collect(Collectors.groupingBy(MesProFeedbackDO::getTaskId));
+        if (resolveProtectionReason(protection, task, taskScheduleExtMapper.selectByTaskId(task.getId())) != null
+                || isCanceledTask(task)) {
+            throw exception(PRO_AUTO_SCHEDULE_PROTECTED_TASK_CONFLICT);
         }
 
         taskDependencyMapper.deleteByTaskIds(List.of(task.getId()));
@@ -1051,6 +1096,32 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         }
     }
 
+    @Resource
+    private cn.iocoder.yudao.module.infra.service.config.ConfigService schedulePolicyConfigService;
+
+    private String readPriorityRule() {
+        var config = schedulePolicyConfigService.getConfigByKey("mes.scheduler-workbench.policy-settings");
+        if (config == null) {
+            // 与工作台首次使用时的正式默认策略一致。
+            return "PROMISE_DATE";
+        }
+        String value = config.getValue();
+        if (StrUtil.isBlank(value)) {
+            throw exception(PRO_SCHEDULER_WORKBENCH_POLICY_SETTINGS_INVALID);
+        }
+        try {
+            var settings = JsonUtils.getObjectMapper().readValue(value,
+                    cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchPolicySettingsRespVO.class);
+            String rule = settings == null ? null : settings.getPriorityRule();
+            if (rule == null || !Set.of("PROMISE_DATE", "ORDER_PRIORITY", "CREATED_TIME").contains(rule)) {
+                throw exception(PRO_SCHEDULER_WORKBENCH_POLICY_SETTINGS_INVALID);
+            }
+            return rule;
+        } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+            throw exception(PRO_SCHEDULER_WORKBENCH_POLICY_SETTINGS_INVALID);
+        }
+    }
+
     private void resolveScheduleOrderScope(ScheduleComputation computation, MesProAutoSchedulePreviewReqVO reqVO,
                                            boolean persistRouteConfigSnapshot) {
         List<MesProScheduleOrderDO> scheduleOrders;
@@ -1084,7 +1155,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                     scheduleOrderProcessMapper.selectListByScheduleOrderId(scheduleOrder.getId()),
                     persistRouteConfigSnapshot));
         }
-        computation.scheduleOrders = schedulePlanner.sortScheduleOrders(scheduleOrderMap.values(), processMap);
+        computation.scheduleOrders = schedulePlanner.sortScheduleOrders(scheduleOrderMap.values(), processMap, readPriorityRule());
         computation.scheduleOrderMap = computation.scheduleOrders.stream()
                 .collect(Collectors.toMap(MesProScheduleOrderDO::getId, order -> order));
         Set<Long> workOrderIds = computation.scheduleOrders.stream()

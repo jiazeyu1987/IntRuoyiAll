@@ -292,6 +292,19 @@ class MesProSchedulerWorkbenchServiceImplTest {
     }
 
     @Test
+    void getPolicySettings_shouldExposeMandatoryProtectionForHistoricalFalseSettings() {
+        ConfigDO config = new ConfigDO();
+        config.setValue("{\"protectReportedTasks\":false,\"protectCompletedTasks\":false,\"protectLockedTasks\":false}");
+        when(configService.getConfigByKey("mes.scheduler-workbench.policy-settings")).thenReturn(config);
+
+        MesProSchedulerWorkbenchPolicySettingsRespVO settings = service.getPolicySettings();
+
+        assertEquals(true, settings.getProtectReportedTasks());
+        assertEquals(true, settings.getProtectCompletedTasks());
+        assertEquals(true, settings.getProtectLockedTasks());
+    }
+
+    @Test
     void savePolicySettings_shouldCreateInfraConfigWhenMissing() {
         when(configService.getConfigByKey("mes.scheduler-workbench.policy-settings")).thenReturn(null);
         when(workstationMapper.selectListByStatus(0)).thenReturn(List.of());
@@ -305,7 +318,9 @@ class MesProSchedulerWorkbenchServiceImplTest {
         assertEquals("01:30", saved.getErpWorkOrderSyncTime());
         assertEquals("03:15", saved.getNightlyReplanTime());
         assertEquals("ORDER_PRIORITY", saved.getPriorityRule());
-        assertEquals(false, saved.getProtectCompletedTasks());
+        assertEquals(true, saved.getProtectCompletedTasks());
+        assertEquals(true, saved.getProtectReportedTasks());
+        assertEquals(true, saved.getProtectLockedTasks());
         assertEquals("MANUAL_OVERRIDE", saved.getDefaultScheduleCapacityMode());
         assertEquals(new BigDecimal("96"), saved.getDefaultFiniteHourlyCapacity());
         assertEquals(6, saved.getDefaultWorkerQuantity());

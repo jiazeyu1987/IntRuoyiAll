@@ -167,6 +167,10 @@ async function assertMenuShape(page) {
   await expandRegistrationCertificateMenu(page)
   assert.equal(await visibleMenuEntries(page, '关联公司').count(), 1, '关联公司 should be visible')
   assert.equal(await visibleMenuEntries(page, '注册证').count(), 1, '注册证 should be visible')
+  const management = visibleSubMenuTitles(page, '注册证管理').first().locator('..')
+  assert.equal(await management.getByRole('menuitem', { name: '注册证配置', exact: true }).count(), 1,
+    '注册证配置 should belong to 注册证管理')
+  assert.equal(await visibleMenuEntries(page, '注册证配置').count(), 1, '注册证配置 should appear only once')
   assert.equal(
     await visibleMenuEntries(page, '企业公司范围').count(),
     0,
@@ -246,6 +250,7 @@ async function main() {
     await openMenuPage(page, '关联公司', '/mdm/enterprise')
     await waitForMenu(page)
     await openMenuPage(page, '注册证', '/mdm/registration-certificate')
+    await openMenuPage(page, '注册证配置', '/dcc/registration-certificate/config')
     await waitForMenu(page)
     await assertMenuShape(page)
 
@@ -262,7 +267,7 @@ async function main() {
           tenant: config.tenant,
           username: config.username,
           parentMenu: '注册证管理',
-          visibleChildren: ['关联公司', '注册证'],
+          visibleChildren: ['关联公司', '注册证', '注册证配置'],
           removedChildren: ['企业公司范围', '注册证历史导入'],
           currentUrl: page.url(),
           permissionInfoCode: permissionInfoPayload.code,
@@ -273,7 +278,7 @@ async function main() {
       ),
       'utf8',
     )
-    console.log('PASS: 注册证管理菜单仅显示 关联公司、注册证，且两个保留页签均可通过真实菜单打开')
+    console.log('PASS: 注册证管理下的关联公司、注册证、注册证配置均可通过真实菜单打开')
   } catch (error) {
     const diagnostics = await collectMenuDiagnostics(page)
     const failureScreenshotPath = path.join(outputDir, 'registration-certificate-management-menu-failure.png')

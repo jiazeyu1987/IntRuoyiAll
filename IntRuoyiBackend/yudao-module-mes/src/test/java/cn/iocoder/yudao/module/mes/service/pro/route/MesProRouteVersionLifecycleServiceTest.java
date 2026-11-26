@@ -33,6 +33,39 @@ import static org.mockito.ArgumentMatchers.any;
 @ExtendWith(MockitoExtension.class)
 class MesProRouteVersionLifecycleServiceTest {
     @Test
+    void newCandidateProcessMustBeProjectedToOfficialIdentityBeforeActivation() {
+        var snapshot = com.alibaba.fastjson.JSON.parseObject(validSnapshotJson(9001L, "RT", "Route"));
+        var configs = snapshot.getJSONObject("configSnapshots");
+        var node = configs.getJSONObject("flowGraph").getJSONArray("nodes").getJSONObject(0);
+        node.remove("routeProcessId");
+        node.put("clientRouteProcessId", -1L);
+        node.put("sopFileUrl", null);
+        configs.getJSONArray("productionProcessConfigs").getJSONObject(0).put("routeProcessId", -1L);
+        String candidateJson = MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(snapshot);
+        var candidate = MesProRouteVersionDO.builder().id(1002L).routeId(9001L).active(false)
+                .lifecycleStatus("READY_TO_PUBLISH").sourceRouteVersionId(1001L)
+                .routeSnapshotJson(candidateJson).build();
+        when(routeVersionMapper.selectById(1002L)).thenReturn(candidate);
+        when(routeVersionMapper.selectActiveByRouteId(9001L)).thenReturn(
+                MesProRouteVersionDO.builder().id(1001L).routeId(9001L).active(true).build());
+        when(publishProjectionService.projectCandidate(candidate)).thenReturn(projection(candidateJson, -1L));
+
+        assertThrows(IllegalStateException.class, () -> lifecycleService.publishCandidate(1002L, 600L));
+        verify(routeVersionMapper, never()).updateById(any(MesProRouteVersionDO.class));
+
+        String projectedJson = validSnapshotJsonWithRouteProcessId(9001L, "RT", "Route", 210L)
+                .replace("\"/sop.pdf\"", "null");
+        when(publishProjectionService.projectCandidate(candidate)).thenReturn(projection(projectedJson, 210L));
+        when(routeVersionMapper.updateById(any(MesProRouteVersionDO.class))).thenReturn(1);
+        assertEquals("ACTIVE", lifecycleService.publishCandidate(1002L, 600L).getLifecycleStatus());
+        var publishedNode = com.alibaba.fastjson.JSON.parseObject(candidate.getRouteSnapshotJson())
+                .getJSONObject("configSnapshots").getJSONObject("flowGraph").getJSONArray("nodes").getJSONObject(0);
+        assertEquals(210L, publishedNode.getLong("routeProcessId"));
+        assertTrue(publishedNode.containsKey("sopFileUrl"));
+        org.junit.jupiter.api.Assertions.assertNull(publishedNode.get("sopFileUrl"));
+    }
+
+    @Test
     void publishVerifiesProjectedSopAndAcceptsExplicitNull() {
         String snapshot = validSnapshotJson(9001L, "RT", "Route").replace("\"/sop.pdf\"", "null");
         var candidate = MesProRouteVersionDO.builder().id(1002L).routeId(9001L).active(false)

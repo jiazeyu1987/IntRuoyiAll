@@ -42,7 +42,8 @@
           <el-button
             type="primary"
             plain
-            @click="handleThirdPartyImport"
+            v-hasPermi="['mes:pro-feedback:create']"
+          @click="handleThirdPartyImport"
           >
             <Icon icon="ep:upload-filled" class="mr-5px" /> 第三方导入
           </el-button>
@@ -288,6 +289,7 @@
         <el-button
           type="primary"
           plain
+          v-hasPermi="['mes:pro-feedback:create']"
           @click="handleThirdPartyImport"
         >
           <Icon icon="ep:upload-filled" class="mr-5px" />
@@ -299,6 +301,7 @@
           type="warning"
           plain
           :loading="simulateImportLoading"
+          v-hasPermi="['mes:pro-feedback:create']"
           @click="handleSimulateImport"
         >
           <Icon icon="ep:magic-stick" class="mr-5px" />

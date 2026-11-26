@@ -46,7 +46,6 @@
                 <Icon icon="ep:bell" class="mr-5px" />通知设置
               </el-button>
               <WorkbookImport
-                v-if="checkPermi(['dcc:registration-certificate:historical-import']) && checkPermi(['dcc:registration-certificate:upload:approve'])"
                 @imported="loadPage"
               />
               <ExcelExportButton

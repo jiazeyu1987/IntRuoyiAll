@@ -226,13 +226,13 @@ export interface ProScheduleCalendarWorkOrderAnalysisProcessVO {
   processId: number
   processName: string
   processSort: number
-  scheduledQuantity?: number
-  capacitySource: 'MACHINE' | 'WORKER'
-  workstationCount: number
+  scheduledQuantity?: number | null
+  capacitySource: 'MACHINE' | 'WORKER' | 'ROUTE_PROCESS' | null
+  workstationCount: number | null
   workstationNames: string[]
-  machineCount: number
-  configuredWorkerCount: number
-  currentWorkerCount: number
+  machineCount: number | null
+  configuredWorkerCount: number | null
+  currentWorkerCount: number | null
   effectiveHourlyCapacity?: number
   plannedDurationMinutes?: number
   startTime?: string

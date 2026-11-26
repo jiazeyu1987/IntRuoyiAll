@@ -1523,7 +1523,7 @@ class MesProScheduleCalendarServiceImplTest {
         when(processService.getProcessMap(anyCollection())).thenReturn(Map.of(400L, process1, 401L, process2));
         when(itemService.getItemMap(anyCollection())).thenReturn(Map.of(500L, product));
         when(workstationCapacityService.getCapacityMetrics(anyCollection(), any())).thenReturn(Map.of(
-                300L, buildCapacityMetrics(1, 1, new BigDecimal("120"), new BigDecimal("120")),
+                300L, buildCapacityMetrics(0, 0, new BigDecimal("120"), new BigDecimal("120")),
                 301L, buildCapacityMetrics(2, 2, BigDecimal.ZERO, new BigDecimal("40"))
         ));
 
@@ -1537,6 +1537,9 @@ class MesProScheduleCalendarServiceImplTest {
         @SuppressWarnings("unchecked")
         List<Object> processes = readRequiredField(analysis, "processes", List.class);
         assertEquals(2, processes.size());
+        var machineProcess = (cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.calendar.MesProScheduleCalendarWorkOrderAnalysisRespVO.ProcessAnalysisItem) processes.get(0);
+        assertEquals(0, machineProcess.getConfiguredWorkerCount());
+        assertEquals(0, machineProcess.getCurrentWorkerCount());
     }
 
     @Test
@@ -1663,9 +1666,46 @@ class MesProScheduleCalendarServiceImplTest {
         Object process = processes.get(0);
         assertEquals("吹球囊成型", readRequiredField(process, "processName", String.class));
         assertEquals("ROUTE_PROCESS", readRequiredField(process, "capacitySource", String.class));
-        assertEquals(0, readRequiredField(process, "workstationCount", Integer.class));
+        assertNull(((cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.calendar.MesProScheduleCalendarWorkOrderAnalysisRespVO.ProcessAnalysisItem) process).getWorkstationCount());
         assertEquals(0, new BigDecimal("2").compareTo(readRequiredField(process, "effectiveHourlyCapacity", BigDecimal.class)));
         assertEquals(120, readRequiredField(process, "plannedDurationMinutes", Integer.class));
+    }
+
+    @Test
+    void getWorkOrderAnalysis_shouldSumSegmentsSeparateSnapshotsAndExcludeCanceledTasks() {
+        when(workOrderService.getWorkOrder(200L)).thenReturn(MesProWorkOrderDO.builder()
+                .id(200L).productId(500L).quantity(new BigDecimal("2019")).build());
+        List<MesProTaskDO> tasks = new ArrayList<>();
+        List<MesProTaskScheduleExtDO> extensions = new ArrayList<>();
+        String[] quantities = {"1050", "969", "500", "2019"};
+        for (int i = 0; i < quantities.length; i++) {
+            tasks.add(MesProTaskDO.builder().id(100L + i).workOrderId(200L).processId(400L)
+                    .quantity(new BigDecimal(quantities[i]))
+                    .status(i == 3 ? cn.iocoder.yudao.module.mes.enums.pro.MesProTaskStatusEnum.CANCELED.getStatus() : null)
+                    .build());
+            extensions.add(MesProTaskScheduleExtDO.builder().taskId(100L + i)
+                    .scheduleOrderProcessId(i == 2 ? 602L : 601L).build());
+        }
+        when(taskMapper.selectListByWorkOrderIds(anyCollection())).thenReturn(tasks);
+        when(itemService.getItemMap(anyCollection())).thenReturn(Collections.emptyMap());
+        when(processService.getProcessMap(anyCollection())).thenReturn(Collections.emptyMap());
+        when(workstationMapper.selectListByProcessIds(anyCollection(), any())).thenReturn(Collections.emptyList());
+        when(taskScheduleExtMapper.selectListByTaskIds(anyCollection())).thenReturn(extensions);
+        when(scheduleOrderProcessMapper.selectByIds(anyCollection())).thenReturn(List.of(
+                MesProScheduleOrderProcessDO.builder().id(601L).processId(400L).build(),
+                MesProScheduleOrderProcessDO.builder().id(602L).processId(400L).build()));
+        var processes = service.getWorkOrderAnalysis(200L).getProcesses();
+        assertEquals(2, processes.size());
+        assertEquals(0, new BigDecimal("2019").compareTo(processes.get(0).getScheduledQuantity()));
+        assertEquals(0, new BigDecimal("500").compareTo(processes.get(1).getScheduledQuantity()));
+        assertNull(processes.get(0).getWorkstationCount());
+        assertNull(processes.get(0).getMachineCount());
+        assertNull(processes.get(0).getConfiguredWorkerCount());
+        assertNull(processes.get(0).getCurrentWorkerCount());
+        tasks.get(0).setQuantity(null);
+        assertNull(service.getWorkOrderAnalysis(200L).getProcesses().get(0).getScheduledQuantity());
+        tasks.get(1).setQuantity(null);
+        assertNull(service.getWorkOrderAnalysis(200L).getProcesses().get(0).getScheduledQuantity());
     }
 
     @Test

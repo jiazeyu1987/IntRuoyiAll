@@ -27,6 +27,7 @@ public class FenbeitongAssistantServiceImpl implements FenbeitongAssistantServic
 
     @Override
     public AuthFenbeitongAssistantStatusRespVO getStatus() {
+        requirePublicUrl();
         if (healthProbe.isRunning()) {
             return buildStatus(true, true, "分贝通费用报销助手已启动");
         }
@@ -40,6 +41,7 @@ public class FenbeitongAssistantServiceImpl implements FenbeitongAssistantServic
 
     @Override
     public synchronized AuthFenbeitongAssistantStatusRespVO start() {
+        requirePublicUrl();
         if (healthProbe.isRunning()) {
             return buildStatus(true, true, "分贝通费用报销助手已启动");
         }
@@ -79,10 +81,17 @@ public class FenbeitongAssistantServiceImpl implements FenbeitongAssistantServic
     private AuthFenbeitongAssistantStatusRespVO buildStatus(
             boolean running, boolean launchable, String message) {
         return AuthFenbeitongAssistantStatusRespVO.builder()
+                .publicUrl(properties.getPublicUrl())
                 .running(running)
                 .launchable(launchable)
                 .message(message)
                 .build();
+    }
+
+    private void requirePublicUrl() {
+        if (properties.getPublicUrl().isBlank()) {
+            throw exception0(BAD_REQUEST.getCode(), "分贝通费用报销助手地址未配置，请联系管理员。");
+        }
     }
 
     private List<String> collectLaunchBlockers() {

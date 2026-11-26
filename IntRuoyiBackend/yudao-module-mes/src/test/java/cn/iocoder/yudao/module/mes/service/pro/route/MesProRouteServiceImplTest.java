@@ -1015,6 +1015,112 @@ class MesProRouteServiceImplTest {
     }
 
     @Test
+    void generatedAndSavedSnapshot_shouldPreserveSopAndRejectMissingOrMalformedBindings() {
+        Long routeId = 701L;
+        Long versionId = 702L;
+        var route = MesProRouteDO.builder().id(routeId).code("SOP-REGRESSION").name("SOP route").build();
+        var graph = new MesProRouteProcessFlowGraphRespVO();
+        graph.setRouteId(routeId);
+        graph.setEdges(emptyList());
+        var node = new MesProRouteProcessFlowNodeRespVO();
+        node.setRouteProcessId(11L);
+        node.setProcessId(21L);
+        node.setProcessName("粗洗工序");
+        node.setSort(1);
+        node.setX(120);
+        node.setKeyFlag(true);
+        graph.setNodes(List.of(node));
+        var version = MesProRouteVersionDO.builder().id(versionId).routeId(routeId)
+                .routeSnapshotJson("""
+                        {"configSnapshots":{"productionProcessConfigs":[{"routeProcessId":11,"processId":21,
+                        "overagePercent":0,"lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]}],
+                        "routeStartProductionLeaders":[{"productionLineId":701,
+                        "candidateSourceType":"USER","candidateSourceIds":[607]}]}}
+                        """).build();
+        when(routeMapper.selectById(routeId)).thenReturn(route);
+        when(routeVersionMapper.selectById(versionId)).thenReturn(version);
+        when(routeProcessFlowService.getGraph(routeId)).thenReturn(graph);
+        when(routeProductMapper.selectListByRouteId(routeId)).thenReturn(emptyList());
+        when(routeProductBomMapper.selectList(routeId, null, null)).thenReturn(emptyList());
+        when(routeScheduleConfigMapper.selectListByRouteVersionId(versionId)).thenReturn(emptyList());
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(routeId,
+                MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(emptyList());
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(routeId,
+                MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())).thenReturn(emptyList());
+
+        var canonicalizer = new MesProRouteSnapshotCanonicalizer();
+        for (String sop : new String[]{null, "/files/粗洗 SOP.pdf?version=31"}) {
+            node.setSopFileUrl(sop);
+            String generated = routeService.buildCurrentRouteSnapshotJson(routeId, versionId);
+            assertTrue(MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(generated));
+            assertDoesNotThrow(() -> MesProRouteVersionSnapshotValidator.requireProductionLeaderAssignments(generated));
+            assertTrue(canonicalizer.validate(routeId, generated).ready());
+            JSONObject snapshot = JSON.parseObject(generated);
+            JSONObject frozen = snapshot.getJSONObject("configSnapshots").getJSONObject("flowGraph")
+                    .getJSONArray("nodes").getJSONObject(0);
+            assertTrue(frozen.containsKey("sopFileUrl"));
+            assertEquals(sop, frozen.get("sopFileUrl"));
+            // All other node fields retain the previous conversion's values and null omission.
+            JSONObject expected = (JSONObject) JSON.toJSON(node);
+            expected.remove("sopFileUrl");
+            JSONObject otherFields = new JSONObject(frozen);
+            otherFields.remove("sopFileUrl");
+            assertEquals(JSON.parseObject(expected.toJSONString()), otherFields);
+
+            ReflectionTestUtils.invokeMethod(routeService, "refreshRouteVersionSnapshot", route, versionId);
+            frozen.remove("sopFileUrl");
+            assertFalse(MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(
+                    MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(snapshot)));
+            for (Object invalid : List.of(123, true, new JSONArray(), new JSONObject())) {
+                frozen.put("sopFileUrl", invalid);
+                assertFalse(MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(
+                        MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(snapshot)));
+            }
+        }
+        var updates = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper, org.mockito.Mockito.times(2)).updateById(updates.capture());
+        for (var saved : updates.getAllValues()) {
+            assertTrue(MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(saved.getRouteSnapshotJson()));
+            assertEquals(canonicalizer.sha256(saved.getRouteSnapshotJson()), saved.getRouteSnapshotSha256());
+            assertEquals(MesProRouteSnapshotCanonicalizer.FORMAT_VERSION, saved.getRouteSnapshotFormatVersion());
+            assertGeneratedSnapshotPublishes(saved, routeId);
+        }
+    }
+
+    private void assertGeneratedSnapshotPublishes(MesProRouteVersionDO saved, Long routeId) {
+        var lifecycle = new MesProRouteVersionLifecycleServiceImpl();
+        var mapper = org.mockito.Mockito.mock(MesProRouteVersionMapper.class);
+        var projection = org.mockito.Mockito.mock(MesProRouteVersionPublishProjectionServiceImpl.class);
+        var craft = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService.class);
+        ReflectionTestUtils.setField(lifecycle, "routeVersionMapper", mapper);
+        ReflectionTestUtils.setField(lifecycle, "publishProjectionService", projection);
+        ReflectionTestUtils.setField(lifecycle, "craftService", craft);
+        ReflectionTestUtils.setField(lifecycle, "routeSnapshotCanonicalizer", new MesProRouteSnapshotCanonicalizer());
+        ReflectionTestUtils.setField(lifecycle, "deviceIdentitySnapshots", deviceIdentitySnapshots);
+        ReflectionTestUtils.setField(lifecycle, "platformAdapter", platformAdapter);
+        ReflectionTestUtils.setField(lifecycle, "versionOperateLogService", versionOperateLogService);
+        ReflectionTestUtils.setField(lifecycle, "routeTrees", routeTrees);
+        when(routeTrees.getObject()).thenReturn(routeTreeService);
+        var candidate = MesProRouteVersionDO.builder().id(saved.getId()).routeId(routeId).active(false)
+                .sourceRouteVersionId(700L).lifecycleStatus("READY_TO_PUBLISH")
+                .routeSnapshotJson(saved.getRouteSnapshotJson()).build();
+        when(mapper.selectById(candidate.getId())).thenReturn(candidate);
+        when(mapper.selectActiveByRouteId(routeId)).thenReturn(
+                MesProRouteVersionDO.builder().id(700L).routeId(routeId).active(true).build());
+        when(mapper.updateById(any(MesProRouteVersionDO.class))).thenReturn(1);
+        // Projection and persistence are mocked; all lifecycle snapshot gates execute normally.
+        when(projection.projectCandidate(candidate)).thenReturn(
+                new MesProRouteVersionPublishProjectionServiceImpl.ProjectionResult(
+                        saved.getRouteSnapshotJson(), Set.of(11L)));
+        String before = new MesProRouteSnapshotCanonicalizer().canonicalize(saved.getRouteSnapshotJson());
+        assertEquals("ACTIVE", lifecycle.publishCandidate(candidate.getId(), 607L).getLifecycleStatus());
+        assertEquals(before, candidate.getRouteSnapshotJson());
+        var writes = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(mapper, org.mockito.Mockito.times(3)).updateById(writes.capture());
+        assertEquals(before, writes.getAllValues().get(0).getRouteSnapshotJson());
+    }
+
+    @Test
     void buildCurrentRouteSnapshotJson_shouldPreserveExistingStartConfigurations() {
         Long routeId = 922119L;
         Long routeVersionId = 34126020001L;

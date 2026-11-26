@@ -127,6 +127,37 @@ import static org.mockito.Mockito.*;
 class MesProAutoScheduleServiceImplTest {
 
     @Test
+    void readPriorityRule_shouldReadEachPersistedPolicyInsteadOfFixedDefault() {
+        for (String rule : List.of("PROMISE_DATE", "ORDER_PRIORITY", "CREATED_TIME")) {
+            var config = new cn.iocoder.yudao.module.infra.dal.dataobject.config.ConfigDO();
+            config.setValue("{\"priorityRule\":\"" + rule + "\"}");
+            when(schedulePolicyConfigService.getConfigByKey("mes.scheduler-workbench.policy-settings"))
+                    .thenReturn(config);
+            assertEquals(rule, ReflectionTestUtils.invokeMethod(autoScheduleService, "readPriorityRule"));
+        }
+    }
+
+    @Test
+    void readPriorityRule_shouldRejectInvalidPersistedConfiguration() {
+        for (String value : List.of("", "   ", "{broken", "{}", "null",
+                "{\"priorityRule\":\"UNKNOWN\"}", "{\"priorityRule\":\"\"}")) {
+            var config = new cn.iocoder.yudao.module.infra.dal.dataobject.config.ConfigDO();
+            config.setValue(value);
+            when(schedulePolicyConfigService.getConfigByKey("mes.scheduler-workbench.policy-settings"))
+                    .thenReturn(config);
+            assertThrows(ServiceException.class,
+                    () -> ReflectionTestUtils.invokeMethod(autoScheduleService, "readPriorityRule"), value);
+        }
+    }
+
+    @Test
+    void readPriorityRule_shouldUseFormalDefaultOnlyWhenConfigurationDoesNotExist() {
+        when(schedulePolicyConfigService.getConfigByKey("mes.scheduler-workbench.policy-settings"))
+                .thenReturn(null);
+        assertEquals("PROMISE_DATE", ReflectionTestUtils.invokeMethod(autoScheduleService, "readPriorityRule"));
+    }
+
+    @Test
     void dependencies_shouldInjectProductionMaterialListSyncService() throws NoSuchFieldException {
         assertNotNull(MesProAutoScheduleServiceImpl.class
                 .getDeclaredField("productionMaterialListSyncService")
@@ -296,8 +327,33 @@ class MesProAutoScheduleServiceImplTest {
     private MesProScheduleOrderDO scheduleOrder;
     private MesProScheduleOrderProcessDO scheduleOrderProcess;
 
+    @Mock
+    private cn.iocoder.yudao.module.infra.service.config.ConfigService schedulePolicyConfigService;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProReplanRequestMapper replanRequestMapper;
+
+    @org.junit.jupiter.api.AfterEach
+    void clearReplanContext() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    }
+
     @BeforeEach
     void setUp() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        var login = new cn.iocoder.yudao.framework.security.core.LoginUser();
+        login.setId(9L);
+        cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.setLoginUser(login,
+                new org.springframework.mock.web.MockHttpServletRequest());
+        lenient().when(replanRequestMapper.lock(any(), any(), any())).thenAnswer(invocation -> {
+            var receipt = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProReplanRequestDO();
+            var claims = org.mockito.Mockito.mockingDetails(replanRequestMapper).getInvocations().stream()
+                    .filter(call -> call.getMethod().getName().equals("claim")).toList();
+            receipt.setPayloadHash((String) claims.get(claims.size() - 1).getArgument(3));
+            return receipt;
+        });
+        lenient().when(replanRequestMapper.complete(any(), any(), any(), any())).thenReturn(1);
+
         org.mockito.Mockito.lenient().when(routeProcessService.getProcessIdentityMap(
                         org.mockito.ArgumentMatchers.anyCollection()))
                 .thenAnswer(invocation -> identityMap(invocation.getArgument(0)));
@@ -1097,6 +1153,9 @@ class MesProAutoScheduleServiceImplTest {
         workOrder.setQuantity(new BigDecimal("120"));
         routeProduct.setQuantity(120);
         routeProcess.setWorkstationId(null);
+        // Unbound process capacity uses the unified workbench shift, not the process workstation.
+        workstation.setShiftHours(new BigDecimal("8"));
+        when(workstationMapper.selectListForShiftHours()).thenReturn(List.of(workstation));
         workstation.setShiftHours(new BigDecimal("8"));
         shift.setSort(1);
         shift.setStartTime("08:00");
@@ -1348,6 +1407,9 @@ class MesProAutoScheduleServiceImplTest {
         workOrder.setQuantity(new BigDecimal("120"));
         routeProduct.setQuantity(120);
         routeProcess.setWorkstationId(null);
+        // Unbound process capacity uses the unified workbench shift, not the process workstation.
+        workstation.setShiftHours(new BigDecimal("8"));
+        when(workstationMapper.selectListForShiftHours()).thenReturn(List.of(workstation));
         scheduleOrderProcess.setEnabled(Boolean.TRUE);
         scheduleOrderProcess.setPlannedQuantity(new BigDecimal("120"));
         scheduleOrderProcess.setRemainingQuantity(new BigDecimal("120"));
@@ -2238,6 +2300,9 @@ class MesProAutoScheduleServiceImplTest {
         var response = autoScheduleService.replanApply(reqVO);
 
         assertTrue(response.getApplied());
+        var lockOrder = org.mockito.Mockito.inOrder(workOrderMapper, taskMapper);
+        lockOrder.verify(workOrderMapper).selectListByIdsForUpdate(any());
+        lockOrder.verify(taskMapper, org.mockito.Mockito.atLeastOnce()).selectListByWorkOrderIds(any());
         verify(edhrBatchExecutionService, never()).getScheduleCompletionMissingItems(any());
         verify(edhrBatchExecutionService, never()).openOrCreateFromScheduleCompletion(any());
     }
@@ -4560,6 +4625,37 @@ class MesProAutoScheduleServiceImplTest {
     }
 
     @Test
+    void cancelNightShift_shouldRejectEveryStrongProtectionFromLockedRowWithoutDeletion() {
+        for (String reason : List.of("FEEDBACK", "IN_PROGRESS", "FINISHED", "LOCKED")) {
+            reset(taskMapper, feedbackMapper, taskScheduleExtMapper, taskDependencyMapper, scheduleIssueMapper);
+            MesProTaskDO current = MesProTaskDO.builder().id(880L).workOrderId(1L)
+                    .startTime(LocalDateTime.of(2026, 5, 14, 20, 0))
+                    .endTime(LocalDateTime.of(2026, 5, 15, 4, 0))
+                    .status("IN_PROGRESS".equals(reason) ? MesProTaskStatusEnum.IN_PROGRESS.getStatus()
+                            : "FINISHED".equals(reason) ? MesProTaskStatusEnum.FINISHED.getStatus()
+                            : MesProTaskStatusEnum.PREPARE.getStatus()).build();
+            when(taskMapper.selectListByIdsForUpdate(List.of(880L))).thenReturn(List.of(current));
+            when(feedbackMapper.selectListByTaskIds(List.of(880L))).thenReturn("FEEDBACK".equals(reason)
+                    ? List.of(MesProFeedbackDO.builder().id(991L).taskId(880L).build()) : List.of());
+            when(taskScheduleExtMapper.selectByTaskId(880L)).thenReturn(
+                    MesProTaskScheduleExtDO.builder().taskId(880L).locked("LOCKED".equals(reason)).build());
+            MesProAutoScheduleCancelNightShiftReqVO req = new MesProAutoScheduleCancelNightShiftReqVO();
+            req.setTaskId(880L);
+            req.setReason("cancel unstarted night shift");
+            assertThrows(ServiceException.class, () -> autoScheduleService.cancelNightShift(req), reason);
+            verify(taskMapper, never()).selectById(880L);
+            verify(taskMapper, never()).deleteById(anyLong());
+            verify(taskDependencyMapper, never()).deleteByTaskIds(any());
+            verify(scheduleIssueMapper, never()).deleteByTaskIds(any());
+            verify(taskScheduleExtMapper, never()).deleteByTaskIds(any());
+            InOrder order = inOrder(taskMapper, feedbackMapper, taskScheduleExtMapper);
+            order.verify(taskMapper).selectListByIdsForUpdate(List.of(880L));
+            order.verify(feedbackMapper).selectListByTaskIds(List.of(880L));
+            order.verify(taskScheduleExtMapper).selectByTaskId(880L);
+        }
+    }
+
+    @Test
     void cancelNightShift_shouldDeleteNightTaskAndWriteResolvedIssue() {
         MesProTaskDO nightTask = MesProTaskDO.builder()
                 .id(880L)
@@ -4569,7 +4665,7 @@ class MesProAutoScheduleServiceImplTest {
                 .startTime(LocalDateTime.of(2026, 5, 14, 20, 0))
                 .endTime(LocalDateTime.of(2026, 5, 15, 4, 0))
                 .build();
-        when(taskMapper.selectById(880L)).thenReturn(nightTask);
+        when(taskMapper.selectListByIdsForUpdate(List.of(880L))).thenReturn(List.of(nightTask));
         when(scheduleIssueMapper.insert(any(MesProScheduleIssueDO.class))).thenAnswer(invocation -> {
             MesProScheduleIssueDO issue = invocation.getArgument(0);
             issue.setId(990L);
@@ -5162,6 +5258,7 @@ class MesProAutoScheduleServiceImplTest {
 
     private MesProAutoScheduleReplanReqVO buildReplanReq() {
         MesProAutoScheduleReplanReqVO reqVO = new MesProAutoScheduleReplanReqVO();
+        reqVO.setIdempotencyKey("test-replan-request");
         reqVO.setScheduleOrderIds(List.of(501L));
         reqVO.setStartTime(LocalDateTime.of(2026, 5, 14, 8, 0));
         reqVO.setRuntimeCapacityBasis("PLANNED");

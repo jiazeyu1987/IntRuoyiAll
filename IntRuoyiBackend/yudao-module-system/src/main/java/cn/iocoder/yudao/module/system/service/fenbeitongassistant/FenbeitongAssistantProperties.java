@@ -9,6 +9,7 @@ import org.springframework.validation.annotation.Validated;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.net.URI;
 
 @Component
 @ConfigurationProperties(prefix = "yudao.erp.fenbeitong-assistant")
@@ -17,6 +18,27 @@ import java.nio.file.Path;
 public class FenbeitongAssistantProperties implements InitializingBean {
 
     public static final int FIXED_ASSISTANT_PORT = 18734;
+
+    /** Browser-visible URL, independent of the internal health-probe host. */
+    private String publicUrl = "";
+
+    public String getPublicUrl() {
+        if (publicUrl == null || publicUrl.isBlank()) return "";
+        URI uri;
+        try {
+            uri = URI.create(publicUrl.trim());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Invalid fenbeitong-assistant.public-url");
+        }
+        if (!("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()))
+                || uri.getHost() == null || uri.getRawUserInfo() != null
+                || uri.getRawQuery() != null || uri.getRawFragment() != null
+                || uri.getPort() > 65535 || uri.getPort() == 0) {
+            throw new IllegalArgumentException("fenbeitong-assistant.public-url requires an absolute HTTP(S) URL without credentials, query or fragment");
+        }
+        String value = uri.toASCIIString();
+        return value.endsWith("/") ? value : value + "/";
+    }
 
     private String assistantHost = "127.0.0.1";
 
@@ -73,6 +95,7 @@ public class FenbeitongAssistantProperties implements InitializingBean {
 
     @Override
     public void afterPropertiesSet() {
+        getPublicUrl();
         if (assistantPort == null || assistantPort != FIXED_ASSISTANT_PORT) {
             throw new IllegalArgumentException("yudao.erp.fenbeitong-assistant.assistant-port must be fixed at 18734");
         }

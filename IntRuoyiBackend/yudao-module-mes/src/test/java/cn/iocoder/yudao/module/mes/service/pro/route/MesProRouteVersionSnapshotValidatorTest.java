@@ -37,6 +37,23 @@ class MesProRouteVersionSnapshotValidatorTest {
         return MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(sopSnapshot(field));
     }
 
+    @Test
+    void newCandidateProcessConfigurationMustMatchItsExplicitNegativeClientId() {
+        String snapshot = sopSnapshot(",\"sopFileUrl\":null");
+        String candidate = snapshot.replace("\"routeProcessId\":1,\"processId\":1,\"sopFileUrl\"",
+                "\"clientRouteProcessId\":-1,\"processId\":1,\"sopFileUrl\"")
+                .replace("\"routeProcessId\":1,\"processId\":1,\n", "\"routeProcessId\":-1,\"processId\":1,\n");
+        assertTrue(MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(candidate));
+        assertFalse(MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(
+                candidate.replace("\"routeProcessId\":-1", "\"routeProcessId\":-2")));
+        assertFalse(MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(
+                candidate.replace("\"clientRouteProcessId\":-1", "\"clientRouteProcessId\":1")));
+        assertFalse(MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(
+                candidate.replace("\"clientRouteProcessId\":-1,", "")));
+        assertFalse(MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(
+                candidate.replace("\"nodes\":[", "\"nodes\":[{\"clientRouteProcessId\":-1,\"processId\":1,\"sopFileUrl\":null},")));
+    }
+
     private String sopSnapshot(String field) {
         return """
                 {"routeId":1,"routeCode":"R1","routeName":"Route",

@@ -60,6 +60,9 @@ class DccRegistrationCertificateMigrationServiceTest extends BaseDbUnitTest {
 
     @AfterEach
     void clearTenant() {
+        if (jdbcTemplate != null) {
+            jdbcTemplate.update("DELETE FROM mdm_enterprise WHERE enterprise_code LIKE 'IMPORT-%'");
+        }
         TenantContextHolder.clear();
     }
 
@@ -233,9 +236,8 @@ class DccRegistrationCertificateMigrationServiceTest extends BaseDbUnitTest {
             jdbcTemplate.update("INSERT INTO mdm_enterprise (id,enterprise_code,name,type,status,tenant_id,deleted) VALUES (?,?,?,'OWNED_COMPANY','ENABLE',1,0)",
                     ++id, "REG-" + id, name);
         }
-        var scope = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi.class);
         var importer = new cn.iocoder.yudao.module.dcc.registrationcertificate.service.historicalimport.RegistrationCertificateWorkbookImportService(
-                jdbcTemplate, scope, service);
+                jdbcTemplate, service);
         var first = importer.importFile(file, 99L);
         assertEquals(java.util.Map.of("国内注册证",119,"CE证书",43,"FDA证书",19), first.sheetCounts());
         assertEquals(181, first.inserted());
@@ -248,6 +250,77 @@ class DccRegistrationCertificateMigrationServiceTest extends BaseDbUnitTest {
         assertEquals(LocalDate.of(2026, 7, 7), customerRow.facts().getApprovalDate());
         assertEquals("上海瑛泰医疗器械股份有限公司", customerRow.company());
         assertEquals(0, count("dcc_registration_certificate_file"));
+    }
+
+    @Test
+    void workbookImportsMultipleTenantCompaniesWithoutIndividualCompanyGrants() throws Exception {
+        ensureJdbcTemplate();
+        jdbcTemplate.update("INSERT INTO mdm_enterprise (id,enterprise_code,name,type,status,tenant_id,deleted) VALUES "
+                + "(80001,'IMPORT-A','导入公司甲','OWNED_COMPANY','ENABLE',1,0),"
+                + "(80002,'IMPORT-B','导入公司乙','OWNED_COMPANY','ENABLE',1,0)");
+        var importer = new cn.iocoder.yudao.module.dcc.registrationcertificate.service.historicalimport.RegistrationCertificateWorkbookImportService(
+                jdbcTemplate, service);
+        var file = workbookFile("导入公司甲", "导入公司乙");
+
+        var result = importer.importFile(file, 99L);
+
+        assertEquals(2, result.inserted());
+        assertEquals(2, count("dcc_registration_certificate"));
+        assertEquals(2, countWhere("dcc_registration_certificate_audit", "actor_id = 99 AND result = 'SUCCESS'"));
+        assertEquals(2, importer.importFile(file, 99L).existing());
+        assertEquals(2, count("dcc_registration_certificate"));
+    }
+
+    @Test
+    void workbookRejectsMissingDisabledForeignTenantAndAmbiguousCompaniesBeforeWriting() throws Exception {
+        ensureJdbcTemplate();
+        jdbcTemplate.update("INSERT INTO mdm_enterprise (id,enterprise_code,name,type,status,tenant_id,deleted) VALUES "
+                + "(80001,'IMPORT-A','导入公司甲','OWNED_COMPANY','ENABLE',1,0),"
+                + "(80002,'IMPORT-B','停用公司','OWNED_COMPANY','DISABLE',1,0),"
+                + "(80003,'IMPORT-C','其他租户公司','OWNED_COMPANY','ENABLE',2,0),"
+                + "(80004,'IMPORT-D','重名公司','OWNED_COMPANY','ENABLE',1,0),"
+                + "(80005,'IMPORT-E','重名公司','OWNED_COMPANY','ENABLE',1,0),"
+                + "(80006,'IMPORT-F','供应商','SUPPLIER','ENABLE',1,0),"
+                + "(80007,'IMPORT-G','已删除公司','OWNED_COMPANY','ENABLE',1,1)");
+        var importer = new cn.iocoder.yudao.module.dcc.registrationcertificate.service.historicalimport.RegistrationCertificateWorkbookImportService(
+                jdbcTemplate, service);
+        for (String company : List.of("不存在公司", "停用公司", "其他租户公司", "重名公司", "供应商", "已删除公司")) {
+            var file = workbookFile("导入公司甲", company);
+            var failure = assertThrows(ServiceException.class, () -> importer.importFile(file, 99L));
+            org.junit.jupiter.api.Assertions.assertTrue(failure.getMessage().contains("所属公司须唯一匹配已启用的自有企业"));
+            assertEquals(0, count("dcc_registration_certificate"));
+            assertEquals(0, count("dcc_registration_certificate_audit"));
+        }
+    }
+
+    private org.springframework.mock.web.MockMultipartFile workbookFile(String... companies) throws Exception {
+        try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook();
+             var output = new java.io.ByteArrayOutputStream()) {
+            var domestic = workbook.createSheet("国内注册证");
+            workbookRow(domestic, 0, "公司名称", "项目代码", "产品名称", "注册证号", "首次获证日期", "生效日期", "有效期至", "类别", "备注");
+            for (int i = 0; i < companies.length; i++) {
+                workbookRow(domestic, i + 1, companies[i], "", "导入测试产品", "测试注册证" + i,
+                        "2020-01-01", "2026-01-01", "2031-01-01", "二类", "");
+            }
+            var ce = workbook.createSheet("CE证书");
+            workbookRow(ce, 0, "No", "公司名称 Company Name", "Product Name (English)", "Trademark",
+                    "Product Name (Chinese)", "MDR Certificate", "", "", "", "", "", "MDD Certificate",
+                    "", "", "", "", "", "", "CE Marker");
+            workbookRow(ce, 1, "", "", "", "", "", "Class", "", "Certificate No", "Issue Date", "Expiry Date", "EMDN Code", "Class");
+            workbookRow(ce, 2, "", "", "", "", "", "", "", "", "", "", "", "", "Certificate No",
+                    "Initial Issue Date", "Expiry Date", "Extension Letter No", "Issue Date", "Expiry Date");
+            workbookRow(workbook.createSheet("FDA证书"), 0, "K holder", "No.", "K number", "Listing number",
+                    "Product name in EN", "Product name in CN", "Product code", "Class", "Regulation number",
+                    "Cleared /exempt listing date", "File No.", "Listing status", "Remark");
+            workbook.write(output);
+            return new org.springframework.mock.web.MockMultipartFile("file", "注册证导入测试.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", output.toByteArray());
+        }
+    }
+
+    private void workbookRow(org.apache.poi.ss.usermodel.Sheet sheet, int index, String... values) {
+        var row = sheet.createRow(index);
+        for (int i = 0; i < values.length; i++) row.createCell(i).setCellValue(values[i]);
     }
 
     private BatchCommand batch(RowCommand... rows) {

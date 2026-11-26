@@ -13,6 +13,9 @@ import lombok.NoArgsConstructor;
 @Builder
 public class AuthFenbeitongAssistantStatusRespVO {
 
+    @Schema(description = "当前环境浏览器可访问的助手地址", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String publicUrl;
+
     @Schema(description = "是否正在运行", requiredMode = Schema.RequiredMode.REQUIRED)
     private Boolean running;
 
