@@ -1249,7 +1249,11 @@
     "20261124_erp_order_sync_integrity.sql",
     "20261124_erp_kingdee_auto_sync_retry_budget.sql",
     "20261125_mes_pqc_aggregate_production_submit_nullable.sql",
-    "20261125_registration_certificate_config_menu_parent.sql"
+    "20261125_registration_certificate_config_menu_parent.sql",
+    "20261125_dcc_folder_template_menu.sql",
+    "20261125_dcc_registration_certificate_products.sql",
+    "20261126_dcc_registration_certificate_remove_ce_materials.sql",
+    "20261126_dcc_registration_fda_change_no_approval_date.sql"
   ],
   "migrationScopes": [
     {
