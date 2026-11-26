@@ -359,7 +359,7 @@ public class DccRegistrationCertificateAccessRequestService {
             } else if (isChangeApprovalFile(file)) {
                 validateChangeApprovalFile(tenantId, certificate, file);
             } else if ("SUPPORTING_DOCUMENT".equals(file.getOwnerType())
-                    && java.util.Set.of("RENEWAL_ACCEPTANCE_RECEIPT", "RENEWAL_SUPPLEMENT_NOTICE", "CE_RENEWAL_CONTRACT", "CE_RENEWAL_QUOTATION").contains(file.getFileKind())) {
+                    && java.util.Set.of("RENEWAL_ACCEPTANCE_RECEIPT", "RENEWAL_SUPPLEMENT_NOTICE").contains(file.getFileKind())) {
                 Integer matches = jdbcTemplate.queryForObject("""
                         SELECT COUNT(*) FROM dcc_registration_certificate_supporting_document sd
                         JOIN dcc_registration_certificate_version v ON v.id=sd.version_id AND v.tenant_id=sd.tenant_id AND v.certificate_id=sd.certificate_id AND v.deleted=0

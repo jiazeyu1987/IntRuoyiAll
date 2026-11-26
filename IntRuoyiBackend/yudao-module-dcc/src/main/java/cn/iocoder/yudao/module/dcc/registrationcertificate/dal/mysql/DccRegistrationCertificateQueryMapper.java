@@ -142,10 +142,8 @@ public interface DccRegistrationCertificateQueryMapper {
                         + " WHERE sd.tenant_id = c.tenant_id"
                         + " AND sd.certificate_id = c.id"
                         + " AND sd.version_id = v.id"
-                        + " AND ((JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateType')) = 'DOMESTIC'"
-                        + " AND sd.document_type IN ('RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE'))"
-                        + " OR (JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateType')) = 'CE'"
-                        + " AND sd.document_type IN ('CE_RENEWAL_CONTRACT', 'CE_RENEWAL_QUOTATION')))"
+                        + " AND JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateType')) = 'DOMESTIC'"
+                        + " AND sd.document_type IN ('RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')"
                         + " AND sd.status = 'EFFECTIVE'"
                         + " AND sd.deleted = 0)";
         private static final String REMINDER_STATE_EXPRESSION = reminderStateExpression();
@@ -319,7 +317,6 @@ public interface DccRegistrationCertificateQueryMapper {
             String ce = "CASE"
                     + " WHEN #{query.businessDate} > CAST(" + fact("expiryDate") + " AS DATE) THEN 'EXPIRED'"
                     + " WHEN " + reminderDateCrossed(3) + " THEN 'CE_T_3'"
-                    + " WHEN " + reminderDateCrossed(12) + " AND " + REMINDER_CLEARED_EXISTS_EXPRESSION + " THEN 'CLEARED'"
                     + " WHEN " + reminderDateCrossed(12) + " THEN 'CE_T_12'"
                     + " WHEN " + reminderDateCrossed(18) + " THEN 'CE_T_18'"
                     + " ELSE 'NONE' END";

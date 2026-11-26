@@ -90,14 +90,28 @@ class DccRegistrationCertificateSupportingDocumentServiceTest extends BaseDbUnit
         org.junit.jupiter.api.Assertions.assertThrows(ServiceException.class, () -> service.uploadFile(1L,99L,"other",1001L,2002L,"RENEWAL_ACCEPTANCE_RECEIPT",file));
     }
 
-    @Test
-    void domesticCertificateRejectsCeSupportingMaterial() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "DOMESTIC,CE_RENEWAL_CONTRACT", "DOMESTIC,CE_RENEWAL_QUOTATION",
+            "CE,CE_RENEWAL_CONTRACT", "CE,CE_RENEWAL_QUOTATION",
+            "CE,RENEWAL_ACCEPTANCE_RECEIPT", "CE,RENEWAL_SUPPLEMENT_NOTICE"})
+    void unsupportedMaterialsAreRejectedBeforeStorage(String certificateType, String documentType) {
         Fixture fixture = seedCurrentCertificate();
+        if ("CE".equals(certificateType)) {
+            String facts = jdbcTemplate.queryForObject("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE id=3001", String.class);
+            jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=3001",
+                    facts.replace("DOMESTIC", "CE"));
+        }
         var command = new DccRegistrationCertificateSupportingDocumentCommand(1L, 99L, "wrong-kind", null,
                 fixture.certificateId(), fixture.versionId(), fixture.businessFileId(), null, null,
-                "CE_RENEWAL_CONTRACT", null);
+                documentType, null);
         org.junit.jupiter.api.Assertions.assertThrows(ServiceException.class, () -> service.upload(command));
+        var file = new org.springframework.mock.web.MockMultipartFile("file", "material.pdf", "application/pdf", new byte[]{1});
+        org.junit.jupiter.api.Assertions.assertThrows(ServiceException.class, () -> service.uploadFile(1L, 99L,
+                "wrong-kind-file", fixture.certificateId(), fixture.versionId(), documentType, file));
+        org.mockito.Mockito.verifyNoInteractions(fileService);
         assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dcc_registration_certificate_supporting_document", Integer.class));
+        assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event", Integer.class));
     }
 
     @Test
