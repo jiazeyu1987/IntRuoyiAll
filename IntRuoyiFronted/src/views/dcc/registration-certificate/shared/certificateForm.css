@@ -26,6 +26,8 @@
 .certificate-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .certificate-footer-hint { color: var(--el-text-color-secondary); font-size: 12px; text-align: left; }
 .certificate-footer-actions { flex-shrink: 0; }
+.upload-material-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.upload-material-grid.is-fda { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 :global(.registration-certificate-upload-dialog.el-dialog) { max-width: calc(100vw - 24px); padding: 0; overflow: hidden; border-radius: 12px; }
 :global(.registration-certificate-upload-dialog > .el-dialog__header) { padding: 20px 56px 16px 24px; margin: 0; }
 :global(.registration-certificate-upload-dialog > .el-dialog__body) { padding: 0; }
@@ -37,4 +39,5 @@
   .registration-certificate-upload-body { max-height: calc(90vh - 280px); padding-inline: 16px; }
   .certificate-footer { align-items: stretch; flex-direction: column; gap: 10px; }
   .certificate-footer-actions { text-align: right; }
+  .upload-material-grid, .upload-material-grid.is-fda { grid-template-columns: 1fr; gap: 16px; }
 }

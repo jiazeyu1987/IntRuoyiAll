@@ -291,3 +291,17 @@ test('change fields keep certificate facts separate and expose the correct domes
  try{c.props.modelValue=true;await drain();const labels=c.state.fields.map(f=>f.label);assert.equal(labels.includes('注册人名称'),false);assert.equal(labels.includes('持证人名称'),false);if(type==='CE'){assert.equal(labels.includes('产品技术要求'),false);assert.ok(c.state.facts.modelSpecifications.includes('CE-A'));assert.ok(c.state.fields.some(f=>f.label==='持证人地址'))}else assert.ok(labels.includes('产品技术要求'))}finally{c.app.unmount()}
  }
 })
+
+test('material errors clear as files are chosen and retained originals satisfy the existing required rules',async()=>{
+ const c=mount('upload/UploadDialog.vue',{modelValue:false},uploadApi())
+ try{c.props.modelValue=true;await drain();c.state.facts.certificateType='FDA';await drain();await c.state.submit();assert.match(c.state.primaryMaterialError,/批准信函/);assert.match(c.state.descriptionMaterialError,/产品描述/)
+ c.state.files=[raw('letter.pdf')];await drain();assert.equal(c.state.primaryMaterialError,'');assert.match(c.state.descriptionMaterialError,/产品描述/)
+ c.state.retainedFiles=[{id:1,fileKind:'FDA_PRODUCT_DESCRIPTION',retained:true,originalName:'原描述.pdf'}];await drain();assert.equal(c.state.descriptionMaterialError,'')
+ c.state.retainedFiles[0].retained=false;await drain();assert.match(c.state.descriptionMaterialError,/产品描述/)
+ c.state.handleClosed();assert.equal(c.state.materialValidationAttempted,false);assert.equal(c.state.primaryMaterialError,'')
+ }finally{c.app.unmount()}
+ const changed=mount('change/ChangeDialog.vue',{modelValue:false,certificate:{certificateId:100}},{getRegistrationCertificateDetail:async()=>current(),getRegistrationCertificateEvidence:async()=>({files:[]})})
+ try{changed.props.modelValue=true;await drain();await changed.state.submit();assert.match(changed.state.primaryMaterialError,/变更批件/)
+ changed.state.retainedFiles=[{id:8,fileKind:'CHANGE_APPROVAL',retained:true,originalName:'原批件.pdf'}];await drain();assert.equal(changed.state.primaryMaterialError,'')
+ }finally{changed.app.unmount()}
+})

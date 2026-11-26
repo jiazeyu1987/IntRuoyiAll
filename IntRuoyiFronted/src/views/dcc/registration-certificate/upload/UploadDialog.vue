@@ -38,20 +38,12 @@
           <FactsFields v-model="facts" creation creation-section="certificate"/>
         </section>
         <section class="certificate-section">
-          <div class="certificate-section-heading"><h3>上传材料</h3><span>支持选择多个文件</span></div>
-          <el-row :gutter="16">
-            <el-col :xs="24" :sm="facts.certificateType === 'FDA' ? 8 : 12">
-              <el-form-item class="certificate-upload-card" :label="facts.certificateType === 'FDA' ? '批准信函' : '注册证文件'" required>
-                <el-upload v-model:file-list="files" action="#" multiple drag :auto-upload="false"><Icon icon="ep:upload-filled" :size="28"/><div>点击或拖拽文件到此处</div><template #tip><div class="certificate-upload-tip">{{ facts.certificateType === 'FDA' ? '上传 FDA 批准信函' : '上传正式注册证文件' }}</div></template></el-upload>
-              </el-form-item>
-            </el-col>
-            <el-col v-if="facts.certificateType === 'FDA'" :xs="24" :sm="8">
-              <el-form-item class="certificate-upload-card" label="产品描述文件" required><el-upload v-model:file-list="descriptions" action="#" multiple drag :auto-upload="false"><Icon icon="ep:document" :size="28"/><div>选择规格型号等产品描述材料</div><template #tip><div class="certificate-upload-tip">必须上传批准后的产品描述文件，链接不能替代文件。</div></template></el-upload></el-form-item>
-            </el-col>
-            <el-col :xs="24" :sm="facts.certificateType === 'FDA' ? 8 : 12">
-              <el-form-item class="certificate-upload-card" label="证件附件"><el-upload v-model:file-list="attachments" action="#" multiple drag :auto-upload="false"><Icon icon="ep:folder-add" :size="28"/><div>选择多个附件</div><template #tip><div class="certificate-upload-tip">可选，补充相关证明材料</div></template></el-upload></el-form-item>
-            </el-col>
-          </el-row>
+          <div class="certificate-section-heading"><h3>上传材料</h3><span>支持点击选择或拖拽，正文和附件均可多选</span></div>
+          <div class="upload-material-grid" :class="{ 'is-fda': facts.certificateType === 'FDA' }">
+            <UploadMaterialSlot @update:model-value="error=''" v-model="files" :title="facts.certificateType === 'FDA' ? '批准信函' : '注册证文件'" required :hint="facts.certificateType === 'FDA' ? '上传 FDA 批准信函，支持 PDF / 图片' : '上传正式注册证，支持 PDF / Word / 图片'" :error-message="primaryMaterialError" />
+            <UploadMaterialSlot @update:model-value="error=''" v-if="facts.certificateType === 'FDA'" v-model="descriptions" title="产品描述文件" required hint="上传规格型号等产品描述材料" notice="必须上传批准后的产品描述文件，链接不能替代文件。" :error-message="descriptionMaterialError" />
+            <UploadMaterialSlot v-model="attachments" title="证件附件" hint="可选，补充相关证明材料" />
+          </div>
           <el-form-item v-if="retainedFiles.length" label="原申请文件"><div><div v-for="file in retainedFiles" :key="file.id"><el-checkbox v-model="file.retained">{{file.originalName}}（{{file.fileKind}}）</el-checkbox></div><small>勾选保留原文件；替换注册证时上传新文件即可。</small></div></el-form-item>
         </section>
         <section class="certificate-section">
@@ -77,6 +69,7 @@ import { getMyRegistrationCertificateUpload, getUploadEntrustedEnterprises, getU
  type DccRegistrationCertificateUploadCompanyRespVO, type DccRegistrationCertificateUploadEntrustedEnterpriseRespVO, type DccRegistrationCertificateUploadProjectCodeRespVO } from '@/api/dcc/registrationCertificate'
 import { generateUUID } from '@/utils'
 import FactsFields from '../shared/FactsFields.vue'
+import UploadMaterialSlot from '../shared/UploadMaterialSlot.vue'
 import { emptyFacts, validateCreationFacts } from '../shared/facts'
 const props = defineProps<{modelValue:boolean;requestId?:number|string;handlingTaskId?:number|string;taskProject?:{id:string;projectCode:string;projectName:string}}>()
 const emit = defineEmits<{'update:modelValue':[boolean]; saved:[]}>()
@@ -115,15 +108,20 @@ const loadProjectProduct=async(preserveName=false)=>{
 }
 watch([()=>facts.value.ownProduct,projectCodeIds],()=>{if(!hydrating.value)void loadProjectProduct()})
 const files=ref<UploadUserFile[]>([]),attachments=ref<UploadUserFile[]>([]),descriptions=ref<UploadUserFile[]>([])
+const materialValidationAttempted=ref(false)
+const primaryMaterialError=computed(()=>materialValidationAttempted.value&&!files.value.length&&!retainedFiles.value.some(f=>f.retained&&f.fileKind==='REGISTRATION_CERTIFICATE')?(facts.value.certificateType==='FDA'?'请上传 FDA 批准信函':'请上传正式注册证文件'):'')
+const descriptionMaterialError=computed(()=>materialValidationAttempted.value&&facts.value.certificateType==='FDA'&&!descriptions.value.length&&!retainedFiles.value.some(f=>f.retained&&f.fileKind==='FDA_PRODUCT_DESCRIPTION')?'请上传批准后的产品描述文件':'')
+
 const message=useMessage()
 const searchOwnerCompanies=async(keyword='')=>{companyLoading.value=true;try{companies.value=await getUploadOwnerCompanies({keyword})}finally{companyLoading.value=false}}
 const searchProjectCodes=async(keyword='')=>{projectLoading.value=true;try{projects.value=await getUploadProjectCodes({keyword,sourceRequestId:props.requestId})}finally{projectLoading.value=false}}
 const searchEnterprises=async(keyword='')=>{enterprises.value=await getUploadEntrustedEnterprises({keyword})}
 const onProductionChange=async()=>{if(!entrustedProduction.value) entrustedEnterpriseIds.value=[];else await searchEnterprises()}
-const resetForm=()=>{++productLoadVersion;productLoading.value=false;productError.value='';retainedFiles.value=[];facts.value=emptyFacts();productName.value='';companyId.value=undefined;projectCodeIds.value=[];entrustedProduction.value=undefined;selfProduction.value=undefined;entrustedEnterpriseIds.value=[];files.value=[];attachments.value=[];descriptions.value=[];error.value=''}
+const resetForm=()=>{++productLoadVersion;productLoading.value=false;productError.value='';materialValidationAttempted.value=false;retainedFiles.value=[];facts.value=emptyFacts();productName.value='';companyId.value=undefined;projectCodeIds.value=[];entrustedProduction.value=undefined;selfProduction.value=undefined;entrustedEnterpriseIds.value=[];files.value=[];attachments.value=[];descriptions.value=[];error.value=''}
 const appendFiles=(payload:FormData,key:string,list:UploadUserFile[])=>{for(const file of list){if(!file.raw)throw new Error('上传文件内容丢失，请重新选择');payload.append(key,file.raw)}}
 const submit=async()=>{
  if(saving.value)return
+ materialValidationAttempted.value=true
  error.value=''
  try{
   validateCreationFacts(facts.value)
@@ -147,6 +145,7 @@ const submit=async()=>{
 }
 watch(()=>facts.value.certificateType,(type,previous)=>{
  if(!previous||type===previous||props.requestId)return
+ materialValidationAttempted.value=false
  const old=facts.value
  facts.value={certificateType:type,projectProduct:old.projectProduct,projectProducts:old.projectProducts,ownProduct:old.ownProduct,classification:old.classification,certificateHolder:old.certificateHolder,registrationLink:old.registrationLink,remark:old.remark,...(type==='FDA'?{}:{certificateStatus:'VALID'}),...(type==='CE'?{ceCertificates:[]}:{})}
  entrustedProduction.value=undefined;selfProduction.value=undefined;entrustedEnterpriseIds.value=[];files.value=[];descriptions.value=[]

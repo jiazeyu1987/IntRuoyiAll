@@ -53,12 +53,17 @@
     <el-form-item label="其他变更说明"><el-input v-model="other" type="textarea" maxlength="4096" placeholder="选填，填写其他变更内容"/></el-form-item>
    </section>
    <section class="certificate-section">
-    <div class="certificate-section-heading"><h3>本次提交材料</h3><span>支持选择多个文件</span></div>
-   <el-form-item label="当前已批准材料"><el-table :data="currentFiles" border empty-text="当前版本没有材料"><el-table-column label="材料类型" width="160"><template #default="{row}">{{row.fileKind==='REGISTRATION_CERTIFICATE'&&facts.certificateType==='FDA'?'批准信函':fileLabels[row.fileKind]||row.fileKind}}</template></el-table-column><el-table-column prop="originalName" label="文件名"/><el-table-column label="查看" width="100"><template #default="{row}"><el-button link type="primary" @click="previewFile(row.id)">在线查看</el-button></template></el-table-column></el-table></el-form-item>
-   <el-form-item label="变更批件文件" required><el-upload v-model:file-list="files" class="change-upload" action="#" multiple drag :auto-upload="false"><el-button>选择文件</el-button></el-upload></el-form-item>
+    <div class="certificate-section-heading"><h3>当前已批准材料</h3><span>查看当前版本文件</span></div>
+   <el-form-item><el-table :data="currentFiles" border empty-text="当前版本没有材料"><el-table-column label="材料类型" width="160"><template #default="{row}">{{row.fileKind==='REGISTRATION_CERTIFICATE'&&facts.certificateType==='FDA'?'批准信函':fileLabels[row.fileKind]||row.fileKind}}</template></el-table-column><el-table-column prop="originalName" label="文件名"/><el-table-column label="查看" width="100"><template #default="{row}"><el-button link type="primary" @click="previewFile(row.id)">在线查看</el-button></template></el-table-column></el-table></el-form-item>
+   </section>
+   <section class="certificate-section">
+    <div class="certificate-section-heading"><h3>本次提交材料</h3><span>支持点击选择或拖拽，所有材料均可多选</span></div>
+   <div class="upload-material-grid" :class="{ 'is-fda': facts.certificateType === 'FDA' }">
+    <UploadMaterialSlot @update:model-value="error=''" v-model="files" title="变更批件文件" required hint="上传本次变更批准文件，支持多选" :error-message="primaryMaterialError" />
+    <UploadMaterialSlot @update:model-value="error=''" v-if="facts.certificateType==='FDA'" v-model="descriptions" title="新版产品描述材料" hint="上传批准后的产品说明、规格型号文件" notice="请上传批准后的产品描述文件，链接不能替代文件。" />
+    <UploadMaterialSlot v-model="attachments" title="变更附件" hint="可选，补充相关证明材料" />
+   </div>
    <el-form-item v-if="retainedFiles.length" label="原申请文件"><div><div v-for="file in retainedFiles" :key="file.id"><el-checkbox v-model="file.retained">{{file.originalName}}（{{file.fileKind}}）</el-checkbox></div></div></el-form-item>
-   <el-form-item v-if="facts.certificateType==='FDA'" label="新版产品描述材料"><el-upload v-model:file-list="descriptions" class="change-upload" action="#" multiple drag :auto-upload="false"><el-button>上传批准后的产品说明、规格型号文件</el-button></el-upload></el-form-item>
-   <el-form-item label="变更附件"><el-upload v-model:file-list="attachments" class="change-upload" action="#" multiple drag :auto-upload="false"><el-button>添加附件</el-button></el-upload></el-form-item>
 
    </section>
   </el-form>
@@ -76,6 +81,7 @@ import type { UploadUserFile } from 'element-plus'
 import { getUploadEntrustedEnterprises, getRegistrationCertificateDetail, getRegistrationCertificateEvidence, getMyRegistrationCertificateUpload, submitRegistrationCertificateChange, type DccRegistrationCertificateDetailVO, type DccRegistrationCertificatePageItemVO } from '@/api/dcc/registrationCertificate'
 import { generateUUID } from '@/utils'
 import FactsFields from '../shared/FactsFields.vue'
+import UploadMaterialSlot from '../shared/UploadMaterialSlot.vue'
 import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
 import { buildDccRegistrationCertificatePreviewSource, type OnlineFilePreviewSource } from '@/api/common/filePreview'
 const previewOpen=ref(false),previewSource=ref<OnlineFilePreviewSource>()
@@ -91,6 +97,8 @@ const lockedFields=computed(()=>['certificateType','ownProduct','projectProduct'
 const values=reactive<Record<string,string>>({}),entrusted=ref<boolean>(),self=ref<boolean>(),enterpriseNames=ref(''),approvalDate=ref(''),other=ref(''),files=ref<UploadUserFile[]>([]),attachments=ref<UploadUserFile[]>([]),descriptions=ref<UploadUserFile[]>([])
 const retainedFiles=ref<Array<{id:number|string;fileKind:string;originalName:string;retained:boolean}>>([])
 const currentFiles=ref<Array<{id:number|string;fileKind:string;originalName:string}>>([])
+const materialValidationAttempted=ref(false)
+const primaryMaterialError=computed(()=>materialValidationAttempted.value&&!files.value.length&&!retainedFiles.value.some(f=>f.retained&&f.fileKind==='CHANGE_APPROVAL')?'请上传变更批件文件':'')
 const fileLabels:Record<string,string>={REGISTRATION_CERTIFICATE:'注册证',CERTIFICATE_ATTACHMENT:'附件',FDA_PRODUCT_DESCRIPTION:'FDA产品描述',CHANGE_APPROVAL:'变更批件'}
 const enterpriseIds=ref<Array<number|string>>([]),enterprises=ref<Array<{id:number|string;name:string}>>([])
 const searchEnterprises=async(keyword='')=>{const results=await getUploadEntrustedEnterprises({keyword});const selectedOptions=enterprises.value.filter(item=>enterpriseIds.value.some(id=>String(id)===String(item.id)));enterprises.value=[...new Map([...selectedOptions,...results].map(item=>[String(item.id),item])).values()]}
@@ -99,7 +107,7 @@ const enterpriseRows=()=>facts.value.certificateType==='CE'?enterpriseNames.valu
 let initialFacts='',initialRelation=''
 let generation=0
 const relation=()=>JSON.stringify([entrusted.value,self.value,enterpriseIds.value,enterpriseNames.value])
-watch(()=>props.modelValue,async show=>{const current=++generation;if(!show)return;detail.value=undefined;error.value='';loading.value=true;previewOpen.value=false;previewSource.value=undefined;currentFiles.value=[];files.value=[];attachments.value=[];descriptions.value=[];retainedFiles.value=[];approvalDate.value='';other.value='';try{
+watch(()=>props.modelValue,async show=>{const current=++generation;if(!show)return;detail.value=undefined;materialValidationAttempted.value=false;error.value='';loading.value=true;previewOpen.value=false;previewSource.value=undefined;currentFiles.value=[];files.value=[];attachments.value=[];descriptions.value=[];retainedFiles.value=[];approvalDate.value='';other.value='';try{
  const source=props.requestId?await getMyRegistrationCertificateUpload(props.requestId):undefined
  if(current!==generation)return
  let frozen:any
@@ -131,7 +139,7 @@ const validateChangeTextValues = (changes: Record<string, string>) => {
   if (changes[field]?.trim().length > 255) throw new Error(`${label}长度不能超过255个字符`)
  }
 }
-const submit=async()=>{error.value='';try{
+const submit=async()=>{materialValidationAttempted.value=true;error.value='';try{
  if(!detail.value)throw new Error('当前正式信息未加载');validateChangeFacts(facts.value,JSON.parse(initialFacts),descriptions.value.length>0||retainedFiles.value.some(f=>f.retained&&f.fileKind==='FDA_PRODUCT_DESCRIPTION'));validateChangeTextValues(values)
  for(const field of fields.value)if(!field.key.startsWith('CE_')&&values[field.key]!==String((detail.value as any)[field.prop]??'')&&!values[field.key]?.trim())throw new Error(`请填写${field.label}变更值`)
  if(!files.value[0]?.raw&&!retainedFiles.value.some(f=>f.retained&&f.fileKind==='CHANGE_APPROVAL'))throw new Error('请上传变更批件文件')
@@ -163,11 +171,9 @@ const submit=async()=>{error.value='';try{
  saving.value=true;await submitRegistrationCertificateChange(detail.value.certificateId,data,`DCC-REG-CERT-CHANGE-${generateUUID()}`);useMessage().success('变更已提交审核');visible.value=false;emit('saved')
 }catch(e){error.value=e instanceof Error?e.message:String(e)}finally{saving.value=false}}
 </script>
-<style scoped src="../shared/certificateForm.css">.change-upload, .change-upload :deep(.el-upload), .change-upload :deep(.el-upload-dragger) { width: 100%; }
-</style>
+<style scoped src="../shared/certificateForm.css"></style>
 <style scoped>
 .ce-model-change { margin-bottom: 18px; }
 .ce-model-change-title { margin-bottom: 8px; color: var(--el-text-color-regular); }
 .ce-model-change-row { display: flex; gap: 8px; margin-bottom: 8px; }
-.change-upload, .change-upload :deep(.el-upload), .change-upload :deep(.el-upload-dragger) { width: 100%; }
 </style>
