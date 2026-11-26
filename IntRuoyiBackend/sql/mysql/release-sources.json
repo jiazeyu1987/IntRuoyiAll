@@ -1253,7 +1253,8 @@
     "20261125_dcc_folder_template_menu.sql",
     "20261125_dcc_registration_certificate_products.sql",
     "20261126_dcc_registration_certificate_remove_ce_materials.sql",
-    "20261126_dcc_registration_fda_change_no_approval_date.sql"
+    "20261126_dcc_registration_fda_change_no_approval_date.sql",
+    "20261127_dcc_registration_certificate_products_admission.sql"
   ],
   "migrationScopes": [
     {
@@ -1469,6 +1470,14 @@
     }
   ],
   "migrationDependencies": [
+    {
+      "file": "20261125_dcc_registration_certificate_products.sql",
+      "sha256": "053edc551e2a9ebc87c47fda9e1c0e095245b6c4b09b754d90cc066be13b0123",
+      "dependsOn": [
+        "20261127_dcc_registration_certificate_products_admission"
+      ],
+      "reason": "Require formal read-only admission of all-tenant product identities before the immutable binding migration; unresolved history or a prior partial binding table requires explicit business/recovery review, never data repair or inferred identities."
+    },
     {
       "file": "20260812_mes_pqc_dcc_qa_c00_schema.sql",
       "sha256": "906c6ac4ccb3145b2f26f7346c8fab71fe63dedde20a3e3592997a121fefeeff",

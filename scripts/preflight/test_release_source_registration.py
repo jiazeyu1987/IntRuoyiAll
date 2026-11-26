@@ -1,9 +1,32 @@
 import json
+import hashlib
 import unittest
 from pathlib import Path
 
 
 class ReleaseSourceRegistrationTest(unittest.TestCase):
+    def test_product_binding_migration_requires_formal_admission_without_rewriting_history(self):
+        root = Path(__file__).resolve().parents[2] / 'IntRuoyiBackend/sql/mysql'
+        catalog = json.loads((root / 'release-sources.json').read_text(encoding='utf-8'))
+        original = '20261125_dcc_registration_certificate_products.sql'
+        admission = '20261127_dcc_registration_certificate_products_admission'
+        edges = [item for item in catalog['migrationDependencies'] if item['file'] == original]
+        self.assertEqual(1, len(edges))
+        self.assertEqual('053edc551e2a9ebc87c47fda9e1c0e095245b6c4b09b754d90cc066be13b0123', edges[0]['sha256'])
+        # The release checkout explicitly pins SQL to CRLF on every host.
+        packaged_original = (root / original).read_bytes().replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
+        self.assertEqual(edges[0]['sha256'], hashlib.sha256(packaged_original).hexdigest())
+        self.assertIn(admission, edges[0]['dependsOn'])
+        self.assertIn(admission + '.sql', catalog['migrations'])
+        header = (root / (admission + '.sql')).read_text('utf-8').splitlines()[0]
+        self.assertIn('type=schema', header)
+        self.assertIn('requiresTargetPreflight=true', header)
+        self.assertIn('applyOrder=1', header)
+        self.assertNotIn('20261125_dcc_registration_certificate_products', header)
+        check = (root / 'target-preflight' / (admission + '.preflight.sql')).read_text('utf-8')
+        self.assertIn('migrationId=' + admission + ';', check)
+        self.assertEqual(1, check.count('TARGET_PREFLIGHT_PASS:' + admission))
+
     def test_every_forward_sql_has_one_explicit_disposition(self):
         root = Path(__file__).resolve().parents[2] / 'IntRuoyiBackend/sql/mysql'
         catalog = json.loads((root / 'release-sources.json').read_text(encoding='utf-8'))
