@@ -1,28 +1,73 @@
 <template>
-  <el-dialog v-model="dialogVisible" class="registration-certificate-upload-dialog" top="5vh" append-to-body destroy-on-close :close-on-click-modal="!saving" :close-on-press-escape="!saving" :show-close="!saving" :title="requestId ? '驳回申请修改重提' : '新建注册证'" width="960px" @closed="handleClosed">
-    <div class="registration-certificate-upload-body">
-    <el-form label-width="140px">
-      <el-row :gutter="24">
-        <el-col :span="12"><el-form-item label="数据所属公司" required><el-select v-model="companyId" filterable remote :remote-method="searchOwnerCompanies" :loading="companyLoading"><el-option v-for="item in companies" :key="item.id" :label="item.name" :value="item.id"/></el-select></el-form-item></el-col>
-        <el-col v-if="facts.ownProduct" :span="12"><el-form-item label="系统项目代码" :required="facts.ownProduct"><el-select v-model="projectCodeIds" multiple :disabled="!facts.ownProduct" filterable remote clearable :remote-method="searchProjectCodes" :loading="projectLoading"><el-option v-for="item in projects" :key="item.id" :label="[item.projectCode,item.projectName].filter(Boolean).join(' - ')" :value="item.id" :disabled="item.disabled"><span>{{ [item.projectCode,item.projectName].filter(Boolean).join(' - ') }}</span><small v-if="item.bindingMessage">（{{ item.bindingMessage }}）</small></el-option></el-select></el-form-item></el-col>
-        <el-col v-if="facts.ownProduct" :span="12"><el-form-item label="DCC产品编码"><el-input :model-value="facts.projectProducts?.map(p => p.productCode).join('、')" readonly placeholder="选择项目后自动显示"/></el-form-item></el-col>
-        <el-col :span="facts.ownProduct ? 12 : 24"><el-form-item label="产品中文名称" required><el-input v-model="productName"   :placeholder="facts.ownProduct ? '选择项目后自动显示' : '请输入产品中文名称'" maxlength="255"/></el-form-item></el-col>
-      </el-row>
-      <FactsFields v-model="facts" creation/>
-      <el-row v-if="facts.certificateType !== 'FDA'" :gutter="24">
-        <el-col :span="12"><el-form-item label="是否委托生产" required><el-select v-model="entrustedProduction" @change="onProductionChange"><el-option label="是" :value="true"/><el-option label="否" :value="false"/></el-select></el-form-item></el-col>
-        <el-col :span="12"><el-form-item label="是否自行生产" required><el-select v-model="selfProduction"><el-option label="是" :value="true"/><el-option label="否" :value="false"/></el-select></el-form-item></el-col>
-        <el-col v-if="entrustedProduction" :span="24"><el-form-item label="受托企业名称" required><el-select v-model="entrustedEnterpriseIds" multiple filterable remote :remote-method="searchEnterprises"><el-option v-for="item in enterprises" :key="item.id" :label="item.name" :value="item.id"/></el-select></el-form-item></el-col>
-      </el-row>
-      <el-form-item :label="facts.certificateType === 'FDA' ? '批准信函' : '注册证文件'" required><el-upload v-model:file-list="files" action="#" multiple :auto-upload="false"><el-button>选择文件</el-button></el-upload></el-form-item>
-      <el-form-item v-if="facts.certificateType === 'FDA'" label="产品描述文件" required><el-upload v-model:file-list="descriptions" action="#" multiple :auto-upload="false"><el-button>选择规格型号等产品描述材料</el-button><template #tip><div>必须上传批准后的产品描述文件，链接不能替代文件。</div></template></el-upload></el-form-item>
-      <el-form-item label="证件附件"><el-upload v-model:file-list="attachments" action="#" multiple :auto-upload="false"><el-button>选择多个附件</el-button></el-upload></el-form-item>
-      <el-form-item v-if="retainedFiles.length" label="原申请文件"><div><div v-for="file in retainedFiles" :key="file.id"><el-checkbox v-model="file.retained">{{file.originalName}}（{{file.fileKind}}）</el-checkbox></div><small>勾选保留原文件；替换注册证时上传新文件即可。</small></div></el-form-item>
-      <el-alert v-if="productError" :title="productError" type="error" :closable="false"/>
-      <el-alert v-if="error" :title="error" type="error" :closable="false"/>
-    </el-form>
+  <el-dialog v-model="dialogVisible" class="registration-certificate-upload-dialog" top="5vh" append-to-body destroy-on-close :close-on-click-modal="!saving" :close-on-press-escape="!saving" :show-close="!saving" :title="requestId ? '驳回申请修改重提' : '新建注册证'" width="980px" @closed="handleClosed">
+    <div class="certificate-type-bar">
+      <span class="certificate-type-label"><span class="required-mark">*</span> 注册证类型</span>
+      <el-radio-group v-model="facts.certificateType" class="certificate-type-tabs" aria-label="注册证类型">
+        <el-radio-button value="DOMESTIC">国内 <small>NMPA</small></el-radio-button>
+        <el-radio-button value="CE">CE <small>EU CE</small></el-radio-button>
+        <el-radio-button value="FDA">FDA <small>US FDA</small></el-radio-button>
+      </el-radio-group>
     </div>
-    <template #footer><el-button :disabled="saving" @click="dialogVisible=false">取消</el-button><el-button type="primary" :loading="saving" :disabled="hydrating || (facts.ownProduct && (productLoading || !facts.projectProducts?.length || !!productError))" @click="submit">确认提交审批</el-button></template>
+    <div v-loading="hydrating" class="registration-certificate-upload-body">
+      <el-form label-width="140px" label-position="top">
+        <section class="certificate-section">
+          <div class="certificate-section-heading"><h3>产品与归属</h3><span>{{ facts.ownProduct ? '关联系统产品' : '手动录入产品' }}</span></div>
+          <el-row :gutter="20">
+            <el-col :xs="24" :sm="12" :md="8"><el-form-item label="产品归属" required><el-select v-model="facts.ownProduct"><el-option label="瑛泰产品（关联系统产品）" :value="true"/><el-option label="其他（不关联系统产品）" :value="false"/></el-select></el-form-item></el-col>
+            <el-col :xs="24" :sm="12" :md="8"><el-form-item label="数据所属公司" required><el-select v-model="companyId" filterable remote :remote-method="searchOwnerCompanies" :loading="companyLoading"><el-option v-for="item in companies" :key="item.id" :label="item.name" :value="item.id"/></el-select></el-form-item></el-col>
+            <el-col v-if="facts.ownProduct" :xs="24" :sm="24" :md="8"><el-form-item label="系统项目代码" :required="facts.ownProduct"><el-select v-model="projectCodeIds" multiple :disabled="!facts.ownProduct" filterable remote clearable :remote-method="searchProjectCodes" :loading="projectLoading"><el-option v-for="item in projects" :key="item.id" :label="[item.projectCode,item.projectName].filter(Boolean).join(' - ')" :value="item.id" :disabled="item.disabled"><span>{{ [item.projectCode,item.projectName].filter(Boolean).join(' - ') }}</span><small v-if="item.bindingMessage">（{{ item.bindingMessage }}）</small></el-option></el-select></el-form-item></el-col>
+          </el-row>
+          <div class="certificate-product-readout">
+            <el-row :gutter="20">
+              <el-col v-if="facts.ownProduct" :xs="24" :sm="8"><el-form-item label="DCC产品编码"><el-input :model-value="facts.projectProducts?.map(p => p.productCode).join('、')" readonly placeholder="选择项目后自动显示"/></el-form-item></el-col>
+              <el-col :xs="24" :sm="facts.ownProduct ? 16 : 24"><el-form-item label="产品中文名称" required><el-input v-model="productName" :placeholder="facts.ownProduct ? '选择项目后自动显示，可按证载名称修改' : '请输入产品中文名称'" maxlength="255"/></el-form-item></el-col>
+            </el-row>
+          </div>
+        </section>
+        <section class="certificate-section">
+          <div class="certificate-section-heading"><h3>主体与产品属性</h3></div>
+          <FactsFields v-model="facts" creation creation-section="attributes"/>
+          <el-row v-if="facts.certificateType !== 'FDA'" :gutter="20">
+            <el-col :xs="24" :sm="12" :md="8"><el-form-item label="是否委托生产" required><el-select v-model="entrustedProduction" @change="onProductionChange"><el-option label="是" :value="true"/><el-option label="否" :value="false"/></el-select></el-form-item></el-col>
+            <el-col :xs="24" :sm="12" :md="8"><el-form-item label="是否自行生产" required><el-select v-model="selfProduction"><el-option label="是" :value="true"/><el-option label="否" :value="false"/></el-select></el-form-item></el-col>
+            <el-col v-if="entrustedProduction" :xs="24" :sm="24" :md="8"><el-form-item label="受托企业名称" required><el-select v-model="entrustedEnterpriseIds" multiple filterable remote :remote-method="searchEnterprises"><el-option v-for="item in enterprises" :key="item.id" :label="item.name" :value="item.id"/></el-select></el-form-item></el-col>
+          </el-row>
+        </section>
+        <section class="certificate-section">
+          <div class="certificate-section-heading"><h3>{{ facts.certificateType === 'FDA' ? 'FDA 审批与登记' : '证件核心信息' }}</h3></div>
+          <FactsFields v-model="facts" creation creation-section="certificate"/>
+        </section>
+        <section class="certificate-section">
+          <div class="certificate-section-heading"><h3>上传材料</h3><span>支持选择多个文件</span></div>
+          <el-row :gutter="16">
+            <el-col :xs="24" :sm="facts.certificateType === 'FDA' ? 8 : 12">
+              <el-form-item class="certificate-upload-card" :label="facts.certificateType === 'FDA' ? '批准信函' : '注册证文件'" required>
+                <el-upload v-model:file-list="files" action="#" multiple drag :auto-upload="false"><Icon icon="ep:upload-filled" :size="28"/><div>点击或拖拽文件到此处</div><template #tip><div class="certificate-upload-tip">{{ facts.certificateType === 'FDA' ? '上传 FDA 批准信函' : '上传正式注册证文件' }}</div></template></el-upload>
+              </el-form-item>
+            </el-col>
+            <el-col v-if="facts.certificateType === 'FDA'" :xs="24" :sm="8">
+              <el-form-item class="certificate-upload-card" label="产品描述文件" required><el-upload v-model:file-list="descriptions" action="#" multiple drag :auto-upload="false"><Icon icon="ep:document" :size="28"/><div>选择规格型号等产品描述材料</div><template #tip><div class="certificate-upload-tip">必须上传批准后的产品描述文件，链接不能替代文件。</div></template></el-upload></el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="facts.certificateType === 'FDA' ? 8 : 12">
+              <el-form-item class="certificate-upload-card" label="证件附件"><el-upload v-model:file-list="attachments" action="#" multiple drag :auto-upload="false"><Icon icon="ep:folder-add" :size="28"/><div>选择多个附件</div><template #tip><div class="certificate-upload-tip">可选，补充相关证明材料</div></template></el-upload></el-form-item>
+            </el-col>
+          </el-row>
+          <el-form-item v-if="retainedFiles.length" label="原申请文件"><div><div v-for="file in retainedFiles" :key="file.id"><el-checkbox v-model="file.retained">{{file.originalName}}（{{file.fileKind}}）</el-checkbox></div><small>勾选保留原文件；替换注册证时上传新文件即可。</small></div></el-form-item>
+        </section>
+        <section class="certificate-section">
+          <div class="certificate-section-heading"><h3>补充信息</h3></div>
+          <FactsFields v-model="facts" creation creation-section="supplement"/>
+        </section>
+        <el-alert v-if="productError" :title="productError" type="error" :closable="false"/>
+        <el-alert v-if="error" :title="error" type="error" :closable="false"/>
+      </el-form>
+    </div>
+    <template #footer>
+      <div class="certificate-footer">
+        <span class="certificate-footer-hint"><span class="required-mark">*</span> 为必填项，请核对信息及材料后提交</span>
+        <div class="certificate-footer-actions"><el-button :disabled="saving" @click="dialogVisible=false">取消</el-button><el-button type="primary" :loading="saving" :disabled="hydrating || (facts.ownProduct && (productLoading || !facts.projectProducts?.length || !!productError))" @click="submit">确认提交审批</el-button></div>
+      </div>
+    </template>
   </el-dialog>
 </template>
 <script setup lang="ts">
@@ -117,7 +162,4 @@ watch(()=>props.modelValue,async visible=>{if(!visible)return;hydrating.value=tr
  retainedFiles.value=result.files.map(file=>({...file,retained:true}))
 }}catch(e){error.value=e instanceof Error?e.message:String(e)}finally{await nextTick();hydrating.value=false;if(facts.value.ownProduct)await loadProjectProduct(!!props.requestId)}})
 </script>
-<style scoped>
-.registration-certificate-upload-body { max-height: calc(90vh - 140px); overflow-y: auto; overflow-x: hidden; padding: 0 12px; }
-.el-select,.el-date-editor { width:100%; }
-</style>
+<style scoped src="../shared/certificateForm.css"></style>

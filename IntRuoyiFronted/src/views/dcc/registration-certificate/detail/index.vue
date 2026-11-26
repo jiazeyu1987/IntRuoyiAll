@@ -34,10 +34,10 @@
       <el-descriptions :column="detailDescriptionColumns" border>
         <el-descriptions-item label="版本号">第 {{ detail.versionNo }} 版</el-descriptions-item>
         <el-descriptions-item label="分类">{{ displayText(detail.classification) }}</el-descriptions-item>
-        <el-descriptions-item label="首次获证日">{{ formatRegistrationCertificateDate(detail.firstObtainedDate) }}</el-descriptions-item>
-        <el-descriptions-item label="批准日">{{ formatRegistrationCertificateDate(detail.approvalDate) }}</el-descriptions-item>
-        <el-descriptions-item label="生效日">{{ formatRegistrationCertificateDate(detail.effectiveDate) }}</el-descriptions-item>
-        <el-descriptions-item :label="detail.status === 'OLD' ? '原有效期至' : '有效期至'">{{ formatRegistrationCertificateDate(detail.expiryDate) }}</el-descriptions-item>
+        <el-descriptions-item v-if="parseFacts(detail.factsJson).certificateType === 'DOMESTIC'" label="首次获证日">{{ formatRegistrationCertificateDate(detail.firstObtainedDate) }}</el-descriptions-item>
+        <el-descriptions-item v-if="parseFacts(detail.factsJson).certificateType === 'FDA'" label="批准日">{{ formatRegistrationCertificateDate(detail.approvalDate) }}</el-descriptions-item>
+        <el-descriptions-item v-if="parseFacts(detail.factsJson).certificateType === 'DOMESTIC'" label="生效日">{{ formatRegistrationCertificateDate(detail.effectiveDate) }}</el-descriptions-item>
+        <el-descriptions-item v-if="parseFacts(detail.factsJson).certificateType !== 'FDA'" :label="detail.status === 'OLD' ? '原有效期至' : '有效期至'">{{ formatRegistrationCertificateDate(detail.expiryDate) }}</el-descriptions-item>
         <el-descriptions-item label="项目代码">{{ displayText(detail.projectCode) }}</el-descriptions-item>
         <el-descriptions-item label="上传人">
           {{ displayOperationName(detail.uploadOperatorName) }}

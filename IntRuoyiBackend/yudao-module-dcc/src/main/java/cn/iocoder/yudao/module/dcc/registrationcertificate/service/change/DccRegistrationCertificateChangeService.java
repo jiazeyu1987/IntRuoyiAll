@@ -122,6 +122,7 @@ public class DccRegistrationCertificateChangeService {
         ChangeSelection selection = validateSelection(command);
         CertificateState state = requireCurrentState(command.tenantId(), command.certificateId(),
                 command.expectedRowVersion());
+        validateChangeApprovalDate(state, command);
         validateFactsReplacement(state.snapshot(), command.structuredValues());
         Long infraFileId = fileService.createFileAndReturnId(
                 uploadFile.content(), uploadFile.originalName(),
@@ -175,6 +176,7 @@ public class DccRegistrationCertificateChangeService {
         ChangeSelection selection = validateSelection(command);
         CertificateState state = requireCurrentState(command.tenantId(), command.certificateId(),
                 command.expectedRowVersion());
+        validateChangeApprovalDate(state, command);
         validateFactsReplacement(state.snapshot(), command.structuredValues());
         if (command.productDescriptionFiles() != null && !command.productDescriptionFiles().isEmpty()
                 || retained.stream().anyMatch(material -> "FDA_PRODUCT_DESCRIPTION".equals(material.kind()))) {
@@ -290,6 +292,7 @@ public class DccRegistrationCertificateChangeService {
     @Transactional(rollbackFor = Exception.class)
     public DccRegistrationCertificateChangeResult voidCertificate(DccRegistrationCertificateChangeCommand command) {
         validateBaseCommand(command);
+        if (command.approvalDate() == null) throw new ServiceException(REGISTRATION_CERTIFICATE_STATUS_INVALID);
         if (isBlank(command.voidReason())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_TOP_LEVEL_VOID_REASON_REQUIRED);
         }
@@ -328,8 +331,7 @@ public class DccRegistrationCertificateChangeService {
         if (command == null || command.tenantId() == null || command.tenantId() <= 0
                 || command.actorId() == null || command.actorId() <= 0
                 || command.certificateId() == null || command.certificateId() <= 0
-                || command.expectedRowVersion() == null || command.expectedRowVersion() <= 0
-                || command.approvalDate() == null) {
+                || command.expectedRowVersion() == null || command.expectedRowVersion() <= 0) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_STATUS_INVALID);
         }
         if (isBlank(command.idempotencyKey())) {
@@ -338,6 +340,12 @@ public class DccRegistrationCertificateChangeService {
         if (isBlank(command.requestTraceId())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_LIFECYCLE_EVENT_CONFLICT);
         }
+    }
+
+    private void validateChangeApprovalDate(CertificateState state, DccRegistrationCertificateChangeCommand command) {
+        boolean fda = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(state.snapshot().factsJson()).isFda();
+        if (fda && command.approvalDate() != null) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("FDA变更不支持本次批准日期");
+        if (!fda && command.approvalDate() == null) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("请填写变更批件批准日期");
     }
 
     private void validateFactsReplacement(SnapshotRow before,Map<String,String> changes) {
@@ -805,7 +813,7 @@ public class DccRegistrationCertificateChangeService {
             detail.put("factsJson",command.structuredValues()!=null?command.structuredValues().getOrDefault("CERTIFICATE_INFORMATION",state.snapshot().factsJson()):state.snapshot().factsJson());
             detail.put("draft",state.snapshot().withChanges(command.structuredValues()==null?Map.of():command.structuredValues(),command));
             detail.put("sourceRequestId",command.sourceRequestId());
-            detail.put("structuredValues",command.structuredValues());detail.put("approvalDate",command.approvalDate().toString());
+            detail.put("structuredValues",command.structuredValues());if (command.approvalDate() != null) detail.put("approvalDate",command.approvalDate().toString());
             detail.put("otherDescription",command.otherDescription());detail.put("entrustedProduction",command.entrustedProduction());
             detail.put("selfProduction",command.selfProduction());detail.put("entrustedEnterprisesJson",command.entrustedEnterprisesJson());
             ps.setString(10,JsonUtils.toJsonString(detail));

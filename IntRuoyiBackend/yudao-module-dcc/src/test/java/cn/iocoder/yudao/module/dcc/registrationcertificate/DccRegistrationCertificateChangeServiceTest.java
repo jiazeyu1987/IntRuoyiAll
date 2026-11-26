@@ -475,12 +475,15 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
         seedCurrentCertificate();
         var fda=new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts();fda.setCertificateType("FDA");fda.setOwnProduct(false);fda.setClassification("II");fda.setSubmissionType("PMA");fda.setCustomerHeld(false);fda.setApprovalLetterStatus("VALID");fda.setFactoryRegistrationStatus("ACTIVE");fda.setChangeDescription("历史说明");
         jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=3001",fda.toJson());
-        var c=new DccRegistrationCertificateChangeCommand(1L,99L,"fda-description","trace-fda",1001L,3,LocalDate.of(2026,8,17),Map.of("CERTIFICATE_INFORMATION",fda.toJson()),null,null,null,null,null,changeFile("approval"),null,java.util.List.of(),java.util.List.of(changeFile("description")));
+        var c=new DccRegistrationCertificateChangeCommand(1L,99L,"fda-description","trace-fda",1001L,3,null,Map.of("CERTIFICATE_INFORMATION",fda.toJson()),null,null,null,null,null,changeFile("approval"),null,java.util.List.of(),java.util.List.of(changeFile("description")));
         assertThrows(ServiceException.class,()->service.submitChangeForApproval(c));
         assertEquals(0,count("SELECT COUNT(*) FROM dcc_registration_certificate_change"));
         fda.setChangeDescription("新增规格沿用原P号");
-        var updated=new DccRegistrationCertificateChangeCommand(1L,99L,"fda-description","trace-fda",1001L,3,LocalDate.of(2026,8,17),Map.of("CERTIFICATE_INFORMATION",fda.toJson()),null,null,null,null,null,changeFile("approval"),null,java.util.List.of(),java.util.List.of(changeFile("description")));
-        org.junit.jupiter.api.Assertions.assertNotNull(service.submitChangeForApproval(updated));
+        var updated=new DccRegistrationCertificateChangeCommand(1L,99L,"fda-description","trace-fda",1001L,3,null,Map.of("CERTIFICATE_INFORMATION",fda.toJson()),null,null,null,null,null,changeFile("approval"),null,java.util.List.of(),java.util.List.of(changeFile("description")));
+        Long requestId = service.submitChangeForApproval(updated);
+        org.junit.jupiter.api.Assertions.assertTrue(jdbcTemplate.queryForMap("SELECT approval_date FROM dcc_registration_certificate_change WHERE approval_request_id=?",requestId).get("approval_date") == null);
+        String detail = text("SELECT detail_json FROM dcc_registration_certificate_access_request WHERE id=?",requestId);
+        org.junit.jupiter.api.Assertions.assertFalse(JsonUtils.parseObject(detail,Map.class).containsKey("approvalDate"));
     }
 
     @Test

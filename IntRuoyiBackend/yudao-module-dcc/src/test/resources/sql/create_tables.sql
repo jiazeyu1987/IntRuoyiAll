@@ -2519,7 +2519,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_change` (
   `resulting_snapshot_id` BIGINT NULL,
   `event_id` BIGINT NOT NULL,
   `approval_request_id` BIGINT NULL,
-  `approval_date` DATE NOT NULL,
+  `approval_date` DATE NULL,
   `selected_change_types_json` VARCHAR(8000) NOT NULL,
   `selected_item_count` INT NULL,
   `status` VARCHAR(32) NOT NULL,

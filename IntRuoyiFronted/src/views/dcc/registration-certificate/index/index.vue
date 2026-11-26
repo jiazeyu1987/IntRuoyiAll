@@ -144,14 +144,14 @@
                   </template>
                 </el-table-column>
                 <el-table-column
-                  v-if="isCurrentColumnVisible('expiryDate')"
+                  v-if="queryParams.certificateType !== 'FDA' && (!list.length || list.some(row => parseFacts(row.factsJson).certificateType !== 'FDA')) && isCurrentColumnVisible('expiryDate')"
                   label="有效期至"
                   prop="expiryDate"
                   :width="getCurrentColumnWidthString('expiryDate', 120)"
                   v-bind="sortColumnAttrs('expiryDate')"
                 >
                   <template #default="{ row }">
-                    {{ formatRegistrationCertificateDate(row.expiryDate) }}
+                    {{ parseFacts(row.factsJson).certificateType === 'FDA' ? '不适用' : formatRegistrationCertificateDate(row.expiryDate) }}
                   </template>
                 </el-table-column>
                 <el-table-column
@@ -383,14 +383,14 @@
                   </template>
                 </el-table-column>
                 <el-table-column
-                  v-if="isOldColumnVisible('expiryDate')"
+                  v-if="oldQueryParams.certificateType !== 'FDA' && isOldColumnVisible('expiryDate')"
                   label="原有效期至"
                   prop="expiryDate"
                   :width="getOldColumnWidthString('expiryDate', 140)"
                   v-bind="sortColumnAttrs('expiryDate')"
                 >
                   <template #default="{ row }">
-                    {{ formatRegistrationCertificateDate(row.expiryDate) }}
+                    {{ parseFacts(row.factsJson).certificateType === 'FDA' ? '不适用' : formatRegistrationCertificateDate(row.expiryDate) }}
                   </template>
                 </el-table-column>
                 <el-table-column

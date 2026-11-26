@@ -24,7 +24,7 @@ export const submissionTypes = [
   { value: 'ABBREVIATED_510K', label: 'Abbreviated 510(k)' }
 ]
 export const factLabels: Record<string, string> = {
-  projectCode:'项目代码（非系统关联）',ownProduct:'是否瑛泰产品', ceRevision:'首条证书Rev.',ceCertificateNo:'首条证书编号',ceIssueDate:'首条证书签发日期',entrustedProduction:'是否委托生产',selfProduction:'是否自行生产',entrustedEnterpriseName:'受托企业',structureComposition:'结构组成',intendedUse:'适用范围／预期用途',technicalRequirements:'产品技术要求',residenceAddress:'住所／持证人地址',registrantName:'注册人名称',modelSpecification:'型号规格',productionAddress:'生产地址',certificateHolder: '证件持证主体', certificateType: '注册证类型', certificateStatus: '证件状态', registrationLink: '注册证链接', classification: '产品分类',
+  projectCode:'项目代码',ownProduct:'是否瑛泰产品', ceRevision:'首条证书Rev.',ceCertificateNo:'首条证书编号',ceIssueDate:'首条证书签发日期',entrustedProduction:'是否委托生产',selfProduction:'是否自行生产',entrustedEnterpriseName:'受托企业',structureComposition:'结构组成',intendedUse:'适用范围／预期用途',technicalRequirements:'产品技术要求',residenceAddress:'住所／持证人地址',registrantName:'注册人名称',modelSpecification:'型号规格',productionAddress:'生产地址',certificateHolder: '证件持证主体', certificateType: '注册证类型', certificateStatus: '证件状态', registrationLink: '注册证链接', classification: '产品分类',
   productNameEn: '产品英文名称', productCode: '产品代码', tradeName: '商品名', notifiedBodyCode: '公告机构代码',
   submissionType: '注册提交类型', kpNumber: 'K/P号', regulationCode: '法规监管代码', approvalDate: '批准日期',
   listingNumber: '列名编号', listingDate: '列名日期', customerHeld: '是否客户持证',
@@ -33,8 +33,8 @@ export const factLabels: Record<string, string> = {
 }
 export const fieldsFor = (type: CertificateType) => [
   'classification', 'certificateHolder', 'registrationLink',
-  ...(type === 'DOMESTIC' ? ['certificateNo', 'firstObtainedDate', 'approvalDate', 'effectiveDate', 'expiryDate'] : []),
-  ...(type === 'CE' ? ['firstObtainedDate', 'approvalDate', 'expiryDate', 'productNameEn', 'productCode', 'tradeName', 'notifiedBodyCode'] : []),
+  ...(type === 'DOMESTIC' ? ['certificateNo', 'firstObtainedDate', 'effectiveDate', 'expiryDate'] : []),
+  ...(type === 'CE' ? ['expiryDate', 'productNameEn', 'productCode', 'tradeName', 'notifiedBodyCode'] : []),
   ...(type === 'FDA' ? ['productNameEn', 'submissionType', 'kpNumber', 'regulationCode', 'productCode', 'approvalDate', 'listingNumber', 'listingDate', 'customerHeld', 'approvalLetterStatus', 'factoryRegistrationStatus'] : ['certificateStatus']),
   'remark', 'changeDescription', 'otherContentDescription'
 ]

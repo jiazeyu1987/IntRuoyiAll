@@ -254,12 +254,12 @@ test('append dialog rejects another project that resolves to an already associat
 test('FDA approval edits and new description files require a fresh explanation while status and link edits do not',async()=>{
  const original={certificateType:'FDA',ownProduct:false,classification:'II',submissionType:'PMA',kpNumber:'P00001',customerHeld:false,approvalLetterStatus:'VALID',factoryRegistrationStatus:'ACTIVE',changeDescription:'历史说明'}
  const calls=[],c=mount('change/ChangeDialog.vue',{modelValue:false,certificate:{certificateId:100}},{getRegistrationCertificateDetail:async()=>({...current(),factsJson:JSON.stringify(original)}),getRegistrationCertificateEvidence:async()=>({files:[]}),submitRegistrationCertificateChange:async(id,data)=>calls.push(data)})
- try{c.props.modelValue=true;await drain();assert.deepEqual(c.state.fields.map(f=>f.key),['PRODUCT_NAME']);c.state.files=[raw('letter-1.pdf'),raw('letter-2.pdf')];c.state.approvalDate='2026-11-25'
- c.state.facts.factoryRegistrationStatus='INACTIVE';c.state.facts.registrationLink='https://example.test/fda';await c.state.submit();assert.equal(c.state.error,'');assert.equal(calls.length,1);assert.equal(calls[0].getAll('additionalPrimaryFiles').length,1)
+ try{c.props.modelValue=true;await drain();assert.deepEqual(c.state.fields.map(f=>f.key),['PRODUCT_NAME']);c.state.files=[raw('letter-1.pdf'),raw('letter-2.pdf')];c.state.approvalDate=''
+ c.state.facts.factoryRegistrationStatus='INACTIVE';c.state.facts.registrationLink='https://example.test/fda';await c.state.submit();assert.equal(c.state.error,'');if(calls.length)assert.equal(calls.at(-1).has('approvalDate'),false);assert.equal(calls.length,1);assert.equal(calls[0].getAll('additionalPrimaryFiles').length,1)
  c.state.facts.kpNumber='P00002';await c.state.submit();assert.match(c.state.error,/本次变更描述/);assert.equal(calls.length,1)
- c.state.facts.changeDescription='新P号替代原批准信息';await c.state.submit();assert.equal(c.state.error,'');assert.equal(calls.length,2)
+ c.state.facts.changeDescription='新P号替代原批准信息';await c.state.submit();assert.equal(c.state.error,'');if(calls.length)assert.equal(calls.at(-1).has('approvalDate'),false);assert.equal(calls.length,2)
  c.state.facts.kpNumber=original.kpNumber;c.state.facts.changeDescription=original.changeDescription;c.state.descriptions=[raw('models.pdf')];await c.state.submit();assert.match(c.state.error,/本次变更描述/)
- c.state.facts.changeDescription='新增规格沿用原P号';await c.state.submit();assert.equal(c.state.error,'');assert.equal(calls.length,3)
+ c.state.facts.changeDescription='新增规格沿用原P号';await c.state.submit();assert.equal(c.state.error,'');if(calls.length)assert.equal(calls.at(-1).has('approvalDate'),false);assert.equal(calls.length,3)
  }finally{c.app.unmount()}
 })
 
@@ -274,4 +274,20 @@ test('new upload accepts several certificate files and a stated name independent
  const calls=[],c=mount('upload/UploadDialog.vue',{modelValue:false},uploadApi({getUploadProjectProduct:async id=>({projectCodeId:id,productCatalogId:88,productCode:'P88',productName:'目录名称',bindings:[]}),submitRegistrationCertificateUpload:async data=>calls.push(data)}))
  try{c.props.modelValue=true;await drain();c.state.facts={...domestic(),ownProduct:true};await drain();c.state.projectCodeIds=[11];await drain();c.state.companyId=10;c.state.productName='证载产品中文名称';c.state.selfProduction=true;c.state.entrustedProduction=false;c.state.files=[raw('cert-1.pdf'),raw('cert-2.pdf')];await c.state.submit();assert.equal(c.state.error,'');assert.equal(calls[0].get('productName'),'证载产品中文名称');assert.equal(calls[0].getAll('additionalPrimaryFiles').length,1);assert.equal(JSON.parse(calls[0].get('factsJson')).projectProducts[0].productName,'目录名称')
  }finally{c.app.unmount()}
+})
+
+test('domestic and CE changes require this approval date',async()=>{
+ for(const type of ['DOMESTIC','CE']){
+ const facts=type==='DOMESTIC'?domestic():{certificateType:'CE',ownProduct:false,classification:'IIa',certificateStatus:'VALID',expiryDate:'2030-01-01',ceCertificates:[]};
+ const calls=[],c=mount('change/ChangeDialog.vue',{modelValue:false,certificate:{certificateId:100}},{getRegistrationCertificateDetail:async()=>({...current(),factsJson:JSON.stringify(facts)}),getRegistrationCertificateEvidence:async()=>({files:[]}),submitRegistrationCertificateChange:async(id,data)=>calls.push(data)});
+ try{c.props.modelValue=true;await drain();c.state.values.PRODUCT_NAME='新产品';c.state.files=[raw('change.pdf')];await c.state.submit();assert.match(c.state.error,/批准日期/);assert.equal(calls.length,0);c.state.approvalDate='2026-11-26';await c.state.submit();assert.equal(c.state.error,'');assert.equal(calls[0].get('approvalDate'),'2026-11-26')}finally{c.app.unmount()}
+ }
+})
+
+test('change fields keep certificate facts separate and expose the correct domestic and CE supplements',async()=>{
+ for(const type of ['DOMESTIC','CE']){
+ const facts=type==='DOMESTIC'?domestic():{certificateType:'CE',ownProduct:false,classification:'IIa',certificateStatus:'VALID',expiryDate:'2030-01-01',modelSpecifications:['CE-A'],ceCertificates:[]};
+ const c=mount('change/ChangeDialog.vue',{modelValue:false,certificate:{certificateId:100}},{getRegistrationCertificateDetail:async()=>({...current(),factsJson:JSON.stringify(facts)}),getRegistrationCertificateEvidence:async()=>({files:[]})});
+ try{c.props.modelValue=true;await drain();const labels=c.state.fields.map(f=>f.label);assert.equal(labels.includes('注册人名称'),false);assert.equal(labels.includes('持证人名称'),false);if(type==='CE'){assert.equal(labels.includes('产品技术要求'),false);assert.ok(c.state.facts.modelSpecifications.includes('CE-A'));assert.ok(c.state.fields.some(f=>f.label==='持证人地址'))}else assert.ok(labels.includes('产品技术要求'))}finally{c.app.unmount()}
+ }
 })
