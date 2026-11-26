@@ -1,0 +1,142 @@
+{
+  "sourceRef": "8e8b4cf7cf23b4aa2473a190f5c3822332b13411",
+  "baseRef": "1fedb340e",
+  "cleanCheckout": "C:\\SpugHandoff\\release\\dcc-inputs-80681bb00",
+  "checkoutSqlEol": "CRLF",
+  "classifiedRootSqlCount": 936,
+  "unregistered": [],
+  "missing": [],
+  "migrationCount": 924,
+  "artifactCount": 1252,
+  "sourceReferenceCount": 8,
+  "immutableMigrations": {
+    "20261125_dcc_folder_template_menu": "26c6226c380691991772718a5b8c94c6ab668918ac9145cc00438a7a2ba1c8ad",
+    "20261125_dcc_registration_certificate_products": "053edc551e2a9ebc87c47fda9e1c0e095245b6c4b09b754d90cc066be13b0123",
+    "20261126_dcc_registration_certificate_remove_ce_materials": "9f63744db75c65cf662c0548434ab71f7e3a3590744b2c89cba2bf199918f6cc",
+    "20261126_dcc_registration_fda_change_no_approval_date": "5c7f3b0bca75ed2f9659ae2ab947c3c2806113adf0efbb71d50d1d005983b6dd",
+    "20261126_dcc_registration_certificate_typed_event_notify_template": "303bf16457a471a6567f88c3f76713d6d057e6e64c84e2d5682191aa0abb4cd6"
+  },
+  "targetPreflights": {
+    "20261125_dcc_folder_template_menu": {
+      "reference": "sql/mysql/target-preflight/20261125_dcc_folder_template_menu.preflight.sql",
+      "sha256": "03fa45c24fad0af9afd4f13e2c9e62ed3d0aaf54e9475866bdb4709410edfcaf",
+      "readOnly": true
+    },
+    "20261126_dcc_registration_certificate_remove_ce_materials": {
+      "reference": "sql/mysql/target-preflight/20261126_dcc_registration_certificate_remove_ce_materials.preflight.sql",
+      "sha256": "854fda6daea812682b2be07a346f55d218624d5f186aec68d031908425865e54",
+      "readOnly": true
+    },
+    "20261126_dcc_registration_certificate_typed_event_notify_template": {
+      "reference": "sql/mysql/target-preflight/20261126_dcc_registration_certificate_typed_event_notify_template.preflight.sql",
+      "sha256": "3845e3c79ce7cd81d9e0d0270dfa036c4846f8ffc806c4b0d819a7b0e051c0ca",
+      "readOnly": true
+    }
+  },
+  "targets": {
+    "test": {
+      "ledgerRecords": 855,
+      "historicalIntegrity": "PASS",
+      "pendingCount": 5,
+      "requiredPendingPreflights": 3,
+      "missingPreflights": [],
+      "missingBindingNegativeChecks": "PASS",
+      "migrations": [
+        {
+          "migrationId": "20261125_dcc_folder_template_menu",
+          "type": "menu",
+          "requiresTargetPreflight": false,
+          "boundPreflight": true,
+          "action": "APPLY"
+        },
+        {
+          "migrationId": "20261125_dcc_registration_certificate_products",
+          "type": "schema",
+          "requiresTargetPreflight": false,
+          "boundPreflight": false,
+          "action": "APPLY"
+        },
+        {
+          "migrationId": "20261126_dcc_registration_certificate_remove_ce_materials",
+          "type": "schema",
+          "requiresTargetPreflight": true,
+          "boundPreflight": true,
+          "action": "APPLY"
+        },
+        {
+          "migrationId": "20261126_dcc_registration_fda_change_no_approval_date",
+          "type": "schema",
+          "requiresTargetPreflight": false,
+          "boundPreflight": false,
+          "action": "APPLY"
+        },
+        {
+          "migrationId": "20261126_dcc_registration_certificate_typed_event_notify_template",
+          "type": "seed",
+          "requiresTargetPreflight": false,
+          "boundPreflight": true,
+          "action": "APPLY"
+        }
+      ],
+      "pending": [
+        "20261125_dcc_folder_template_menu",
+        "20261125_dcc_registration_certificate_products",
+        "20261126_dcc_registration_certificate_remove_ce_materials",
+        "20261126_dcc_registration_certificate_typed_event_notify_template",
+        "20261126_dcc_registration_fda_change_no_approval_date"
+      ]
+    },
+    "prod": {
+      "ledgerRecords": 851,
+      "historicalIntegrity": "PASS",
+      "pendingCount": 5,
+      "requiredPendingPreflights": 3,
+      "missingPreflights": [],
+      "missingBindingNegativeChecks": "PASS",
+      "migrations": [
+        {
+          "migrationId": "20261125_dcc_folder_template_menu",
+          "type": "menu",
+          "requiresTargetPreflight": false,
+          "boundPreflight": true,
+          "action": "APPLY"
+        },
+        {
+          "migrationId": "20261125_dcc_registration_certificate_products",
+          "type": "schema",
+          "requiresTargetPreflight": false,
+          "boundPreflight": false,
+          "action": "APPLY"
+        },
+        {
+          "migrationId": "20261126_dcc_registration_certificate_remove_ce_materials",
+          "type": "schema",
+          "requiresTargetPreflight": true,
+          "boundPreflight": true,
+          "action": "APPLY"
+        },
+        {
+          "migrationId": "20261126_dcc_registration_fda_change_no_approval_date",
+          "type": "schema",
+          "requiresTargetPreflight": false,
+          "boundPreflight": false,
+          "action": "APPLY"
+        },
+        {
+          "migrationId": "20261126_dcc_registration_certificate_typed_event_notify_template",
+          "type": "seed",
+          "requiresTargetPreflight": false,
+          "boundPreflight": true,
+          "action": "APPLY"
+        }
+      ],
+      "pending": [
+        "20261125_dcc_folder_template_menu",
+        "20261125_dcc_registration_certificate_products",
+        "20261126_dcc_registration_certificate_remove_ce_materials",
+        "20261126_dcc_registration_certificate_typed_event_notify_template",
+        "20261126_dcc_registration_fda_change_no_approval_date"
+      ]
+    }
+  }
+}
