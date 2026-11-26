@@ -681,7 +681,7 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void ceReminderFiltersAndDetailsUseCeThresholdsAndOnlyTheirOwnVersionMaterials() {
+    void ceReminderFiltersAndDetailsCannotBeClearedBySupportingMaterials() {
         LocalDate today = LocalDate.now(DccRegistrationCertificateBusinessClock.BUSINESS_ZONE);
         FormalFixture warning = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CE-WARNING", true, 20L);
         FormalFixture urgent = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CE-URGENT", true, 21L);
@@ -695,10 +695,10 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                     facts.toJson(), fixture.snapshotId());
         }
         FormalFixture oldWarningVersion = seedOldVersionOnCertificate(warning, "CE-WARNING-OLD");
-        seedSupportingDocument(warning, "CE_RENEWAL_CONTRACT");
+        seedSupportingDocument(warning, "RENEWAL_ACCEPTANCE_RECEIPT");
         jdbcTemplate.update("UPDATE dcc_registration_certificate_supporting_document SET version_id=? WHERE certificate_id=?",
                 oldWarningVersion.versionId(), warning.certificateId());
-        seedSupportingDocument(urgent, "CE_RENEWAL_QUOTATION");
+        seedSupportingDocument(urgent, "RENEWAL_SUPPLEMENT_NOTICE");
         when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
         when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
                 .thenReturn(List.of(owner(10L, "Owner A")));
@@ -712,9 +712,9 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 context("CE-REMINDER-DETAIL")).getVisualState());
         jdbcTemplate.update("UPDATE dcc_registration_certificate_supporting_document SET version_id=? WHERE certificate_id=?",
                 warning.versionId(), warning.certificateId());
-        assertEquals(0L, queryService.getPage(1L, 99L, filter, context("CE-REMINDER-CLEARED-FILTER")).getTotal());
-        assertEquals("CLEARED", queryService.getDetail(1L, 99L, warning.certificateId(), null,
-                context("CE-REMINDER-CLEARED-DETAIL")).getVisualState());
+        assertEquals(1L, queryService.getPage(1L, 99L, filter, context("CE-REMINDER-MATERIAL-FILTER")).getTotal());
+        assertEquals("CE_T_12", queryService.getDetail(1L, 99L, warning.certificateId(), null,
+                context("CE-REMINDER-MATERIAL-DETAIL")).getVisualState());
     }
 
     @Test

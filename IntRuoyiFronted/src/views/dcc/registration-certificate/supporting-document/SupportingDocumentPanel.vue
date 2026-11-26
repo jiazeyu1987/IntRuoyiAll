@@ -1,8 +1,8 @@
 <template>
-  <el-card v-if="certificateType === 'DOMESTIC' || certificateType === 'CE'" class="mt-4">
+  <el-card v-if="certificateType === 'DOMESTIC'" class="mt-4">
     <template #header>延续支持材料</template>
-    <el-alert v-if="visualState === 'T_8' || visualState === 'CE_T_12'" title="请上传延续支持材料，上传成功后将刷新提醒状态" type="warning" :closable="false" />
-    <p>{{ certificateType === 'CE' ? '上传合同或报价单，作为CE延续支持材料。' : '上传受理单或发补单，作为国内延续支持材料。' }}</p>
+    <el-alert v-if="visualState === 'T_8'" title="请上传延续支持材料，上传成功后将刷新提醒状态" type="warning" :closable="false" />
+    <p>上传受理单或发补单，作为国内延续支持材料。</p>
     <el-select v-model="documentType" aria-label="材料类型" :disabled="loading">
       <el-option v-for="item in options" :key="item.value" :value="item.value" :label="item.label" />
     </el-select>
@@ -21,9 +21,7 @@ const loading = ref(false)
 const file = ref<File>()
 const input = ref<HTMLInputElement>()
 const documentType = ref('')
-const options = computed(() => props.certificateType === 'CE'
-  ? [{ value: 'CE_RENEWAL_CONTRACT', label: '合同' }, { value: 'CE_RENEWAL_QUOTATION', label: '报价单' }]
-  : [{ value: 'RENEWAL_ACCEPTANCE_RECEIPT', label: '受理单' }, { value: 'RENEWAL_SUPPLEMENT_NOTICE', label: '发补单' }])
+const options = [{ value: 'RENEWAL_ACCEPTANCE_RECEIPT', label: '受理单' }, { value: 'RENEWAL_SUPPLEMENT_NOTICE', label: '发补单' }]
 watch(() => [props.certificateId, props.versionId, props.certificateType], () => {
   file.value = undefined; documentType.value = ''; if (input.value) input.value.value = ''
 })

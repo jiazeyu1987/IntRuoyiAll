@@ -346,14 +346,13 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
         }
         DccRegistrationCertificateReminderEvaluation evaluation = reminderService.evaluateThreshold(
                 certificateType, businessClock.businessDate(), row.getExpiryDate(), false);
-        if (!"LIGHT".equals(evaluation.colorCode())) {
+        if (!"DOMESTIC".equals(certificateType) || !"LIGHT".equals(evaluation.colorCode())) {
             return evaluation;
         }
-        boolean ce = "CE".equals(certificateType);
         boolean cleared = reminderService.isSupportingDocumentCleared(
-                tenantId, row.getCertificateId(), row.getVersionId(), ce ? "CE_RENEWAL_CONTRACT" : "RENEWAL_ACCEPTANCE_RECEIPT")
+                tenantId, row.getCertificateId(), row.getVersionId(), "RENEWAL_ACCEPTANCE_RECEIPT")
                 || reminderService.isSupportingDocumentCleared(
-                tenantId, row.getCertificateId(), row.getVersionId(), ce ? "CE_RENEWAL_QUOTATION" : "RENEWAL_SUPPLEMENT_NOTICE");
+                tenantId, row.getCertificateId(), row.getVersionId(), "RENEWAL_SUPPLEMENT_NOTICE");
         return cleared ? reminderService.evaluateThreshold(
                 certificateType, businessClock.businessDate(), row.getExpiryDate(), true) : evaluation;
     }

@@ -8,7 +8,7 @@ const { parse, compileScript } = require('vue/compiler-sfc')
 const source = fs.readFileSync('src/views/dcc/registration-certificate/supporting-document/SupportingDocumentPanel.vue', 'utf8')
 const script = compileScript(parse(source).descriptor, { id: 'supporting-upload' }).content
 function setup(upload) {
-  const state = { loading: ref(false), file: ref(new File(['evidence'], 'contract.pdf')), input: ref({ value: 'contract.pdf' }), documentType: ref('CE_RENEWAL_CONTRACT') }
+  const state = { loading: ref(false), file: ref(new File(['evidence'], 'receipt.pdf')), input: ref({ value: 'receipt.pdf' }), documentType: ref('RENEWAL_ACCEPTANCE_RECEIPT') }
   const events = [], errors = []
   const submit = new Function(...Object.keys(state), 'props', 'uploadSupportingDocument', 'createSecureUuid', 'message', 'emit', 'FormData',
     ts.transpileModule(script.slice(script.indexOf('const submit ='), script.indexOf('const __returned__')), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText + '\nreturn submit')(
@@ -21,7 +21,7 @@ test('actual supporting upload submits its selected version and file, then refre
   await state.submit()
   assert.equal(call[0], 42)
   assert.equal(call[1].get('versionId'), '84')
-  assert.equal(call[1].get('documentType'), 'CE_RENEWAL_CONTRACT')
+  assert.equal(call[1].get('documentType'), 'RENEWAL_ACCEPTANCE_RECEIPT')
   assert.equal(await call[1].get('file').text(), 'evidence')
   assert.equal(call[2], 'key')
   assert.deepEqual(state.events, [['uploaded']])
@@ -33,7 +33,7 @@ test('failed uploads retain the file and show the actual failure without a succe
   await state.submit()
   assert.deepEqual(state.errors, ['scope denied'])
   assert.deepEqual(state.events, [])
-  assert.equal(state.file.value.name, 'contract.pdf')
+  assert.equal(state.file.value.name, 'receipt.pdf')
   assert.equal(state.loading.value, false)
 })
 test('empty files and repeated clicks cannot send another upload', async () => {
@@ -42,12 +42,17 @@ test('empty files and repeated clicks cannot send another upload', async () => {
   await state.submit()
   assert.equal(state.errors.length, 1)
   state.loading.value = true
-  state.file.value = new File(['evidence'], 'contract.pdf')
+  state.file.value = new File(['evidence'], 'receipt.pdf')
   await state.submit()
 })
-test('material warning uses the actual domestic and CE light threshold states', () => {
+test('only domestic certificates show supporting materials and their light warning', () => {
   const condition = source.match(/<el-alert v-if="([^"]+)"/)[1]
   const shown = new Function('visualState', `return ${condition}`)
-  for (const state of ['T_8', 'CE_T_12']) assert.equal(shown(state), true)
-  for (const state of ['T_2', 'CE_T_3', 'CLEARED', 'NONE']) assert.equal(shown(state), false)
+  assert.equal(shown('T_8'), true)
+  for (const state of ['T_2', 'CE_T_12', 'CE_T_3', 'CLEARED', 'NONE']) assert.equal(shown(state), false)
+  const cardCondition = source.match(/<el-card v-if="([^"]+)"/)[1]
+  const cardShown = new Function('certificateType', `return ${cardCondition}`)
+  assert.equal(cardShown('DOMESTIC'), true)
+  for (const type of ['CE', 'FDA']) assert.equal(cardShown(type), false)
+  assert.doesNotMatch(source, /CE_RENEWAL_|合同|报价单/)
 })

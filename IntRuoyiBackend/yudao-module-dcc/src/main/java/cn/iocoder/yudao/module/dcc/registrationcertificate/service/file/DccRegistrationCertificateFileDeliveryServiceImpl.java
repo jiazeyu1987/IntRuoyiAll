@@ -178,7 +178,7 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
                 || !"BOUND".equals(file.getStatus())
                 || !("VERSION".equals(file.getOwnerType()) && java.util.Set.of("REGISTRATION_CERTIFICATE", "CERTIFICATE_ATTACHMENT", "FDA_PRODUCT_DESCRIPTION").contains(file.getFileKind())
                 || "CHANGE".equals(file.getOwnerType()) && java.util.Set.of("CHANGE_APPROVAL","CERTIFICATE_ATTACHMENT","FDA_PRODUCT_DESCRIPTION").contains(file.getFileKind())
-                || "SUPPORTING_DOCUMENT".equals(file.getOwnerType()) && java.util.Set.of("RENEWAL_ACCEPTANCE_RECEIPT", "RENEWAL_SUPPLEMENT_NOTICE", "CE_RENEWAL_CONTRACT", "CE_RENEWAL_QUOTATION").contains(file.getFileKind()))) {
+                || "SUPPORTING_DOCUMENT".equals(file.getOwnerType()) && java.util.Set.of("RENEWAL_ACCEPTANCE_RECEIPT", "RENEWAL_SUPPLEMENT_NOTICE").contains(file.getFileKind()))) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
         }
         return file;
@@ -366,8 +366,6 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
             String type = switch (businessFile.getFileKind()) {
                 case "RENEWAL_ACCEPTANCE_RECEIPT" -> "延续受理单";
                 case "RENEWAL_SUPPLEMENT_NOTICE" -> "立卷发补单";
-                case "CE_RENEWAL_CONTRACT" -> "CE续证合同";
-                case "CE_RENEWAL_QUOTATION" -> "CE续证报价单";
                 default -> throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
             };
             String original = businessFile.getOriginalName();

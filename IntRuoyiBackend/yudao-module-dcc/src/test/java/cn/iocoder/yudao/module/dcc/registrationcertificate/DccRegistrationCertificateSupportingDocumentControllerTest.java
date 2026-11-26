@@ -15,14 +15,14 @@ class DccRegistrationCertificateSupportingDocumentControllerTest {
     void delegatesAuthenticatedContextAndMultipartFieldsAndRequiresRenewalPermission() throws Exception {
         var service = mock(DccRegistrationCertificateSupportingDocumentService.class);
         var controller = new DccRegistrationCertificateSupportingDocumentController(service);
-        var file = new MockMultipartFile("file", "contract.pdf", "application/pdf", new byte[]{1,2,3});
-        var expected = new DccRegistrationCertificateSupportingDocumentResult(5L, 2L, 3L, "CE_RENEWAL_CONTRACT", "EFFECTIVE", false);
-        when(service.uploadFile(7L, 9L, "key", 2L, 3L, "CE_RENEWAL_CONTRACT", file)).thenReturn(expected);
+        var file = new MockMultipartFile("file", "receipt.pdf", "application/pdf", new byte[]{1,2,3});
+        var expected = new DccRegistrationCertificateSupportingDocumentResult(5L, 2L, 3L, "RENEWAL_ACCEPTANCE_RECEIPT", "EFFECTIVE", false);
+        when(service.uploadFile(7L, 9L, "key", 2L, 3L, "RENEWAL_ACCEPTANCE_RECEIPT", file)).thenReturn(expected);
         TenantContextHolder.setTenantId(7L);
         try (var security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9L);
-            assertSame(expected, controller.upload(2L, "key", 3L, "CE_RENEWAL_CONTRACT", file).getData());
-            verify(service).uploadFile(7L, 9L, "key", 2L, 3L, "CE_RENEWAL_CONTRACT", file);
+            assertSame(expected, controller.upload(2L, "key", 3L, "RENEWAL_ACCEPTANCE_RECEIPT", file).getData());
+            verify(service).uploadFile(7L, 9L, "key", 2L, 3L, "RENEWAL_ACCEPTANCE_RECEIPT", file);
         } finally { TenantContextHolder.clear(); }
         var method = DccRegistrationCertificateSupportingDocumentController.class.getMethod("upload", Long.class, String.class, Long.class, String.class, org.springframework.web.multipart.MultipartFile.class);
         assertEquals("@ss.hasPermission('dcc:registration-certificate:renewal:upload')", method.getAnnotation(PreAuthorize.class).value());

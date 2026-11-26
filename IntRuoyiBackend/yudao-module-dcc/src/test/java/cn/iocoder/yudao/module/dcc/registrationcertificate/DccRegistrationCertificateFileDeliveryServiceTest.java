@@ -504,8 +504,8 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.CsvSource({"CE_RENEWAL_CONTRACT,CE续证合同", "CE_RENEWAL_QUOTATION,CE续证报价单"})
-    void ceSupportingDocumentsDownloadWithTheirOwnNames(String kind, String label) throws Exception {
+    @org.junit.jupiter.params.provider.CsvSource({"RENEWAL_ACCEPTANCE_RECEIPT,延续受理单", "RENEWAL_SUPPLEMENT_NOTICE,立卷发补单"})
+    void domesticSupportingDocumentsDownloadWithTheirOwnNames(String kind, String label) throws Exception {
         var fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND", "attachment.pdf");
         jdbcTemplate.update("INSERT INTO dcc_registration_certificate_supporting_document (id,tenant_id,owner_company_id,certificate_id,version_id,business_file_id,document_type,status,uploaded_at,uploaded_by) VALUES (88001,1,10,?,?,?,?,'EFFECTIVE',CURRENT_TIMESTAMP,99)", fixture.certificateId(), fixture.versionId(), fixture.businessFileId(), kind);
         jdbcTemplate.update("UPDATE dcc_registration_certificate_file SET owner_type='SUPPORTING_DOCUMENT',owner_id=88001,file_kind=? WHERE id=?", kind, fixture.businessFileId());
@@ -513,7 +513,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
         when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "attachment.pdf"));
         when(projectCodeService.getProjectCode(40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE,20L));
         when(fileService.getFileContent(fixture.infraConfigId(),fixture.infraPath())).thenReturn(new byte[]{1,2});
-        var result = deliveryService.download(1L,99L,fixture.businessFileId(),"ce-support",context("REQ-CE-SUPPORT"));
+        var result = deliveryService.download(1L,99L,fixture.businessFileId(),"domestic-support",context("REQ-DOMESTIC-SUPPORT"));
         assertEquals(label + "_attachment.pdf", result.fileName());
         assertArrayEquals(new byte[]{1,2}, result.bytes());
     }
