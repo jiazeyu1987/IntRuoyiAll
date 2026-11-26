@@ -7,7 +7,7 @@
     >
       <el-tab-pane name="current" label="注册证">
         <div data-testid="registration-certificate-current-tab">
-          <CategoryFilters v-model:query="queryParams" @search="loadPage"/>
+          <CategoryFilters v-model:query="queryParams" @search="submitCurrentFilters"/>
           <el-alert v-if="currentQueryError" :title="currentQueryError" type="error" show-icon :closable="false" class="mb-12px" />
           <UnifiedListTemplate
             class="registration-certificate-current-list"
@@ -29,7 +29,7 @@
             @update:quick-filter-state="currentQuickFilter.updateState"
             @quick-filter-query="currentQuickFilter.applyQuickFilter"
             @column-change="saveCurrentColumnConfig"
-            @pagination="loadPage"
+            @pagination="loadCurrentPagination"
             v-model:sort-state="currentSortState"
             @sort-change="handleCurrentSortChange"
             server-filter
@@ -45,14 +45,24 @@
               >
                 <Icon icon="ep:bell" class="mr-5px" />通知设置
               </el-button>
-              <WorkbookImport @imported="loadPage" />
+              <WorkbookImport
+                @imported="loadPage"
+              />
+              <ExcelExportButton
+                v-if="checkPermi(['dcc:registration-certificate:query-current'])"
+                :query="appliedExportQuery"
+                :draft="queryParams"
+                :record-ids="selectedCertificates.map(row => row.versionId)"
+                :total="total"
+                :disabled-reason="exportDisabledReason"
+              />
               <el-button v-if="canUploadRegistrationCertificate" type="primary" @click="openUploadDialog">
                 <Icon icon="ep:upload" class="mr-5px" />上传注册证
               </el-button>
               <el-button
                 v-hasPermi="['dcc:registration-certificate:delete']"
                 type="danger"
-                :disabled="selectedCertificates.length === 0 || loading"
+                :disabled="selectedCurrentPage.length === 0 || loading"
                 :loading="deletingCertificate"
                 @click="handleDeleteCertificate"
               >
@@ -63,6 +73,7 @@
             <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <div class="registration-certificate-current-table-scroll-region">
                 <el-table
+                  ref="currentTableRef"
                   v-loading="loading || deletingCertificate"
                   class="registration-certificate-current-table"
                   data-user-table-column-explicit
@@ -78,7 +89,17 @@
                   @sort-change="handleTemplateSortChange"
                   @selection-change="handleCertificateSelectionChange"
                 >
-                <el-table-column type="selection" width="55" fixed="left" />
+                <el-table-column type="selection" :reserve-selection="true" width="55" fixed="left" />
+                <el-table-column
+                  v-if="isCurrentColumnVisible('certificateType')"
+                  label="注册证类型"
+                  prop="certificateType"
+                  :width="getCurrentColumnWidthString('certificateType', 120)"
+                >
+                  <template #default="{ row }">
+                    {{ formatListCertificateType(row.factsJson) }}
+                  </template>
+                </el-table-column>
                 <el-table-column
                   v-if="isCurrentColumnVisible('certificateNo')"
                   label="注册证编号"
@@ -86,14 +107,6 @@
                   :min-width="getCurrentColumnMinWidthString('certificateNo', 180)"
                   :width="getCurrentColumnWidthString('certificateNo')"
                   v-bind="sortColumnAttrs('certificateNo')"
-                />
-                <el-table-column
-                  v-if="isCurrentColumnVisible('ownerCompanyName')"
-                  label="所属公司"
-                  prop="ownerCompanyName"
-                  :min-width="getCurrentColumnMinWidthString('ownerCompanyName', 180)"
-                  :width="getCurrentColumnWidthString('ownerCompanyName')"
-                  v-bind="sortColumnAttrs('ownerCompanyName')"
                 />
                 <el-table-column
                   v-if="isCurrentColumnVisible('productName')"
@@ -106,6 +119,52 @@
                   <template #default="{ row }">
                     {{ row.productName }}
                     <el-tag v-if="row.historicalImport" size="small">历史导入</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isCurrentColumnVisible('ownerCompanyName')"
+                  label="所属公司"
+                  prop="ownerCompanyName"
+                  :min-width="getCurrentColumnMinWidthString('ownerCompanyName', 180)"
+                  :width="getCurrentColumnWidthString('ownerCompanyName')"
+                  v-bind="sortColumnAttrs('ownerCompanyName')"
+                />
+                <el-table-column
+                  v-if="isCurrentColumnVisible('status')"
+                  label="状态"
+                  prop="status"
+                  align="center"
+                  :width="getCurrentColumnWidthString('status', 130)"
+                  v-bind="sortColumnAttrs('status')"
+                >
+                  <template #default="{ row }">
+                    <el-tag :type="getRegistrationCertificateStatusTagType(row.status, row.visualState, row.expiryDate)">
+                      {{ formatRegistrationCertificateStatus(row.status, row.visualState, row.expiryDate) }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="queryParams.certificateType !== 'FDA' && (!list.length || list.some(row => parseFacts(row.factsJson).certificateType !== 'FDA')) && isCurrentColumnVisible('expiryDate')"
+                  label="有效期至"
+                  prop="expiryDate"
+                  :width="getCurrentColumnWidthString('expiryDate', 120)"
+                  v-bind="sortColumnAttrs('expiryDate')"
+                >
+                  <template #default="{ row }">
+                    {{ parseFacts(row.factsJson).certificateType === 'FDA' ? '不适用' : formatRegistrationCertificateDate(row.expiryDate) }}
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isCurrentColumnVisible('reminder')"
+                  label="提醒状态"
+                  prop="reminder"
+                  :width="getCurrentColumnWidthString('reminder', 120)"
+                  v-bind="sortColumnAttrs('reminder')"
+                >
+                  <template #default="{ row }">
+                    <el-tag :type="getRegistrationCertificateReminderTagType(row.reminderColor, row.expiryDate)">
+                      {{ formatRegistrationCertificateReminder(row.visualState, row.expiryDate) }}
+                    </el-tag>
                   </template>
                 </el-table-column>
                 <el-table-column
@@ -125,41 +184,6 @@
                   v-bind="sortColumnAttrs('projectCode')"
                 />
                 <el-table-column
-                  v-if="isCurrentColumnVisible('versionNo')"
-                  label="版本"
-                  prop="versionNo"
-                  align="center"
-                  :width="getCurrentColumnWidthString('versionNo', 90)"
-                  v-bind="sortColumnAttrs('versionNo')"
-                />
-                <el-table-column
-                  v-if="isCurrentColumnVisible('status')"
-                  label="状态"
-                  prop="status"
-                  align="center"
-                  :width="getCurrentColumnWidthString('status', 130)"
-                  v-bind="sortColumnAttrs('status')"
-                >
-                  <template #default="{ row }">
-                    <el-tag :type="getRegistrationCertificateStatusTagType(row.status, row.visualState)">
-                      {{ formatRegistrationCertificateStatus(row.status, row.visualState) }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column
-                  v-if="isCurrentColumnVisible('reminder')"
-                  label="提醒状态"
-                  prop="reminder"
-                  :width="getCurrentColumnWidthString('reminder', 120)"
-                  v-bind="sortColumnAttrs('reminder')"
-                >
-                  <template #default="{ row }">
-                    <el-tag :type="getRegistrationCertificateReminderTagType(row.reminderColor)">
-                      {{ formatRegistrationCertificateReminder(row.visualState) }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column
                   v-if="isCurrentColumnVisible('hasProjectCode')"
                   label="项目代码"
                   prop="hasProjectCode"
@@ -174,19 +198,13 @@
                   </template>
                 </el-table-column>
                 <el-table-column
-                  v-if="isCurrentColumnVisible('hasRegistrationFile')"
-                  label="注册证文件"
-                  prop="hasRegistrationFile"
+                  v-if="isCurrentColumnVisible('versionNo')"
+                  label="版本"
+                  prop="versionNo"
                   align="center"
-                  :width="getCurrentColumnWidthString('hasRegistrationFile', 120)"
-                  v-bind="sortColumnAttrs('hasRegistrationFile')"
-                >
-                  <template #default="{ row }">
-                    <el-tag :type="getMissingMarkerTagType(row.hasRegistrationFile)">
-                      {{ formatMissingMarker(row.hasRegistrationFile) }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
+                  :width="getCurrentColumnWidthString('versionNo', 90)"
+                  v-bind="sortColumnAttrs('versionNo')"
+                />
                 <el-table-column
                   v-if="isCurrentColumnVisible('approvalDate')"
                   label="批准日"
@@ -210,14 +228,17 @@
                   </template>
                 </el-table-column>
                 <el-table-column
-                  v-if="isCurrentColumnVisible('expiryDate')"
-                  label="有效期至"
-                  prop="expiryDate"
-                  :width="getCurrentColumnWidthString('expiryDate', 120)"
-                  v-bind="sortColumnAttrs('expiryDate')"
+                  v-if="isCurrentColumnVisible('hasRegistrationFile')"
+                  label="注册证文件"
+                  prop="hasRegistrationFile"
+                  align="center"
+                  :width="getCurrentColumnWidthString('hasRegistrationFile', 120)"
+                  v-bind="sortColumnAttrs('hasRegistrationFile')"
                 >
                   <template #default="{ row }">
-                    {{ formatRegistrationCertificateDate(row.expiryDate) }}
+                    <el-tag :type="getMissingMarkerTagType(row.hasRegistrationFile)">
+                      {{ formatMissingMarker(row.hasRegistrationFile) }}
+                    </el-tag>
                   </template>
                 </el-table-column>
                 <el-table-column
@@ -356,20 +377,20 @@
                   v-bind="sortColumnAttrs('status')"
                 >
                   <template #default="{ row }">
-                    <el-tag :type="getRegistrationCertificateStatusTagType(row.status, row.visualState)">
-                      {{ row.status === 'OLD' ? '已被替换，原有效期至 ' + formatRegistrationCertificateDate(row.expiryDate) : formatRegistrationCertificateStatus(row.status, row.visualState) }}
+                    <el-tag :type="getRegistrationCertificateStatusTagType(row.status, row.visualState, row.expiryDate)">
+                      {{ row.status === 'OLD' ? '已被替换，原有效期至 ' + formatRegistrationCertificateDate(row.expiryDate) : formatRegistrationCertificateStatus(row.status, row.visualState, row.expiryDate) }}
                     </el-tag>
                   </template>
                 </el-table-column>
                 <el-table-column
-                  v-if="isOldColumnVisible('expiryDate')"
+                  v-if="oldQueryParams.certificateType !== 'FDA' && isOldColumnVisible('expiryDate')"
                   label="原有效期至"
                   prop="expiryDate"
                   :width="getOldColumnWidthString('expiryDate', 140)"
                   v-bind="sortColumnAttrs('expiryDate')"
                 >
                   <template #default="{ row }">
-                    {{ formatRegistrationCertificateDate(row.expiryDate) }}
+                    {{ parseFacts(row.factsJson).certificateType === 'FDA' ? '不适用' : formatRegistrationCertificateDate(row.expiryDate) }}
                   </template>
                 </el-table-column>
                 <el-table-column
@@ -460,6 +481,7 @@ import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 
 import { parseFacts } from '../shared/facts'
 import CategoryFilters from '../shared/CategoryFilters.vue'
+import { formatListCertificateType } from '../shared/listDisplay'
 import MyApplications from '../upload/MyApplications.vue'
 const configRouter = useRouter()
 import { computed, onActivated, onMounted, reactive, ref, watch } from 'vue'
@@ -486,6 +508,8 @@ import {
   type UserTableColumnDefinition
 } from '@/hooks/web/useUserTableColumns'
 import WorkbookImport from '../historical-import/WorkbookImport.vue'
+import ExcelExportButton from './ExcelExportButton.vue'
+import { cloneExportQuery, exportQueryKey } from './exportScope'
 import RegistrationCertificateUploadDialog from '../upload/UploadDialog.vue'
 import { getRegistrationCertificateQueryError } from '../shared/queryValidation'
 import RegistrationCertificateRenewalDialog from '../renewal/RenewalDialog.vue'
@@ -523,10 +547,21 @@ const loading = currentRequest.loading
 const oldLoading = oldRequest.loading
 const list = ref<DccRegistrationCertificatePageItemVO[]>([])
 const selectedCertificates = ref<DccRegistrationCertificatePageItemVO[]>([])
+const selectedCurrentPage = computed(() => {
+  const ids = new Set(list.value.map(row => String(row.versionId)))
+  return selectedCertificates.value.filter(row => ids.has(String(row.versionId)))
+})
+const currentTableRef = ref<{ clearSelection: () => void }>()
+const currentQuerySucceeded = ref(false)
+const appliedExportQuery = ref<DccRegistrationCertificatePageReqVO>({})
+let submittedFilterKey = ''
+const exportDisabledReason = computed(() => loading.value ? '正在查询'
+  : currentQueryError.value || !currentQuerySucceeded.value ? '查询失败，请重新查询'
+  : total.value === 0 ? '暂无可导出数据' : '')
 const deletingCertificate = ref(false)
 const message = useMessage()
 const handleCertificateSelectionChange = (rows: DccRegistrationCertificatePageItemVO[]) => {
-  selectedCertificates.value = rows
+  selectedCertificates.value = [...new Map(rows.map(row => [String(row.versionId), row])).values()]
 }
 const oldList = ref<DccRegistrationCertificateOldIndexItemVO[]>([])
 const total = ref(0)
@@ -604,19 +639,20 @@ const OLD_SERVER_SORT_FIELDS = new Set<RegistrationCertificateSortField>([
 ])
 
 const currentColumnDefinitions: UserTableColumnDefinition[] = [
+  { key: 'certificateType', label: '注册证类型', width: 120 },
   { key: 'certificateNo', label: '注册证编号', minWidth: 180, sortable: 'custom' },
-  { key: 'ownerCompanyName', label: '所属公司', minWidth: 180, sortable: 'custom' },
   { key: 'productName', label: '产品', minWidth: 180, sortable: 'custom' },
+  { key: 'ownerCompanyName', label: '所属公司', minWidth: 180, sortable: 'custom' },
+  { key: 'status', label: '状态', width: 130, sortable: 'custom' },
+  { key: 'expiryDate', label: '有效期至', width: 120, sortable: 'custom' },
+  { key: 'reminder', label: '提醒状态', width: 120, sortable: 'custom' },
   { key: 'classification', label: '分类', minWidth: 110, sortable: 'custom' },
   { key: 'projectCode', label: '实际项目代码', minWidth: 150, sortable: 'custom' },
-  { key: 'versionNo', label: '版本', width: 90, sortable: 'custom' },
-  { key: 'status', label: '状态', width: 130, sortable: 'custom' },
-  { key: 'reminder', label: '提醒状态', width: 120, sortable: 'custom' },
   { key: 'hasProjectCode', label: '项目代码', width: 110, sortable: 'custom' },
-  { key: 'hasRegistrationFile', label: '注册证文件', width: 120, sortable: 'custom' },
+  { key: 'versionNo', label: '版本', width: 90, sortable: 'custom' },
   { key: 'approvalDate', label: '批准日', width: 120, sortable: 'custom' },
   { key: 'effectiveDate', label: '生效日', width: 120, sortable: 'custom' },
-  { key: 'expiryDate', label: '有效期至', width: 120, sortable: 'custom' },
+  { key: 'hasRegistrationFile', label: '注册证文件', width: 120, sortable: 'custom' },
   { key: 'remark', label: '备注', minWidth: 220, sortable: 'custom' },
   { key: 'actions', label: '操作', width: 150, hideable: false, business: false, sortable: false }
 ]
@@ -886,22 +922,42 @@ const syncRegistrationCertificateQueryFromRoute = () => {
   }
 }
 
-const loadPage = async () => {
-  currentQueryError.value = getRegistrationCertificateQueryError(queryParams)
+const loadPage = async () => runCurrentQuery(cloneExportQuery(queryParams))
+const submitCurrentFilters = () => {
+  currentTableRef.value?.clearSelection()
+  selectedCertificates.value = []
+  return loadPage()
+}
+const loadCurrentPagination = async () => runCurrentQuery({ ...cloneExportQuery(appliedExportQuery.value), pageNo: queryParams.pageNo, pageSize: queryParams.pageSize })
+const runCurrentQuery = async (query: DccRegistrationCertificatePageReqVO) => {
+  const filterKey = exportQueryKey(query)
+  if (filterKey !== submittedFilterKey) {
+    currentTableRef.value?.clearSelection()
+    selectedCertificates.value = []
+    submittedFilterKey = filterKey
+  }
+  currentQuerySucceeded.value = false
+  currentQueryError.value = getRegistrationCertificateQueryError(query)
   if (currentQueryError.value) {
     currentRequest.invalidate()
     message.error(currentQueryError.value)
     return false
   }
-  return await currentRequest.run(() => getRegistrationCertificatePage({ ...queryParams }), (page) => {
-    list.value = page.list
-    total.value = page.total
-    selectedCertificates.value = []
-  })
+  try {
+    return await currentRequest.run(() => getRegistrationCertificatePage(query), (page) => {
+      list.value = page.list
+      total.value = page.total
+      appliedExportQuery.value = cloneExportQuery(query)
+      currentQuerySucceeded.value = true
+    })
+  } catch (error) {
+    if (!currentQuerySucceeded.value && !loading.value) currentQueryError.value = '查询失败，请重新查询'
+    throw error
+  }
 }
 
 const handleDeleteCertificate = async () => {
-  const rows = [...selectedCertificates.value]
+  const rows = [...selectedCurrentPage.value]
   if (rows.length === 0 || deletingCertificate.value) return
   deletingCertificate.value = true
   try {
@@ -923,6 +979,7 @@ const handleDeleteCertificate = async () => {
       message.error(`已删除 ${deletedCount} 条，${failures.length} 条删除失败：${failures.map((item) => item.certificateNo).join('、')}。历史证据已保留。`)
     }
     if (deletedCount > 0) {
+      currentTableRef.value?.clearSelection()
       selectedCertificates.value = []
       if (list.value.length === deletedCount && queryParams.pageNo > 1) queryParams.pageNo -= 1
       await loadPage()
@@ -985,7 +1042,7 @@ const handleCurrentSortChange = (payload: RegistrationCertificateSortChange) => 
       currentSortState.value = state
     },
     CURRENT_SERVER_SORT_FIELDS,
-    loadPage
+    () => runCurrentQuery({ ...cloneExportQuery(appliedExportQuery.value), pageNo: 1, pageSize: queryParams.pageSize, sortField: queryParams.sortField, sortOrder: queryParams.sortOrder })
   )
 }
 
@@ -1174,13 +1231,13 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
     key: 'status',
     label: '状态',
     type: 'text',
-    getValue: (row) => [formatRegistrationCertificateStatus(row.status, row.visualState)].join(' ')
+    getValue: (row) => [formatRegistrationCertificateStatus(row.status, row.visualState, row.expiryDate)].join(' ')
   },
   {
     key: 'reminder',
     label: '提醒状态',
     type: 'text',
-    getValue: (row) => [formatRegistrationCertificateReminder(row.visualState)].join(' ')
+    getValue: (row) => [formatRegistrationCertificateReminder(row.visualState, row.expiryDate)].join(' ')
   },
   {
     key: 'hasProjectCode',
@@ -1206,7 +1263,7 @@ const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() =
       [
         row.status === 'OLD'
           ? '已被替换，原有效期至 ' + formatRegistrationCertificateDate(row.expiryDate)
-          : formatRegistrationCertificateStatus(row.status, row.visualState)
+          : formatRegistrationCertificateStatus(row.status, row.visualState, row.expiryDate)
       ].join(' ')
   }
 ])

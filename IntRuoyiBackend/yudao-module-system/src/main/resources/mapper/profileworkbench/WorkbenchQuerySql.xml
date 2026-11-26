@@ -12,13 +12,12 @@ SELECT CASE WHEN COUNT(*)=COUNT(DISTINCT CAST(CONVERT(r.task_key USING utf8mb4) 
  THEN COUNT(*) ELSE NULL END
 FROM (<include refid="${baseRef}"/>) r
 </when>
-<!-- Keep partition/filter predicates in WHERE so MySQL can use semijoin filtering. -->
+<!-- Validate every business identity and count the selected partition in the same scan.
+     Repeating the business base here doubles complex source SQL and its interceptor parsing. -->
 <otherwise>
-SELECT CASE WHEN (SELECT COUNT(*)=COUNT(DISTINCT CAST(CONVERT(u.task_key USING utf8mb4) AS BINARY))
- FROM (<include refid="${baseRef}"/>) u)
- THEN COUNT(*) ELSE NULL END
+SELECT CASE WHEN COUNT(*)=COUNT(DISTINCT CAST(CONVERT(r.task_key USING utf8mb4) AS BINARY))
+ THEN COUNT(CASE WHEN 1=1 <include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.conditions"/> THEN 1 END) ELSE NULL END
 FROM (<include refid="${baseRef}"/>) r
-<include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.where"/>
 </otherwise>
 </choose>
 </sql>

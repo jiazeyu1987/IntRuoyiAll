@@ -57,6 +57,6 @@ class DccDistributionAckBindingConsumerTest extends BaseMockitoUnitTest {
     }
     @Test void wrongVersionSignatureCannotBindOrPersistReceipt(){signature=DccUnifiedSignatureResult.builder().signatureId(101L).controlledFileId(42L).versionNo("C/1").signedAt(signature.getSignedAt()).build();
         assertThrows(IllegalStateException.class,this::acknowledge);verifyNoInteractions(signatureBindingService);verify(recipients,never()).updateById(any(DccControlledFileDistributionRecipientDO.class));}
-    @Test void acknowledgedReplayHasNoNewSignatureBindingOrReceiptWrite(){recipient.setAcknowledgedAt(signature.getSignedAt());acknowledge();verifyNoInteractions(signatureVerificationService,signatureBindingService);verify(recipients,never()).updateById(any(DccControlledFileDistributionRecipientDO.class));}
+    @Test void acknowledgedReplayHasNoNewSignatureBindingOrReceiptWrite(){recipient.setAcknowledgedAt(signature.getSignedAt());assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,this::acknowledge);verifyNoInteractions(signatureVerificationService,signatureBindingService);verify(recipients,never()).updateById(any(DccControlledFileDistributionRecipientDO.class));}
     @Test void rejectedSignatureEvidenceCannotCallCopyBinding(){signature=null;assertThrows(IllegalStateException.class,this::acknowledge);verifyNoInteractions(signatureBindingService);verify(recipients,never()).updateById(any(DccControlledFileDistributionRecipientDO.class));}
 }

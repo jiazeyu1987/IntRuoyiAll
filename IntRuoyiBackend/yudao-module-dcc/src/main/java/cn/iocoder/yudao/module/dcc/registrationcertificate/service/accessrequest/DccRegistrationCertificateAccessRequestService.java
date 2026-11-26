@@ -51,6 +51,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_
 
 @Service
 public class DccRegistrationCertificateAccessRequestService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService productBindings;
 
     private static final String TYPE_VIEW_OLD_CERTIFICATE = "VIEW_OLD_CERTIFICATE";
     private static final String TYPE_DOWNLOAD_FILE = "DOWNLOAD_FILE";
@@ -107,7 +108,7 @@ public class DccRegistrationCertificateAccessRequestService {
             return replay(existing, payloadHash);
         }
         if (TYPE_DOWNLOAD_FILE.equals(normalized.requestType())) {
-            validateProjectCodeIfPresent(tenantId, normalized.projectCodeId(), certificate.getProductMasterId());
+            validateProjectCodeIfPresent(tenantId, normalized.projectCodeId(), null);
         }
         List<DccRegistrationCertificateFileDO> files = validateFiles(
                 tenantId, certificate, normalized.requestType(), normalized.businessFileIds());
@@ -197,7 +198,7 @@ public class DccRegistrationCertificateAccessRequestService {
         Long projectCodeId = requested.projectCodeId();
         if (projectCodeId == null) {
             projectCodeId = certificate.getProjectCodeId();
-        } else if (!Objects.equals(projectCodeId, certificate.getProjectCodeId())) {
+        } else if (!productBindings.containsProject(tenantId, certificate.getId(), projectCodeId)) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID);
         }
         if (projectCodeId != null && projectCodeId <= 0) {
@@ -218,10 +219,7 @@ public class DccRegistrationCertificateAccessRequestService {
             if (candidates == null || candidates.isEmpty()) {
                 throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_NOT_STAGED);
             }
-            if (candidates.size() != 1) {
-                throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT);
-            }
-            fileIds = List.of(candidates.get(0).getId());
+            fileIds = candidates.stream().map(DccRegistrationCertificateFileDO::getId).toList();
         }
         return new NormalizedCommand(requested.certificateId(), requested.requestType(), requested.purpose(),
                 projectCodeId, fileIds);
@@ -361,7 +359,7 @@ public class DccRegistrationCertificateAccessRequestService {
             } else if (isChangeApprovalFile(file)) {
                 validateChangeApprovalFile(tenantId, certificate, file);
             } else if ("SUPPORTING_DOCUMENT".equals(file.getOwnerType())
-                    && java.util.Set.of("RENEWAL_ACCEPTANCE_RECEIPT", "RENEWAL_SUPPLEMENT_NOTICE", "CE_RENEWAL_CONTRACT", "CE_RENEWAL_QUOTATION").contains(file.getFileKind())) {
+                    && java.util.Set.of("RENEWAL_ACCEPTANCE_RECEIPT", "RENEWAL_SUPPLEMENT_NOTICE").contains(file.getFileKind())) {
                 Integer matches = jdbcTemplate.queryForObject("""
                         SELECT COUNT(*) FROM dcc_registration_certificate_supporting_document sd
                         JOIN dcc_registration_certificate_version v ON v.id=sd.version_id AND v.tenant_id=sd.tenant_id AND v.certificate_id=sd.certificate_id AND v.deleted=0

@@ -11,6 +11,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.mockito.ArgumentCaptor;
 
 import java.time.LocalDate;
@@ -102,6 +104,49 @@ class DccRegistrationCertificateBusinessEventNotifierTest {
         assertSame(failure, assertThrows(ServiceException.class,
                 () -> notifyCertificateEvent("NEW_CERTIFICATE_FORMALIZED")));
         verifyNoInteractions(notificationService);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"DOMESTIC,国内注册证", "CE,CE证书", "FDA,FDA证书"})
+    void allBusinessEventsRenderTheActualCertificateType(String type, String typeName) {
+        when(configService.resolveRecipientUserIds(186L)).thenReturn(List.of(1001L));
+        when(configService.resolveChangeConfirmationRecipientUserIds(186L)).thenReturn(List.of(1001L));
+        when(viewers.resolve(186L)).thenReturn(List.of(1001L));
+        notifier.notifyNewCertificateFormalized(186L, 501L, 1001L, 8001L, 99L,
+                "new", "产品", "REG-001", null, null, type, true);
+        notifier.notifyRenewalCandidateUploaded(186L, 501L, 1001L, 8001L, 99L,
+                "renewal", "产品", "REG-001", null, null, type);
+        notifier.notifyRenewalCandidateActivated(186L, 501L, 1001L, 8001L, 99L,
+                "activated", "产品", "REG-001", null, null, type);
+        notifier.notifyChangeApprovalRecorded(186L, 501L, 1001L, 8001L, 99L,
+                "change", "产品", "REG-001", null, null, type);
+
+        var captor = ArgumentCaptor.forClass(DccRegistrationCertificateBusinessEventNotificationCommand.class);
+        if ("CE".equals(type)) {
+            verify(notificationService, org.mockito.Mockito.times(3)).sendToExactUsers(captor.capture(), eq(List.of(1001L)));
+        } else {
+            verify(notificationService, org.mockito.Mockito.times(3)).sendToUsers(captor.capture(), eq(List.of(1001L)));
+        }
+        verify(confirmations).send(captor.capture(), eq(List.of(1001L)));
+        var titles = List.of("已入库", "延续版本已入库", "延续版本已生效", "变更已生效，请确认");
+        for (int i = 0; i < titles.size(); i++) {
+            var params = captor.getAllValues().get(i).detailParams();
+            assertEquals(typeName, params.get("certificateTypeName"));
+            assertEquals("产品《产品》的" + typeName + titles.get(i) + "。注册证号：REG-001，生效日期：证件未载明，有效期至：不适用。",
+                    cn.hutool.core.util.StrUtil.format(
+                            "产品《{productName}》的{certificateTypeName}{eventTitle}。注册证号：{certificateNo}，生效日期：{effectiveDate}，有效期至：{expiryDate}。", params));
+        }
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "UNKNOWN"})
+    void missingOrUnknownTypeCannotSendMislabelledMessages(String type) {
+        assertThrows(ServiceException.class, () -> notifier.notifyNewCertificateFormalized(
+                186L, 501L, 1001L, 8001L, 99L, "new", "产品", "REG-001", null, null, type, true));
+        assertThrows(ServiceException.class, () -> notifier.notifyChangeApprovalRecorded(
+                186L, 501L, 1001L, 8001L, 99L, "change", "产品", "REG-001", null, null, type));
+        verifyNoInteractions(configService, notificationService, confirmations, viewers);
     }
 
     @Test

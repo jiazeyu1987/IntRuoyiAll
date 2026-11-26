@@ -167,6 +167,7 @@ public class DccRegistrationCertificateBusinessEventNotificationService {
 
     private static void requireReadableTemplateParams(Map<String, Object> detailParams) {
         if (detailParams == null
+                || missing(detailParams, "certificateTypeName")
                 || missing(detailParams, "eventTitle")
                 || missing(detailParams, "productName")
                 || missing(detailParams, "certificateNo")

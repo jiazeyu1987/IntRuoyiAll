@@ -1,0 +1,40 @@
+const {test}=require('node:test')
+const assert=require('node:assert/strict')
+const fs=require('node:fs')
+const ts=require('typescript')
+const vue=require('vue')
+const {renderToString}=require('vue/server-renderer')
+const {parse,compileScript}=require('vue/compiler-sfc')
+const elementPlus=require('element-plus')
+const source=fs.readFileSync('src/views/dcc/registration-certificate/shared/UploadMaterialSlot.vue','utf8')
+const script=compileScript(parse(source).descriptor,{id:'upload-material',inlineTemplate:true})
+const component={}
+new Function('exports','require',ts.transpileModule(script.content,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(component,require)
+const item=(name,size=1024)=>({name,size})
+async function render(files,extra={}){
+ const app=vue.createSSRApp({render:()=>vue.h(component.default,{modelValue:files,title:'批准信函',required:true,...extra})})
+ app.use(elementPlus.default)
+ app.provide(elementPlus.ID_INJECTION_KEY,{prefix:1024,current:0})
+ app.provide(elementPlus.ZINDEX_INJECTION_KEY,{current:0})
+ return renderToString(app)
+}
+test('empty material is a multiple-file drop area, while chosen files collapse the area and preserve full filenames',async()=>{
+ const empty=await render([])
+ assert.match(empty,/点击或拖拽上传/);assert.match(empty,/必传 · 可多选/);assert.match(empty,/multiple/)
+ const filename='超长中文名称_产品技术要求_最终批准扫描件_第2版.pdf'
+ const selected=await render([item(filename),item('第二份正文.docx')])
+ assert.doesNotMatch(selected,/点击或拖拽上传/);assert.match(selected,/继续拖拽或点击添加文件/)
+ assert.match(selected,/已选 2 项/);assert.ok(selected.includes('title="'+filename+'"'));assert.match(selected,/第二份正文.docx/);assert.match(selected,/1.0 KB/)
+})
+test('overflow retains every file and exposes scrolling information after the third file',async()=>{
+ const three=await render([item('1.pdf'),item('2.pdf'),item('3.pdf')]);assert.doesNotMatch(three,/is-overflow/)
+ const five=await render(Array.from({length:5},(_,i)=>item(`${i+1}.pdf`)))
+ assert.match(five,/is-overflow/);assert.match(five,/全部 5 个文件/)
+ for(let i=1;i<=5;i++)assert.ok(five.includes(`${i}.pdf`))
+})
+test('required error and FDA description notice remain independent of chosen-file rendering',async()=>{
+ const error=await render([],{errorMessage:'请上传批准信函',notice:'必须上传批准后的描述，链接不能替代'})
+ assert.match(error,/is-error/);assert.match(error,/请上传批准信函/);assert.match(error,/链接不能替代/)
+ const fixed=await render([item('letter.pdf')],{notice:'链接不能替代'})
+ assert.doesNotMatch(fixed,/is-error/);assert.match(fixed,/链接不能替代/)
+})

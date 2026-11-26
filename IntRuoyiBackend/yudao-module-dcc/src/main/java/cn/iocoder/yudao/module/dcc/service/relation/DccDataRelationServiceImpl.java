@@ -33,6 +33,7 @@ public class DccDataRelationServiceImpl implements DccDataRelationService {
     private static final String STATUS_CONFIRMED = "CONFIRMED";
     private static final String SOURCE_MANUAL = "MANUAL";
 
+    @Resource private cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService productBindings;
     @Resource
     private DccDataRelationMapper relationMapper;
     @Resource
@@ -72,7 +73,7 @@ public class DccDataRelationServiceImpl implements DccDataRelationService {
         if (reqVO.getRegistrationCertificateId() != null) {
             DccRegistrationCertificateDO certificate = registrationCertificateMapper
                     .selectById(reqVO.getRegistrationCertificateId());
-            if (certificate == null || !projectCode.getId().equals(certificate.getProjectCodeId())
+            if (certificate == null || !productBindings.containsProduct(certificate.getTenantId(),certificate.getId(),catalog.getId()) || !productBindings.containsProject(certificate.getTenantId(),certificate.getId(),projectCode.getId())
                     || !Objects.equals(projectCode.getTenantId(), certificate.getTenantId())) {
                 throw exception(DCC_DATA_RELATION_TARGET_INVALID);
             }

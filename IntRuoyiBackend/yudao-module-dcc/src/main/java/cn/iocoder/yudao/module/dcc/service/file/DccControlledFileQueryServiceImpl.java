@@ -2561,6 +2561,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             response.setControlledFileId(file.getId());
             response.setDistributionId(context.distributionId());
             response.setRecipientId(context.recipientId());
+            response.setReceiptAcknowledged(distributionRecipientMapper.selectById(context.recipientId()).getAcknowledgedAt() != null);
             response.setVersionNo(file.getVersionNo());
             response.setApprovalProcessInstanceId(file.getProcessInstanceId());
             return response;

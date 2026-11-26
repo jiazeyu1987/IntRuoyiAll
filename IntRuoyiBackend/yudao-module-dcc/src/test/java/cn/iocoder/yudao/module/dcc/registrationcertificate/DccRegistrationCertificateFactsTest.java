@@ -6,13 +6,19 @@ import java.time.LocalDate;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 class DccRegistrationCertificateFactsTest {
- @Test void domesticUploadRequiresApprovalDateWithoutInventingIt(){
-  var f=base("DOMESTIC");f.setCertificateNo("CERT");f.setFirstObtainedDate(LocalDate.of(2020,1,1));
-  f.setEffectiveDate(LocalDate.of(2026,1,1));f.setExpiryDate(LocalDate.of(2027,1,1));
-  assertEquals("请填写批准日期",assertThrows(ServiceException.class,f::validateForUpload).getMessage());
-  assertNull(f.getApprovalDate());f.setApprovalDate(LocalDate.of(2025,12,1));assertDoesNotThrow(f::validateForUpload);
+ @Test void creationRejectsRemovedFieldsWithoutChangingChangeValidation() {
+  var ce=base("CE");ce.setExpiryDate(LocalDate.of(2030,1,1));
+  assertDoesNotThrow(ce::validateCreation);
+  ce.setFirstObtainedDate(LocalDate.of(2025,1,1));assertThrows(ServiceException.class,ce::validateCreation);assertDoesNotThrow(ce::validate);ce.setFirstObtainedDate(null);
+  ce.setModelSpecifications(List.of("A"));assertThrows(ServiceException.class,ce::validateCreation);assertDoesNotThrow(ce::validate);ce.setModelSpecifications(null);
+  ce.setApprovalDate(LocalDate.of(2025,1,1));assertThrows(ServiceException.class,ce::validateCreation);ce.setApprovalDate(null);
+  ce.setChangeDescription("变更内容");assertThrows(ServiceException.class,ce::validateCreation);
+  var domestic=base("DOMESTIC");domestic.setCertificateNo("CN-1");domestic.setFirstObtainedDate(LocalDate.of(2025,1,1));domestic.setEffectiveDate(LocalDate.of(2025,1,2));domestic.setExpiryDate(LocalDate.of(2030,1,1));
+  assertDoesNotThrow(domestic::validateCreation);domestic.setApprovalDate(LocalDate.of(2025,1,1));assertThrows(ServiceException.class,domestic::validateCreation);assertDoesNotThrow(domestic::validate);
+  domestic.setApprovalDate(null);domestic.setChangeDescription("变更内容");assertThrows(ServiceException.class,domestic::validateCreation);
+  var fda=base("FDA");fda.setSubmissionType("PMA");fda.setCustomerHeld(false);fda.setApprovalLetterStatus("VALID");fda.setFactoryRegistrationStatus("ACTIVE");fda.setApprovalDate(LocalDate.of(2025,1,1));
+  assertDoesNotThrow(fda::validateCreation);fda.setChangeDescription("变更内容");assertThrows(ServiceException.class,fda::validateCreation);assertDoesNotThrow(fda::validate);
  }
-
  @Test void fdaHasNoInventedEffectiveOrExpiryDates(){
   var facts=base("FDA");facts.setSubmissionType("TRADITIONAL_510K");facts.setCustomerHeld(true);
   facts.setApprovalLetterStatus("VALID");facts.setFactoryRegistrationStatus("ACTIVE");facts.setCertificateHolder("Customer A");
@@ -64,6 +70,14 @@ class DccRegistrationCertificateFactsTest {
   var last=new DccRegistrationCertificateFacts.CeCertificate();last.setRevision("Rev.1");last.setCertificateNo("VALID");facts.setCeCertificates(List.of(first,last));
   assertDoesNotThrow(facts::validate);first.setCertificateNo("字".repeat(129));
   assertEquals("第1条CE证书编号长度不能超过128个字符",assertThrows(ServiceException.class,facts::validate).getMessage());
+ }
+ @Test void changedApprovalOrModelsRequireFreshDescriptionWhileStatusDoesNot() {
+  var fda=base("FDA");fda.setSubmissionType("PMA");fda.setCustomerHeld(false);fda.setApprovalLetterStatus("VALID");fda.setFactoryRegistrationStatus("ACTIVE");fda.setKpNumber("P1");fda.setChangeDescription("历史说明");
+  var changed=DccRegistrationCertificateFacts.parse(fda.toJson());changed.setFactoryRegistrationStatus("INACTIVE");assertDoesNotThrow(()->changed.validateChangeFrom(fda));
+  changed.setKpNumber("P2");assertThrows(ServiceException.class,()->changed.validateChangeFrom(fda));changed.setChangeDescription("新P号替代原批准信息");assertDoesNotThrow(()->changed.validateChangeFrom(fda));
+  var ce=base("CE");ce.setExpiryDate(LocalDate.of(2030,1,1));ce.setChangeDescription("历史调整");
+  var models=DccRegistrationCertificateFacts.parse(ce.toJson());models.setModelSpecifications(List.of("A"));assertThrows(ServiceException.class,()->models.validateChangeFrom(ce));models.setChangeDescription("本次增加A型号");assertDoesNotThrow(()->models.validateChangeFrom(ce));
+  models.setOtherContentDescription("其他内容");assertEquals("其他内容",DccRegistrationCertificateFacts.parse(models.toJson()).getOtherContentDescription());
  }
  private static DccRegistrationCertificateFacts base(String type){var f=new DccRegistrationCertificateFacts();f.setCertificateType(type);f.setOwnProduct(false);f.setClassification("II");if(!"FDA".equals(type))f.setCertificateStatus("VALID");return f;}
 }

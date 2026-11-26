@@ -21,7 +21,28 @@ public record DccRegistrationCertificateChangeCommand(
         String entrustedEnterprisesJson,
         String voidReason,
         MultipartFile file,
+        List<String> changeTypes, List<MultipartFile> attachments, List<MultipartFile> productDescriptionFiles, Long sourceRequestId, List<Long> retainedFileIds, List<MultipartFile> additionalPrimaryFiles) {
+    public DccRegistrationCertificateChangeCommand { additionalPrimaryFiles = additionalPrimaryFiles == null ? List.of() : List.copyOf(additionalPrimaryFiles); }
+
+    public DccRegistrationCertificateChangeCommand(
+        Long tenantId,
+        Long actorId,
+        String idempotencyKey,
+        String requestTraceId,
+        Long certificateId,
+        Integer expectedRowVersion,
+        LocalDate approvalDate,
+        Map<String, String> structuredValues,
+        String otherDescription,
+        Boolean entrustedProduction,
+        Boolean selfProduction,
+        String entrustedEnterprisesJson,
+        String voidReason,
+        MultipartFile file,
         List<String> changeTypes, List<MultipartFile> attachments, List<MultipartFile> productDescriptionFiles, Long sourceRequestId, List<Long> retainedFileIds) {
+        this(tenantId, actorId, idempotencyKey, requestTraceId, certificateId, expectedRowVersion, approvalDate, structuredValues, otherDescription, entrustedProduction, selfProduction, entrustedEnterprisesJson, voidReason, file, changeTypes, attachments, productDescriptionFiles, sourceRequestId, retainedFileIds, List.of());
+    }
+
 
     public DccRegistrationCertificateChangeCommand(Long tenantId,Long actorId,String idempotencyKey,String requestTraceId,
             Long certificateId,Integer expectedRowVersion,LocalDate approvalDate,Map<String,String> structuredValues,

@@ -55,4 +55,6 @@ public class DccRegistrationCertificatePageQuery {
     private LocalDate expiryEnd;
     private String sortField;
     private String sortOrder;
+    // Internal export constraint; never populated from the list request DTO.
+    private java.util.List<Long> exportVersionIds;
 }

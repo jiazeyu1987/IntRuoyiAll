@@ -62,6 +62,7 @@ public interface ErrorCodeConstants {
     ErrorCode CONTROLLED_FILE_STAMPED_PDF_REQUIRED = new ErrorCode(1_080_000_067, "Doc control approval requires a stamped PDF file");
     ErrorCode CONTROLLED_FILE_TRAINING_RECORD_REQUIRED = new ErrorCode(1_080_000_068, "Training record file is required before doc control approval");
     ErrorCode CONTROLLED_FILE_TASK_TARGET_INVALID = new ErrorCode(1_080_000_069, "Controlled file task target stage is invalid");
+    ErrorCode CONTROLLED_FILE_DISTRIBUTION_ALREADY_ACKNOWLEDGED = new ErrorCode(1_080_000_371, "该文件已签收，请勿重复签收");
     ErrorCode CONTROLLED_FILE_DISTRIBUTION_RECEIPT_NOT_ALLOWED = new ErrorCode(1_080_000_070, "Current user cannot acknowledge this electronic distribution receipt");
     ErrorCode CONTROLLED_FILE_PROCESS_TYPE_INVALID = new ErrorCode(1_080_000_071, "Controlled file process type is invalid");
     ErrorCode CONTROLLED_FILE_DISTRIBUTION_DEPARTMENT_REQUIRED = new ErrorCode(1_080_000_176, "Doc control approval requires at least one distribution department");

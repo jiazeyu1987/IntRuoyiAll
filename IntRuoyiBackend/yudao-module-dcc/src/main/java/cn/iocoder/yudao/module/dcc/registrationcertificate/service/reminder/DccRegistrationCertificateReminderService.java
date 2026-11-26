@@ -57,7 +57,7 @@ public class DccRegistrationCertificateReminderService {
         if (daysUntilDue < 0) {
             return new DccRegistrationCertificateReminderEvaluation("EXPIRED", "BRIGHT", daysUntilDue);
         }
-        if (cleared && threshold != null && "LIGHT".equals(threshold.colorCode())) {
+        if ("DOMESTIC".equals(certificateType) && cleared && threshold != null && "LIGHT".equals(threshold.colorCode())) {
             return new DccRegistrationCertificateReminderEvaluation("CLEARED", "CLEARED", daysUntilDue);
         }
         if (threshold == null) {

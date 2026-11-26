@@ -126,7 +126,7 @@ public interface DccRegistrationCertificateQueryMapper {
                         + " AND e.deleted = 0"
                         + " AND e.type = 'OWNED_COMPANY')";
         private static final String PROJECT_CODE_EXISTS_SORT_EXPRESSION =
-                "CASE WHEN (" + "CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END" + ") IS NULL THEN 0 ELSE 1 END";
+                "CASE WHEN (" + "CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE (SELECT GROUP_CONCAT(pcx.project_code ORDER BY pcx.project_code SEPARATOR '、') FROM dcc_project_code pcx WHERE pcx.tenant_id=c.tenant_id AND pcx.deleted=0 AND (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(pcx.id AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(pcx.id AS CHAR))=1)) END" + ") IS NULL THEN 0 ELSE 1 END";
         private static final String REGISTRATION_FILE_EXISTS_SORT_EXPRESSION =
                 "CASE WHEN EXISTS ("
                         + "SELECT 1 FROM dcc_registration_certificate_file f"
@@ -142,10 +142,8 @@ public interface DccRegistrationCertificateQueryMapper {
                         + " WHERE sd.tenant_id = c.tenant_id"
                         + " AND sd.certificate_id = c.id"
                         + " AND sd.version_id = v.id"
-                        + " AND ((JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateType')) = 'DOMESTIC'"
-                        + " AND sd.document_type IN ('RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE'))"
-                        + " OR (JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateType')) = 'CE'"
-                        + " AND sd.document_type IN ('CE_RENEWAL_CONTRACT', 'CE_RENEWAL_QUOTATION')))"
+                        + " AND JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateType')) = 'DOMESTIC'"
+                        + " AND sd.document_type IN ('RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')"
                         + " AND sd.status = 'EFFECTIVE'"
                         + " AND sd.deleted = 0)";
         private static final String REMINDER_STATE_EXPRESSION = reminderStateExpression();
@@ -170,10 +168,10 @@ public interface DccRegistrationCertificateQueryMapper {
                     textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.classification')), 'null')"), stableOrder)
                     + sortWhen(SORT_FIELD_CLASSIFICATION, SORT_ORDER_DESC, "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.classification')), 'null')",
                     textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.classification')), 'null')"), stableOrder)
-                    + sortWhen(SORT_FIELD_PROJECT_CODE, SORT_ORDER_ASC, "CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END",
-                    textBlankLast("CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END"), stableOrder)
-                    + sortWhen(SORT_FIELD_PROJECT_CODE, SORT_ORDER_DESC, "CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END",
-                    textBlankLast("CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END"), stableOrder)
+                    + sortWhen(SORT_FIELD_PROJECT_CODE, SORT_ORDER_ASC, "CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE (SELECT GROUP_CONCAT(pcx.project_code ORDER BY pcx.project_code SEPARATOR '、') FROM dcc_project_code pcx WHERE pcx.tenant_id=c.tenant_id AND pcx.deleted=0 AND (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(pcx.id AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(pcx.id AS CHAR))=1)) END",
+                    textBlankLast("CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE (SELECT GROUP_CONCAT(pcx.project_code ORDER BY pcx.project_code SEPARATOR '、') FROM dcc_project_code pcx WHERE pcx.tenant_id=c.tenant_id AND pcx.deleted=0 AND (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(pcx.id AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(pcx.id AS CHAR))=1)) END"), stableOrder)
+                    + sortWhen(SORT_FIELD_PROJECT_CODE, SORT_ORDER_DESC, "CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE (SELECT GROUP_CONCAT(pcx.project_code ORDER BY pcx.project_code SEPARATOR '、') FROM dcc_project_code pcx WHERE pcx.tenant_id=c.tenant_id AND pcx.deleted=0 AND (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(pcx.id AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(pcx.id AS CHAR))=1)) END",
+                    textBlankLast("CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE (SELECT GROUP_CONCAT(pcx.project_code ORDER BY pcx.project_code SEPARATOR '、') FROM dcc_project_code pcx WHERE pcx.tenant_id=c.tenant_id AND pcx.deleted=0 AND (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(pcx.id AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(pcx.id AS CHAR))=1)) END"), stableOrder)
                     + sortWhen(SORT_FIELD_VERSION_NO, SORT_ORDER_ASC, "v.version_no",
                     nullLast("v.version_no"), stableOrder)
                     + sortWhen(SORT_FIELD_VERSION_NO, SORT_ORDER_DESC, "v.version_no",
@@ -284,8 +282,8 @@ public interface DccRegistrationCertificateQueryMapper {
             result += sortWhen("ceCertificateNo",SORT_ORDER_DESC,"NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ceCertificates[0].certificateNo')), 'null')",textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ceCertificates[0].certificateNo')), 'null')"),stableOrder);
             result += sortWhen("ceIssueDate",SORT_ORDER_ASC,"NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ceCertificates[0].issueDate')), 'null')",textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ceCertificates[0].issueDate')), 'null')"),stableOrder);
             result += sortWhen("ceIssueDate",SORT_ORDER_DESC,"NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ceCertificates[0].issueDate')), 'null')",textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ceCertificates[0].issueDate')), 'null')"),stableOrder);
-            result += sortWhen("projectCode",SORT_ORDER_ASC,"CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END",textBlankLast("CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END"),stableOrder);
-            result += sortWhen("projectCode",SORT_ORDER_DESC,"CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END",textBlankLast("CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END"),stableOrder);
+            result += sortWhen("projectCode",SORT_ORDER_ASC,"CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE (SELECT GROUP_CONCAT(pcx.project_code ORDER BY pcx.project_code SEPARATOR '、') FROM dcc_project_code pcx WHERE pcx.tenant_id=c.tenant_id AND pcx.deleted=0 AND (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(pcx.id AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(pcx.id AS CHAR))=1)) END",textBlankLast("CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE (SELECT GROUP_CONCAT(pcx.project_code ORDER BY pcx.project_code SEPARATOR '、') FROM dcc_project_code pcx WHERE pcx.tenant_id=c.tenant_id AND pcx.deleted=0 AND (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(pcx.id AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(pcx.id AS CHAR))=1)) END"),stableOrder);
+            result += sortWhen("projectCode",SORT_ORDER_DESC,"CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE (SELECT GROUP_CONCAT(pcx.project_code ORDER BY pcx.project_code SEPARATOR '、') FROM dcc_project_code pcx WHERE pcx.tenant_id=c.tenant_id AND pcx.deleted=0 AND (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(pcx.id AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(pcx.id AS CHAR))=1)) END",textBlankLast("CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE (SELECT GROUP_CONCAT(pcx.project_code ORDER BY pcx.project_code SEPARATOR '、') FROM dcc_project_code pcx WHERE pcx.tenant_id=c.tenant_id AND pcx.deleted=0 AND (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(pcx.id AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(pcx.id AS CHAR))=1)) END"),stableOrder);
             return result;
         }
 
@@ -319,7 +317,6 @@ public interface DccRegistrationCertificateQueryMapper {
             String ce = "CASE"
                     + " WHEN #{query.businessDate} > CAST(" + fact("expiryDate") + " AS DATE) THEN 'EXPIRED'"
                     + " WHEN " + reminderDateCrossed(3) + " THEN 'CE_T_3'"
-                    + " WHEN " + reminderDateCrossed(12) + " AND " + REMINDER_CLEARED_EXISTS_EXPRESSION + " THEN 'CLEARED'"
                     + " WHEN " + reminderDateCrossed(12) + " THEN 'CE_T_12'"
                     + " WHEN " + reminderDateCrossed(18) + " THEN 'CE_T_18'"
                     + " ELSE 'NONE' END";
@@ -352,6 +349,8 @@ public interface DccRegistrationCertificateQueryMapper {
         public static QueryWrapper<Object> listFilterWrapper(
                 DccRegistrationCertificatePageQuery query, boolean oldIndex) {
             var fields = new java.util.LinkedHashMap<String, ListFilterQueryUtils.Field>();
+            fields.put("certificateType", ListFilterQueryUtils.text("CASE " + fact("certificateType")
+                    + " WHEN 'DOMESTIC' THEN '国内' WHEN 'CE' THEN 'CE' WHEN 'FDA' THEN 'FDA' ELSE '未识别证件类型' END"));
             fields.put("ownerCompanyName", ListFilterQueryUtils.text(OWNER_COMPANY_NAME_SORT_EXPRESSION));
             fields.put("productName", ListFilterQueryUtils.text("s.product_name"));
             fields.put("modelSpecification", ListFilterQueryUtils.text("s.model_specification"));
@@ -370,7 +369,7 @@ public interface DccRegistrationCertificateQueryMapper {
             for (String key : java.util.List.of("approvalDate", "effectiveDate", "expiryDate"))
                 fields.put(key, ListFilterQueryUtils.date("CAST(" + fact(key) + " AS DATE)"));
             if (!oldIndex) {
-                fields.put("projectCode", ListFilterQueryUtils.text("CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN " + fact("projectCode") + " ELSE pc.project_code END"));
+                fields.put("projectCode", ListFilterQueryUtils.text("CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN " + fact("projectCode") + " ELSE (SELECT GROUP_CONCAT(pcx.project_code ORDER BY pcx.project_code SEPARATOR '、') FROM dcc_project_code pcx WHERE pcx.tenant_id=c.tenant_id AND pcx.deleted=0 AND (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(pcx.id AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(pcx.id AS CHAR))=1)) END"));
                 fields.put("hasProjectCode", ListFilterQueryUtils.text("CASE WHEN (" + PROJECT_CODE_EXISTS_SORT_EXPRESSION + ") = 1 THEN '已提供' ELSE '缺失' END"));
                 fields.put("hasRegistrationFile", ListFilterQueryUtils.text("CASE WHEN (" + REGISTRATION_FILE_EXISTS_SORT_EXPRESSION + ") = 1 THEN '已提供' ELSE '缺失' END"));
                 fields.put("reminder", ListFilterQueryUtils.text("CASE (" + REMINDER_STATE_EXPRESSION + ") WHEN 'EXPIRED' THEN '已过期' WHEN 'CE_T_18' THEN 'CE 到期前 18 个月' WHEN 'CE_T_12' THEN 'CE 到期前 12 个月' WHEN 'CE_T_3' THEN 'CE 到期前 3 个月' WHEN 'CLEARED' THEN '正常' WHEN 'T_30' THEN '到期前 30 个月' WHEN 'T_8' THEN '到期前 8 个月' WHEN 'T_2' THEN '到期前 2 个月' WHEN 'T_1' THEN '到期前 1 个月' ELSE '正常' END"));
@@ -397,7 +396,7 @@ public interface DccRegistrationCertificateQueryMapper {
                            c.owner_company_id,
                            c.product_master_id,
                            c.project_code_id,
-                           CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END AS project_code,
+                           CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE (SELECT GROUP_CONCAT(pcx.project_code ORDER BY pcx.project_code SEPARATOR '、') FROM dcc_project_code pcx WHERE pcx.tenant_id=c.tenant_id AND pcx.deleted=0 AND (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(pcx.id AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(pcx.id AS CHAR))=1)) END AS project_code,
                            CASE
                              WHEN c.pending_version_id IS NOT NULL
                                OR EXISTS (
@@ -497,6 +496,7 @@ public interface DccRegistrationCertificateQueryMapper {
 
         private static String currentWhere() {
             return commonWhere()
+                    + " <if test=\"query.exportVersionIds != null and !query.exportVersionIds.isEmpty()\"> AND v.id IN <foreach collection=\"query.exportVersionIds\" item=\"exportId\" open=\"(\" separator=\",\" close=\")\">#{exportId}</foreach></if>"
                     + " AND c.status IN ('ACTIVE', 'PENDING_FIRST_EFFECTIVE')"
                     + " AND (v.id = c.current_version_id OR v.id = c.pending_version_id)"
                     + " AND v.status IN ('CURRENT', 'PENDING_EFFECTIVE')"
@@ -529,7 +529,7 @@ public interface DccRegistrationCertificateQueryMapper {
                             <when test="field == 'residenceAddress'">AND s.residence_address LIKE CONCAT('%', #{value}, '%')</when>
                             <when test="field == 'entrustedProduction'">AND CASE WHEN s.entrusted_production THEN 'true' ELSE 'false' END = #{value}</when>
                             <when test="field == 'selfProduction'">AND CASE WHEN s.self_production THEN 'true' ELSE 'false' END = #{value}</when>
-                            <when test="field == 'projectCode'">AND (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END) LIKE CONCAT('%',#{value},'%')</when>
+                            <when test="field == 'projectCode'">AND (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE (SELECT GROUP_CONCAT(pcx.project_code ORDER BY pcx.project_code SEPARATOR '、') FROM dcc_project_code pcx WHERE pcx.tenant_id=c.tenant_id AND pcx.deleted=0 AND (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(pcx.id AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(pcx.id AS CHAR))=1)) END) LIKE CONCAT('%',#{value},'%')</when>
                             <when test="field == 'entrustedEnterpriseName'">AND JSON_UNQUOTE(JSON_EXTRACT(s.entrusted_enterprises_json, '$[*].enterpriseName')) LIKE CONCAT('%', #{value}, '%')</when>
                             <otherwise>AND JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, CONCAT('$.', #{field}))) LIKE CONCAT('%', #{value}, '%')</otherwise>
                           </choose>
@@ -561,10 +561,10 @@ public interface DccRegistrationCertificateQueryMapper {
                         AND c.owner_company_id = #{query.ownerCompanyId}
                       </if>
                       <if test="query.productMasterId != null">
-                        AND c.product_master_id = #{query.productMasterId}
+                        AND EXISTS (SELECT 1 FROM dcc_project_code pp WHERE pp.tenant_id=c.tenant_id AND pp.deleted=0 AND pp.product_master_id=#{query.productMasterId} AND (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(pp.id AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(pp.id AS CHAR))=1))
                       </if>
                       <if test="query.projectCodeId != null">
-                        AND c.project_code_id = #{query.projectCodeId}
+                        AND EXISTS (SELECT 1 WHERE (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(#{query.projectCodeId} AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(#{query.projectCodeId} AS CHAR))=1))
                       </if>
                       <if test="query.status != null and query.status != ''">
                         AND v.status = #{query.status}
@@ -604,13 +604,13 @@ public interface DccRegistrationCertificateQueryMapper {
                         AND JSON_UNQUOTE(JSON_EXTRACT(s.entrusted_enterprises_json, '$[*].enterpriseName')) LIKE CONCAT('%', #{query.entrustedEnterpriseName}, '%')
                       </if>
                       <if test="query.projectCode != null and query.projectCode != ''">
-                        AND (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END) LIKE CONCAT('%', #{query.projectCode}, '%')
+                        AND (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE (SELECT GROUP_CONCAT(pcx.project_code ORDER BY pcx.project_code SEPARATOR '、') FROM dcc_project_code pcx WHERE pcx.tenant_id=c.tenant_id AND pcx.deleted=0 AND (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(pcx.id AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(pcx.id AS CHAR))=1)) END) LIKE CONCAT('%', #{query.projectCode}, '%')
                       </if>
                       <if test="query.missingProjectCode != null and query.missingProjectCode">
-                        AND (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END) IS NULL
+                        AND (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE (SELECT GROUP_CONCAT(pcx.project_code ORDER BY pcx.project_code SEPARATOR '、') FROM dcc_project_code pcx WHERE pcx.tenant_id=c.tenant_id AND pcx.deleted=0 AND (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(pcx.id AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(pcx.id AS CHAR))=1)) END) IS NULL
                       </if>
                       <if test="query.missingProjectCode != null and !query.missingProjectCode">
-                        AND (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END) IS NOT NULL
+                        AND (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE (SELECT GROUP_CONCAT(pcx.project_code ORDER BY pcx.project_code SEPARATOR '、') FROM dcc_project_code pcx WHERE pcx.tenant_id=c.tenant_id AND pcx.deleted=0 AND (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(pcx.id AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(pcx.id AS CHAR))=1)) END) IS NOT NULL
                       </if>
                       <if test="query.missingFile != null and query.missingFile">
                         AND NOT EXISTS (
@@ -667,10 +667,10 @@ public interface DccRegistrationCertificateQueryMapper {
                         AND c.owner_company_id = #{query.ownerCompanyId}
                       </if>
                       <if test="query.productMasterId != null">
-                        AND c.product_master_id = #{query.productMasterId}
+                        AND EXISTS (SELECT 1 FROM dcc_project_code pp WHERE pp.tenant_id=c.tenant_id AND pp.deleted=0 AND pp.product_master_id=#{query.productMasterId} AND (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(pp.id AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(pp.id AS CHAR))=1))
                       </if>
                       <if test="query.projectCodeId != null">
-                        AND c.project_code_id = #{query.projectCodeId}
+                        AND EXISTS (SELECT 1 WHERE (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(#{query.projectCodeId} AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(#{query.projectCodeId} AS CHAR))=1))
                       </if>
                       <if test="query.certificateNo != null and query.certificateNo != ''">
                         AND NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateType')) = 'CE' AND JSON_LENGTH(JSON_EXTRACT(s.facts_json, '$.ceCertificates')) > 0 THEN CONCAT('$.ceCertificates[', JSON_LENGTH(JSON_EXTRACT(s.facts_json, '$.ceCertificates')) - 1, '].certificateNo') ELSE '$.certificateNo' END)), 'null') LIKE CONCAT('%', #{query.certificateNo}, '%')
@@ -697,7 +697,7 @@ public interface DccRegistrationCertificateQueryMapper {
                         AND JSON_UNQUOTE(JSON_EXTRACT(s.entrusted_enterprises_json, '$[*].enterpriseName')) LIKE CONCAT('%', #{query.entrustedEnterpriseName}, '%')
                       </if>
                       <if test="query.projectCode != null and query.projectCode != ''">
-                        AND (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END) LIKE CONCAT('%', #{query.projectCode}, '%')
+                        AND (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' OR JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.historicalSheet')) IN ('国内注册证','CE证书','FDA证书') THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE (SELECT GROUP_CONCAT(pcx.project_code ORDER BY pcx.project_code SEPARATOR '、') FROM dcc_project_code pcx WHERE pcx.tenant_id=c.tenant_id AND pcx.deleted=0 AND (JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), JSON_QUOTE(CAST(pcx.id AS CHAR)))=1 OR JSON_CONTAINS(JSON_EXTRACT(s.facts_json, '$.projectProducts[*].projectCodeId'), CAST(pcx.id AS CHAR))=1)) END) LIKE CONCAT('%', #{query.projectCode}, '%')
                       </if>
                       <if test="query.firstObtainedStart != null">
                         AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.firstObtainedDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.firstObtainedDate')) END AS DATE) &gt;= #{query.firstObtainedStart}

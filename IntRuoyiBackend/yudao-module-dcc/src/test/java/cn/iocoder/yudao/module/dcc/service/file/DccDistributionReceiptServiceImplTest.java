@@ -48,7 +48,9 @@ class DccDistributionReceiptServiceImplTest extends BaseMockitoUnitTest {
     }
     @Test void acknowledgedReplayDoesNotWriteNewSignatureOrChangeOriginalTimes() {
         var original=LocalDateTime.of(2026,10,11,9,0);recipient.setAcknowledgedAt(original);
-        service.acknowledgeElectronicDistribution(99L,42L,51L,71L,request);
+        var error = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.acknowledgeElectronicDistribution(99L,42L,51L,71L,request));
+        assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DISTRIBUTION_ALREADY_ACKNOWLEDGED.getCode(), error.getCode());
         verifyNoInteractions(signatureVerificationService);
         verify(distributionRecipientMapper,never()).updateById(any(DccControlledFileDistributionRecipientDO.class));
         assertEquals(original,recipient.getAcknowledgedAt());

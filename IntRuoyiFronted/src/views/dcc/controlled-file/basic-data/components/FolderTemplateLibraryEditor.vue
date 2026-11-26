@@ -80,7 +80,7 @@ const validateChangeReason = () => {
   }
   return true
 }
-const open = async () => {
+const open = async (templateId?: number) => {
   if (writing.value) return
   const revision = ++contextRevision
   visible.value = true; loading.value = true; ready.value = false; resetForm(); error.value = ''; templates.value = []
@@ -88,8 +88,17 @@ const open = async () => {
     const rows = await getFolderTemplates()
     if (revision !== contextRevision) return
     templates.value = rows; ready.value = true
+    if (templateId !== undefined) {
+      const selected = rows.find(row => String(row.id) === String(templateId))
+      if (!selected) throw new Error('模板已不存在，请刷新列表后重试')
+      loading.value = false
+      choose(selected)
+    }
   } catch (cause) {
-    if (revision === contextRevision) error.value = cause instanceof Error ? cause.message : String(cause)
+    if (revision === contextRevision) {
+      ready.value = false
+      error.value = cause instanceof Error ? cause.message : String(cause)
+    }
   } finally { if (revision === contextRevision) loading.value = false }
 }
 const save = async () => {

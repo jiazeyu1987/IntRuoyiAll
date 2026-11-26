@@ -66,12 +66,12 @@ class DccRegistrationCertificateReminderServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void ceThresholdsAndMaterialsOnlyClearTheLightWindow() {
+    void ceThresholdsCannotBeClearedBySupportingMaterials() {
         LocalDate due = LocalDate.of(2028, 3, 31);
         assertEquals("NONE", service.evaluateThreshold("CE", due.minusMonths(18).minusDays(1), due, false).thresholdLevel());
         assertEquals("CE_T_18", service.evaluateThreshold("CE", due.minusMonths(18), due, false).thresholdLevel());
         assertEquals("CE_T_12", service.evaluateThreshold("CE", due.minusMonths(12), due, false).thresholdLevel());
-        assertEquals("CLEARED", service.evaluateThreshold("CE", due.minusMonths(12), due, true).colorCode());
+        assertEquals("LIGHT", service.evaluateThreshold("CE", due.minusMonths(12), due, true).colorCode());
         assertEquals("BRIGHT", service.evaluateThreshold("CE", due.minusMonths(3), due, true).colorCode());
         assertEquals("BRIGHT", service.evaluateThreshold("DOMESTIC", due.minusMonths(2), due, true).colorCode());
     }

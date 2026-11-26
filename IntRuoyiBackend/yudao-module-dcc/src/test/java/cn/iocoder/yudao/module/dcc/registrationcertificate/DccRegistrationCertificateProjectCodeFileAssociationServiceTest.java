@@ -143,6 +143,20 @@ class DccRegistrationCertificateProjectCodeFileAssociationServiceTest extends Ba
         assertNull(counts.get(999L));
     }
 
+    @Test
+    void everyBoundProjectListsAndCountsBothCertificateAndChangeFiles() {
+        seedProjectCode(601L,"P601");seedProjectCode(602L,"P602");
+        seedCertificate(1100L,601L,2100L,3100L);seedVersion(2100L,1100L,1,"INITIAL_CERTIFICATE","CURRENT","SHARED-CERT","II");seedSnapshot(3100L,2100L,1,"共享产品");
+        jdbcTemplate.update("INSERT INTO dcc_registration_certificate_product(tenant_id,product_catalog_id,certificate_id,project_code_id,product_code,product_name,state,created_by) VALUES(1,4602,1100,602,'P602','第二产品','BOUND',99)");
+        seedChange(6100L,1100L,2100L,3100L,3100L);
+        seedBoundFile(4100L,"VERSION",2100L,"REGISTRATION_CERTIFICATE","shared.pdf",9100L);
+        seedBoundFile(4101L,"CHANGE",6100L,"CHANGE_APPROVAL","shared-change.pdf",9101L);
+        service.bindVersionRegistrationFile(1L,2100L,4100L,99L);service.bindChangeApprovalFile(1L,601L,6100L,4101L,99L);
+        assertEquals(2,service.listAssociatedRows(602L,null,null).size());
+        var counts=service.countAssociatedFilesByProjectCodeIds(Set.of(601L,602L));
+        assertEquals(2L,counts.get(601L));assertEquals(2L,counts.get(602L));
+    }
+
     private void seedProjectCode(Long id, String projectCode) {
         jdbcTemplate.update("""
                 INSERT INTO dcc_project_code
@@ -159,6 +173,7 @@ class DccRegistrationCertificateProjectCodeFileAssociationServiceTest extends Ba
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, id, 10L, 3000L + id, projectCodeId, LocalDate.of(2021, 3, 1),
                 currentVersionId, currentSnapshotId, "ACTIVE", 1, 1L);
+        jdbcTemplate.update("INSERT INTO dcc_registration_certificate_product(tenant_id,product_catalog_id,certificate_id,project_code_id,product_code,product_name,state,created_by) VALUES(1,?,?,?,'TEST','测试产品','BOUND',99)",3000L+id,id,projectCodeId);
     }
 
     private void seedVersion(Long id, Long certificateId, int versionNo, String versionType,
