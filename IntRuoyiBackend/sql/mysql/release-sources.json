@@ -1235,6 +1235,7 @@
     "20261120_mes_schedule_order_menu_forward.sql",
     "20261120_dcc_registration_certificate_neutral_event_notify_template.sql",
     "20261122_dcc_registration_certificate_event_template_params.sql",
+    "20261126_dcc_registration_certificate_typed_event_notify_template.sql",
     "20261123_dcc_registration_certificate_reminder_minute_tick.sql",
     "20261123_registration_workbook_unknown_production.sql",
     "20261122_mes_qa_review_retention_guard.sql",
