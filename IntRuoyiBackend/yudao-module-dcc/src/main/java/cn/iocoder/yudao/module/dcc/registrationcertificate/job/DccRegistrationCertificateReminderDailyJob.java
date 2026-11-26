@@ -135,10 +135,11 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
     }
 
     private TenantOutcome runTenant(Long tenantId, LocalDate businessDate, JobParam jobParam, boolean scheduled) {
-        registrationHandlingTasks.createExpiredTasks(tenantId, businessDate);
         // Certificate activation is a lifecycle action, independent of notification settings.
         ActivationOutcome activation = activateDueCandidates(tenantId, businessDate, jobParam.actorId());
         int activated = activation.activated();
+        // Handling configuration must not prevent independent due-version activation.
+        registrationHandlingTasks.createExpiredTasks(tenantId, businessDate);
         DccRegistrationCertificateReminderConfig config = configService.getOrCreate(tenantId);
         if (!Boolean.TRUE.equals(config.enabled()) && activation.failures().isEmpty()) {
             return TenantOutcome.skipped(tenantId);

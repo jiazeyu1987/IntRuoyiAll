@@ -269,6 +269,8 @@ yudao:
     quartz-auto-run-handler-whitelist:
       - kingdeeProductionOrderSyncJob
       - kingdeeBomSyncJob
+      # 注册证到期激活是生命周期动作，不应随提醒开关或默认任务收口停摆。
+      - registrationCertificateReminderDailyJob
     dcc-batch-recognition-enabled: false
     dcc-nas-transfer-enabled: false
     dcc-nas-permission-restore-enabled: false

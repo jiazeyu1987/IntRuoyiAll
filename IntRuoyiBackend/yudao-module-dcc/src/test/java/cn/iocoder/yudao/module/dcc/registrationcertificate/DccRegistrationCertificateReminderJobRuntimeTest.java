@@ -93,7 +93,28 @@ class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
 
     @BeforeEach
     void resetMocks() {
-        reset(tenantFrameworkService, companyScopeApi, notifyMessageSendApi, activationService);
+        reset(tenantFrameworkService, companyScopeApi, notifyMessageSendApi, activationService, registrationHandlingTasks);
+    }
+
+    @Test
+    void handlingConfigurationFailureDoesNotPreventHealthyDueActivation() {
+        insertTenantOneDueCandidate();
+        when(activationService.activateDueCandidate(any())).thenAnswer(invocation -> {
+            activateTenantOneCandidate(invocation.getArgument(0));
+            return new DccRegistrationCertificateActivationResult(1001L, 1101L, 1102L, 5102L, true);
+        });
+        org.mockito.Mockito.doThrow(new ServiceException(400, "办理配置缺失"))
+                .when(registrationHandlingTasks).createExpiredTasks(1L, BUSINESS_DATE);
+        when(tenantFrameworkService.getTenantIds()).thenReturn(List.of(1L));
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> job.execute(PARAM));
+        assertTrue(error.getMessage().contains("办理配置缺失"));
+        assertEquals(1102L, jdbcTemplate.queryForObject(
+                "SELECT current_version_id FROM dcc_registration_certificate WHERE id=1001", Long.class));
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(activationService, registrationHandlingTasks);
+        order.verify(activationService).activateDueCandidate(any());
+        order.verify(registrationHandlingTasks).createExpiredTasks(1L, BUSINESS_DATE);
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi);
+        assertEquals(0, countDailyRuns());
     }
 
     @Test

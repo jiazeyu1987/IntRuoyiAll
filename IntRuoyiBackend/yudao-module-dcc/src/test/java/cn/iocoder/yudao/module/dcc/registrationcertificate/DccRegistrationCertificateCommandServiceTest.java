@@ -684,14 +684,27 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
                 draftWithText(base, base.certificateNo(), "I".repeat(65), base.registrantName()),
                 draftWithText(base, base.certificateNo(), base.classification(), "R".repeat(256)));
 
+        List<String> expectedMessages = List.of("注册证号长度不能超过128个字符",
+                "产品分类长度不能超过64个字符", "注册人名称长度不能超过255个字符");
         for (int index = 0; index < invalid.size(); index++) {
             String key = "oversized-" + index;
             DccRegistrationCertificateDraftData request = invalid.get(index);
             ServiceException error = assertThrows(ServiceException.class,
                     () -> dbCommandService.createDraft(1L, 99L, key, "trace-" + key, request));
-            assertEquals(REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT.getCode(), error.getCode());
+            assertEquals(400, error.getCode());
+            assertEquals(expectedMessages.get(index), error.getMessage());
             assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate WHERE tenant_id = 1"));
-            assertEquals("FAILURE", dbAuditMapper.selectByTenantIdAndEventKey(1L, key).getResult());
+            assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_version WHERE tenant_id = 1"));
+            assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_snapshot WHERE tenant_id = 1"));
+            var audit = dbAuditMapper.selectByTenantIdAndEventKey(1L, key);
+            assertEquals("FAILURE", audit.getResult());
+            var detail = JsonUtils.parseObject(audit.getDetailJson(), DccRegistrationCertificateAuditDetail.class);
+            assertEquals(error.getCode(), detail.getFailureCode());
+            assertEquals(error.getMessage(), detail.getFailureMessage());
+            ServiceException replay = assertThrows(ServiceException.class,
+                    () -> dbCommandService.createDraft(1L, 99L, key, "trace-" + key, request));
+            assertEquals(error.getCode(), replay.getCode());
+            assertEquals(error.getMessage(), replay.getMessage());
         }
     }
 
