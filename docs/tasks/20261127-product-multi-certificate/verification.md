@@ -41,3 +41,5 @@
 固定提交的 CRLF 干净检出发布输入、历史发布包完整性、目标计划与 FAILED 账本负例结果另见同目录 `release-input-verification.json`。
 
 已核验功能提交 `0eadff1a0b9a61157b3051e7a98839503b66f7dc`：926 个迁移、938 个根 SQL、1256 个包输入，无漏登记或缺失输入，历史封包完整性通过。本地缓存账本快照 test 855 条、prod 851 条，两者均计划 5 个待执行迁移，新迁移先执行，两个旧迁移为 SKIP_IMMUTABLE；缺失新 preflight 和旧迁移 FAILED 两个负例均准确阻断。这些是历史快照的离线计划核验，不能替代维护人员对当前服务器的检查。正常、暂存和提交 hook 的菜单门禁通过；任务测试容器已按容器 ID 和标签核实后移除，未影响其他环境。
+
+后续维护侧对固定提交 `77d4f35f88208875200b729201adb8322177dac2` 的58真实只读执行仍返回 `UNRESOLVED_PRODUCT`。因此当前不具备发布条件，不能以本机验证或多证修复作为重放部署依据。后续只读诊断、业务决策和边界见 `identity-resolution-plan.md` 及 `identity-evidence-summary.json`；现行断言、业务数据和 FAILED 账本保持不变。

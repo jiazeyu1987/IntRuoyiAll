@@ -1,0 +1,27 @@
+{
+  "sourceRef": "77d4f35f88208875200b729201adb8322177dac2",
+  "scope": "test58 only; no server access or data/ledger changes by this analysis",
+  "currentPreflightResult": "TARGET_PREFLIGHT_BLOCKED:20261127_dcc_registration_certificate_multi_products:UNRESOLVED_PRODUCT",
+  "currentPreflightEvidenceSha256": "04d500b57ab5f54b57a309863d24b63f464f84a7bcd660f8785a8d3f7939815f",
+  "historicalDetailEvidenceSha256": "9e933c37cef6135613b56944c50b55bb36d79366e24874e3c1205bb127d1ba87",
+  "historicalDetailNotCurrentTargetInventory": true,
+  "historicalCounts": {
+    "UNRESOLVED_PRODUCT": 102,
+    "SNAPSHOT_PRODUCT_MISMATCH": 140,
+    "overlap": 77,
+    "distinctCertificates": 165,
+    "unresolvedOnly": 25,
+    "snapshotOnly": 63,
+    "unresolvedProjects": 65,
+    "unresolvedWithoutResolvedProductId": 102,
+    "snapshotWithoutProjectId": 55,
+    "snapshotWithProjectButNoResolvedProductId": 77,
+    "snapshotWithResolvedProductId": 8
+  },
+  "limits": [
+    "The live result is first-failure only, not a count or full list.",
+    "Historical missing resolved IDs do not identify why a source is absent or invalid.",
+    "Snapshot report code/name columns were literal NULL; they do not prove blank catalog names.",
+    "No target mapping, ownProduct classification, archival choice or correction is inferred."
+  ]
+}
