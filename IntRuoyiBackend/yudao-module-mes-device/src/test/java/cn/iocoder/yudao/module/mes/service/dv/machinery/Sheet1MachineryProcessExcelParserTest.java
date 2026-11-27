@@ -14,6 +14,23 @@ class Sheet1MachineryProcessExcelParserTest {
 
     private final Sheet1MachineryProcessExcelParser parser = new Sheet1MachineryProcessExcelParser();
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"header", "deviceCode", "manualCode"})
+    void rejectsMissingProcessCode(String missing) throws Exception {
+        MockMultipartFile original = buildWorkbook();
+        try (var workbook = new XSSFWorkbook(original.getInputStream());
+             var output = new ByteArrayOutputStream()) {
+            var sheet = workbook.getSheet("Sheet1");
+            int row = "header".equals(missing) ? 0 : "deviceCode".equals(missing) ? 1 : 3;
+            sheet.getRow(row).getCell(8).setCellValue("");
+            workbook.write(output);
+            var error = org.junit.jupiter.api.Assertions.assertThrows(
+                    cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                    () -> parser.parse(new MockMultipartFile("file", "test.xlsx", original.getContentType(), output.toByteArray())));
+            org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("工序唯一编码"));
+        }
+    }
+
     @Test
     void parse_keepsManualRowsAndConvertsHourlyCapacity() throws Exception {
         Sheet1MachineryProcessExcelParser.ParsedSheet parsedSheet = parser.parse(buildWorkbook());
@@ -66,6 +83,20 @@ class Sheet1MachineryProcessExcelParserTest {
             manualRow.createCell(6).setCellValue("/");
             manualRow.createCell(7).setCellValue(740);
 
+            sheet.getRow(0).createCell(8).setCellValue("工序唯一编码");
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                Row dataRow = sheet.getRow(i);
+                if (dataRow != null && dataRow.getCell(3) != null) {
+                    String name = dataRow.getCell(3).getStringCellValue();
+                    String code = switch (name) {
+                        case "吹球囊成型" -> "PROC-001";
+                        case "穿显影环" -> "PROC-002";
+                        case "占位设备工序" -> "IGNORED";
+                        default -> "IGNORED";
+                    };
+                    dataRow.createCell(8).setCellValue(code);
+                }
+            }
             workbook.write(outputStream);
             return new MockMultipartFile("file", "balloon.xlsx",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

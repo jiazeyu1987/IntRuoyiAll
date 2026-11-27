@@ -3,8 +3,9 @@
     <p>受控日期：{{ facts.controlledTime || '尚未受控' }}</p>
     <p>生效方式：{{ effectiveness.modeText }}</p>
     <p v-if="effectiveness.presetDateVisible">预设生效日期：{{ facts.effectiveDate || '未记录' }}</p>
-    <p>实际生效时间：{{ effectiveness.effectiveText }}</p>
+    <p>{{ effectiveness.effectiveLabel }}：{{ effectiveness.effectiveText }}</p>
     <p>日常启用时间：{{ effectiveness.activatedText }}</p>
+    <p v-if="effectiveness.activationPendingText" role="status">{{ effectiveness.activationPendingText }}</p>
     <p>文控下发：{{ facts.distributedTime || '待下发' }}</p>
     <p v-if="view.warning" role="status">{{ view.warning }}</p>
     <p v-if="view.reworkHint" role="status">{{ view.reworkHint }}</p>

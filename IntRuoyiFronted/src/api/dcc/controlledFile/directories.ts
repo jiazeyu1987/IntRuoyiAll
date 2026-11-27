@@ -32,10 +32,6 @@ export interface ControlledFileDirectoryAccessRuleDirectoryVO {
   directoryPath: string
 }
 
-export interface ControlledFileDirectoryImportRespVO {
-  importedCount: number
-  rootCount: number
-}
 
 export interface ControlledFileDirectoryDeleteSubtreeRespVO {
   directoryCount: number
@@ -84,9 +80,6 @@ export const createDirectory = async (data: ControlledFileDirectoryVO) => {
   return await request.post({ url: '/dcc/directories', data })
 }
 
-export const importDirectoriesFromIntAuth = async (): Promise<ControlledFileDirectoryImportRespVO> => {
-  return await request.post({ url: '/dcc/directories/import-intauth' })
-}
 
 export const updateDirectory = async (id: number, data: ControlledFileDirectoryVO) => {
   return await request.put({ url: `/dcc/directories/${id}`, data })

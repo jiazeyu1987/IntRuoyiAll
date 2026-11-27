@@ -8,38 +8,17 @@ const readUtf8 = (relativePath) =>
 
 const page = readUtf8('src/views/mes/pro/processpool/QaRegulationPage.vue')
 
-const functionMatch = page.match(
-  /const buildQaRegulationItemEquipmentOptions = \(\n[\s\S]*?\n\}/
-)
-
-assert.ok(functionMatch, 'QA regulation equipment option payload builder must exist.')
-
-const functionBody = functionMatch[0]
-
-assert.match(
-  functionBody,
-  /settings:\s*\{\s*publishing\?:\s*boolean\s*\}\s*=\s*\{\}/,
-  'Equipment option payload builder must name publishing settings separately from option rows.'
-)
-assert.match(
-  functionBody,
-  /const optionRows = getQaRegulationItemEquipmentOptions\(item\)/,
-  'Equipment option rows must use an optionRows variable, not shadow publishing settings.'
-)
-assert.match(
-  functionBody,
-  /const publishing = Boolean\(settings\.publishing\)/,
-  'Publishing mode must read from the settings object.'
-)
-assert.match(
-  functionBody,
-  /optionRows\.filter\(/,
-  'Publishing filter must be applied to the equipment option row array.'
-)
-assert.doesNotMatch(
-  functionBody,
-  /const options = getQaRegulationItemEquipmentOptions\(item\)/,
-  'Equipment option row array must not redeclare the settings parameter name.'
-)
+const service = fs.readFileSync(path.join(repoRoot, '../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/qa/regulation/MesQaInspectionRegulationServiceImpl.java'), 'utf8')
+const flatten = page.slice(page.indexOf('const flattenQaRegulationProcesses'), page.indexOf('const resetQaRegulationConfiguration'))
+assert.match(flatten, /equipmentOptions:\s*\(item\.equipmentOptions \|\| \[\]\)\.map\(/,
+  'Historical equipment returned by the version API must survive page mapping.')
+const publish = service.slice(service.indexOf('public MesQaInspectionRegulationPublishedVersionRespVO publish('),
+  service.indexOf('public MesQaInspectionRegulationPublishedVersionRespVO getPublishedVersion('))
+assert.match(publish, /listEnabledEquipmentOptionsByProjectVersionAndItemCodes\(/,
+  'Publication must freeze the effective configuration for this project and version.')
+assert.match(publish, /item\.setEquipmentOptions\(/)
+assert.match(publish, /setSnapshotJson\(JSON\.toJSONString\(reqVO\)\)/)
+assert.match(publish, /setSnapshotJson\(context\.version\(\)\.getSnapshotJson\(\)\)/,
+  'The equipment snapshot must be persisted with the published version.')
 
 console.log('qa-regulation-equipment-options-static PASS')

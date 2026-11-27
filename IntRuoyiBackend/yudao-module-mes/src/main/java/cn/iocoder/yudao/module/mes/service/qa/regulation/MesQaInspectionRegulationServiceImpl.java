@@ -188,7 +188,8 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 pqcInspectionTaskMapper.selectCountByRegulationVersionIds(versionIds);
         if (positiveCount(activeOrderReferenceCount) || positiveCount(pqcTaskReferenceCount)) {
             throw exception(QA_INSPECTION_REGULATION_RESET_REFERENCED,
-                    "activeOrder=" + activeOrderReferenceCount + ", pqcTask=" + pqcTaskReferenceCount);
+                    "生产订单引用 " + activeOrderReferenceCount + " 条，PQC 任务引用 " + pqcTaskReferenceCount
+                            + " 条。本次未删除任何规程或版本，请先核对引用记录");
         }
 
         int versionCount = versionIds.size();
@@ -219,6 +220,28 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 reqVO.getOwnerModule());
         DraftContext context = saveDraftInternal(reqVO, dccProjectCode);
         if (productQa) {
+            // Freeze the effective equipment configuration with the published version.
+            // Later edits to the shared configuration must not rewrite historical evidence.
+            List<String> itemCodes = reqVO.getProcesses().stream()
+                    .flatMap(process -> process.getItems().stream())
+                    .map(item -> StrUtil.trim(item.getItemCode())).distinct().toList();
+            var equipmentByItemCode = equipmentConfigService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
+                    dccProjectCode.getId(), context.version().getId(), itemCodes);
+            reqVO.getProcesses().forEach(process -> process.getItems().forEach(item -> {
+                item.setEquipmentOptions(equipmentByItemCode.getOrDefault(StrUtil.trim(item.getItemCode()), List.of())
+                        .stream().map(equipment -> new MesQaInspectionRegulationSaveReqVO.EquipmentOption()
+                                .setEquipmentId(equipment.equipmentId())
+                                .setEquipmentCode(equipment.equipmentCode())
+                                .setEquipmentName(equipment.equipmentName())
+                                .setEquipmentNumber(equipment.equipmentNumber())
+                                .setDefaultFlag(equipment.defaultFlag())
+                                .setSort(equipment.sort())).toList());
+                if (!item.getEquipmentOptions().isEmpty()) {
+                    item.setEquipmentUnboundReason(null);
+                }
+                validateItemEquipmentOptions(item);
+            }));
+            context.version().setSnapshotJson(JSON.toJSONString(reqVO));
             MesQaCommonRegulationBindingListSaveReqVO bindingReq = new MesQaCommonRegulationBindingListSaveReqVO();
             bindingReq.setDccProjectCodeId(dccProjectCode.getId());
             bindingReq.setCommonRegulationVersionIds(reqVO.getCommonRegulationVersionIds());
@@ -241,6 +264,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
 
         versionMapper.updateById(new MesQaInspectionRegulationVersionDO()
                 .setId(context.version().getId())
+                .setSnapshotJson(context.version().getSnapshotJson())
                 .setLifecycleStatus(STATUS_PUBLISHED)
                 .setPublishedAt(publishedAt));
         context.version().setLifecycleStatus(STATUS_PUBLISHED).setPublishedAt(publishedAt);
@@ -1076,7 +1100,8 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         }
         if (common && regulation != null
                 && !Objects.equals(regulation.getRegulationCode(), StrUtil.trim(reqVO.getRegulationCode()))) {
-            throw exception(QA_INSPECTION_REGULATION_SNAPSHOT_INVALID, "通用规程文件编号与既有规程不一致，请重新导入");
+            throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_COMMON_REGULATION_CODE_IMMUTABLE,
+                    "与既有规程不一致，请恢复原编号或重新导入");
         }
         if (regulation != null) {
             if (!Objects.equals(regulation.getLifecycleStatus(), STATUS_PUBLISHED)) {

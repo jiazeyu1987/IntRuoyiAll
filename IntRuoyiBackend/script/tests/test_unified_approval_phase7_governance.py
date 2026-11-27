@@ -11,7 +11,7 @@ SCANNER = ROOT / "script" / "unified_approval" / "governance_scan.py"
 
 
 def run_scanner(*extra_args: str) -> subprocess.CompletedProcess[str]:
-    frontend_root = ROOT.parent / "yudao-ui-admin-vue3"
+    frontend_root = ROOT.parent / "IntRuoyiFronted"
     return subprocess.run(
         [
             sys.executable,
@@ -36,7 +36,7 @@ def test_phase7_governance_scanner_reports_current_repository_state():
     assert result.returncode == 0, result.stderr or result.stdout
     payload = json.loads(result.stdout)
 
-    assert payload["summary"]["compliant_modules"] == ["BPM", "DCC", "EDHR", "SHOWROOM", "SRM", "MES_FEEDBACK"]
+    assert payload["summary"]["compliant_modules"] == ["BPM", "DCC", "EDHR", "SHOWROOM", "MES_FEEDBACK"]
     assert payload["summary"]["blocking_violations"] == 0
     assert payload["summary"]["risk_items"] == 0
     assert not any(item["module"] == "MES_FEEDBACK" for item in payload["risk_items"])

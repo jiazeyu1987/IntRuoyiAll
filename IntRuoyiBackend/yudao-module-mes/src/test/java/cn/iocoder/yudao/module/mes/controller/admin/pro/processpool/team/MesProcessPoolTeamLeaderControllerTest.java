@@ -412,32 +412,35 @@ class MesProcessPoolTeamLeaderControllerTest {
 
     @Test
     void activeOrderCandidateEndpointReturnsWorkOrderCodeOptions() {
-        when(activeOrderService.searchActiveOrderCandidates("WO-9")).thenReturn(List.of(
-                MesTeamLeaderActiveOrderCandidateBO.builder()
-                        .workOrderId(9001L)
-                        .workOrderCode("WO-9001")
-                        .eligible(true)
-                        .build(),
-                MesTeamLeaderActiveOrderCandidateBO.builder()
-                        .workOrderId(9002L)
-                        .workOrderCode("WO-9002")
-                        .eligible(false)
-                        .ineligibleReason("缺少已发布QA规程")
-                        .build()));
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(3001L);
+            when(activeOrderService.searchActiveOrderCandidates(3001L, "WO-9")).thenReturn(List.of(
+                    MesTeamLeaderActiveOrderCandidateBO.builder()
+                            .workOrderId(9001L)
+                            .workOrderCode("WO-9001")
+                            .eligible(true)
+                            .build(),
+                    MesTeamLeaderActiveOrderCandidateBO.builder()
+                            .workOrderId(9002L)
+                            .workOrderCode("WO-9002")
+                            .eligible(false)
+                            .ineligibleReason("缺少已发布QA规程")
+                            .build()));
 
-        List<MesTeamLeaderActiveOrderCandidateRespVO> candidates =
-                controller.searchActiveOrderCandidates("WO-9").getData();
+            List<MesTeamLeaderActiveOrderCandidateRespVO> candidates =
+                    controller.searchActiveOrderCandidates("WO-9").getData();
 
-        assertEquals(2, candidates.size());
-        assertEquals(9001L, candidates.get(0).getWorkOrderId());
-        assertEquals("WO-9001", candidates.get(0).getWorkOrderCode());
-        assertEquals(Boolean.TRUE, candidates.get(0).getEligible());
-        assertEquals(null, candidates.get(0).getIneligibleReason());
-        assertEquals(9002L, candidates.get(1).getWorkOrderId());
-        assertEquals("WO-9002", candidates.get(1).getWorkOrderCode());
-        assertEquals(Boolean.FALSE, candidates.get(1).getEligible());
-        assertEquals("缺少已发布QA规程", candidates.get(1).getIneligibleReason());
-        verify(activeOrderService).searchActiveOrderCandidates("WO-9");
+            assertEquals(2, candidates.size());
+            assertEquals(9001L, candidates.get(0).getWorkOrderId());
+            assertEquals("WO-9001", candidates.get(0).getWorkOrderCode());
+            assertEquals(Boolean.TRUE, candidates.get(0).getEligible());
+            assertEquals(null, candidates.get(0).getIneligibleReason());
+            assertEquals(9002L, candidates.get(1).getWorkOrderId());
+            assertEquals("WO-9002", candidates.get(1).getWorkOrderCode());
+            assertEquals(Boolean.FALSE, candidates.get(1).getEligible());
+            assertEquals("缺少已发布QA规程", candidates.get(1).getIneligibleReason());
+            verify(activeOrderService).searchActiveOrderCandidates(3001L, "WO-9");
+        }
     }
 
     @Test

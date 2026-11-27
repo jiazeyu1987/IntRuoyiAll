@@ -193,7 +193,7 @@
                 {{ detail.auditHash || '--' }}
               </el-descriptions-item>
               <el-descriptions-item label="元数据" :span="2">
-                <pre class="edhr-operation-audit__metadata">{{ detail.metadataJson || '--' }}</pre>
+                <ReadableData :source="detail.metadataJson" title="操作附加信息" />
               </el-descriptions-item>
             </el-descriptions>
           </el-collapse-item>
@@ -204,6 +204,7 @@
 </template>
 
 <script setup lang="ts">
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import {
   EdhrOperationAuditApi,
   type EdhrOperationAuditPermissionDecision,

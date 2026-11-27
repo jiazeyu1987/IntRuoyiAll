@@ -214,7 +214,11 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
         org.springframework.test.util.ReflectionTestUtils.setField(service, "localTestRunSourceGuard", org.mockito.Mockito.mock(MesLocalTestRunSourceGuard.class));
         org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService",
                 org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class));
-        lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
+        lenient().when(routeStartAuthorizationService.listResponsibleRoutes(3001L)).thenReturn(List.of(
+                MesProRouteDO.builder().id(448L).build()));
+        lenient().when(routeProductMapper.selectListByRouteIds(List.of(448L))).thenReturn(List.of(
+                MesProRouteProductDO.builder().routeId(448L).itemId(1001L).build()));
+        lenient().when(itemMapper.selectListByCodeOrNameInIds(any(), eq(List.of(1001L)))).thenReturn(List.of());
         lenient().when(reportAllocationMapper.selectListByActiveOrderIds(any())).thenReturn(List.of());
         lenient().when(routeDccProjectBindingMapper.selectCurrentByRouteId(922119L))
                 .thenReturn(MesRouteDccProjectBindingDO.builder()
@@ -291,10 +295,10 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
 
     @Test
     void shouldKeepUnscheduledCandidateEligibleWhenErpPlannedStartMissing() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of(), List.of(1001L)))
                 .thenReturn(List.of(confirmedWorkOrderWithoutPlannedStart()));
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertTrue(candidates.get(0).isEligible(), candidates.get(0).getIneligibleReason());
@@ -438,7 +442,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                     "flowGraph": {
                       "nodes": [
                         {"routeProcessId": 928609, "processId": 6001, "processCode": "CLEAN-001",
-                         "processName": "清洗", "sort": 10}
+                         "processName": "清洗", "sopFileUrl": null, "sort": 10}
                       ]
                     },
                     "scheduleUseConfigs": [

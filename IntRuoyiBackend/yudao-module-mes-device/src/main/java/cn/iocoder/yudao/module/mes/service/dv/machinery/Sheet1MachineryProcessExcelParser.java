@@ -34,7 +34,8 @@ public class Sheet1MachineryProcessExcelParser {
             "\u8BBE\u5907\u540D\u79F0",
             "\u8BBE\u5907\u6570\u91CF",
             "10.5\u5C0F\u65F6\u65E5\u4EA7\u80FD",
-            "\u4EBA\u5DE5"
+            "\u4EBA\u5DE5",
+            "工序唯一编码"
     );
 
     public ParsedSheet parse(MultipartFile file) {
@@ -70,6 +71,7 @@ public class Sheet1MachineryProcessExcelParser {
 
                 String machineryCode = readString(row.getCell(2), formatter);
                 String processName = readString(row.getCell(3), formatter);
+                String processCode = readString(row.getCell(8), formatter);
                 if (StrUtil.isBlank(processName)) {
                     throw ServiceExceptionUtil.invalidParamException("Excel \u7B2C {} \u884C\u5DE5\u5E8F\u540D\u79F0\u4E0D\u80FD\u4E3A\u7A7A", sourceRowNo);
                 }
@@ -83,12 +85,14 @@ public class Sheet1MachineryProcessExcelParser {
                         ignoredPlaceholderRowCount++;
                         continue;
                     }
+                    requireProcessCode(processCode, sourceRowNo);
                     BigDecimal manualDailyCapacity = parsePositiveDecimal(rawManualCapacity, "\u4EBA\u5DE5", sourceRowNo);
-                    manualRows.add(new ManualRow(sourceRowNo, currentLineName, processName, manualDailyCapacity,
+                    manualRows.add(new ManualRow(sourceRowNo, currentLineName, processCode, processName, manualDailyCapacity,
                             manualDailyCapacity.divide(DAY_HOURS, 6, RoundingMode.HALF_UP)));
                     continue;
                 }
 
+                requireProcessCode(processCode, sourceRowNo);
                 String deviceName = readString(row.getCell(4), formatter);
                 if (StrUtil.isBlank(deviceName) || PLACEHOLDER_CODE.equals(deviceName)) {
                     throw ServiceExceptionUtil.invalidParamException("Excel \u7B2C {} \u884C\u8BBE\u5907\u540D\u79F0\u4E0D\u80FD\u4E3A\u7A7A", sourceRowNo);
@@ -99,7 +103,7 @@ public class Sheet1MachineryProcessExcelParser {
                 BigDecimal standardHourlyCapacity = tenHalfHourDailyCapacity
                         .divide(DAY_HOURS, 6, RoundingMode.HALF_UP)
                         .divide(deviceQuantity, 6, RoundingMode.HALF_UP);
-                deviceRows.add(new DeviceRow(sourceRowNo, currentLineName, machineryCode, processName, deviceName,
+                deviceRows.add(new DeviceRow(sourceRowNo, currentLineName, machineryCode, processCode, processName, deviceName,
                         deviceQuantity, tenHalfHourDailyCapacity, standardHourlyCapacity));
             }
         } catch (ServiceException exception) {
@@ -108,6 +112,12 @@ public class Sheet1MachineryProcessExcelParser {
             throw ServiceExceptionUtil.invalidParamException("\u89E3\u6790 Excel \u5931\u8D25: {}", exception.getMessage());
         }
         return new ParsedSheet(deviceRows, manualRows, ignoredPlaceholderRowCount);
+    }
+
+    private void requireProcessCode(String code, int row) {
+        if (StrUtil.isBlank(code) || PLACEHOLDER_CODE.equals(code)) {
+            throw ServiceExceptionUtil.invalidParamException("Excel 第 {} 行工序唯一编码不能为空，请填写工序管理中的工序编码", row);
+        }
     }
 
     private void validateHeader(Row headerRow, DataFormatter formatter) {
@@ -169,6 +179,7 @@ public class Sheet1MachineryProcessExcelParser {
     public record DeviceRow(Integer sourceRowNo,
                             String lineName,
                             String machineryCode,
+                            String processCode,
                             String processName,
                             String deviceName,
                             BigDecimal deviceQuantity,
@@ -178,6 +189,7 @@ public class Sheet1MachineryProcessExcelParser {
 
     public record ManualRow(Integer sourceRowNo,
                             String lineName,
+                            String processCode,
                             String processName,
                             BigDecimal manualDailyCapacity,
                             BigDecimal singleStandardHourlyCapacity) {

@@ -25,17 +25,18 @@ test('流程编辑替换、恢复页签不遍历 matched 中的组件实例和�
     'vue-router': {}, 'lodash-es': lodash, qs: {}, '@/utils/is': {},
     '@/utils/edhrNavigationIcons': { edhrDirectoryIcons: {}, edhrPageIcons: {} }
   })
+  const snapshotHelper = load(read('src/utils/tagsViewSnapshot.ts'), { 'vue-router': {} })
   const store = pinia.createPinia()
   const { useTagsViewStore } = load(read('src/store/modules/tagsView.ts'), {
     '@/router': {}, '@/utils/routerHelper': helper, pinia, '../index': { store },
-    '@/utils': {}, './user': {}, 'lodash-es': lodash
+    '@/utils': {}, './user': {}, '@/utils/tagsViewSnapshot': snapshotHelper
   })
   const tags = useTagsViewStore(store)
   const matched = { name: 'MesProRoute', path: '/mes/pro/route', meta: {} }
   Object.defineProperty(matched, 'instances', { enumerable: true, get() {
     throw new RangeError('运行时组件不可深拷贝')
   } })
-  const list = { name: 'MesProRoute', path: '/mes/pro/route', fullPath: '/mes/pro/route', meta: {}, matched: [matched] }
+  const list = { name: 'MesProRoute', path: '/mes/pro/route', fullPath: '/mes/pro/route', hash: '', query: {}, params: {}, meta: {}, matched: [matched] }
   tags.addView(list)
   const edit = { ...list, name: 'MesProRouteEdit', path: '/mes/pro/route/edit/922033',
     fullPath: '/mes/pro/route/edit/922033?routeVersionId=22',

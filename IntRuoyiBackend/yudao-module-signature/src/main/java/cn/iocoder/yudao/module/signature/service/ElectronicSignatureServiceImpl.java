@@ -231,6 +231,9 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
                 || (sessionConfirmation && StrUtil.isNotBlank(command.credential()))) {
             throw exception(ESIGN_COMMAND_INVALID, "模块、动作、对象、版本、凭据和幂等键均不能为空");
         }
+        if (command.reason() != null && command.reason().length() > 1000) {
+            throw exception(ESIGN_COMMAND_INVALID, "签名理由不能超过1000个字符");
+        }
         if (command.businessOccurredAt() != null && StrUtil.isBlank(command.businessTimeZone())) {
             throw exception(ESIGN_COMMAND_INVALID, "业务发生时间存在时业务时区不能为空");
         }

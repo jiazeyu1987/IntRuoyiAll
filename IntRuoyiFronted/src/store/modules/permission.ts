@@ -19,7 +19,6 @@ const HIDDEN_MODULE_MENU_PATHS = new Set([
   '/mes',
   '/infra',
   '/report',
-  '/erp',
   '/mes/md/erp-stock',
   '/mdm/form-center/template',
   '/mdm/form-center/parser',
@@ -107,6 +106,20 @@ const filterHiddenModuleMenus = (
   routes.flatMap((route) => {
     const path = route.path.startsWith('/') ? route.path : `${parentPath}/${route.path}`
     const normalizedPath = `/${path.replace(/^\/+|\/+$/g, '')}`
+    // ERP 导航只开放已授权的分贝通凭证及其父目录，其他 ERP 入口继续隐藏。
+    if (normalizedPath === '/erp' || normalizedPath.startsWith('/erp/')) {
+      if (!['/erp', '/erp/finance', '/erp/finance/fenbeitong-voucher'].includes(normalizedPath)) {
+        return []
+      }
+      const children = route.children
+        ? filterHiddenModuleMenus(route.children, roles, normalizedPath)
+        : undefined
+      if (normalizedPath !== '/erp/finance/fenbeitong-voucher' &&
+          !children?.some((child) => !child.meta?.hidden)) {
+        return []
+      }
+      return [{ ...route, ...(children ? { children } : {}) }]
+    }
     if (
       HIDDEN_MODULE_MENU_PATHS.has(normalizedPath) ||
       (roles.includes('MES_MANAGEMENT_REPRESENTATIVE') &&

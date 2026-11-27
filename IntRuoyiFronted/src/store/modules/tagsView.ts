@@ -5,7 +5,7 @@ import { defineStore } from 'pinia'
 import { store } from '../index'
 import { findIndex } from '@/utils'
 import { useUserStoreWithOut } from './user'
-import { cloneDeep } from 'lodash-es'
+import { snapshotTagsView } from '@/utils/tagsViewSnapshot'
 
 const TAGS_VIEW_PATH_IDENTITY_PATHS = new Set([
   'mes/pro/process-pool/common-regulation',
@@ -150,9 +150,9 @@ export const useTagsViewStore = defineStore('tagsView', {
         (visitedView) => visitedView.path === activeMenuPath
       )
       const previousView =
-        viewIndex >= 0 ? cloneDeep(getRawRoute(this.visitedViews[viewIndex])) : undefined
+        viewIndex >= 0 ? snapshotTagsView(this.visitedViews[viewIndex]) : undefined
       // matched 中包含组件实例、计算属性与 Pinia；只复制路由元数据，不能遍历运行时对象。
-      const nextView = this.normalizeVisitedView(cloneDeep(getRawRoute(view)))
+      const nextView = this.normalizeVisitedView(snapshotTagsView(view))
 
       if (viewIndex >= 0) {
         this.visitedViews.splice(viewIndex, 1, nextView)

@@ -11,7 +11,7 @@ FULL_MATRIX = ROOT / "docs" / "engineering" / "unified-approval-platform-full-cl
 
 
 def run_scanner(*extra_args: str) -> subprocess.CompletedProcess[str]:
-    frontend_root = ROOT.parent / "yudao-ui-admin-vue3"
+    frontend_root = ROOT.parent / "IntRuoyiFronted"
     return subprocess.run(
         [
             sys.executable,

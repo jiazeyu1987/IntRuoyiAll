@@ -55,15 +55,11 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -82,15 +78,11 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_DIRECTOR
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_DIRECTORY_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_DIRECTORY_PARENT_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_DIRECTORY_HIERARCHY_CYCLE;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.INTAUTH_DIRECTORY_IMPORT_NOT_ALLOWED;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.INTAUTH_DIRECTORY_IMPORT_SOURCE_INVALID;
 
 @Service
 @Validated
 public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
 
-    private static final String INTAUTH_IMPORTED_REMARK = "Imported from IntAuth baseline directory snapshot";
-    private static final String INTAUTH_CODE_PREFIX = "INTAUTH-";
     private static final String DELETE_SUBTREE_CONFIRM_TEXT = "PROD";
     private static final String MESSAGE_BUSINESS_TYPE_DISTRIBUTION = "DISTRIBUTION";
     private static final String MESSAGE_BUSINESS_TYPE_TRAINING = "TRAINING";
@@ -146,8 +138,6 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
     @Resource
     private DccProjectCodeAssignmentFileMapper projectCodeAssignmentFileMapper;
     @Resource
-    private DccIntAuthDirectoryClient intAuthDirectoryClient;
-    @Resource
     private DccDirectoryNasTransferGuardService nasTransferGuardService;
 
     @Override
@@ -186,34 +176,6 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
             validateCodeAvailable(reqVO.getParentId(), reqVO.getCode(), reqVO.getId());
             throw ex;
         }
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public DccDirectoryImportResult importDirectoriesFromIntAuth() {
-        if (directoryMapper.selectCount() > 0) {
-            throw exception(INTAUTH_DIRECTORY_IMPORT_NOT_ALLOWED);
-        }
-
-        List<DccIntAuthDirectoryClient.IntAuthDirectoryNode> sourceNodes = intAuthDirectoryClient.listBaselineDirectories();
-        if (sourceNodes.isEmpty()) {
-            throw exception(INTAUTH_DIRECTORY_IMPORT_SOURCE_INVALID, "baseline_directory_nodes");
-        }
-
-        Map<String, List<DccIntAuthDirectoryClient.IntAuthDirectoryNode>> childrenByParentNodeId = new LinkedHashMap<>();
-        for (DccIntAuthDirectoryClient.IntAuthDirectoryNode node : sourceNodes) {
-            childrenByParentNodeId.computeIfAbsent(node.parentNodeId(), key -> new ArrayList<>()).add(node);
-        }
-        List<DccIntAuthDirectoryClient.IntAuthDirectoryNode> roots = childrenByParentNodeId.getOrDefault(null, List.of());
-        if (roots.isEmpty()) {
-            throw exception(INTAUTH_DIRECTORY_IMPORT_SOURCE_INVALID, "baseline_directory_root");
-        }
-
-        int importedCount = 0;
-        for (int index = 0; index < roots.size(); index++) {
-            importedCount += importSubtree(roots.get(index), null, index + 1, childrenByParentNodeId);
-        }
-        return new DccDirectoryImportResult(importedCount, roots.size());
     }
 
     @Override
@@ -673,30 +635,6 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
                 .in(DccControlledFileMessageJobDO::getBusinessId, businessIds));
     }
 
-    private int importSubtree(DccIntAuthDirectoryClient.IntAuthDirectoryNode currentNode,
-                              Long localParentId,
-                              int sort,
-                              Map<String, List<DccIntAuthDirectoryClient.IntAuthDirectoryNode>> childrenByParentNodeId) {
-        DccFileDirectoryDO directory = DccFileDirectoryDO.builder()
-                .parentId(localParentId)
-                .code(buildIntAuthCode(currentNode.nodeId()))
-                .name(currentNode.name())
-                .active(Boolean.TRUE)
-                .sort(sort)
-                .remark(INTAUTH_IMPORTED_REMARK)
-                .accessRuleManuallyBound(Boolean.FALSE)
-                .build();
-        directoryMapper.insert(directory);
-
-        int importedCount = 1;
-        List<DccIntAuthDirectoryClient.IntAuthDirectoryNode> children = childrenByParentNodeId
-                .getOrDefault(currentNode.nodeId(), List.of());
-        for (int index = 0; index < children.size(); index++) {
-            importedCount += importSubtree(children.get(index), directory.getId(), index + 1, childrenByParentNodeId);
-        }
-        return importedCount;
-    }
-
     private Set<Long> collectVisibleAndAncestorIds(List<DccFileDirectoryDO> directories, Set<Long> visibleIds) {
         Map<Long, DccFileDirectoryDO> directoryMap = directories.stream()
                 .collect(Collectors.toMap(DccFileDirectoryDO::getId, Function.identity()));
@@ -917,13 +855,4 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
                                            Map<Long, List<DccFileDirectoryDO>> childrenByParentId) {
     }
 
-    private String buildIntAuthCode(String sourceNodeId) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-1");
-            byte[] encoded = digest.digest(sourceNodeId.getBytes(StandardCharsets.UTF_8));
-            return INTAUTH_CODE_PREFIX + HexFormat.of().formatHex(encoded).toUpperCase();
-        } catch (NoSuchAlgorithmException ex) {
-            throw new IllegalStateException("SHA-1 algorithm unavailable", ex);
-        }
-    }
 }

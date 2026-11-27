@@ -63,6 +63,26 @@ class MesKingdeeBomListServiceImplTest {
         assertThrows(IllegalStateException.class,service::syncAll);
         verify(mapper,never()).deleteBySourceFid(any());
     }
+    @Test void incrementalSyncKeepsAllApprovedVersionsOfSameParentMaterial() {
+        var start = LocalDateTime.of(2026, 11, 23, 3, 32);
+        var end = LocalDateTime.of(2026, 11, 26, 19, 37);
+        var first = line("101", "2", 1);
+        first.setBomVersion("PH02.14.1230_V1.1");
+        var second = line("101", "3", 1);
+        second.setFid("B2"); second.setBomVersion("PH02.14.1230_V1.2");
+        when(mapper.selectCount()).thenReturn(2L);
+        when(client.fetchBomLinesModifiedBetween(properties, start, end)).thenReturn(List.of(first, second));
+
+        assertEquals(2, service.syncModifiedBetween(start, end));
+
+        var rows = org.mockito.ArgumentCaptor.forClass(MesKingdeeBomListDO.class);
+        verify(mapper, times(2)).insert(rows.capture());
+        assertEquals(List.of("PH02.14.1230_V1.1", "PH02.14.1230_V1.2"),
+                rows.getAllValues().stream().map(MesKingdeeBomListDO::getBomNumber).toList());
+        assertEquals(List.of("B1", "B2"),
+                rows.getAllValues().stream().map(MesKingdeeBomListDO::getSourceFid).toList());
+        verify(mapper).deleteBySourceFid("B1"); verify(mapper).deleteBySourceFid("B2");
+    }
     private ErpKingdeeBomLine line(String id,String quantity,int sequence) {
         var line = new ErpKingdeeBomLine(); line.setFid("B1"); line.setEntryId(id);
         line.setBomVersion("BOM1"); line.setParentMaterialNumber("P1"); line.setChildMaterialNumber("C1");

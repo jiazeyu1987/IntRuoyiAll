@@ -86,4 +86,7 @@ public class TenantDO extends BaseDO {
      */
     private Integer accountCount;
 
+    /** 登录页没有历史选择时默认选中的租户 */
+    private Boolean defaultLogin;
+
 }

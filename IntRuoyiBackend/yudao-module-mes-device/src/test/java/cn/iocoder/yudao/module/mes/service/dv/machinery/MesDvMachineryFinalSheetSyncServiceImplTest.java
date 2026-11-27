@@ -37,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@Import({MesDvMachineryFinalSheetSyncServiceImpl.class, Sheet1MachineryProcessExcelParser.class})
+@Import({MesDvMachineryFinalSheetSyncServiceImpl.class, Sheet1MachineryProcessExcelParser.class, Sheet1ProcessResolver.class})
 class MesDvMachineryFinalSheetSyncServiceImplTest extends BaseDbUnitTest {
 
     @Resource
@@ -174,6 +174,40 @@ class MesDvMachineryFinalSheetSyncServiceImplTest extends BaseDbUnitTest {
         assertTrue(machineryProcessMapper.selectList().isEmpty());
     }
 
+    @Test
+    void sameNameProcessesKeepIndependentCapacities() throws Exception {
+        workshopMapper.insert(MesMdWorkshopDO.builder().id(900010L).code("AUTO-WSHOP")
+                .name("AutoScheduleWorkshop").status(0).build());
+        processMapper.insert(MesProProcessDO.builder().id(800001L).code("PROC-001").name("粗洗工序").status(0).build());
+        processMapper.insert(MesProProcessDO.builder().id(800002L).code("PROC-002").name("粗洗工序").status(0).build());
+        var original = buildConflictingCapacityWorkbook();
+        try (var workbook = new XSSFWorkbook(original.getInputStream());
+             var output = new ByteArrayOutputStream()) {
+            var sheet = workbook.getSheet("Sheet1");
+            sheet.getRow(1).getCell(3).setCellValue("粗洗工序");
+            sheet.getRow(2).getCell(3).setCellValue("粗洗工序");
+            sheet.getRow(2).getCell(8).setCellValue("PROC-002");
+            workbook.write(output);
+            syncService.syncFinalSheet(new MockMultipartFile("file", "test.xlsx", original.getContentType(), output.toByteArray()));
+        }
+        var rows = machineryProcessMapper.selectList();
+        assertEquals(2, rows.size());
+        var first = rows.stream().filter(row -> row.getProcessId().equals(800001L)).findFirst().orElseThrow();
+        var second = rows.stream().filter(row -> row.getProcessId().equals(800002L)).findFirst().orElseThrow();
+        assertEquals("PROC-001", first.getProcessCode());
+        assertEquals("PROC-002", second.getProcessCode());
+        assertTrue(first.getStandardHourlyCapacity().compareTo(second.getStandardHourlyCapacity()) != 0);
+    }
+
+    @Test
+    void invalidCodeDoesNotModifyExistingMachinery() throws Exception {
+        machineryMapper.insert(MesDvMachineryDO.builder().code("KEEP-ME").name("保留设备").status(2).build());
+        var error = assertThrows(ServiceException.class, () -> syncService.syncFinalSheet(buildWorkbook()));
+        assertTrue(error.getMessage().contains("PROC-001"));
+        assertEquals(1, machineryMapper.selectList().size());
+        assertEquals("保留设备", machineryMapper.selectByCode("KEEP-ME").getName());
+    }
+
     private MockMultipartFile buildWorkbook() throws Exception {
         try (XSSFWorkbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
@@ -225,6 +259,21 @@ class MesDvMachineryFinalSheetSyncServiceImplTest extends BaseDbUnitTest {
             row5.createCell(5).setCellValue("/");
             row5.createCell(6).setCellValue("/");
 
+            sheet.getRow(0).createCell(8).setCellValue("工序唯一编码");
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                Row dataRow = sheet.getRow(i);
+                if (dataRow != null && dataRow.getCell(3) != null) {
+                    String name = dataRow.getCell(3).getStringCellValue();
+                    String code = switch (name) {
+                        case "吹球囊成型" -> "PROC-001";
+                        case "外管与球囊焊接" -> "PROC-002";
+                        case "焊接圆角" -> "PROC-003";
+                        case "占位" -> "IGNORED";
+                        default -> "IGNORED";
+                    };
+                    dataRow.createCell(8).setCellValue(code);
+                }
+            }
             workbook.write(outputStream);
             return new MockMultipartFile("file", "final.xlsx",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -262,6 +311,21 @@ class MesDvMachineryFinalSheetSyncServiceImplTest extends BaseDbUnitTest {
             row2.createCell(5).setCellValue(1);
             row2.createCell(6).setCellValue(200);
 
+            sheet.getRow(0).createCell(8).setCellValue("工序唯一编码");
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                Row dataRow = sheet.getRow(i);
+                if (dataRow != null && dataRow.getCell(3) != null) {
+                    String name = dataRow.getCell(3).getStringCellValue();
+                    String code = switch (name) {
+                        case "吹球囊成型" -> "PROC-001";
+                        case "外管与球囊焊接" -> "PROC-002";
+                        case "焊接圆角" -> "PROC-003";
+                        case "占位" -> "IGNORED";
+                        default -> "IGNORED";
+                    };
+                    dataRow.createCell(8).setCellValue(code);
+                }
+            }
             workbook.write(outputStream);
             return new MockMultipartFile("file", "final-conflict.xlsx",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

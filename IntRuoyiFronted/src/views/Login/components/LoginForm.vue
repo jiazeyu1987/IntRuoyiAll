@@ -245,7 +245,7 @@ const passwordChangeRules = {
   newPassword: [required, systemPasswordRule],
   confirmPassword: [required, { validator: validatePasswordConfirmation, trigger: 'blur' }]
 }
-const tenantOptions = ref<{ id: number; name: string }[]>([])
+const tenantOptions = ref<{ id: number; name: string; defaultLogin: boolean }[]>([])
 const tenantListLoading = ref(false)
 const loginData = reactive({
   isShowPassword: false,
@@ -272,6 +272,13 @@ const loadTenantOptions = async () => {
   tenantListLoading.value = true
   try {
     tenantOptions.value = await getTenantList()
+    if (!loginData.loginForm.tenantName) {
+      const defaultTenant = tenantOptions.value.find((item) => item.defaultLogin)
+      if (!defaultTenant) throw new Error('未配置登录默认租户，请联系管理员设置。')
+      loginData.loginForm.tenantName = defaultTenant.name
+    }
+  } catch (error) {
+    loginErrorMessage.value = resolveLoginErrorMessage(error)
   } finally {
     tenantListLoading.value = false
   }

@@ -85,6 +85,7 @@ class ErpPurchaseOrderSyncIntegrityTest {
     }
 
     @Test void legacyIdentityAdoptedOnlyFromPreviousSnapshotEvenWhenSourceQuantityChanges() {
+        received();
         stored.setSourceEntryId(null);
         var previous = new ErpPurchaseOrderSaveReqVO.Item();
         previous.setSourceEntryId("e1"); previous.setProductId(10L); previous.setProductUnitId(20L);
@@ -96,10 +97,53 @@ class ErpPurchaseOrderSyncIntegrityTest {
     }
 
     @Test void missingHistoricalSnapshotFailsBeforeWriting() {
+        received();
         stored.setSourceEntryId(null);
         assertTrue(assertThrows(IllegalStateException.class, this::update).getMessage().contains("无法唯一绑定"));
         verify(purchaseOrderMapper, never()).updateByIdAndStatus(any(), any(), any());
         verify(purchaseOrderItemMapper, never()).deleteByIds(any());
+    }
+
+    @Test void identicalUnreferencedLegacyRowsAreRebuiltWithSeparateSourceIdentities() {
+        stored.setSourceEntryId(null);
+        var duplicate = new ErpPurchaseOrderItemDO().setId(102L).setOrderId(100L)
+                .setProductId(10L).setProductUnitId(20L).setProductPrice(BigDecimal.ONE).setCount(BigDecimal.TEN);
+        when(purchaseOrderItemMapper.selectListByOrderId(100L)).thenReturn(List.of(stored, duplicate));
+        var second = new ErpPurchaseOrderSaveReqVO.Item();
+        second.setSourceEntryId("e2"); second.setProductId(10L); second.setProductUnitId(20L);
+        second.setProductPrice(BigDecimal.ONE); second.setCount(BigDecimal.TEN);
+        req.setItems(List.of(req.getItems().get(0), second));
+        var amounts = req.getKingdeeAmounts();
+        amounts.setProductAmount(new BigDecimal("20")); amounts.setTotalAmount(new BigDecimal("20"));
+        amounts.setLines(List.of(amounts.getLines().get(0), amounts.getLines().get(0)));
+
+        service.updatePurchaseOrderFromKingdee(req, 20, req.getItems());
+
+        ArgumentCaptor<Collection<ErpPurchaseOrderItemDO>> rows = ArgumentCaptor.forClass(Collection.class);
+        verify(purchaseOrderItemMapper).insertBatch(rows.capture());
+        assertEquals(Set.of("e1", "e2"), rows.getValue().stream()
+                .map(ErpPurchaseOrderItemDO::getSourceEntryId).collect(java.util.stream.Collectors.toSet()));
+        assertEquals(2, rows.getValue().size());
+        assertTrue(rows.getValue().stream().allMatch(row -> row.getId() == null && row.getOrderId().equals(100L)
+                && row.getInCount().signum() == 0 && row.getReturnCount().signum() == 0));
+        verify(purchaseOrderItemMapper).deleteByIds(List.of(101L, 102L));
+        verify(purchaseOrderItemMapper, never()).updateSourceItem(any(), any());
+    }
+
+    @Test void identicalReferencedLegacyRowsStillFailInsteadOfGuessingIdentity() {
+        received();
+        stored.setSourceEntryId(null);
+        var first = req.getItems().get(0);
+        var second = new ErpPurchaseOrderSaveReqVO.Item();
+        second.setSourceEntryId("e2"); second.setProductId(10L); second.setProductUnitId(20L);
+        second.setProductPrice(BigDecimal.ONE); second.setCount(BigDecimal.TEN);
+
+        assertTrue(assertThrows(IllegalStateException.class,
+                () -> service.updatePurchaseOrderFromKingdee(req, 20, List.of(first, second)))
+                .getMessage().contains("无法唯一绑定"));
+        verify(purchaseOrderMapper, never()).updateByIdAndStatus(any(), any(), any());
+        verify(purchaseOrderItemMapper, never()).deleteByIds(any());
+        verify(purchaseOrderItemMapper, never()).insertBatch(ArgumentMatchers.<Collection<ErpPurchaseOrderItemDO>>any());
     }
 
     @Test void referencedEntryCannotBeDeletedOrReplacedByNewEntryId() {

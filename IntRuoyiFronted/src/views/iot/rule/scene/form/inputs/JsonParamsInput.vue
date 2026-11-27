@@ -4,13 +4,12 @@
   <div class="w-full space-y-12px">
     <!-- JSON 输入框 -->
     <div class="relative">
-      <el-input
+      <BusinessJsonInput
+        ref="parameterEditor"
+        :root-types="['object', 'array']"
         v-model="paramsJson"
-        type="textarea"
-        :rows="4"
-        :placeholder="placeholder"
-        @input="handleParamsChange"
-        :class="{ 'is-error': jsonError }"
+        label="参数"
+        @update:model-value="handleParamsChange"
       />
       <!-- 查看详细示例弹出层 -->
       <div class="absolute top-8px right-8px">
@@ -82,11 +81,7 @@
                   <div class="text-12px text-[var(--el-text-color-secondary)] mb-6px">
                     {{ JSON_PARAMS_INPUT_CONSTANTS.COMPLETE_JSON_FORMAT }}
                   </div>
-                  <pre
-                    class="p-12px bg-[var(--el-fill-color-light)] rounded-4px text-11px text-[var(--el-text-color-primary)] overflow-x-auto border-l-3px border-[var(--el-color-primary)]"
-                  >
-                      <code>{{ generateExampleJson() }}</code>
-                    </pre>
+                  <ReadableData title="参数示例" :source="generateExampleJson()" />
                 </div>
               </div>
 
@@ -139,6 +134,8 @@
 </template>
 
 <script setup lang="ts">
+import BusinessJsonInput from '@/components/BusinessData/BusinessJsonInput.vue'
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import { useVModel } from '@vueuse/core'
 import { InfoFilled } from '@element-plus/icons-vue'
 import {
@@ -195,6 +192,13 @@ const localValue = useVModel(props, 'modelValue', emit, {
   defaultValue: ''
 })
 
+const parameterEditor = ref<InstanceType<typeof BusinessJsonInput>>()
+const parameterValidators = inject<Set<() => string>>('iot-parameter-validators')
+if (!parameterValidators) throw new Error('参数编辑器缺少场景规则表单验证上下文')
+const validateParameters = () => parameterEditor.value?.validate(false) || jsonError.value
+onMounted(() => parameterValidators.add(validateParameters))
+onBeforeUnmount(() => parameterValidators.delete(validateParameters))
+defineExpose({ validate: validateParameters })
 const paramsJson = ref('') // JSON参数字符串
 const jsonError = ref('') // JSON验证错误信息
 
@@ -330,7 +334,10 @@ const handleParamsChange = () => {
 
       // 验证必填参数
       for (const param of paramsList.value) {
-        if (param.required && (!parsed[param.identifier] || parsed[param.identifier] === '')) {
+        if (
+          param.required &&
+          (parsed[param.identifier] === undefined || parsed[param.identifier] === '')
+        ) {
           jsonError.value = JSON_PARAMS_INPUT_CONSTANTS.PARAM_REQUIRED_ERROR(param.name)
           return
         }
@@ -455,7 +462,7 @@ const handleDataDisplay = (value: string) => {
   } catch {
     // 如果不是有效的JSON，直接使用原字符串
     paramsJson.value = value
-    jsonError.value = ''
+    jsonError.value = '已有参数格式错误，请导入有效的参数资料'
   }
 }
 

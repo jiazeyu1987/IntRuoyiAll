@@ -82,15 +82,23 @@
         </template>
       </el-table-column>
       <el-table-column label="输入参数" align="center" prop="inputParams">
-        <template #default="scope"> {{ parseParams(scope.row.request?.params) }} </template>
+        <template #default="scope"
+          ><ReadableData title="输入参数" :source="JSON.stringify(scope.row.request?.params)"
+        /></template>
       </el-table-column>
       <el-table-column label="输出参数" align="center" prop="outputParams">
         <template #default="scope">
-          <span v-if="scope.row.reply">
-            {{
-              `{"code":${scope.row.reply.code},"msg":"${scope.row.reply.msg}","data":${scope.row.reply.data}\}`
-            }}
-          </span>
+          <ReadableData
+            v-if="scope.row.reply"
+            title="输出参数"
+            :source="
+              JSON.stringify({
+                code: scope.row.reply.code,
+                msg: scope.row.reply.msg,
+                data: scope.row.reply.data
+              })
+            "
+          />
           <span v-else>-</span>
         </template>
       </el-table-column>
@@ -107,6 +115,7 @@
 </template>
 
 <script setup lang="ts">
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { DeviceApi } from '@/api/iot/device/device'
 import { ThingModelData } from '@/api/iot/thingmodel'
@@ -190,20 +199,6 @@ const getCallType = (identifier: string | undefined) => {
   )
   if (!service?.service?.callType) return '-'
   return getThingModelServiceCallTypeLabel(service.service.callType) || '-'
-}
-
-/** 解析参数 */
-const parseParams = (params: string) => {
-  if (!params) return '-'
-  try {
-    const parsed = JSON.parse(params)
-    if (parsed.params) {
-      return JSON.stringify(parsed.params, null, 2)
-    }
-    return JSON.stringify(parsed, null, 2)
-  } catch (error) {
-    return params
-  }
 }
 
 /** 初始化 */

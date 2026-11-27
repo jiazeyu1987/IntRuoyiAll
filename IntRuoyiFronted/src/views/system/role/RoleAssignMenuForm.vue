@@ -74,7 +74,7 @@ const formData = reactive<RoleAssignMenuFormData>(createDefaultFormData())
 const formRef = ref() // 表单 Ref
 const menuOptions = ref<any[]>([]) // 菜单树形结构
 const treeRef = ref() // 菜单树组件 Ref
-const checkStrictly = ref(false)
+const checkStrictly = ref(true)
 
 const preserveSelectedMenus = async () => {
   if (!checkStrictly.value) return
@@ -140,7 +140,7 @@ const submitForm = async () => {
 /** 重置表单 */
 const resetForm = () => {
   // 重置表单
-  checkStrictly.value = false
+  checkStrictly.value = true
   Object.assign(formData, createDefaultFormData())
   treeRef.value?.setCheckedNodes([])
   formRef.value?.resetFields()

@@ -13,7 +13,7 @@ const dispositionLabels: Record<string, string> = {
 }
 
 const documentStatusLabels: Record<string, string> = {
-  Z: '暂存', A: '创建', B: '审核中', C: '已审核', D: '重新审核'
+  Z: '暂存', A: '创建', B: '审核中', C: '已审核', D: '重新审核', LOCAL_TEST: '本地测试'
 }
 
 const requireLabel = (labels: Record<string, string>, value: string | undefined, field: string) => {

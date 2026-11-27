@@ -58,7 +58,16 @@ public class TenantController {
     public CommonResult<List<TenantRespVO>> getTenantSimpleList() {
         List<TenantDO> list = tenantService.getTenantListByStatus(CommonStatusEnum.ENABLE.getStatus());
         return success(convertList(list, tenantDO ->
-                new TenantRespVO().setId(tenantDO.getId()).setName(tenantDO.getName())));
+                new TenantRespVO().setId(tenantDO.getId()).setName(tenantDO.getName())
+                        .setDefaultLogin(Boolean.TRUE.equals(tenantDO.getDefaultLogin()))));
+    }
+
+    @PutMapping("/set-default-login")
+    @Operation(summary = "设置登录默认租户")
+    @PreAuthorize("@ss.hasPermission('system:tenant:update')")
+    public CommonResult<Boolean> setDefaultLoginTenant(@RequestParam("id") Long id) {
+        tenantService.setDefaultLoginTenant(id);
+        return success(true);
     }
 
     @GetMapping("/get-by-website")

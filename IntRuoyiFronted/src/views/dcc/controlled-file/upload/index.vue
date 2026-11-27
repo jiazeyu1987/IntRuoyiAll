@@ -3664,6 +3664,8 @@ onBeforeUnmount(() => {
 @media (max-width: 1000px) {
   .upload-workbench__grid {
     grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: max-content;
+    align-content: start;
     overflow-y: auto;
     overscroll-behavior: contain;
   }

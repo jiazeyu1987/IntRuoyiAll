@@ -522,7 +522,10 @@ const materialSelectionError = ref('')
 const reviewValidationRequested = ref(false)
 const reviewValidationErrors = computed(() => ({
   materials: materialSelectionError.value,
-  opinion: reviewValidationRequested.value && !disposeForm.reviewOpinion.trim() ? '请输入评审意见。' : '',
+  opinion: reviewValidationRequested.value
+    ? (!disposeForm.reviewOpinion.trim() ? '请输入评审意见。'
+      : disposeForm.reviewOpinion.length > 1000 ? '评审意见不能超过1000个字符。' : '')
+    : '',
   signature: reviewValidationRequested.value && !disposeForm.signaturePassword.trim() ? '请输入本人签名凭据。' : ''
 }))
 const reviewWorkspaceMaterials = computed(() => {
@@ -812,6 +815,10 @@ const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) =
     return
   }
   reviewValidationRequested.value = true
+  if (disposeForm.reviewOpinion.length > 1000) {
+    message.error('评审意见不能超过1000个字符。')
+    return
+  }
   if (
     !disposeForm.reviewOpinion.trim() ||
     !disposeForm.signaturePassword.trim()

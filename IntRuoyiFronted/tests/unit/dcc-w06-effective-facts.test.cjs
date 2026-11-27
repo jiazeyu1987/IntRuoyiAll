@@ -14,6 +14,8 @@ test('signed effectiveness and daily activation remain independent displayed fac
     effectiveTime:'2026-10-11 10:00:00',activatedTime:null})
   assert.equal(view.modeText,'文控标准化签名后生效');assert.equal(view.effectiveText,'2026-10-11 10:00:00')
   assert.equal(view.activatedText,'尚未日常启用');assert.equal(view.presetDateVisible,false)
+  assert.equal(view.effectiveLabel,'文控生效签名时间')
+  assert.match(view.activationPendingText,/培训和受控启用完成前不得/)
 })
 test('historical mode is unknown even with original effective calendar date',()=>{
   const view=load().effectiveFacts({effectiveDate:'2026-10-12',activatedTime:'2026-10-13 08:00:00'})
@@ -30,6 +32,15 @@ test('both W06 views consume separate effective and activated facts',()=>{
   for(const file of ['workflow/ControlledLifecyclePanel.vue','detail/ControlledFileBrowseRecords.vue']){
     const source=fs.readFileSync(path.join(root,'src/views/dcc/controlled-file',file),'utf8')
     assert.match(source,/effectiveFacts/);assert.match(source,/effectiveText/);assert.match(source,/activatedText/)
-    assert.ok(source.includes('实际生效时间'));assert.ok(source.includes('日常启用时间'))
+    assert.ok(source.includes('effectiveLabel') || source.includes('实际生效时间'));assert.ok(source.includes('日常启用时间'))
+  }
+})
+
+test('activation and dated effectiveness do not acquire a document-control signature label',()=>{
+  const api=load()
+  for(const mode of ['PRESET_DATE','DELAYED','CONTROLLED_IMPORT']){
+    const view=api.effectiveFacts({effectiveMode:mode,effectiveTime:'2026-11-26 12:00:00',activatedTime:'2026-11-26 12:00:00'})
+    assert.equal(view.effectiveLabel,'实际生效时间')
+    assert.equal(view.activationPendingText,'')
   }
 })

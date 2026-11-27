@@ -308,7 +308,7 @@ async function selectVersion(versionId: number) {
 function validPayload() {
   if (!editable.value || !draft.value) throw new Error('请选择可编辑的当前版本或草稿')
   const payload = normalizeCommonEditorDraft(draft.value)
-  const issues = commonEditorIssues(payload)
+  const issues = commonEditorIssues(payload, loaded.value?.regulationCode)
   if (
     loaded.value?.lifecycleStatus !== 'DRAFT' &&
     versions.value.some((version) => version.versionNo === payload.versionNo)

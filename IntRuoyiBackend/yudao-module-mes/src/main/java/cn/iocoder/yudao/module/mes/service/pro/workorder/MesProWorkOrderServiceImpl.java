@@ -209,13 +209,23 @@ public class MesProWorkOrderServiceImpl implements MesProWorkOrderService {
 
     @Override
     public PageResult<MesProWorkOrderDO> getWorkOrderPage(MesProWorkOrderPageReqVO pageReqVO) {
+        return getWorkOrderPageByIds(pageReqVO, null);
+    }
+
+    @Override
+    public PageResult<MesProWorkOrderDO> getWorkOrderPageByIds(MesProWorkOrderPageReqVO pageReqVO,
+            java.util.Collection<Long> workOrderIds) {
+        if (workOrderIds != null && workOrderIds.isEmpty()) {
+            return new PageResult<>(java.util.Collections.emptyList(), 0L);
+        }
         List<Long> productIds = resolveProductSearchIds(pageReqVO);
         QuickFilter originalQuickFilter = pageReqVO.getQuickFilter();
         if (isProductQuickFilter(originalQuickFilter)) {
             pageReqVO.setQuickFilter(null);
         }
         try {
-            return workOrderMapper.selectPageByProductIds(pageReqVO, productIds);
+            return workOrderIds == null ? workOrderMapper.selectPageByProductIds(pageReqVO, productIds)
+                    : workOrderMapper.selectPageByProductIdsAndWorkOrderIds(pageReqVO, productIds, workOrderIds);
         } finally {
             pageReqVO.setQuickFilter(originalQuickFilter);
         }

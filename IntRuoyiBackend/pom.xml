@@ -30,7 +30,6 @@
         <module>yudao-module-mes-common</module>
         <module>yudao-module-mes-device</module>
         <module>yudao-module-mes</module>
-        <module>yudao-module-srm</module>
         <module>yudao-module-showroom</module>
 <!-- 请参考 https://doc.iocoder.cn/ai/build/ 文档，完成 AI 模块的启动！！！ -->
         <module>yudao-module-ai</module>

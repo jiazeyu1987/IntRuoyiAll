@@ -61,400 +61,404 @@
       </div>
     </div>
 
-      <template v-if="parserKind === 'production'">
-        <el-empty
-          v-if="!lastResult || !previewRecognitionJson"
-          description="请选择生产批记录 Word 文件"
-        />
+    <template v-if="parserKind === 'production'">
+      <el-empty
+        v-if="!lastResult || !previewRecognitionJson"
+        description="请选择生产批记录 Word 文件"
+      />
 
-    <div v-else class="form-parser-workbench">
-      <section class="form-parser-json-editor">
-        <div class="form-parser-panel-head">
-          <div>
-            <div class="form-parser-panel-title">JSON编辑</div>
-            <div class="form-parser-panel-subtitle">{{ lastDownloadName }}</div>
+      <div v-else class="form-parser-workbench">
+        <section class="form-parser-json-editor">
+          <div class="form-parser-panel-head">
+            <div>
+              <div class="form-parser-panel-title">字段编辑</div>
+              <div class="form-parser-panel-subtitle">{{ lastDownloadName }}</div>
+            </div>
+            <div class="form-parser-panel-actions">
+              <el-button @click="handleOpenProductionPublishDialog">
+                <Icon icon="ep:promotion" />
+                发布
+              </el-button>
+              <el-button type="primary" @click="handleApplyEditedJson">
+                <Icon icon="ep:check" />
+                应用
+              </el-button>
+              <el-button @click="downloadCurrentRecognitionJson">
+                <Icon icon="ep:download" />
+                下载当前JSON
+              </el-button>
+              <el-button :loading="excelExportLoading" @click="downloadRecognitionExcel">
+                <Icon icon="ep:download" />
+                下载为Excel
+              </el-button>
+              <el-button :loading="wordExportLoading" @click="downloadRecognitionWordCollection">
+                <Icon icon="ep:download" />
+                下载为Word集合
+              </el-button>
+            </div>
           </div>
-          <div class="form-parser-panel-actions">
-            <el-button @click="handleOpenProductionPublishDialog">
-              <Icon icon="ep:promotion" />
-              发布
-            </el-button>
-            <el-button type="primary" @click="handleApplyEditedJson">
-              <Icon icon="ep:check" />
-              应用
-            </el-button>
-            <el-button @click="downloadCurrentRecognitionJson">
-              <Icon icon="ep:download" />
-              下载当前JSON
-            </el-button>
-            <el-button :loading="excelExportLoading" @click="downloadRecognitionExcel">
-              <Icon icon="ep:download" />
-              下载为Excel
-            </el-button>
-            <el-button :loading="wordExportLoading" @click="downloadRecognitionWordCollection">
-              <Icon icon="ep:download" />
-              下载为Word集合
-            </el-button>
-          </div>
-        </div>
-        <div class="form-parser-json-search">
-          <el-input
-            v-model="jsonSearchKeyword"
-            class="form-parser-json-search__input"
-            clearable
-            placeholder="查找关键词"
-            @clear="resetJsonSearchPosition"
-            @input="resetJsonSearchPosition"
-            @keyup.enter="locateNextJsonKeyword"
-          >
-            <template #prefix>
+          <div class="form-parser-json-search">
+            <el-input
+              v-model="jsonSearchKeyword"
+              class="form-parser-json-search__input"
+              clearable
+              placeholder="查找关键词"
+              @clear="resetJsonSearchPosition"
+              @input="resetJsonSearchPosition"
+              @keyup.enter="locateNextJsonKeyword"
+            >
+              <template #prefix>
+                <Icon icon="ep:search" />
+              </template>
+            </el-input>
+            <el-button @click="locateNextJsonKeyword">
               <Icon icon="ep:search" />
-            </template>
-          </el-input>
-          <el-button @click="locateNextJsonKeyword">
-            <Icon icon="ep:search" />
-            查找下一个
-          </el-button>
-          <span class="form-parser-json-search__count" aria-live="polite">
-            {{ jsonSearchMatchLabel }}
-          </span>
-        </div>
-        <el-input
-          ref="jsonEditorInputRef"
-          v-model="editableRecognitionJson"
-          class="form-parser-json-input"
-          type="textarea"
-          :autosize="{ minRows: 28, maxRows: 44 }"
-          spellcheck="false"
-          @input="resetJsonSearchPosition"
-        />
-      </section>
-
-      <section class="form-parser-frontline-preview">
-        <div class="form-parser-panel-head">
-          <div>
-            <div class="form-parser-panel-title">生产作业预览</div>
-            <div class="form-parser-panel-subtitle">{{ lastResult.sourceFileName }}</div>
+              查找下一个
+            </el-button>
+            <span class="form-parser-json-search__count" aria-live="polite">
+              {{ jsonSearchMatchLabel }}
+            </span>
           </div>
-        </div>
+          <ParserFieldsEditor
+            @update:model-value="resetJsonSearchPosition"
+            ref="jsonEditorInputRef"
+            v-model="editableRecognitionJson"
+          />
+        </section>
 
-        <div class="form-parser-frontline-shell">
-          <div class="form-parser-frontline-header">
-            <div class="form-parser-process-switcher">
-              <button
-                type="button"
-                class="form-parser-nav-button"
-                :disabled="!canGoPreviousProcess"
-                aria-label="上一道工序"
-                @click="goPreviousProcess"
-              >
-                <Icon icon="ep:arrow-left-bold" />
-              </button>
-              <button
-                type="button"
-                class="form-parser-process-card"
-                @click="openProcessSelector"
-              >
-                <span>工序</span>
-                <strong>{{ currentProcessTitle }}</strong>
-              </button>
-              <button
-                type="button"
-                class="form-parser-nav-button"
-                :disabled="!canGoNextProcess"
-                aria-label="下一道工序"
-                @click="goNextProcess"
-              >
-                <Icon icon="ep:arrow-right-bold" />
-              </button>
+        <section class="form-parser-frontline-preview">
+          <div class="form-parser-panel-head">
+            <div>
+              <div class="form-parser-panel-title">生产作业预览</div>
+              <div class="form-parser-panel-subtitle">{{ lastResult.sourceFileName }}</div>
             </div>
           </div>
 
-          <div v-if="currentProcess" class="form-parser-frontline-body">
-            <div class="form-parser-production-panel">
-              <div class="form-parser-quantity-row">
-                <span>完成数量</span>
-                <el-input-number
-                  v-model="productionQuantity"
-                  :min="0"
-                  :precision="0"
-                  controls-position="right"
-                />
-                <b>件</b>
-              </div>
-              <div class="form-parser-quantity-row form-parser-quantity-row--readonly">
-                <span>损耗数量</span>
-                <strong>{{ lossQuantity }}</strong>
-                <b>件</b>
-              </div>
-
-              <div class="form-parser-material-block">
-                <div class="form-parser-block-title">输入物料</div>
-                <div v-if="currentProcessInputs.length" class="form-parser-material-list">
-                  <button
-                    v-for="(material, inputIndex) in currentProcessInputs"
-                    :key="`input-${inputIndex}-${formatNameCode(material)}`"
-                    type="button"
-                    class="form-parser-material-chip"
-                  >
-                    {{ formatNameCode(material) }}
-                  </button>
-                </div>
-                <div v-else class="form-parser-empty-text">未识别输入物料</div>
-              </div>
-
-              <div class="form-parser-material-block">
-                <div class="form-parser-block-title">输出物料</div>
-                <div v-if="currentProcessOutputs.length" class="form-parser-material-list">
-                  <button
-                    v-for="(material, outputIndex) in currentProcessOutputs"
-                    :key="`output-${outputIndex}-${formatNameCode(material)}`"
-                    type="button"
-                    class="form-parser-material-chip form-parser-material-chip--output"
-                  >
-                    {{ formatNameCode(material) }}
-                  </button>
-                </div>
-                <div v-else class="form-parser-empty-text">未识别输出物料</div>
+          <div class="form-parser-frontline-shell">
+            <div class="form-parser-frontline-header">
+              <div class="form-parser-process-switcher">
+                <button
+                  type="button"
+                  class="form-parser-nav-button"
+                  :disabled="!canGoPreviousProcess"
+                  aria-label="上一道工序"
+                  @click="goPreviousProcess"
+                >
+                  <Icon icon="ep:arrow-left-bold" />
+                </button>
+                <button type="button" class="form-parser-process-card" @click="openProcessSelector">
+                  <span>工序</span>
+                  <strong>{{ currentProcessTitle }}</strong>
+                </button>
+                <button
+                  type="button"
+                  class="form-parser-nav-button"
+                  :disabled="!canGoNextProcess"
+                  aria-label="下一道工序"
+                  @click="goNextProcess"
+                >
+                  <Icon icon="ep:arrow-right-bold" />
+                </button>
               </div>
             </div>
 
-            <div class="form-parser-equipment-panel">
-              <div class="form-parser-confirm-strip">
-                <button
-                  type="button"
-                  :class="[
-                    'form-parser-confirm-card',
-                    { 'form-parser-confirm-card--active': checklistStates.clearance }
-                  ]"
-                  @click="checklistStates.clearance = !checklistStates.clearance"
-                >
-                  <Icon icon="ep:select" />
-                  清场
-                </button>
-                <button
-                  type="button"
-                  :class="[
-                    'form-parser-confirm-card',
-                    { 'form-parser-confirm-card--active': checklistStates.material }
-                  ]"
-                  @click="checklistStates.material = !checklistStates.material"
-                >
-                  <Icon icon="ep:select" />
-                  物料
-                </button>
-                <button
-                  type="button"
-                  :class="[
-                    'form-parser-confirm-card',
-                    { 'form-parser-confirm-card--active': checklistStates.clean }
-                  ]"
-                  @click="checklistStates.clean = !checklistStates.clean"
-                >
-                  <Icon icon="ep:select" />
-                  清洁
-                </button>
-              </div>
+            <div v-if="currentProcess" class="form-parser-frontline-body">
+              <div class="form-parser-production-panel">
+                <div class="form-parser-quantity-row">
+                  <span>完成数量</span>
+                  <el-input-number
+                    v-model="productionQuantity"
+                    :min="0"
+                    :precision="0"
+                    controls-position="right"
+                  />
+                  <b>件</b>
+                </div>
+                <div class="form-parser-quantity-row form-parser-quantity-row--readonly">
+                  <span>损耗数量</span>
+                  <strong>{{ lossQuantity }}</strong>
+                  <b>件</b>
+                </div>
 
-              <div v-if="visiblePreviewDeviceCards.length" class="form-parser-device-list">
-                <div
-                  class="form-parser-device-tabs device-tabs"
-                  :style="{ '--frontline-device-tab-count': visiblePreviewDeviceCards.length }"
-                  role="tablist"
-                  aria-label="设备切换"
-                >
-                  <div
-                    v-for="device in visiblePreviewDeviceCards"
-                    :key="device.key"
-                    class="form-parser-device-tab-card device-tab-card"
-                    :class="{ active: selectedPreviewDeviceKeys.includes(device.key) }"
-                  >
+                <div class="form-parser-material-block">
+                  <div class="form-parser-block-title">输入物料</div>
+                  <div v-if="currentProcessInputs.length" class="form-parser-material-list">
                     <button
-                      class="form-parser-device-tab device-tab"
+                      v-for="(material, inputIndex) in currentProcessInputs"
+                      :key="`input-${inputIndex}-${formatNameCode(material)}`"
                       type="button"
-                      role="checkbox"
-                      :aria-checked="selectedPreviewDeviceKeys.includes(device.key)"
-                      @click="togglePreviewDeviceSelection(device)"
+                      class="form-parser-material-chip"
                     >
-                      <span class="form-parser-device-tab-selection device-tab-selection" aria-hidden="true">
-                        {{ selectedPreviewDeviceKeys.includes(device.key) ? '✓' : '' }}
-                      </span>
-                      <span class="form-parser-device-tab-code device-tab-code">{{ device.label }}</span>
+                      {{ formatNameCode(material) }}
                     </button>
-                    <label class="form-parser-device-metering-validity">
-                      <input
-                        type="checkbox"
-                        checked
-                        disabled
-                        :aria-label="`${device.label}计量状态未记录`"
-                      />
-                      <span aria-hidden="true">✓</span>
-                      <em>计量状态：未记录</em>
-                    </label>
                   </div>
+                  <div v-else class="form-parser-empty-text">未识别输入物料</div>
                 </div>
 
-                <div v-if="activePreviewDevice" class="form-parser-device-current">
-                  <div v-if="activePreviewDevice.parameters.length" class="form-parser-parameter-list">
-                    <div
-                      v-for="(parameter, parameterIndex) in activePreviewDevice.parameters"
-                      :key="`${activePreviewDevice.key}-parameter-${parameterIndex}`"
-                      class="form-parser-parameter-field"
+                <div class="form-parser-material-block">
+                  <div class="form-parser-block-title">输出物料</div>
+                  <div v-if="currentProcessOutputs.length" class="form-parser-material-list">
+                    <button
+                      v-for="(material, outputIndex) in currentProcessOutputs"
+                      :key="`output-${outputIndex}-${formatNameCode(material)}`"
+                      type="button"
+                      class="form-parser-material-chip form-parser-material-chip--output"
                     >
-                      <div class="form-parser-parameter-field__label">
-                        <span>{{ getParameterDisplayName(parameter) }}</span>
-                        <em v-if="shouldShowParameterTargetRange(parameter)">
-                          目标范围：{{ formatParameterTargetRange(parameter) }}
-                        </em>
-                        <em>默认值：{{ formatValue(parameter.ui?.defaultValue) }}</em>
-                      </div>
-                      <div class="form-parser-parameter-field__control">
-                        <el-input-number
-                          v-if="isNumberParameterControl(parameter)"
-                          :controls="true"
-                          :max="toNumberModelValue(parameter.ui?.max)"
-                          :min="toNumberModelValue(parameter.ui?.min)"
-                          :model-value="
-                            toNumberModelValue(
-                              getParameterPreviewValue(
-                                currentProcessIndex,
-                                activePreviewDevice.groupIndex,
-                                activePreviewDevice.equipmentIndex,
-                                parameterIndex,
-                                parameter
-                              )
-                            )
-                          "
-                          :step="toNumberModelValue(parameter.ui?.step) ?? 1"
-                          @update:model-value="
-                            handleParameterPreviewValueChange(
-                              currentProcessIndex,
-                              activePreviewDevice.groupIndex,
-                              activePreviewDevice.equipmentIndex,
-                              parameterIndex,
-                              $event
-                            )
-                          "
-                        />
-                        <el-select
-                          v-else-if="isSelectParameterControl(parameter)"
-                          :model-value="
-                            toSelectModelValue(
-                              getParameterPreviewValue(
-                                currentProcessIndex,
-                                activePreviewDevice.groupIndex,
-                                activePreviewDevice.equipmentIndex,
-                                parameterIndex,
-                                parameter
-                              )
-                            )
-                          "
-                          @update:model-value="
-                            handleParameterPreviewValueChange(
-                              currentProcessIndex,
-                              activePreviewDevice.groupIndex,
-                              activePreviewDevice.equipmentIndex,
-                              parameterIndex,
-                              $event
-                            )
-                          "
+                      {{ formatNameCode(material) }}
+                    </button>
+                  </div>
+                  <div v-else class="form-parser-empty-text">未识别输出物料</div>
+                </div>
+              </div>
+
+              <div class="form-parser-equipment-panel">
+                <div class="form-parser-confirm-strip">
+                  <button
+                    type="button"
+                    :class="[
+                      'form-parser-confirm-card',
+                      { 'form-parser-confirm-card--active': checklistStates.clearance }
+                    ]"
+                    @click="checklistStates.clearance = !checklistStates.clearance"
+                  >
+                    <Icon icon="ep:select" />
+                    清场
+                  </button>
+                  <button
+                    type="button"
+                    :class="[
+                      'form-parser-confirm-card',
+                      { 'form-parser-confirm-card--active': checklistStates.material }
+                    ]"
+                    @click="checklistStates.material = !checklistStates.material"
+                  >
+                    <Icon icon="ep:select" />
+                    物料
+                  </button>
+                  <button
+                    type="button"
+                    :class="[
+                      'form-parser-confirm-card',
+                      { 'form-parser-confirm-card--active': checklistStates.clean }
+                    ]"
+                    @click="checklistStates.clean = !checklistStates.clean"
+                  >
+                    <Icon icon="ep:select" />
+                    清洁
+                  </button>
+                </div>
+
+                <div v-if="visiblePreviewDeviceCards.length" class="form-parser-device-list">
+                  <div
+                    class="form-parser-device-tabs device-tabs"
+                    :style="{ '--frontline-device-tab-count': visiblePreviewDeviceCards.length }"
+                    role="tablist"
+                    aria-label="设备切换"
+                  >
+                    <div
+                      v-for="device in visiblePreviewDeviceCards"
+                      :key="device.key"
+                      class="form-parser-device-tab-card device-tab-card"
+                      :class="{ active: selectedPreviewDeviceKeys.includes(device.key) }"
+                    >
+                      <button
+                        class="form-parser-device-tab device-tab"
+                        type="button"
+                        role="checkbox"
+                        :aria-checked="selectedPreviewDeviceKeys.includes(device.key)"
+                        @click="togglePreviewDeviceSelection(device)"
+                      >
+                        <span
+                          class="form-parser-device-tab-selection device-tab-selection"
+                          aria-hidden="true"
                         >
-                          <el-option
-                            v-for="option in parameter.ui?.options || []"
-                            :key="formatValue(option)"
-                            :label="formatValue(option)"
-                            :value="formatValue(option)"
-                          />
-                        </el-select>
-                        <el-input
-                          v-else-if="isTextParameterControl(parameter)"
-                          :model-value="
-                            toTextModelValue(
-                              getParameterPreviewValue(
-                                currentProcessIndex,
-                                activePreviewDevice.groupIndex,
-                                activePreviewDevice.equipmentIndex,
-                                parameterIndex,
-                                parameter
-                              )
-                            )
-                          "
-                          @update:model-value="
-                            handleParameterPreviewValueChange(
-                              currentProcessIndex,
-                              activePreviewDevice.groupIndex,
-                              activePreviewDevice.equipmentIndex,
-                              parameterIndex,
-                              $event
-                            )
-                          "
+                          {{ selectedPreviewDeviceKeys.includes(device.key) ? '✓' : '' }}
+                        </span>
+                        <span class="form-parser-device-tab-code device-tab-code">{{
+                          device.label
+                        }}</span>
+                      </button>
+                      <label class="form-parser-device-metering-validity">
+                        <input
+                          type="checkbox"
+                          checked
+                          disabled
+                          :aria-label="`${device.label}计量状态未记录`"
                         />
-                        <el-tag v-else type="warning">
-                          未识别控件：{{ formatValue(parameter.ui?.control) }}
-                        </el-tag>
-                        <b v-if="formatValue(parameter.ui?.unit) !== '-'">
-                          {{ formatValue(parameter.ui?.unit) }}
-                        </b>
-                      </div>
+                        <span aria-hidden="true">✓</span>
+                        <em>计量状态：未记录</em>
+                      </label>
                     </div>
                   </div>
-                  <div v-else class="form-parser-empty-text">未识别设备参数</div>
-                </div>
 
+                  <div v-if="activePreviewDevice" class="form-parser-device-current">
+                    <div
+                      v-if="activePreviewDevice.parameters.length"
+                      class="form-parser-parameter-list"
+                    >
+                      <div
+                        v-for="(parameter, parameterIndex) in activePreviewDevice.parameters"
+                        :key="`${activePreviewDevice.key}-parameter-${parameterIndex}`"
+                        class="form-parser-parameter-field"
+                      >
+                        <div class="form-parser-parameter-field__label">
+                          <span>{{ getParameterDisplayName(parameter) }}</span>
+                          <em v-if="shouldShowParameterTargetRange(parameter)">
+                            目标范围：{{ formatParameterTargetRange(parameter) }}
+                          </em>
+                          <em>默认值：{{ formatValue(parameter.ui?.defaultValue) }}</em>
+                        </div>
+                        <div class="form-parser-parameter-field__control">
+                          <el-input-number
+                            v-if="isNumberParameterControl(parameter)"
+                            :controls="true"
+                            :max="toNumberModelValue(parameter.ui?.max)"
+                            :min="toNumberModelValue(parameter.ui?.min)"
+                            :model-value="
+                              toNumberModelValue(
+                                getParameterPreviewValue(
+                                  currentProcessIndex,
+                                  activePreviewDevice.groupIndex,
+                                  activePreviewDevice.equipmentIndex,
+                                  parameterIndex,
+                                  parameter
+                                )
+                              )
+                            "
+                            :step="toNumberModelValue(parameter.ui?.step) ?? 1"
+                            @update:model-value="
+                              handleParameterPreviewValueChange(
+                                currentProcessIndex,
+                                activePreviewDevice.groupIndex,
+                                activePreviewDevice.equipmentIndex,
+                                parameterIndex,
+                                $event
+                              )
+                            "
+                          />
+                          <el-select
+                            v-else-if="isSelectParameterControl(parameter)"
+                            :model-value="
+                              toSelectModelValue(
+                                getParameterPreviewValue(
+                                  currentProcessIndex,
+                                  activePreviewDevice.groupIndex,
+                                  activePreviewDevice.equipmentIndex,
+                                  parameterIndex,
+                                  parameter
+                                )
+                              )
+                            "
+                            @update:model-value="
+                              handleParameterPreviewValueChange(
+                                currentProcessIndex,
+                                activePreviewDevice.groupIndex,
+                                activePreviewDevice.equipmentIndex,
+                                parameterIndex,
+                                $event
+                              )
+                            "
+                          >
+                            <el-option
+                              v-for="option in parameter.ui?.options || []"
+                              :key="formatValue(option)"
+                              :label="formatValue(option)"
+                              :value="formatValue(option)"
+                            />
+                          </el-select>
+                          <el-input
+                            v-else-if="isTextParameterControl(parameter)"
+                            :model-value="
+                              toTextModelValue(
+                                getParameterPreviewValue(
+                                  currentProcessIndex,
+                                  activePreviewDevice.groupIndex,
+                                  activePreviewDevice.equipmentIndex,
+                                  parameterIndex,
+                                  parameter
+                                )
+                              )
+                            "
+                            @update:model-value="
+                              handleParameterPreviewValueChange(
+                                currentProcessIndex,
+                                activePreviewDevice.groupIndex,
+                                activePreviewDevice.equipmentIndex,
+                                parameterIndex,
+                                $event
+                              )
+                            "
+                          />
+                          <el-tag v-else type="warning">
+                            未识别控件：{{ formatValue(parameter.ui?.control) }}
+                          </el-tag>
+                          <b v-if="formatValue(parameter.ui?.unit) !== '-'">
+                            {{ formatValue(parameter.ui?.unit) }}
+                          </b>
+                        </div>
+                      </div>
+                    </div>
+                    <div v-else class="form-parser-empty-text">未识别设备参数</div>
+                  </div>
+
+                  <div v-else class="form-parser-empty-text form-parser-empty-text--panel">
+                    请选择设备
+                  </div>
+                </div>
                 <div v-else class="form-parser-empty-text form-parser-empty-text--panel">
-                  请选择设备
+                  未识别设备
                 </div>
               </div>
-              <div v-else class="form-parser-empty-text form-parser-empty-text--panel">
-                未识别设备
-              </div>
+            </div>
+
+            <div v-else class="form-parser-frontline-empty">当前 JSON 未包含工序</div>
+
+            <div class="form-parser-frontline-footer">
+              <button type="button" class="form-parser-footer-button" disabled>重填</button>
+              <button
+                type="button"
+                class="form-parser-footer-button form-parser-footer-button--primary"
+                disabled
+              >
+                正式提交
+              </button>
             </div>
           </div>
+        </section>
+      </div>
 
-          <div v-else class="form-parser-frontline-empty">当前 JSON 未包含工序</div>
-
-          <div class="form-parser-frontline-footer">
-            <button type="button" class="form-parser-footer-button" disabled>重填</button>
-            <button type="button" class="form-parser-footer-button form-parser-footer-button--primary" disabled>
-              正式提交
-            </button>
+      <el-dialog
+        v-if="previewRecognitionJson"
+        v-model="processSelectorVisible"
+        title="选择工序"
+        width="560px"
+        append-to-body
+      >
+        <div class="form-parser-process-selector">
+          <div class="form-parser-process-selector__summary">
+            共 {{ previewRecognitionJson.processes.length }} 个工序
           </div>
+          <button
+            v-for="(process, processIndex) in previewRecognitionJson.processes"
+            :key="`process-option-${processIndex}`"
+            type="button"
+            :class="[
+              'form-parser-process-option',
+              { 'form-parser-process-option--active': processIndex === currentProcessIndex }
+            ]"
+            @click="handleSelectProcess(processIndex)"
+          >
+            <span>{{ processIndex + 1 }}</span>
+            <strong>{{ formatValue(process.name) }}</strong>
+            <em>{{ process.criticalProcess ? '关键/特殊工序' : '普通工序' }}</em>
+          </button>
         </div>
-      </section>
-    </div>
+      </el-dialog>
+    </template>
 
-        <el-dialog
-          v-if="previewRecognitionJson"
-          v-model="processSelectorVisible"
-          title="选择工序"
-          width="560px"
-          append-to-body
-        >
-          <div class="form-parser-process-selector">
-            <div class="form-parser-process-selector__summary">
-              共 {{ previewRecognitionJson.processes.length }} 个工序
-            </div>
-            <button
-              v-for="(process, processIndex) in previewRecognitionJson.processes"
-              :key="`process-option-${processIndex}`"
-              type="button"
-              :class="[
-                'form-parser-process-option',
-                { 'form-parser-process-option--active': processIndex === currentProcessIndex }
-              ]"
-              @click="handleSelectProcess(processIndex)"
-            >
-              <span>{{ processIndex + 1 }}</span>
-              <strong>{{ formatValue(process.name) }}</strong>
-              <em>{{ process.criticalProcess ? '关键/特殊工序' : '普通工序' }}</em>
-            </button>
-          </div>
-        </el-dialog>
-      </template>
-
-      <template v-if="parserKind === 'inspection'">
-        <QaInspectionRegulationParserPanel ref="qaRegulationParserRef" />
-      </template>
+    <template v-if="parserKind === 'inspection'">
+      <QaInspectionRegulationParserPanel ref="qaRegulationParserRef" />
+    </template>
 
     <el-dialog
       v-model="publishDialogVisible"
@@ -513,7 +517,8 @@
           {{ publishResult.projectName }} / {{ publishResult.projectCode }}
         </el-descriptions-item>
         <el-descriptions-item label="工艺路线">
-          {{ publishResult.routeName }} / {{ publishResult.routeCode }} / {{ publishResult.routeId }}
+          {{ publishResult.routeName }} / {{ publishResult.routeCode }} /
+          {{ publishResult.routeId }}
         </el-descriptions-item>
         <el-descriptions-item label="候选版本">
           {{ publishResult.routeCandidateVersionNo || publishResult.routeVersionNo || '-' }}
@@ -523,7 +528,9 @@
         </el-descriptions-item>
       </el-descriptions>
       <template #footer>
-        <el-button :disabled="publishSubmitting" @click="publishDialogVisible = false">取消</el-button>
+        <el-button :disabled="publishSubmitting" @click="publishDialogVisible = false"
+          >取消</el-button
+        >
         <el-button
           type="primary"
           :loading="publishSubmitting"
@@ -537,6 +544,8 @@
 </template>
 
 <script setup lang="ts">
+import ParserFieldsEditor from './components/ParserFieldsEditor.vue'
+
 import type { UploadFile, UploadFiles, UploadInstance, UploadUserFile } from 'element-plus'
 import download from '@/utils/download'
 import productionWordTemplateUrl from '@/assets/templates/production-process.docx?url'
@@ -587,7 +596,7 @@ const message = useMessage()
 const uploadRef = ref<UploadInstance>()
 const qaRegulationUploadRef = ref<UploadInstance>()
 const qaRegulationParserRef = ref<QaInspectionRegulationParserExpose>()
-const jsonEditorInputRef = ref<{ textarea?: HTMLTextAreaElement }>()
+const jsonEditorInputRef = ref<InstanceType<typeof ParserFieldsEditor>>()
 const fileList = ref<UploadUserFile[]>([])
 const qaRegulationFileList = ref<UploadUserFile[]>([])
 const productionLoading = ref(false)
@@ -652,7 +661,9 @@ const visiblePreviewDeviceCards = computed<BatchRecordPreviewDeviceCard[]>(() =>
 
 const activePreviewDevice = computed(() =>
   selectedPreviewDeviceKeys.value.includes(selectedPreviewDeviceKey.value || '')
-    ? visiblePreviewDeviceCards.value.find((device) => device.key === selectedPreviewDeviceKey.value)
+    ? visiblePreviewDeviceCards.value.find(
+        (device) => device.key === selectedPreviewDeviceKey.value
+      )
     : undefined
 )
 
@@ -680,11 +691,8 @@ const canGoNextProcess = computed(() => {
   return currentProcessIndex.value < processCount - 1
 })
 
-const buildPreviewDeviceKey = (
-  processIndex: number,
-  groupIndex: number,
-  equipmentIndex: number
-) => `${processIndex}:${groupIndex}:${equipmentIndex}`
+const buildPreviewDeviceKey = (processIndex: number, groupIndex: number, equipmentIndex: number) =>
+  `${processIndex}:${groupIndex}:${equipmentIndex}`
 
 const handleUnsupportedParseType = (label: string) => {
   message.warning(`${label}解析暂未开放`)
@@ -748,9 +756,8 @@ const handleQaRegulationFileChange = async (uploadFile: UploadFile, uploadFiles:
 const parseAndDownloadProductionBatchRecord = async (file: File) => {
   productionLoading.value = true
   try {
-    const totalRecognitionJson = await BatchRecordReportApi.parseProductionBatchRecordTotalRecognitionJson(
-      file
-    )
+    const totalRecognitionJson =
+      await BatchRecordReportApi.parseProductionBatchRecordTotalRecognitionJson(file)
     const mapping = parseTotalRecognitionJson(totalRecognitionJson)
     editableRecognitionJson.value = stringifyRecognitionJson(mapping)
     resetJsonSearchPosition()
@@ -774,6 +781,11 @@ const parseAndDownloadProductionBatchRecord = async (file: File) => {
 }
 
 const handleApplyEditedJson = () => {
+  const fieldError = jsonEditorInputRef.value?.validate()
+  if (fieldError) {
+    message.error(fieldError)
+    return
+  }
   try {
     const mapping = parseTotalRecognitionJson(editableRecognitionJson.value)
     previewRecognitionJson.value = mapping
@@ -792,6 +804,11 @@ const handleApplyEditedJson = () => {
 }
 
 const handleOpenProductionPublishDialog = async () => {
+  const fieldError = jsonEditorInputRef.value?.validate()
+  if (fieldError) {
+    message.error(fieldError)
+    return
+  }
   if (!editableRecognitionJson.value.trim()) {
     message.error('没有可发布的生产批记录 JSON')
     return
@@ -864,7 +881,10 @@ const downloadCurrentRecognitionJson = () => {
   const jsonBlob = new Blob([stringifyRecognitionJson(previewRecognitionJson.value)], {
     type: 'application/json;charset=utf-8'
   })
-  download.json(jsonBlob, lastDownloadName.value || buildJsonDownloadName(lastResult.value?.sourceFileName))
+  download.json(
+    jsonBlob,
+    lastDownloadName.value || buildJsonDownloadName(lastResult.value?.sourceFileName)
+  )
 }
 
 const downloadRecognitionExcel = async () => {
@@ -877,7 +897,8 @@ const downloadRecognitionExcel = async () => {
     type ExcelCell = string | number | boolean
     const cell = (value: unknown): ExcelCell => {
       if (value === undefined || value === null) return ''
-      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')
+        return value
       return JSON.stringify(value)
     }
     const appendSheet = (name: string, rows: ExcelCell[][]) => {
@@ -887,34 +908,89 @@ const downloadRecognitionExcel = async () => {
       utils.book_append_sheet(workbook, sheet, name)
     }
     const processes: ExcelCell[][] = [['工序序号', '工序名称', '关键工序']]
-    const materials: ExcelCell[][] = [['工序序号', '工序名称', '物料方向', '物料编码', '物料名称', '原始编码标签']]
-    const equipment: ExcelCell[][] = [['工序序号', '工序名称', '设备组序号', '选择模式', '设备编码', '设备名称', '原始编码标签']]
-    const parameters: ExcelCell[][] = [['工序序号', '工序名称', '设备组序号', '参数名称', '参考值', '实际值', '显示名称', '控件', '默认值', '步长', '最小值', '最大值', '单位', '选项']]
+    const materials: ExcelCell[][] = [
+      ['工序序号', '工序名称', '物料方向', '物料编码', '物料名称', '原始编码标签']
+    ]
+    const equipment: ExcelCell[][] = [
+      ['工序序号', '工序名称', '设备组序号', '选择模式', '设备编码', '设备名称', '原始编码标签']
+    ]
+    const parameters: ExcelCell[][] = [
+      [
+        '工序序号',
+        '工序名称',
+        '设备组序号',
+        '参数名称',
+        '参考值',
+        '实际值',
+        '显示名称',
+        '控件',
+        '默认值',
+        '步长',
+        '最小值',
+        '最大值',
+        '单位',
+        '选项'
+      ]
+    ]
     mapping.processes.forEach((process, index) => {
       const prefix = [index + 1, process.name]
       processes.push([...prefix, cell(process.criticalProcess)])
-      for (const [direction, items] of [['输入', process.inputs], ['输出', process.outputs]] as const) {
-        items?.forEach((item) => materials.push([
-          ...prefix, direction, cell(item.code), cell(item.name), cell(item.sourceCodeLabel)
-        ]))
+      for (const [direction, items] of [
+        ['输入', process.inputs],
+        ['输出', process.outputs]
+      ] as const) {
+        items?.forEach((item) =>
+          materials.push([
+            ...prefix,
+            direction,
+            cell(item.code),
+            cell(item.name),
+            cell(item.sourceCodeLabel)
+          ])
+        )
       }
       process.equipmentGroups?.forEach((group, groupIndex) => {
-        group.equipmentOptions?.forEach((item) => equipment.push([
-          ...prefix, groupIndex + 1, cell(group.selectionMode), cell(item.code), cell(item.name), cell(item.sourceCodeLabel)
-        ]))
-        group.parameters?.forEach((parameter) => parameters.push([
-          ...prefix, groupIndex + 1, cell(parameter.name), cell(parameter.referenceValue), cell(parameter.actualValue),
-          cell(parameter.ui?.displayName), cell(parameter.ui?.control), cell(parameter.ui?.defaultValue),
-          cell(parameter.ui?.step), cell(parameter.ui?.min), cell(parameter.ui?.max), cell(parameter.ui?.unit), cell(parameter.ui?.options)
-        ]))
+        group.equipmentOptions?.forEach((item) =>
+          equipment.push([
+            ...prefix,
+            groupIndex + 1,
+            cell(group.selectionMode),
+            cell(item.code),
+            cell(item.name),
+            cell(item.sourceCodeLabel)
+          ])
+        )
+        group.parameters?.forEach((parameter) =>
+          parameters.push([
+            ...prefix,
+            groupIndex + 1,
+            cell(parameter.name),
+            cell(parameter.referenceValue),
+            cell(parameter.actualValue),
+            cell(parameter.ui?.displayName),
+            cell(parameter.ui?.control),
+            cell(parameter.ui?.defaultValue),
+            cell(parameter.ui?.step),
+            cell(parameter.ui?.min),
+            cell(parameter.ui?.max),
+            cell(parameter.ui?.unit),
+            cell(parameter.ui?.options)
+          ])
+        )
       })
     })
-    appendSheet('产品信息', [['产品名称', '产品编码', '结构版本'], [cell(mapping.product?.name), cell(mapping.product?.code), mapping.schemaVersion]])
+    appendSheet('产品信息', [
+      ['产品名称', '产品编码', '结构版本'],
+      [cell(mapping.product?.name), cell(mapping.product?.code), mapping.schemaVersion]
+    ])
     appendSheet('工序', processes)
     appendSheet('物料', materials)
     appendSheet('设备', equipment)
     appendSheet('参数', parameters)
-    writeFileXLSX(workbook, buildJsonDownloadName(lastResult.value?.sourceFileName).replace(/\.json$/i, '.xlsx'))
+    writeFileXLSX(
+      workbook,
+      buildJsonDownloadName(lastResult.value?.sourceFileName).replace(/\.json$/i, '.xlsx')
+    )
   } catch (error) {
     message.error(resolveParseErrorMessage(error, 'Excel 导出失败'))
   } finally {
@@ -932,8 +1008,15 @@ const downloadRecognitionWordCollection = async () => {
     if (!response.ok) throw new Error(`Word 模板加载失败（${response.status}）`)
     const template = await response.arrayBuffer()
     const { createProductionWordCollection } = await import('./productionWordExport')
-    const bytes = createProductionWordCollection(mapping, template, lastResult.value?.sourceFileName ?? '')
-    const filename = buildJsonDownloadName(lastResult.value?.sourceFileName).replace(/\.json$/i, '-Word集合.zip')
+    const bytes = createProductionWordCollection(
+      mapping,
+      template,
+      lastResult.value?.sourceFileName ?? ''
+    )
+    const filename = buildJsonDownloadName(lastResult.value?.sourceFileName).replace(
+      /\.json$/i,
+      '-Word集合.zip'
+    )
     download.zip(new Blob([bytes], { type: 'application/zip' }), filename)
   } catch (error) {
     message.error(resolveParseErrorMessage(error, 'Word 集合导出失败'))
@@ -943,11 +1026,9 @@ const downloadRecognitionWordCollection = async () => {
 }
 
 const formatPublishProjectCodeOption = (projectCode: DccProjectCodeRespVO) => {
-  return [
-    projectCode.projectName,
-    projectCode.projectCode,
-    projectCode.docControlNo
-  ].filter(Boolean).join(' / ')
+  return [projectCode.projectName, projectCode.projectCode, projectCode.docControlNo]
+    .filter(Boolean)
+    .join(' / ')
 }
 
 const formatPublishAction = (action?: string) => {
@@ -993,24 +1074,6 @@ const resetJsonSearchPosition = () => {
   jsonSearchLastContent.value = ''
 }
 
-const findJsonKeywordMatches = () => {
-  const keyword = jsonSearchKeyword.value.trim()
-  const matches: Array<{ start: number; end: number }> = []
-  if (!keyword) {
-    return matches
-  }
-  let startIndex = 0
-  while (startIndex <= editableRecognitionJson.value.length) {
-    const start = editableRecognitionJson.value.indexOf(keyword, startIndex)
-    if (start < 0) {
-      break
-    }
-    matches.push({ start, end: start + keyword.length })
-    startIndex = start + keyword.length
-  }
-  return matches
-}
-
 const locateNextJsonKeyword = async () => {
   const keyword = jsonSearchKeyword.value.trim()
   if (!keyword) {
@@ -1018,7 +1081,8 @@ const locateNextJsonKeyword = async () => {
     message.warning('请输入查找关键词')
     return
   }
-  const matches = findJsonKeywordMatches()
+  await nextTick()
+  const matches = jsonEditorInputRef.value?.findMatches(keyword) || []
   jsonSearchMatchTotal.value = matches.length
   if (!matches.length) {
     jsonSearchMatchIndex.value = -1
@@ -1034,26 +1098,8 @@ const locateNextJsonKeyword = async () => {
     jsonSearchLastContent.value = editableRecognitionJson.value
   }
   jsonSearchMatchIndex.value = (jsonSearchMatchIndex.value + 1) % matches.length
-  const match = matches[jsonSearchMatchIndex.value]
   await nextTick()
-  const textarea = jsonEditorInputRef.value?.textarea
-  if (!textarea) {
-    message.error('JSON编辑器未就绪')
-    return
-  }
-  textarea.focus()
-  textarea.setSelectionRange(match.start, match.end)
-  textarea.scrollTop = calculateJsonKeywordScrollTop(textarea, match.start)
-}
-
-const calculateJsonKeywordScrollTop = (textarea: HTMLTextAreaElement, matchStart: number) => {
-  const lineHeight = Number.parseFloat(window.getComputedStyle(textarea).lineHeight)
-  if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
-    message.error('JSON编辑器行高无效')
-    return textarea.scrollTop
-  }
-  const lineIndex = editableRecognitionJson.value.slice(0, matchStart).split('\n').length - 1
-  return Math.max(lineIndex * lineHeight - textarea.clientHeight / 2, 0)
+  jsonEditorInputRef.value?.locate(keyword, jsonSearchMatchIndex.value)
 }
 
 const initializePreviewState = (mapping: BatchRecordTotalRecognitionJson) => {
@@ -1126,7 +1172,9 @@ const initializeParameterPreviewValues = (mapping: BatchRecordTotalRecognitionJs
   mapping.processes.forEach((process, processIndex) => {
     const equipmentGroups = process.equipmentGroups || []
     equipmentGroups.forEach((group, groupIndex) => {
-      const equipmentIndexes = resolveEquipmentOptions(group).map((_, equipmentIndex) => equipmentIndex)
+      const equipmentIndexes = resolveEquipmentOptions(group).map(
+        (_, equipmentIndex) => equipmentIndex
+      )
       equipmentIndexes.forEach((equipmentIndex) => {
         const parameters = group.parameters || []
         parameters.forEach((parameter, parameterIndex) => {
@@ -1159,7 +1207,12 @@ const getParameterPreviewValue = (
   parameterIndex: number,
   parameter: BatchRecordTotalRecognitionParameter
 ) => {
-  const key = buildParameterPreviewValueKey(processIndex, groupIndex, equipmentIndex, parameterIndex)
+  const key = buildParameterPreviewValueKey(
+    processIndex,
+    groupIndex,
+    equipmentIndex,
+    parameterIndex
+  )
   if (Object.prototype.hasOwnProperty.call(parameterPreviewValues, key)) {
     return parameterPreviewValues[key]
   }
@@ -1173,7 +1226,12 @@ const handleParameterPreviewValueChange = (
   parameterIndex: number,
   value: unknown
 ) => {
-  const key = buildParameterPreviewValueKey(processIndex, groupIndex, equipmentIndex, parameterIndex)
+  const key = buildParameterPreviewValueKey(
+    processIndex,
+    groupIndex,
+    equipmentIndex,
+    parameterIndex
+  )
   parameterPreviewValues[key] = value
 }
 
@@ -1191,7 +1249,9 @@ const stringifyRecognitionJson = (mapping: BatchRecordTotalRecognitionJson) => {
   return JSON.stringify(mapping, null, 2)
 }
 
-const parseTotalRecognitionJson = (totalRecognitionJson: string): BatchRecordTotalRecognitionJson => {
+const parseTotalRecognitionJson = (
+  totalRecognitionJson: string
+): BatchRecordTotalRecognitionJson => {
   let parsed: unknown
   try {
     parsed = JSON.parse(totalRecognitionJson)
@@ -1282,13 +1342,11 @@ const resolveEquipmentOptions = (group?: BatchRecordTotalRecognitionEquipmentGro
   return group?.equipmentOptions?.length ? group.equipmentOptions : [undefined]
 }
 
-const formatNameCode = (
-  item?: {
-    name?: string
-    code?: string | null
-    sourceCodeLabel?: string | null
-  }
-) => {
+const formatNameCode = (item?: {
+  name?: string
+  code?: string | null
+  sourceCodeLabel?: string | null
+}) => {
   const name = formatValue(item?.name)
   const code = formatValue(item?.code || item?.sourceCodeLabel)
   if (name === '-' && code === '-') {
@@ -1316,7 +1374,9 @@ const formatEquipmentName = (
 }
 
 const formatEquipmentGroupOptions = (group?: BatchRecordTotalRecognitionEquipmentGroup) => {
-  return (group?.equipmentOptions || []).map((equipment) => formatNameCode(equipment)).join('、') || '-'
+  return (
+    (group?.equipmentOptions || []).map((equipment) => formatNameCode(equipment)).join('、') || '-'
+  )
 }
 
 const getParameterDisplayName = (parameter?: BatchRecordTotalRecognitionParameter) => {

@@ -13,7 +13,7 @@ GOVERNANCE_REPORT = ROOT / "docs" / "engineering" / "unified-approval-platform-g
 
 
 def run_scanner(*extra_args: str) -> subprocess.CompletedProcess[str]:
-    frontend_root = ROOT.parent / "yudao-ui-admin-vue3"
+    frontend_root = ROOT.parent / "IntRuoyiFronted"
     return subprocess.run(
         [
             sys.executable,
@@ -47,8 +47,8 @@ def test_phase_final_scanner_has_no_remaining_partial_or_blocked_items():
     inventory = {(item["category"], item["key"]): item for item in payload["closeout_inventory"]}
     assert inventory[("MODULE", "EDHR")]["status"] == "COMPLETED"
     assert "EDHR_DOMAIN_ACTIONS_CLASSIFIED" in inventory[("MODULE", "EDHR")]["evidence"]
-    assert inventory[("MODULE", "SRM")]["status"] == "COMPLETED"
-    assert "SRM_DOMAIN_ACTIONS_CLASSIFIED" in inventory[("MODULE", "SRM")]["evidence"]
+    assert inventory[("MODULE", "SRM")]["status"] == "RETIRED"
+    assert "third-party" in inventory[("MODULE", "SRM")]["evidence"]
     assert inventory[("MODULE", "MES_FEEDBACK")]["status"] == "COMPLETED"
     assert "DECLARED_CAPABILITY_BOUNDARY" in inventory[("MODULE", "MES_FEEDBACK")]["evidence"]
     assert inventory[("MODULE", "CRM_BACKLOG")]["status"] == "RETIRED"

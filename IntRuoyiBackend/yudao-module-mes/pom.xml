@@ -680,6 +680,7 @@
                             <testIncludes>
                                 <testInclude>**/MesTeamLeaderActiveOrderManualSortTest.java</testInclude>
                                 <testInclude>**/MesTeamLeaderActiveOrderServiceTest.java</testInclude>
+                                <testInclude>**/MesProWorkOrderMapperTest.java</testInclude>
                                 <testInclude>**/MesProcessPoolTeamLeaderControllerTest.java</testInclude>
                                 <testInclude>**/MesActiveOrderTransferTraceServiceTest.java</testInclude>
                                 <testInclude>**/MesActiveOrderTransferTraceSchemaTest.java</testInclude>
@@ -693,6 +694,7 @@
                             <includes>
                                 <include>**/MesTeamLeaderActiveOrderManualSortTest.java</include>
                                 <include>**/MesTeamLeaderActiveOrderServiceTest.java</include>
+                                <include>**/MesProWorkOrderMapperTest.java</include>
                                 <include>**/MesProcessPoolTeamLeaderControllerTest.java</include>
                                 <include>**/MesActiveOrderTransferTraceServiceTest.java</include>
                                 <include>**/MesActiveOrderTransferTraceSchemaTest.java</include>

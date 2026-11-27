@@ -203,7 +203,7 @@ const signIn = async () => {
       await push(
         res.passwordChangeRequired
           ? { path: '/user/profile', query: { tab: 'resetPwd' } }
-          : { path: redirect.value || permissionStore.addRouters[0]?.path || '/srm/portal/application' }
+          : { path: redirect.value || permissionStore.addRouters[0]?.path || '/' }
       )
     })
     .catch(() => {})

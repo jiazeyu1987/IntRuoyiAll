@@ -10,7 +10,7 @@
     <el-col v-if="!creationSection" :span="12"><el-form-item label="注册证类型" required><el-select v-model="model.certificateType" :disabled="readonly || lockType || lockedFields?.includes('certificateType')"><el-option label="国内" value="DOMESTIC"/><el-option label="CE" value="CE"/><el-option label="FDA" value="FDA"/></el-select></el-form-item></el-col>
     <el-col v-if="!creationSection" :span="12"><el-form-item label="产品归属" required><el-select v-model="model.ownProduct" :disabled="readonly || lockType || lockedFields?.includes('ownProduct')"><el-option label="瑛泰产品（关联系统产品）" :value="true"/><el-option label="其他（不关联系统产品）" :value="false"/></el-select></el-form-item></el-col>
     <el-col v-for="field in visibleFields" :key="field" :span="['remark','changeDescription','registrationLink'].includes(field) ? 24 : 12" :xs="creationSection ? 24 : undefined" :sm="['remark','changeDescription','registrationLink'].includes(field) ? 24 : 12" :md="['remark','changeDescription','registrationLink'].includes(field) ? 24 : creationSection ? 8 : 12">
-      <el-form-item :required="!!creationSection && requiredCreationFields.includes(field)" :label="historicalRecord && field === 'certificateStatus' ? '证载状态（历史记录）' : readonly && field === 'certificateStatus' ? '证载状态（原记录）' : historicalRecord && field === 'expiryDate' ? '原有效期至' : factLabels[field]">
+      <el-form-item :required="(field === 'kpNumber' && requiresKpNumber(model)) || (!!creationSection && requiredCreationFields.includes(field))" :label="historicalRecord && field === 'certificateStatus' ? '证载状态（历史记录）' : readonly && field === 'certificateStatus' ? '证载状态（原记录）' : historicalRecord && field === 'expiryDate' ? '原有效期至' : model.certificateType === 'CE' && field === 'firstObtainedDate' ? 'Initial Issue Date（首次获证日期，可选）' : factLabels[field]">
         <span v-if="readonly && field === 'certificateStatus' && visualState === 'EXPIRED'">已过期（原记录：{{ factOptions(field,model.certificateType).find(option => option.value === model[field])?.label || '未记录' }}）</span>
         <a v-else-if="readonly && field === 'registrationLink' && model[field]" :href="model[field]" target="_blank" rel="noopener noreferrer">{{ model[field] }}</a>
         <el-select v-else-if="factOptions(field,model.certificateType).length" v-model="model[field]" :disabled="readonly || lockedFields?.includes(field)" clearable><el-option v-for="option in factOptions(field,model.certificateType)" :key="String(option.value)" :label="option.label" :value="option.value"/></el-select>
@@ -44,7 +44,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { CertificateFacts } from './facts'
-import { fieldsFor, creationFieldsFor, factLabels, factOptions } from './facts'
+import { fieldsFor, creationFieldsFor, factLabels, factOptions, requiresKpNumber } from './facts'
 const model = defineModel<CertificateFacts>({ required: true })
 const props = defineProps<{ creationSection?: 'attributes' | 'certificate' | 'supplement'; readonly?: boolean; lockType?: boolean; lockedFields?: string[]; historicalRecord?: boolean; creation?: boolean; change?: boolean; visualState?: string; hideCeModels?: boolean }>()
 const attributeFields = ['certificateHolder', 'classification', 'productNameEn', 'tradeName', 'productCode', 'customerHeld']

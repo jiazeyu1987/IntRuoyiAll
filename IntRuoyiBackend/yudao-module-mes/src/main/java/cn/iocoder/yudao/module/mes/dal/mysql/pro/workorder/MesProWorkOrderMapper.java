@@ -103,7 +103,16 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
 
     default PageResult<MesProWorkOrderDO> selectPageByProductIds(MesProWorkOrderPageReqVO reqVO,
                                                                  Collection<Long> productIds) {
+        return selectPageByProductIdsAndWorkOrderIds(reqVO, productIds, null);
+    }
+
+    default PageResult<MesProWorkOrderDO> selectPageByProductIdsAndWorkOrderIds(MesProWorkOrderPageReqVO reqVO,
+            Collection<Long> productIds, Collection<Long> workOrderIds) {
+        if (workOrderIds != null && workOrderIds.isEmpty()) {
+            return new PageResult<>(java.util.Collections.emptyList(), 0L);
+        }
         LambdaQueryWrapperX<MesProWorkOrderDO> queryWrapper = new LambdaQueryWrapperX<MesProWorkOrderDO>()
+                .inIfPresent(MesProWorkOrderDO::getId, workOrderIds)
                 .eqIfPresent(MesProWorkOrderDO::getCode, reqVO.getSyncCode())
                 .likeIfPresent(MesProWorkOrderDO::getCode, reqVO.getCode())
                 .likeIfPresent(MesProWorkOrderDO::getName, reqVO.getName())
@@ -144,12 +153,15 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
         return selectOne(MesProWorkOrderDO::getCode, code);
     }
 
-    default List<MesProWorkOrderDO> selectCandidatesByKeyword(String keyword, Collection<Long> productIds) {
-        if (keyword == null || keyword.trim().isEmpty()) {
+    default List<MesProWorkOrderDO> selectCandidatesByKeyword(String keyword, Collection<Long> productIds,
+                                                              Collection<Long> responsibleProductIds) {
+        if (keyword == null || keyword.trim().isEmpty()
+                || responsibleProductIds == null || responsibleProductIds.isEmpty()) {
             return Collections.emptyList();
         }
         String searchText = keyword.trim();
         return selectList(new LambdaQueryWrapperX<MesProWorkOrderDO>()
+                .in(MesProWorkOrderDO::getProductId, responsibleProductIds)
                 .and(wrapper -> {
                     wrapper.like(MesProWorkOrderDO::getCode, searchText);
                     if (productIds != null && !productIds.isEmpty()) {

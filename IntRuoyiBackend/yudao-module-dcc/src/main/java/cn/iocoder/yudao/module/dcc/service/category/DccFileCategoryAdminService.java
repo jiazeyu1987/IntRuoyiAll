@@ -16,7 +16,6 @@ public interface DccFileCategoryAdminService {
     DccFileCategoryDO getCategory(Long id);
     /** Returns only categories with an explicit valid approval source; never repairs unknown stored values. */
     List<DccFileCategoryDO> getCategoryList();
-    DccFileCategoryImportResult importCategoriesFromIntAuth();
     Map<Long, Long> getCategoryDirectoryBindingMap();
     DccCategoryDirectoryBindingDO bindDirectory(Long categoryId, DccCategoryDirectoryBindingSaveReqVO reqVO);
 }

@@ -78,6 +78,8 @@ public interface MesProWorkOrderService {
      */
     PageResult<MesProWorkOrderDO> getWorkOrderPage(MesProWorkOrderPageReqVO pageReqVO);
 
+    PageResult<MesProWorkOrderDO> getWorkOrderPageByIds(MesProWorkOrderPageReqVO pageReqVO, java.util.Collection<Long> workOrderIds);
+
     /**
      * 查询生产工单实际使用过的产品名称候选。
      *

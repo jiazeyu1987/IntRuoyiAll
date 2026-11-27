@@ -52,7 +52,7 @@ export interface MesProScheduleOrderVO {
   routeName: string
   routeVersion?: string
   scheduleConfigVersion?: string
-  currentProcessId?: number
+  currentProcessId?: string | number
   currentRouteProcessId?: number
   currentProcessCode?: string
   currentProcessName?: string
@@ -68,6 +68,7 @@ export interface MesProScheduleOrderProcessVO {
   id: number
   scheduleOrderId: number
   routeProcessId: number
+  routeVersionId?: string | number
   processId: number
   processCode: string
   processName: string
@@ -376,7 +377,7 @@ export interface MesProScheduleOrderPageReqVO {
   pageSize?: number
   code?: string
   erpWorkOrderCode?: string
-  currentProcessId?: number
+  currentProcessId?: string | number
   currentProcessKeyword?: string
   productCode?: string
   productName?: string
@@ -524,7 +525,12 @@ export const MesProScheduleOrderApi = {
     const data = await request.get<MesProScheduleOrderProcessWipVO[]>({
       url: '/mes/pro/schedule-order/process-wip-statistics'
     })
-    return Array.isArray(data) ? data.map(normalizeProcessWipStatistics) : []
+    if (!Array.isArray(data)) throw new Error('工序在制统计响应格式错误')
+    return data.map(normalizeProcessWipStatistics)
+  },
+
+  resetProcessCapacity: async (data: { id: number; scheduleOrderProcessId: number; reason: string }) => {
+    return await request.post({ url: '/mes/pro/schedule-order/process-capacity-reset', data })
   },
 
   saveProcessWipSettings: async (data: MesProScheduleOrderProcessWipSettingsReqVO) => {
@@ -607,6 +613,8 @@ export const MesProScheduleOrderApi = {
   analyzeErpMissingWorkOrders: async (): Promise<MesProWorkOrderErpCleanupPreview> => {
     return await request.get({
       url: '/mes/pro/schedule-order/erp-missing-work-orders',
+      // 全量 ERP 核对已观测到 119 秒，独立于普通列表的 30 秒契约。
+      timeout: 180000,
       ignoreErrorMessage: true
     })
   },

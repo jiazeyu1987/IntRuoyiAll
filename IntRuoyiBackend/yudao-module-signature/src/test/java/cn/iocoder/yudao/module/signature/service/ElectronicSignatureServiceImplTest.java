@@ -146,6 +146,25 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void preservesLongReasonAndRejectsOverflowBeforeAuthentication() {
+        try (var security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(101L);
+            int index = 0;
+            for (String reason : new String[] {"评".repeat(573), "评".repeat(1000), "😀".repeat(500)}) {
+                var result = signatureService.sign(buildCommand("reason-" + index++, "V1", reason));
+                assertEquals(reason, signatureRecordMapper.selectById(result.signatureId()).getReason());
+            }
+            clearInvocations(adminUserApi);
+            assertServiceException(() -> signatureService.sign(buildCommand("reason-overflow", "V1", "评".repeat(1001))),
+                    ESIGN_COMMAND_INVALID, "签名理由不能超过1000个字符");
+            verifyNoInteractions(adminUserApi);
+            assertServiceException(() -> signatureService.sign(buildCommand("emoji-overflow", "V1", "😀".repeat(501))),
+                    ESIGN_COMMAND_INVALID, "签名理由不能超过1000个字符");
+            assertEquals(3L, signatureRecordMapper.selectCount(null));
+        }
+    }
+
+    @Test
     public void testSign_successBindsActorServerTimeAndContentHash() {
         ElectronicSignatureCommand command = buildCommand("idem-001", "V1", "审批通过");
         when(gxpAuditService.append(any())).thenReturn(new GxpAuditAppendResult(9001L, 1L, "a".repeat(64), false));

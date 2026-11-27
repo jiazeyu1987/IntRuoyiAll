@@ -21,9 +21,13 @@ vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.resolve(__dirname,
 }).outputText, helper)
 
 function harness(projects = []) {
-  const selected = [], queries = []
+  const selected = [], queries = [], warnings = []
   const context = {
     requireExactJavaLong: helper.exports.requireExactJavaLong,
+    qaEquipmentDirtyRows: new Set(),
+    qaRegulationDraft: {},
+    selectedDccProjectCode: { value: undefined },
+    ElMessage: { warning: message => warnings.push(message) },
     qaRegulationProjectStatusByDccId: { value: new Map() },
     dccProjectCodeOptions: { value: projects }, DCC_PROJECT_CODE_STATUS_ENABLE: 'ENABLE',
     selectDccProjectCode: async project => selected.push(project),
@@ -32,8 +36,20 @@ function harness(projects = []) {
   vm.runInNewContext(ts.transpileModule(functions.map(statement => statement.getText(source)).join('\n'), {
     compilerOptions: { target: ts.ScriptTarget.ES2022 }
   }).outputText + '\nglobalThis.actions={' + names.join(',') + '}', context)
-  return { ...context.actions, context, selected, queries }
+  return { ...context.actions, context, selected, queries, warnings }
 }
+
+test('unsaved equipment keeps the current project identity and blocks project lookup', async () => {
+  const h = harness([{ id: '20', status: 'ENABLE' }])
+  h.context.selectedDccProjectCode.value = { id: 139, status: 'ENABLE' }
+  h.context.qaRegulationDraft.dccProjectCodeId = '20'
+  h.context.qaEquipmentDirtyRows.add({})
+  await h.handleDccProjectCodeChange('20')
+  assert.equal(h.context.qaRegulationDraft.dccProjectCodeId, '139')
+  assert.equal(h.selected.length, 0)
+  assert.equal(h.queries.length, 0)
+  assert.match(h.warnings[0], /保存设备配置/)
+})
 
 test('adjacent 19-digit projects retain separate options, status and exact selection', async () => {
   const first = { id: '2121453181393523028', status: 'ENABLE' }

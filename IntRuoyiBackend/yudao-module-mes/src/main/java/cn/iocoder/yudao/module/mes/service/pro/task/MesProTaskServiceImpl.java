@@ -241,6 +241,9 @@ public class MesProTaskServiceImpl implements MesProTaskService {
 
     @Override
     public void lockTask(Long id, String lockedReason) {
+        if (StrUtil.isBlank(lockedReason)) {
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "锁定原因不能为空");
+        }
         validateTaskNotFinished(id);
         MesProTaskScheduleExtDO ext = taskScheduleExtMapper.selectByTaskId(id);
         if (ext == null) {
@@ -248,14 +251,14 @@ public class MesProTaskServiceImpl implements MesProTaskService {
                     .taskId(id)
                     .scheduleSource("MANUAL")
                     .locked(Boolean.TRUE)
-                    .lockedReason(StrUtil.blankToDefault(lockedReason, "MANUAL_LOCK"))
+                    .lockedReason(lockedReason.trim())
                     .riskStatus("NONE")
                     .remark("LOCK")
                     .build());
             return;
         }
         ext.setLocked(Boolean.TRUE);
-        ext.setLockedReason(StrUtil.blankToDefault(lockedReason, "MANUAL_LOCK"));
+        ext.setLockedReason(lockedReason.trim());
         taskScheduleExtMapper.updateById(ext);
     }
 

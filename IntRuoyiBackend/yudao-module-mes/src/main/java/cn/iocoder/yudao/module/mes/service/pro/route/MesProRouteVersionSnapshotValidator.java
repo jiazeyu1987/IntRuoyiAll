@@ -34,56 +34,63 @@ final class MesProRouteVersionSnapshotValidator {
     }
 
     static boolean hasCompleteConfigSnapshot(String routeSnapshotJson) {
+        return configSnapshotProblem(routeSnapshotJson) == null;
+    }
+
+    static String configSnapshotProblem(String routeSnapshotJson) {
         if (StrUtil.isBlank(routeSnapshotJson)) {
-            return false;
+            return "快照为空";
         }
         try {
             JSONObject snapshot = JSON.parseObject(routeSnapshotJson);
             if (snapshot == null || snapshot.isEmpty()) {
-                return false;
+                return "快照没有内容";
             }
             if (snapshot.getLong("routeId") == null
                     || StrUtil.isBlank(snapshot.getString("routeCode"))
                     || StrUtil.isBlank(snapshot.getString("routeName"))) {
-                return false;
+                return "缺少 routeId、routeCode 或 routeName";
             }
             JSONObject configSnapshots = snapshot.getJSONObject(SNAPSHOT_CONFIGS_KEY);
             if (configSnapshots == null
                     || !configSnapshots.keySet().containsAll(REQUIRED_CONFIG_SNAPSHOT_KEYS)) {
-                return false;
+                return "configSnapshots 缺少必要配置字段：" + (configSnapshots == null
+                        ? "configSnapshots" : REQUIRED_CONFIG_SNAPSHOT_KEYS.stream()
+                        .filter(key -> !configSnapshots.containsKey(key)).sorted().toList());
             }
             JSONObject flowGraph = configSnapshots.getJSONObject(FLOW_GRAPH_KEY);
             if (flowGraph == null) {
-                return false;
+                return "缺少 flowGraph";
             }
             JSONArray nodes = flowGraph.getJSONArray("nodes");
             if (nodes == null || nodes.isEmpty()) {
-                return false;
+                return "flowGraph.nodes 为空";
             }
-            for (Object value : nodes) {
+            for (int nodeIndex = 0; nodeIndex < nodes.size(); nodeIndex++) {
+                Object value = nodes.get(nodeIndex);
                 if (!(value instanceof JSONObject node) || !node.containsKey("sopFileUrl")) {
-                    return false;
+                    return "flowGraph.nodes[" + nodeIndex + "] 缺少 sopFileUrl 字段";
                 }
                 Object sopFileUrl = node.get("sopFileUrl");
                 // null 表示明确未绑定；字段缺失或其他类型不能进入生产冻结版本。
                 if (sopFileUrl != null && !(sopFileUrl instanceof String)) {
-                    return false;
+                    return "flowGraph.nodes[" + nodeIndex + "] sopFileUrl 类型错误";
                 }
             }
-            boolean structurallyComplete = isArrayOrObject(configSnapshots.get(PRODUCTS_KEY))
-                    && isArrayOrObject(configSnapshots.get(SCHEDULE_CONFIGS_KEY))
-                    && configSnapshots.get(BATCH_USE_CONFIGS_KEY) instanceof JSONArray
-                    && configSnapshots.get(SCHEDULE_USE_CONFIGS_KEY) instanceof JSONArray
-                    && configSnapshots.getInteger(PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY) != null
-                    && configSnapshots.get(PRODUCTION_PROCESS_CONFIGS_KEY) instanceof JSONArray;
-            if (!structurallyComplete) {
-                return false;
+            for (String key : java.util.List.of(PRODUCTS_KEY, SCHEDULE_CONFIGS_KEY)) {
+                if (!isArrayOrObject(configSnapshots.get(key))) return "configSnapshots." + key + " 必须为数组或对象";
+            }
+            for (String key : java.util.List.of(BATCH_USE_CONFIGS_KEY, SCHEDULE_USE_CONFIGS_KEY, PRODUCTION_PROCESS_CONFIGS_KEY)) {
+                if (!(configSnapshots.get(key) instanceof JSONArray)) return "configSnapshots." + key + " 必须为数组";
+            }
+            if (configSnapshots.getInteger(PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY) == null) {
+                return "configSnapshots." + PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY + " 缺少有效版本号";
             }
             MesProRouteCandidateConfigServiceImpl.validateProductionProcessConfigs(
                     snapshot.getLong("routeVersionId"), configSnapshots);
-            return true;
+            return null;
         } catch (RuntimeException ex) {
-            return false;
+            return "配置校验失败：" + ex.getMessage();
         }
     }
 

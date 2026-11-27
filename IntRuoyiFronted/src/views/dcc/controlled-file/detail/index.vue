@@ -79,7 +79,8 @@
             <span>查看版本 <strong>{{ getDccVersionDisplayText(fileDetail.versionNo) }}</strong>
               <em v-if="isViewedControlledVersionCurrent">当前受控版本</em></span>
             <span v-if="!isViewedControlledVersionCurrent && fileDetail.currentActiveVersionNo">当前受控版本 <strong>{{ getDccVersionDisplayText(fileDetail.currentActiveVersionNo) }}</strong></span>
-            <span>实际生效时间 <strong>{{ effectiveFacts(fileDetail).effectiveText }}</strong></span>
+            <span>{{ effectiveFacts(fileDetail).effectiveLabel }} <strong>{{ effectiveFacts(fileDetail).effectiveText }}</strong></span>
+            <span>日常启用时间 <strong>{{ effectiveFacts(fileDetail).activatedText }}</strong></span>
           </div>
         </div>
         <div class="controlled-detail-header__actions">
@@ -524,7 +525,7 @@
         <el-descriptions-item v-if="fileDetail.effectiveMode === 'DELAYED'" label="延迟确认签名">{{ fileDetail.delayedEffectiveSignatureId ? `#${fileDetail.delayedEffectiveSignatureId}` : '未记录' }}</el-descriptions-item>
         <el-descriptions-item v-if="fileDetail.effectiveMode === 'DELAYED'" label="延迟确认轮次">{{ fileDetail.delayedEffectiveProcessInstanceId || '未记录' }}</el-descriptions-item>
         <el-descriptions-item v-if="fileDetail.effectiveMode !== 'DELAYED'" label="预设生效日期">{{ fileDetail.effectiveDate || '未记录' }}</el-descriptions-item>
-        <el-descriptions-item label="实际生效时间">{{ fileDetail.effectiveTime || '尚未生效' }}</el-descriptions-item>
+        <el-descriptions-item :label="effectiveFacts(fileDetail).effectiveLabel">{{ effectiveFacts(fileDetail).effectiveText }}</el-descriptions-item>
         <el-descriptions-item label="日常启用时间">{{ fileDetail.activatedTime || '尚未启用' }}</el-descriptions-item>
         <el-descriptions-item label="下发时间">{{ fileDetail.distributedTime || '尚未下发' }}</el-descriptions-item>
       </el-descriptions>
@@ -2881,6 +2882,7 @@
 </template>
 
 <script lang="ts" setup>
+import { readBusinessEvidence } from '@/views/mes/pro/processpool/components/businessEvidenceDisplay'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
@@ -7257,7 +7259,33 @@ const getProcessInstanceId = () => String(fileDetail.value?.processInstanceId ||
 
 const buildProcessPrintHtml = (printData: unknown) => {
   const file = fileDetail.value
-  const processJson = escapeReceiptHtml(JSON.stringify(printData ?? {}, null, 2))
+  if (!printData || typeof printData !== 'object' || Array.isArray(printData)) {
+    throw new Error('流程打印资料格式错误：应为流程资料对象。')
+  }
+  const data = printData as Record<string, unknown>
+  if (!data.processInstance || typeof data.processInstance !== 'object' || Array.isArray(data.processInstance) || !Array.isArray(data.tasks)) {
+    throw new Error('流程打印资料格式错误：缺少流程实例或审批任务列表。')
+  }
+  const evidence = readBusinessEvidence(JSON.stringify(printData))
+  if (evidence.error) throw new Error(evidence.error)
+  const printLabels: Record<string, string> = {
+    processInstance: '流程实例资料', printTemplateEnable: '启用自定义打印模板',
+    printTemplateHtml: '自定义打印模板内容', tasks: '审批任务', signPicUrl: '签名图片地址',
+    description: '任务说明', formVariables: '提交的表单值', startUser: '发起人',
+    processDefinition: '流程定义', processDefinitionId: '流程定义编号',
+    category: '流程分类编号', categoryName: '流程分类名称', summary: '流程摘要',
+    startTime: '发起时间', endTime: '结束时间', durationInMillis: '持续时间（毫秒）',
+    businessObjectId: '业务对象编号', assigneeUser: '任务办理人'
+  }
+  // BpmProcessInstanceStatusEnum：仅转换流程实例状态，不影响其他业务状态。
+  const processStatusLabels: Record<string, string> = { '1': '审批中', '2': '审批通过', '3': '审批不通过', '4': '已取消' }
+  const processRows = evidence.rows.map((row) => {
+    const label = row.label.replace(/未标注字段（([^）]+)）/g, (original, key) => printLabels[key] || original)
+    const value = row.key === JSON.stringify(['processInstance', 'status'])
+      ? processStatusLabels[String((data.processInstance as Record<string, unknown>).status)] || `未知流程状态（${String((data.processInstance as Record<string, unknown>).status)}）`
+      : row.value
+    return `<tr><th>${escapeReceiptHtml(label)}</th><td>${escapeReceiptHtml(value)}</td></tr>`
+  }).join('')
   return `<!doctype html>
 <html>
 <head>
@@ -7269,7 +7297,8 @@ const buildProcessPrintHtml = (printData: unknown) => {
     table { border-collapse: collapse; width: 100%; font-size: 13px; margin-bottom: 18px; }
     th, td { border: 1px solid #333; padding: 7px 9px; text-align: left; vertical-align: top; }
     th { width: 130px; background: #f3f4f6; }
-    pre { white-space: pre-wrap; word-break: break-word; border: 1px solid #d8dde8; padding: 12px; }
+    td { white-space: pre-wrap; overflow-wrap: anywhere; }
+    tr { break-inside: avoid; }
   </style>
 </head>
 <body>
@@ -7283,7 +7312,8 @@ const buildProcessPrintHtml = (printData: unknown) => {
       <tr><th>流程实例</th><td>${escapeReceiptHtml(file?.processInstanceId || '-')}</td></tr>
     </tbody>
   </table>
-  <pre>${processJson}</pre>
+  <h2>流程资料与审批节点明细</h2>
+  <table><thead><tr><th>资料项目</th><th>记录内容</th></tr></thead><tbody>${processRows}</tbody></table>
 </body>
 </html>`
 }
@@ -7291,7 +7321,7 @@ const buildProcessPrintHtml = (printData: unknown) => {
 const loadProcessPrintData = async () => {
   const processInstanceId = getProcessInstanceId()
   if (!processInstanceId) {
-    return null
+    throw new Error('当前文件没有关联流程实例，无法读取审批履历。')
   }
   return await ProcessInstanceApi.getProcessInstancePrintData(processInstanceId)
 }

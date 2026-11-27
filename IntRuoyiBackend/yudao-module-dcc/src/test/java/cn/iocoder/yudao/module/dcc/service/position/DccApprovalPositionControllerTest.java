@@ -3,7 +3,6 @@ package cn.iocoder.yudao.module.dcc.service.position;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.controller.admin.position.DccApprovalPositionController;
-import cn.iocoder.yudao.module.dcc.controller.admin.position.vo.DccApprovalPositionImportRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.position.vo.DccApprovalPositionRespVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.position.DccApprovalPositionDO;
 import org.junit.jupiter.api.Test;
@@ -49,18 +48,17 @@ class DccApprovalPositionControllerTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void importPositionsFromIntAuth_delegatesToService() {
-        when(positionAdminService.importPositionsFromIntAuth())
-                .thenReturn(new DccApprovalPositionImportResult(8, 2, 3, 1, 1));
-
-        CommonResult<DccApprovalPositionImportRespVO> result = controller.importPositionsFromIntAuth();
-
+    void createPosition_delegatesToLocalServiceAndReturnsPersistedRole() {
+        var request = new cn.iocoder.yudao.module.dcc.controller.admin.position.vo.DccApprovalPositionCreateReqVO();
+        request.setName("文控");
+        request.setChangeReason("本地初始化");
+        when(positionAdminService.createPosition("文控", "本地初始化")).thenReturn(
+                DccApprovalPositionDO.builder().id(22L).code("LOCAL-test").name("文控").source("LOCAL").active(true).build());
+        when(positionAdminService.getAssignments(22L)).thenReturn(List.of());
+        var result = controller.createPosition(request);
         assertTrue(Boolean.TRUE.equals(result.isSuccess()));
-        assertEquals(8, result.getData().getTotalCount());
-        assertEquals(2, result.getData().getCreatedCount());
-        assertEquals(3, result.getData().getAdoptedCount());
-        assertEquals(1, result.getData().getUpdatedCount());
-        assertEquals(1, result.getData().getDisabledCount());
+        assertEquals("LOCAL", result.getData().getSource());
+        assertEquals(22L, result.getData().getId());
     }
 
     @Test

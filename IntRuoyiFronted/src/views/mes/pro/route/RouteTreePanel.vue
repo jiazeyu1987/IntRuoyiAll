@@ -131,6 +131,7 @@
   </ContentWrap>
   <RouteTreeDifference v-if="comparison" v-model="differenceVisible" :node="comparison.node" :parent="comparison.parent" />
   <Dialog v-model="groupVisible" title="新增工艺目录" width="540px">
+    <el-alert v-if="groupError" :title="groupError" type="error" :closable="false" />
     <el-form label-width="110px">
       <el-form-item label="目录名称" required><el-input v-model="group.name" aria-label="目录名称" /></el-form-item>
       <el-form-item label="直接父节点">{{ group.parentId ? groupParentName : '顶级目录' }}</el-form-item>
@@ -439,12 +440,14 @@ const load = async () => {
   finally { loading.value = false }
 }
 const groupVisible = ref(false), inheritVisible = ref(false), moveVisible = ref(false)
+const groupError = ref('')
 const groupParentName = ref('')
 const group = reactive<{ name: string; parentId?: MesRouteId; sourceRouteId?: MesRouteId }>({ name: '' })
 const groupNeedsTemplate = computed(() => !group.parentId || !rows.value.find(row => String(row.id) === String(group.parentId))?.activeRouteVersionId)
 const inherit = reactive<{ name: string; dccProjectCodeId?: number; workshopId?: number }>({ name: '' })
 const move = reactive<{ id?: MesRouteId; parentId?: MesRouteId }>({})
 const openGroup = (parent?: RouteTreeNode) => {
+  groupError.value = ''
   Object.assign(group, { name: '', parentId: parent?.id, sourceRouteId: undefined })
   groupParentName.value = parent?.name || ''; groupVisible.value = true
 }
@@ -454,11 +457,27 @@ const run = async (action: () => Promise<void>) => {
   catch (failure) { if (!isRouteConfirmCancel(failure)) message.error(resolveRouteOperationErrorMessage(failure, '操作失败')) }
   finally { saving.value = false }
 }
-const saveGroup = () => run(async () => {
-  if (!group.name.trim() || (groupNeedsTemplate.value && !group.sourceRouteId)) throw new Error('请填写名称并选择初始模板')
-  const id = await RouteTreeApi.group(group); groupVisible.value = false
-  await load(); selected.value = rows.value.find(row => String(row.id) === String(id)); message.success('目录已创建')
-})
+const saveGroup = async () => {
+  if (saving.value) return
+  groupError.value = ''
+  if (!group.name.trim() || (groupNeedsTemplate.value && !group.sourceRouteId)) {
+    groupError.value = '请填写名称并选择初始模板'
+    return
+  }
+  saving.value = true
+  try {
+    const id = await RouteTreeApi.group({ ...group, name: group.name.trim() })
+    groupVisible.value = false
+    await load()
+    selected.value = rows.value.find(row => String(row.id) === String(id))
+    emit('changed')
+    message.success('目录已创建')
+  } catch (failure) {
+    groupError.value = resolveRouteOperationErrorMessage(failure, '目录创建失败')
+  } finally {
+    saving.value = false
+  }
+}
 const renameGroup = () => run(async () => {
   const node = selected.value
   if (!node?.id || node.nodeType !== 'GROUP') throw new Error('请选择目录')

@@ -78,7 +78,7 @@
         />
       </el-form-item>
       <el-form-item label="来源标识" prop="source">
-        <el-input v-model="formData.source" placeholder="例如：IntAuth / 手工维护" />
+        <el-input v-model="formData.source" placeholder="例如：手工维护" />
       </el-form-item>
       <el-form-item label="启用状态" prop="active">
         <el-radio-group v-model="formData.active">

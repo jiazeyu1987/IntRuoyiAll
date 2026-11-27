@@ -48,7 +48,7 @@
         <el-descriptions-item label="上传审批人">
           {{ displayOperationName(detail.uploadApproverName) }}
         </el-descriptions-item>
-        <el-descriptions-item label="上传审批时间（北京时间）">
+        <el-descriptions-item label="首次正式建档时间（北京时间）">
           {{ formatRegistrationCertificateDateTime(detail.uploadApprovedAt, '缺少正式记录') }}
         </el-descriptions-item>
         <el-descriptions-item label="注册证文件">
@@ -187,7 +187,7 @@
                 <dd>{{ displayOperationName(item.renewalApproverName) }}</dd>
               </div>
               <div>
-                <dt>延续审批时间</dt>
+                <dt>延续正式建档时间（北京时间）</dt>
                 <dd>{{ formatRegistrationCertificateDateTime(item.renewalApprovedAt, '缺少正式记录') }}</dd>
               </div>
             </dl>
@@ -296,7 +296,7 @@
               <div><dt>填写人</dt><dd>{{ displayOperationName(item.submittedByName) }}</dd></div>
               <div><dt>填写时间（北京时间）</dt><dd>{{ formatRegistrationCertificateDateTime(item.submittedAt || item.occurredAt) }}</dd></div>
               <div><dt>审批人</dt><dd>{{ displayOperationName(item.reviewedByName) }}</dd></div>
-              <div><dt>审批时间（北京时间）</dt><dd>{{ formatRegistrationCertificateDateTime(item.reviewedAt) }}</dd></div>
+              <div><dt>业务审批处理时间（北京时间）</dt><dd>{{ formatRegistrationCertificateDateTime(item.reviewedAt) }}</dd></div>
               <div><dt>审批结果</dt><dd>{{ formatChangeStatus(item.changeStatus, item.eventType) }}</dd></div>
             </dl>
             <div class="change-history__section-label">变更内容</div>

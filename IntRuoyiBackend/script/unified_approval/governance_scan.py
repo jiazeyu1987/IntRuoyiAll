@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Iterable
 
 
-COMPLIANT_MODULES = ["BPM", "DCC", "EDHR", "SHOWROOM", "SRM", "MES_FEEDBACK"]
+COMPLIANT_MODULES = ["BPM", "DCC", "EDHR", "SHOWROOM", "MES_FEEDBACK"]
 
 
 @dataclass(frozen=True)
@@ -131,7 +131,7 @@ def scan_frontend_contract(frontend_root: Path) -> list[Finding]:
         "APPROVAL_CENTER_VIEW_REQUIRED",
         page_path,
         frontend_root,
-        ["待办", "已办", "我发起的", "抄送我的", "签名待处理", "detailRoute", "detailQuery"],
+        ["待办", "已办", "我发起的", "抄送我的", "SignatureCredentialInput", "row.requiresSignature", "detailRoute", "detailQuery"],
         "Keep the unified approval center tabs, task summary and formal-page routing.",
     )
     require_contains(
@@ -183,15 +183,6 @@ def scan_risk_inventory(backend_root: Path, frontend_root: Path) -> list[Finding
             remediation="Classify whether CRM backlog contains approval tasks; approval tasks must route through /approval-center.",
         ))
 
-    if "SRM" not in retirement_inventory:
-        risks.append(Finding(
-            module="SRM",
-            rule="RETIREMENT_INVENTORY_OUTDATED",
-            severity="MEDIUM",
-            path="docs/engineering/unified-approval-platform-retirement-inventory.md",
-            evidence="Phase5 retirement inventory predates Phase6 SRM onboarding.",
-            remediation="Update retirement/governance report so SRM is listed as compliant in long-term audits.",
-        ))
     return risks
 
 
@@ -322,7 +313,7 @@ def build_operations_checks(backend_root: Path, frontend_root: Path) -> list[Ope
         OperationCheck(
             "sla-reminder-capability-boundary",
             "PASS",
-            "Modules may declare REMINDER only after real SLA/reminder implementation exists; SRM and MES_FEEDBACK intentionally do not declare REMINDER.",
+            "Modules may declare REMINDER only after real SLA/reminder implementation exists; MES_FEEDBACK intentionally does not declare REMINDER.",
         ),
         OperationCheck(
             "stable-period-issue-closure",
@@ -354,11 +345,11 @@ def build_closeout_inventory(backend_root: Path, frontend_root: Path) -> list[Cl
                               "Showroom provider routes unified tasks to /showroom/approval.",
                               "",
                               "Keep approval actions in Showroom formal page."),
-        CloseoutInventoryItem("MODULE", "SRM", "COMPLETED",
-                              "yudao-module-srm/src/main/java/cn/iocoder/yudao/module/srm/approval/SrmSupplierPortalApprovalTaskAdapter.java",
-                              "Supplier portal review is integrated through provider; SRM_DOMAIN_ACTIONS_CLASSIFIED records supplier access, procurement plan and tender expert actions as SRM formal-page domain actions.",
+        CloseoutInventoryItem("MODULE", "SRM", "RETIRED",
+                              "docs/srm/README.md",
+                              "Internal SRM retired on 2026-11-26; supplier management will use a third-party system.",
                               "",
-                              "Only add SRM sourceTaskTypes when a real cross-user approval task queue exists."),
+                              "Preserve historical business and audit data; no internal SRM provider is required."),
         CloseoutInventoryItem("MODULE", "MES_FEEDBACK", "COMPLETED",
                               "yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/approval/MesProFeedbackApprovalTaskAdapter.java",
                               "MES feedback TODO/DONE/MY_INITIATED summaries and timeline are integrated; DECLARED_CAPABILITY_BOUNDARY confirms unimplemented notification, signature, evidence-ledger and reminder capabilities are not declared.",

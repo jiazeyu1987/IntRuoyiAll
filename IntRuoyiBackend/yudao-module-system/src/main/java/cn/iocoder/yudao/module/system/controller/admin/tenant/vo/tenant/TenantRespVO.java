@@ -49,6 +49,9 @@ public class TenantRespVO {
     @Schema(description = "账号数量", requiredMode = Schema.RequiredMode.REQUIRED, example = "1024")
     private Integer accountCount;
 
+    @Schema(description = "是否为登录默认租户")
+    private Boolean defaultLogin;
+
     @Schema(description = "创建时间", requiredMode = Schema.RequiredMode.REQUIRED)
     @ExcelProperty("创建时间")
     private LocalDateTime createTime;

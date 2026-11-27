@@ -37,7 +37,7 @@ public final class DccRouteListFilterSql {
               SELECT candidate.node_id,candidate.ord,
             """+candidateLabel+" AS candidate_label,CASE WHEN "+position+" REGEXP "+technical+" THEN NULL ELSE "+position+" END AS position_label "+"""
               FROM candidate JOIN dcc_category_approval_route_node n ON n.id=candidate.node_id AND n.tenant_id=#{tenant} AND n.deleted=0
-              LEFT JOIN dcc_approval_position p ON p.id=candidate.id AND p.tenant_id=n.tenant_id AND p.deleted=0 AND p.active=1 AND (p.source REGEXP '^INTAUTH:[0-9]+$' OR p.code IN ('LOCAL-ROLE-APPROVER-DEPT','LOCAL-ROLE-AUTH-REP'))
+              LEFT JOIN dcc_approval_position p ON p.id=candidate.id AND p.tenant_id=n.tenant_id AND p.deleted=0 AND p.active=1
               LEFT JOIN user_labels u ON u.id=candidate.id AND u.tenant_id=n.tenant_id
               LEFT JOIN system_dept d ON d.id=candidate.id AND d.tenant_id=n.tenant_id AND d.deleted=0 AND d.status=0
             ), node_candidates AS (

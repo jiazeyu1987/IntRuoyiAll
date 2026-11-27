@@ -1115,15 +1115,6 @@
               v-if="selectedProcessDetailField.key === 'productionProcessConfig' && !isProcessDetailFieldEditable(selectedProcessDetailField.key) && !selectedProcessDetailField.loading && publishedProductionProcessConfigError"
               :title="publishedProductionProcessConfigError" type="error" :closable="false" show-icon
             />
-            <el-input
-              v-if="!publishedProductionProcessConfigError && selectedProcessDetailField.key === 'productionProcessConfig' && !selectedProcessDetailField.loading && !isProcessDetailFieldEditable(selectedProcessDetailField.key)"
-              :model-value="formatPublishedProductionProcessConfig()"
-              data-route-process-setting-field="published-production-process-config-json"
-              aria-label="已发布生产配置，只读"
-              readonly
-              type="textarea"
-              :rows="12"
-            />
             <el-alert
               v-if="selectedProcessDetailField.key === 'deviceParameters' && !selectedProcessDetailField.loading && routeProcessDeviceParameterConfig && !routeProcessDeviceParameterConfig.craftId && selectedRouteProcessDeviceParameterDevices.some((device) => device.parameters?.length)"
               title="已配置参数，未关联工艺库"
@@ -1443,11 +1434,12 @@
                         collapse-tags
                         collapse-tags-tooltip
                         data-route-process-setting-field="batch-record-report"
-                        :disabled="recordBindingEditorDisabled"
+                        :disabled="recordBindingEditorDisabled || !canQueryBatchRecordReports"
+                        :title="canQueryBatchRecordReports ? undefined : '缺少批记录模板查询权限，无法选择批记录表单'"
                         filterable
                         :loading="batchRecordReportOptionsLoading"
                         multiple
-                        placeholder="请选择批记录表单"
+                        :placeholder="canQueryBatchRecordReports ? '请选择批记录表单' : '缺少批记录模板查询权限'"
                         remote
                         reserve-keyword
                         size="small"
@@ -1613,14 +1605,6 @@
                       <span class="route-flow-graph-designer__selected-detail-note">
                         工序增删与配置请使用顶部保存一并提交。
                       </span>
-                      <el-input
-                        :model-value="ensureProductionProcessConfigJsonDraft(selectedNode)"
-                        data-route-process-setting-field="production-process-config-json"
-                        :disabled="recordBindingEditorDisabled"
-                        type="textarea"
-                        :rows="12"
-                        @update:model-value="(value) => updateProductionProcessConfigJsonDraft(selectedNode, String(value))"
-                      />
                     </div>
                     <div
                       v-else-if="selectedProcessDetailField.key === 'deviceParameters'"
@@ -2763,6 +2747,7 @@ const selectedProcessAttributesSaving = ref(false)
 const selectedProcessAttributes = reactive<SelectedProcessAttributes>({})
 const selectedRecordBindings = ref<RouteFlowRecordBinding[]>([])
 const selectedLegacyBatchRecords = ref<RouteFlowLegacyBatchRecord[]>([])
+const canQueryBatchRecordReports = computed(() => checkPermi(['mes:pro-batch-record-template:query']))
 const batchRecordReportOptions = ref<BatchRecordReportSelectOption[]>([])
 const batchRecordReportOptionsLoading = ref(false)
 const routeProcessMaterialOptions = ref<MdItemVO[]>([])
@@ -3657,6 +3642,7 @@ const dedupeBatchRecordReportOptions = (
 }
 
 const loadBatchRecordReportOptions = async (name?: string) => {
+  if (!canQueryBatchRecordReports.value) return
   batchRecordReportOptionsLoading.value = true
   try {
     const data = await BatchRecordReportApi.getGeneratedReportPage({
@@ -3778,14 +3764,6 @@ const publishedProductionProcessConfigError = computed(() => {
   if (!findProductionProcessConfig(selectedRouteProcessId.value)) return '已发布版本缺少当前工序的生产配置，请核对版本数据。'
   return ''
 })
-
-const formatPublishedProductionProcessConfig = () => {
-  const config = findProductionProcessConfig(selectedRouteProcessId.value)
-  if (!config) {
-    throw new Error('已发布生产配置尚未读取，不能显示配置明细。')
-  }
-  return JSON.stringify(config, null, 2)
-}
 
 const updateProductionProcessConfigJsonDraft = (
   node: RouteFlowNodeVO | undefined,
@@ -8663,7 +8641,20 @@ const handleOpenRouteProcessAddDialog = async () => {
 
 const handleRouteProcessAdd = async () => {
   if (!canMutateRouteFlow.value) return
-  await routeProcessFormRef.value?.validate?.()
+  try {
+    await routeProcessFormRef.value?.validate?.()
+  } catch (error) {
+    // Element Plus rejects with the invalid fields map for expected validation failures.
+    if (
+      error && typeof error === 'object' && !(error instanceof Error) &&
+      Object.keys(error).length === 1 && Array.isArray((error as Record<string, unknown>).processId) &&
+      ((error as Record<string, unknown>).processId as any[]).length > 0 &&
+      ((error as Record<string, unknown>).processId as any[]).every(
+        (field) => field?.field === 'processId' && field?.message === '请选择工序'
+      )
+    ) return
+    throw error
+  }
   if (!routeProcessForm.processId) return
   const maxSort = routeNodes.value.reduce((max, node) => Math.max(max, node.sort || 0), 0)
   let process: ProProcessVO | undefined

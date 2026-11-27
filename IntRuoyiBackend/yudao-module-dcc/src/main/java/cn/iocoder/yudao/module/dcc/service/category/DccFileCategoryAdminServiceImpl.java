@@ -37,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertMap;
@@ -47,14 +46,11 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_LIFECYCLE_STAGE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_DIRECTORY_NOT_EXISTS;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.INTAUTH_FILE_CATEGORY_SYNC_AMBIGUOUS;
 
 @Service
 @Validated
 public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminService {
 
-    private static final String INTAUTH_SOURCE_PREFIX = "INTAUTH:";
-    private static final String INTAUTH_CODE_PREFIX = "INTAUTH-";
     private static final String LOCAL_SOURCE = "LOCAL";
 
     @Resource private cn.iocoder.yudao.module.dcc.service.file.DccStorageMappingMutationGuard storageMappingGuard;
@@ -80,8 +76,6 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
     private DccControlledFileMasterMapper controlledFileMasterMapper;
     @Resource
     private DccControlledFileUploadPolicyMapper uploadPolicyMapper;
-    @Resource
-    private DccIntAuthFileCategoryClient intAuthFileCategoryClient;
     @Resource
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
 
@@ -179,60 +173,6 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public DccFileCategoryImportResult importCategoriesFromIntAuth() {
-        List<DccIntAuthFileCategoryClient.IntAuthFileCategory> intAuthCategories = intAuthFileCategoryClient.listFileCategories();
-        List<DccFileCategoryDO> localCategories = categoryMapper.selectList();
-        localCategories.forEach(category -> DccFileCategoryDO.requireApprovalSourceMode(category.getApprovalSourceMode()));
-        Map<Long, DccFileCategoryDO> mappedCategories = buildMappedCategories(localCategories);
-        Map<String, List<DccFileCategoryDO>> unmappedCategoriesByName = localCategories.stream()
-                .filter(item -> parseIntAuthSourceId(item.getSource()) == null)
-                .collect(Collectors.groupingBy(item -> normalizeName(item.getName())));
-        Set<String> localCodes = localCategories.stream()
-                .map(DccFileCategoryDO::getCode)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        int nextSort = localCategories.stream()
-                .map(DccFileCategoryDO::getSort)
-                .filter(Objects::nonNull)
-                .max(Integer::compareTo)
-                .orElse(0);
-        int createdCount = 0;
-        int adoptedCount = 0;
-        int updatedCount = 0;
-
-        for (DccIntAuthFileCategoryClient.IntAuthFileCategory intAuthCategory : intAuthCategories) {
-            DccFileCategoryDO mappedCategory = mappedCategories.get(intAuthCategory.id());
-            if (mappedCategory != null) {
-                updateImportedCategory(mappedCategory, intAuthCategory);
-                updatedCount++;
-                continue;
-            }
-
-            List<DccFileCategoryDO> sameNameCategories = unmappedCategoriesByName
-                    .getOrDefault(normalizeName(intAuthCategory.name()), List.of());
-            if (sameNameCategories.size() > 1) {
-                throw exception(INTAUTH_FILE_CATEGORY_SYNC_AMBIGUOUS, intAuthCategory.name());
-            }
-            if (sameNameCategories.size() == 1) {
-                adoptExistingLocalCategory(sameNameCategories.get(0), intAuthCategory);
-                adoptedCount++;
-                continue;
-            }
-
-            String generatedCode = buildIntAuthCode(intAuthCategory.id());
-            if (localCodes.contains(generatedCode)) {
-                throw exception(INTAUTH_FILE_CATEGORY_SYNC_AMBIGUOUS, generatedCode);
-            }
-            createImportedCategory(intAuthCategory, ++nextSort, generatedCode);
-            localCodes.add(generatedCode);
-            createdCount++;
-        }
-
-        return new DccFileCategoryImportResult(intAuthCategories.size(), createdCount, adoptedCount, updatedCount);
-    }
-
-    @Override
     public Map<Long, Long> getCategoryDirectoryBindingMap() {
         return convertMap(bindingMapper.selectList(DccCategoryDirectoryBindingDO::getActive, Boolean.TRUE),
                 DccCategoryDirectoryBindingDO::getCategoryId, DccCategoryDirectoryBindingDO::getDirectoryId);
@@ -289,60 +229,6 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
                 || uploadPolicyMapper.selectCount(DccControlledFileUploadPolicyDO::getCategoryId, id) > 0) {
             throw exception(FILE_CATEGORY_DELETE_RELATION_EXISTS);
         }
-    }
-
-    private Map<Long, DccFileCategoryDO> buildMappedCategories(List<DccFileCategoryDO> localCategories) {
-        Map<Long, List<DccFileCategoryDO>> groupedBySourceId = localCategories.stream()
-                .filter(item -> parseIntAuthSourceId(item.getSource()) != null)
-                .collect(Collectors.groupingBy(item -> parseIntAuthSourceId(item.getSource())));
-        groupedBySourceId.forEach((sourceId, categories) -> {
-            if (categories.size() > 1) {
-                throw exception(INTAUTH_FILE_CATEGORY_SYNC_AMBIGUOUS, String.valueOf(sourceId));
-            }
-        });
-        return groupedBySourceId.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get(0)));
-    }
-
-    private void updateImportedCategory(DccFileCategoryDO existingCategory,
-                                        DccIntAuthFileCategoryClient.IntAuthFileCategory intAuthCategory) {
-        categoryMapper.updateById(DccFileCategoryDO.builder()
-                .id(existingCategory.getId())
-                .name(intAuthCategory.name())
-                .active(intAuthCategory.active())
-                .source(buildIntAuthSource(intAuthCategory.id()))
-                .lifecycleStage(resolveLifecycleStageForCategory(existingCategory.getCode(), intAuthCategory.name()))
-                .build());
-    }
-
-    private void adoptExistingLocalCategory(DccFileCategoryDO existingCategory,
-                                            DccIntAuthFileCategoryClient.IntAuthFileCategory intAuthCategory) {
-        categoryMapper.updateById(DccFileCategoryDO.builder()
-                .id(existingCategory.getId())
-                .name(intAuthCategory.name())
-                .active(intAuthCategory.active())
-                .source(buildIntAuthSource(intAuthCategory.id()))
-                .lifecycleStage(resolveLifecycleStageForCategory(existingCategory.getCode(), intAuthCategory.name()))
-                .build());
-    }
-
-    private void createImportedCategory(DccIntAuthFileCategoryClient.IntAuthFileCategory intAuthCategory,
-                                        int sort, String code) {
-        DccFileCategoryDO category = DccFileCategoryDO.builder()
-                .code(code)
-                .name(intAuthCategory.name())
-                .approvalSourceMode("PUBLIC_MATRIX")
-                .parentId(null)
-                .active(intAuthCategory.active())
-                .sort(sort)
-                .source(buildIntAuthSource(intAuthCategory.id()))
-                .remark("Imported from IntAuth")
-                .description(null)
-                .lifecycleStage(resolveLifecycleStageForCategory(code, intAuthCategory.name()))
-                .distributionRequired(Boolean.TRUE)
-                .trainingRequired(Boolean.TRUE)
-                .build();
-        categoryMapper.insert(category);
     }
 
     private void applyLifecycleStageFromFileTypeTaxonomy(DccFileCategoryDO category) {
@@ -476,26 +362,4 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
         }
     }
 
-    private Long parseIntAuthSourceId(String source) {
-        if (source == null || !source.startsWith(INTAUTH_SOURCE_PREFIX)) {
-            return null;
-        }
-        try {
-            return Long.parseLong(source.substring(INTAUTH_SOURCE_PREFIX.length()));
-        } catch (NumberFormatException ex) {
-            throw exception(INTAUTH_FILE_CATEGORY_SYNC_AMBIGUOUS, source);
-        }
-    }
-
-    private String buildIntAuthSource(Long sourceId) {
-        return INTAUTH_SOURCE_PREFIX + sourceId;
-    }
-
-    private String buildIntAuthCode(Long sourceId) {
-        return INTAUTH_CODE_PREFIX + sourceId;
-    }
-
-    private String normalizeName(String name) {
-        return name == null ? "" : name.trim();
-    }
 }

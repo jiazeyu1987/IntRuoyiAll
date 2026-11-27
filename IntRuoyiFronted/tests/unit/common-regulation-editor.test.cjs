@@ -49,7 +49,7 @@ test('editing a published regulation creates a new version and preserves equipme
   const payload = normalizeCommonEditorDraft(draft)
   assert.equal(payload.processes[0].items[0].equipmentOptions[0].equipmentNumber, 'N8')
   assert.equal(payload.processes[0].items[0].sourceOriginalPage, 3)
-  assert.equal(commonEditorIssues(payload).length, 0)
+  assert.equal(commonEditorIssues(payload, original.regulationCode).length, 0)
   assert.equal('commonRegulationVersionIds' in payload, false)
 })
 test('resuming a draft preserves its version and concurrency revision', () => {
@@ -68,7 +68,7 @@ test('common editor preserves patrol matrix sampling and keeps AQL when patrol i
   const patrol = normalizeCommonEditorDraft(draft).processes[0].items[0]
   assert.equal(patrol.inspectionLevel, 'S3')
   assert.equal(patrol.aql, 0.4)
-  assert.equal(commonEditorIssues(draft).length, 0)
+  assert.equal(commonEditorIssues(draft, version().regulationCode).length, 0)
   draft.processes[0].items[0].applicableInspectionTypes = ['FIRST']
   const firstOnly = normalizeCommonEditorDraft(draft).processes[0].items[0]
   assert.equal(firstOnly.inspectionLevel, undefined)
@@ -80,9 +80,16 @@ test('validation rejects incomplete equipment snapshots, duplicate item codes an
   draft.processes[0].items[0].equipmentOptions[0].equipmentNumber = ''
   assert.ok(commonEditorIssues(draft).some(message => message.includes('设备编号')), JSON.stringify(commonEditorIssues(draft)))
   draft.processes[0].items[0].equipmentOptions = []
-  assert.equal(commonEditorIssues(draft).length, 0)
+  assert.equal(commonEditorIssues(draft, version().regulationCode).length, 0)
   draft.processes[0].items.push({...draft.processes[0].items[0]})
   assert.ok(commonEditorIssues(draft).some(message => message.includes('检验项目编码')))
   draft.finalInspectionApplicable = true
-  assert.ok(commonEditorIssues(draft).some(message => message.includes('末检项目')))
+  assert.ok(commonEditorIssues(draft, version().regulationCode).some(message => message.includes('末检项目')))
+})
+
+test('common editor rejects changes to an existing regulation code against loaded baseline', () => {
+  const original = version()
+  const draft = createCommonEditorDraft(original, options)
+  draft.regulationCode = 'TEST-CODE'
+  assert.ok(commonEditorIssues(draft, original.regulationCode).some(message => message.includes('编号不可修改')))
 })

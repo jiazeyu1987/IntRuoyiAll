@@ -18,7 +18,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemTypeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.unitmeasure.MesMdUnitMeasureDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
-import cn.iocoder.yudao.module.mes.enums.md.MesMdItemTypeEnum;
 import cn.iocoder.yudao.module.mes.enums.wm.BarcodeBizTypeEnum;
 import cn.iocoder.yudao.module.mes.service.md.unitmeasure.MesMdUnitMeasureService;
 import cn.iocoder.yudao.module.mes.service.wm.barcode.MesWmBarcodeService;
@@ -114,13 +113,6 @@ public class MesMdItemServiceImpl implements MesMdItemService {
             // 如果启用了批次管理，校验批次属性配置
             if (Boolean.TRUE.equals(item.getBatchFlag())) {
                 validateBatchConfigExists(id);
-            }
-            // 如果是产品类型，校验必须配置 BOM
-            MesMdItemTypeDO itemType = itemTypeService.getItemType(item.getItemTypeId());
-            if (MesMdItemTypeEnum.isProduct(itemType.getItemOrProduct())) {
-                if (CollUtil.isEmpty(productBomService.getProductBomListByItemId(id))) {
-                    throw exception(MD_ITEM_PRODUCT_BOM_REQUIRED);
-                }
             }
         }
 

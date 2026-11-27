@@ -41,13 +41,56 @@ function harness() {
 }
 const form = (tenantName, username, rememberMe = false) => ({ tenantName, username, password: '', rememberMe })
 
-test('first visit has no default tenant, username or password', () => {
+test('first visit starts empty before loading the configured default tenant', () => {
   const h = harness()
   const page = h.mount()
   assert.deepEqual({ ...page.loginData.loginForm }, form('', ''))
   assert.doesNotMatch(source, /VITE_APP_DEFAULT_LOGIN_TENANT|getTenantByWebsite/)
   assert.doesNotMatch(descriptor.template.content, /@visible-change=/)
   h.stop()
+})
+
+const loadTenantSource = ast.statements.find(statement =>
+  ts.isVariableStatement(statement) && statement.declarationList.declarations.some(declaration =>
+    declaration.name.getText(ast) === 'loadTenantOptions'
+  )
+).getText(ast)
+
+async function loadTenants(tenantName, getTenantList) {
+  const loginData = { tenantEnable: 'true', loginForm: form(tenantName, '') }
+  const tenantOptions = vue.ref([])
+  const tenantListLoading = vue.ref(false)
+  const loginErrorMessage = vue.ref('')
+  const load = Function('loginData', 'tenantOptions', 'tenantListLoading', 'loginErrorMessage', 'getTenantList', 'resolveLoginErrorMessage',
+    compile(loadTenantSource) + '; return loadTenantOptions'
+  )(loginData, tenantOptions, tenantListLoading, loginErrorMessage, getTenantList, error => error.message)
+  await load()
+  return { loginData, tenantOptions, tenantListLoading, loginErrorMessage }
+}
+
+test('fresh browser selects the configured default and leaves credentials empty', async () => {
+  const result = await loadTenants('', async () => [
+    { id: 2, name: '普通租户', defaultLogin: false },
+    { id: 1, name: '芋道源码', defaultLogin: true }
+  ])
+  assert.deepEqual(result.loginData.loginForm, form('芋道源码', ''))
+  assert.equal(result.tenantListLoading.value, false)
+})
+
+test('administrator can change the default without overriding browser history', async () => {
+  const options = async () => [{ id: 2, name: '新默认租户', defaultLogin: true }]
+  assert.equal((await loadTenants('', options)).loginData.loginForm.tenantName, '新默认租户')
+  assert.equal((await loadTenants('历史租户', options)).loginData.loginForm.tenantName, '历史租户')
+})
+
+test('missing default or failed tenant request shows an error without inventing a tenant', async () => {
+  const missing = await loadTenants('', async () => [{ id: 2, name: '普通租户', defaultLogin: false }])
+  assert.equal(missing.loginData.loginForm.tenantName, '')
+  assert.match(missing.loginErrorMessage.value, /未配置登录默认租户/)
+  const failed = await loadTenants('', async () => { throw new Error('服务不可达') })
+  assert.equal(failed.loginData.loginForm.tenantName, '')
+  assert.equal(failed.loginErrorMessage.value, '服务不可达')
+  assert.equal(failed.tenantListLoading.value, false)
 })
 
 for (const username of ['admin', 'aoteman', 'production-user']) {

@@ -14,7 +14,7 @@ const apiSource = fs.readFileSync(
 
 assert.match(
   apiSource,
-  /getPublishedQaRegulationVersion:\s*async\s*\(\s*dccProjectCodeId: number,\s*versionId\?: number\s*\):\s*Promise<QaInspectionRegulationPublishedVersionVO>/,
+  /getPublishedQaRegulationVersion:\s*async\s*\(\s*dccProjectCodeId: number(?: \| string)?,\s*versionId\?: number\s*\):\s*Promise<QaInspectionRegulationPublishedVersionVO>/,
   'The published QA regulation reader must expose its formal response type.'
 )
 
@@ -74,12 +74,12 @@ assert.match(
 )
 assert.match(
   pageSource,
-  /status\?\.lifecycleStatus !== 'PUBLISHED'[\s\S]*getPublishedQaRegulationVersion\(\s*dccProjectCodeId\s*\)/,
+  /!status\?\.productionReady && !status\?\.currentVersionId[\s\S]*getPublishedQaRegulationVersion\(\s*dccProjectCodeId\s*\)/,
   'The loader must query the latest PUBLISHED version at request time without pinning a status snapshot version ID.'
 )
 assert.match(
   pageSource,
-  /publishedVersion\.dccProjectCodeId !== dccProjectCodeId[\s\S]*publishedVersion\.lifecycleStatus !== 'PUBLISHED'/,
+  /resolveDccProjectId\(publishedVersion\.dccProjectCodeId\) !== dccProjectCodeId[\s\S]*publishedVersion\.lifecycleStatus !== 'PUBLISHED'/,
   'The loader must fail fast when the latest published-version response does not match the selected DCC state.'
 )
 assert.doesNotMatch(
@@ -89,7 +89,7 @@ assert.doesNotMatch(
 )
 assert.match(
   pageSource,
-  /const selectDccProjectCode = async[\s\S]*loadCurrentQaRegulation\(dccProjectCodeId\),[\s\S]*loadCurrentPublishedQaRegulationVersion\(project\)/,
+  /const selectDccProjectCode = async[\s\S]*loadCurrentQaRegulation\(dccProjectCodeId\)[\s\S]*loadCurrentPublishedQaRegulationVersion\(project\)/,
   'Changing the DCC project must refresh the current published version.'
 )
 assert.match(

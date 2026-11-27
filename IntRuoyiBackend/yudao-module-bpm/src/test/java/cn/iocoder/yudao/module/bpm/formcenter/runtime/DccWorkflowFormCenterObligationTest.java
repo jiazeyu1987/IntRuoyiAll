@@ -13,6 +13,12 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DccWorkflowFormCenterObligationTest {
+    @org.junit.jupiter.api.BeforeEach void setTenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+    }
+    @org.junit.jupiter.api.AfterEach void clearTenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+    }
     @Test
     void obsoletePreservesTwoDepartmentObligationsForTheSameLeader() {
         var request = request("[51,52]");
@@ -28,15 +34,39 @@ class DccWorkflowFormCenterObligationTest {
     }
 
     private BpmProcessInstanceCreateReqDTO request(String ids) {
+        return request(ids, "[51,52]", List.of(99L,99L), List.of(99L,99L));
+    }
+
+    private BpmProcessInstanceCreateReqDTO request(String ids, String routeIds,
+                                                  List<Long> routeLeaders, List<Long> startLeaders) {
         var instance = new FormActionInstanceDO();
         instance.setId(7L);
         instance.setInstanceCode("F-7");
         instance.setObjectId("900");instance.setObjectVersion("A/2");
         instance.setBusinessContextJson("{\"systemCode\":\"DCC\",\"objectType\":\"CONTROLLED_FILE\",\"actionCode\":\"OBSOLETE\",\"tenantId\":1}");
-        instance.setFormDataJson("{\"controlledFileId\":900,\"fileCode\":\"SOP-1\",\"fileVersion\":\"A/2\",\"dccSignoffDepartmentIds\":"+ids+"}");
+        String route = "{\"nodes\":[{\"stageCode\":\"MATRIX_REVIEW\",\"candidateSourceType\":\"DEPT\","
+                + "\"candidateSourceIds\":"+routeIds+",\"resolvedUserIds\":"+routeLeaders+"}]}";
+        instance.setFormDataJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(Map.of(
+                "controlledFileId",900L,"fileCode","SOP-1","fileVersion","A/2",
+                "dccSignoffDepartmentIds",cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(ids,List.class),
+                "dccExecutionPreparation",Map.of("runtimeApprovalNodesJson",route))));
         var policy = FormActionPolicy.builder().bpmProcessKey("dcc-controlled-file-obsolete").build();
         return ReflectionTestUtils.invokeMethod(new FormCenterRuntimeServiceImpl(),"buildBpmRequest",
-                instance,policy,Map.of("MATRIX_REVIEW",List.of(99L,99L)),Map.of("MATRIX_APPROVAL",List.of(100L)));
+                instance,policy,Map.of("MATRIX_REVIEW",startLeaders),Map.of("MATRIX_APPROVAL",List.of(100L)));
+    }
+
+    @Test void obligationsFollowFrozenDepartmentLeaderOrderRatherThanSelectionOrder() {
+        var result=request("[912208,912185,912189]", "[912185,912189,912208]",
+                List.of(2413L,966L,1170L),List.of(2413L,966L,1170L));
+        assertEquals(Map.of("MATRIX_REVIEW",List.of("form-7:MATRIX_REVIEW:912185",
+                        "form-7:MATRIX_REVIEW:912189","form-7:MATRIX_REVIEW:912208")),
+                result.getVariables().get(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_DCC_TASK_OBLIGATION_IDS));
+        assertEquals(List.of(2413L,966L,1170L),result.getStartUserSelectAssignees().get("MATRIX_REVIEW"));
+    }
+
+    @Test void changedFrozenDepartmentsOrLeadersCannotStartWorkflow() {
+        assertThrows(IllegalArgumentException.class,()->request("[51,52]","[51,53]",List.of(99L,100L),List.of(99L,100L)));
+        assertThrows(IllegalArgumentException.class,()->request("[51,52]","[51,52]",List.of(99L,100L),List.of(100L,99L)));
     }
     @Test void obsoleteNotificationIdentityComesFromFrozenFileFacts() {
         var result=request("[51,52]");

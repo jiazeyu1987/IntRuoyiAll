@@ -69,7 +69,7 @@ async function testRoute() {
  }
 }
 async function testResponses() {
- for (const rel of ['erp/purchase/order','erp/purchase/in','erp/purchase/return','erp/sale/order','erp/sale/out','erp/sale/return','mes/wm/salesnotice','srm/purchase-order']) {
+ for (const rel of ['erp/purchase/order','erp/purchase/in','erp/purchase/return','erp/sale/order','erp/sale/out','erp/sale/return','mes/wm/salesnotice']) {
   const source=read(`src/views/${rel}/index.vue`).replace(/\r/g,'')
   const body=source.match(/const getList = async[^]*?\n}/)[0]
   const api=body.match(/await (\w+)\.(\w+)\(/)
@@ -83,7 +83,7 @@ async function testResponses() {
  }
 }
 async function testAdditionalReceivers() {
- for(const [rel,path,field] of [['mes/wm/salesnotice','/mes/wm/sales-notice','code'],['srm/purchase-order','/srm/purchase-order','orderNo']]){
+ for(const [rel,path,field] of [['mes/wm/salesnotice','/mes/wm/sales-notice','code']]){
   const source=read(`src/views/${rel}/index.vue`).replace(/\r/g,'')
   const body=source.match(/const receiveDocumentCodeLink = \(\) => \{[^]*?\n}/)[0]
   const calls=[],context={structuredClone,documentSequence:0,documentRoute:{path,query:{code:' A 中文 '}},documentDefaults:{pageNo:1,status:undefined,dates:[]},queryParams:{pageNo:9,status:'old',dates:['old']},queryFormRef:{value:{resetFields(){}}},getList:()=>calls.push({...context.queryParams})}
@@ -99,7 +99,7 @@ async function testWrapper() {
  const {descriptor}=compiler.parse(read('src/components/BusinessDocumentCodeLink.vue'))
  const script=compiler.compileScript(descriptor,{id:'wrapper',inlineTemplate:true}),exports={}
  vm.runInNewContext(transpile(script.content),{exports,require:name=>name==='./BusinessCodeLink.vue'?{default:vue.defineComponent({props:['code','permission','to'],setup:props=>()=>vue.h('probe',{...props})})}:name==='@/utils/documentCodeLink'?{documentTargets:targets}:require(name)})
- assert.equal(Object.keys(targets).length,8)
+ assert.equal(Object.keys(targets).length,7)
  for(const [documentType,target] of Object.entries(targets)){
   const container={children:[]},app=renderer.createApp(exports.default,{documentType,code:' CODE 中文 ',documentId:'90071992547409931'});app.mount(container);const props=container.children[0].props;assert.equal(props.permission,target.permission);assert.equal(props.to.path,target.path);assert.equal(props.to.query.code,'CODE 中文');assert.equal(props.to.query.openId,'90071992547409931');app.unmount()
  }

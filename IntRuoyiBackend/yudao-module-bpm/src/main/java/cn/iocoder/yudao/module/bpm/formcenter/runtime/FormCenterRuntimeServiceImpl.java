@@ -1208,6 +1208,9 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
             if (new java.util.HashSet<>(departments).size() != departments.size()
                     || departments.stream().anyMatch(id -> !id.matches("[1-9][0-9]*")))
                 throw new IllegalArgumentException("DCC 作废会签部门身份重复或无效");
+            // Task loop indices follow the frozen route, which may sort departments differently
+            // from the applicant's selection. Bind obligations in that same frozen order.
+            departments = obsoleteRuntimeDepartments(data, departments, leaders);
             variables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_DCC_TASK_OBLIGATION_IDS,
                     Map.of("MATRIX_REVIEW",departments.stream()
                             .map(id -> "form-"+instance.getId()+":MATRIX_REVIEW:"+id).toList()));
@@ -1224,6 +1227,29 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         }
         reqDTO.setVariables(variables);
         return reqDTO;
+    }
+
+    private List<String> obsoleteRuntimeDepartments(Map<String, Object> data, List<String> selected,
+                                                    List<Long> leaders) {
+        if (!(data.get("dccExecutionPreparation") instanceof Map<?, ?> preparation)
+                || !(preparation.get("runtimeApprovalNodesJson") instanceof String json))
+            throw new IllegalArgumentException("DCC 作废缺少冻结审批路线");
+        Map<?, ?> runtime = JsonUtils.parseObject(json, Map.class);
+        if (runtime == null || !(runtime.get("nodes") instanceof List<?> nodes))
+            throw new IllegalArgumentException("DCC 作废冻结审批路线无效");
+        List<?> reviews = nodes.stream().filter(node -> node instanceof Map<?, ?> row
+                && "MATRIX_REVIEW".equals(row.get("stageCode"))).toList();
+        if (reviews.size() != 1 || !(reviews.get(0) instanceof Map<?, ?> review)
+                || !"DEPT".equals(review.get("candidateSourceType"))
+                || !(review.get("candidateSourceIds") instanceof List<?> ids)
+                || !(review.get("resolvedUserIds") instanceof List<?> users))
+            throw new IllegalArgumentException("DCC 作废缺少冻结部门与负责人对应关系");
+        List<String> ordered = ids.stream().map(String::valueOf).toList();
+        if (ordered.size() != selected.size()
+                || !new java.util.HashSet<>(ordered).equals(new java.util.HashSet<>(selected))
+                || !users.stream().map(String::valueOf).toList().equals(leaders.stream().map(String::valueOf).toList()))
+            throw new IllegalArgumentException("DCC 作废会签名单与冻结审批路线不一致");
+        return ordered;
     }
 
     private FormActionInstanceDO requireInstance(Long instanceId) {

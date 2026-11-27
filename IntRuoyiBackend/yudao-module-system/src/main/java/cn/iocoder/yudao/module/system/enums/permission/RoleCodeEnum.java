@@ -19,7 +19,6 @@ public enum RoleCodeEnum {
     BPM_ADMIN("bpm_admin", "BPM管理员"),
     APPROVAL_ADMIN("approval_admin", "审批中心管理员"),
     AUDIT_ADMIN("audit_admin", "审计管理员"),
-    SRM_ADMIN("srm_admin", "SRM管理员"),
     PUHUI_SCHEDULE_ADMIN("mes_puhui_schedule_admin", "璞慧排产管理员"),
     CRM_ADMIN("crm_admin", "CRM 管理员"); // CRM 系统专用
     ;

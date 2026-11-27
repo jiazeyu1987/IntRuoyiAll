@@ -80,9 +80,16 @@
           <el-form-item label="文件编号"
             ><el-input
               v-model="draft.regulationCode"
+              :readonly="!!draft.regulationId"
               data-issue-field="regulationCode"
               aria-label="文件编号"
-          /></el-form-item>
+          /><div v-if="draft.regulationId">既有通用规程编号不可修改：{{ existingRegulationCode }}</div>
+            <el-button
+              v-if="draft.regulationId && existingRegulationCode && draft.regulationCode.trim() !== existingRegulationCode"
+              :disabled="busy || published"
+              @click="restoreExistingRegulationCode"
+            >恢复既有编号</el-button>
+          </el-form-item>
           <el-form-item label="发布版本"
             ><el-input v-model="draft.versionNo" data-issue-field="versionNo" aria-label="发布版本"
           /></el-form-item>
@@ -512,10 +519,24 @@ const equipmentEditor = ref<{ $el: HTMLElement }>()
 const pendingIssue = ref<DraftIssue>()
 const process = computed(() => draft.value?.processes[processIndex.value])
 const item = computed(() => process.value?.items[itemIndex.value])
+const existingRegulationCode = ref<string>()
+function restoreExistingRegulationCode() {
+  if (busy.value || published.value) return
+  if (!draft.value?.regulationId || !existingRegulationCode.value)
+    throw new Error('既有通用规程编号尚未核实，请重新导入')
+  draft.value.regulationCode = existingRegulationCode.value
+}
+async function loadExistingRegulationCode(value: Draft) {
+  if (!value.regulationId) return undefined
+  const existing = await QcTemplateApi.getCommonRegulationEditorVersion(value.regulationId)
+  if (String(existing.regulationId) !== String(value.regulationId) || !existing.regulationCode?.trim())
+    throw new Error('既有通用规程身份核实失败，请重新导入')
+  return existing.regulationCode.trim()
+}
 const issues = computed(() =>
   draft.value
     ? [
-        ...validateCommonDraft(draft.value),
+        ...validateCommonDraft(draft.value, existingRegulationCode.value),
         ...(!draft.value.versionNo.trim()
           ? [{ message: '请填写发布版本', field: 'metadata' as const, target: 'versionNo' }]
           : [])
@@ -624,7 +645,9 @@ async function importWord(upload: UploadFile) {
       )
       parsed.expectedDraftRevision = 0
     }
+    const existingCode = await loadExistingRegulationCode(parsed)
     await loadResources()
+    existingRegulationCode.value = existingCode
     draft.value = parsed
     published.value = false
     publishedResult.value = undefined
@@ -803,12 +826,14 @@ async function restoreLocal() {
       throw new Error('草稿内容无效')
     if (saved.published && !saved.publishedResult?.publishedVersionId)
       throw new Error('已发布草稿缺少正式结果，请重新导入文档后发布')
+    const existingCode = await loadExistingRegulationCode(saved.draft)
     await loadResources()
     projects.value = await getSimpleParserProjects()
     if (saved.projectId && !projects.value.some((project) => project.id === saved.projectId))
       throw new Error('草稿参考项目不存在或已停用，请重新选择项目')
     projectId.value = saved.projectId
     draft.value = saved.draft
+    existingRegulationCode.value = existingCode
     delete draft.value!.dccProjectCodeId
     viewMode.value = 'edit'
     published.value = saved.published

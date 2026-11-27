@@ -9,8 +9,12 @@ export interface DraftIssue {
   target?: string
 }
 
-export function validateCommonDraft(draft: SimpleCommonDraft): DraftIssue[] {
+export function validateCommonDraft(draft: SimpleCommonDraft, existingCode?: string): DraftIssue[] {
   const errors: DraftIssue[] = []
+  if (draft.regulationId && !existingCode)
+    errors.push({ message: '既有通用规程编号尚未核实，请重新导入', field: 'metadata', target: 'regulationCode' })
+  else if (existingCode && draft.regulationCode.trim() !== existingCode)
+    errors.push({ message: `既有通用规程文件编号不可修改，请恢复为 ${existingCode}`, field: 'metadata', target: 'regulationCode' })
   for (const [key, label] of [
     ['regulationName', '规程名称'],
     ['regulationCode', '文件编号']

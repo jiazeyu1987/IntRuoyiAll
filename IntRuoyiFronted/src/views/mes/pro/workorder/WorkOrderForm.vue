@@ -380,7 +380,7 @@ const handleSyncErpBom = async () => {
   }
 }
 
-const open = async (type: string, id?: number, parentRow?: any) => {
+const open = async (type: string, id?: number | string, parentRow?: any) => {
   dialogVisible.value = true
   formType.value = type
   activeTab.value = 'bom'

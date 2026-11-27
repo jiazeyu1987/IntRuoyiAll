@@ -16,9 +16,12 @@ import cn.iocoder.yudao.module.bpm.controller.admin.businessapproval.vo.Business
 import cn.iocoder.yudao.module.bpm.controller.admin.businessapproval.vo.BusinessApprovalPolicySwitchModeReqVO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.businessapproval.BusinessApprovalPolicyDO;
 import cn.iocoder.yudao.module.bpm.dal.mysql.businessapproval.BusinessApprovalPolicyMapper;
+import cn.iocoder.yudao.module.bpm.formcenter.service.FormBusinessEffectExecutor;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
@@ -30,6 +33,8 @@ public class BusinessApprovalPolicyAdministrationService {
     private BusinessApprovalPolicyMapper policyMapper;
     @Resource
     private BusinessApprovalEffectExecutorRegistry executorRegistry;
+    @Autowired
+    private ObjectProvider<FormBusinessEffectExecutor> formEffectExecutors;
     @Resource
     private AdminUserApi adminUserApi;
     @Resource
@@ -87,7 +92,7 @@ public class BusinessApprovalPolicyAdministrationService {
     public void publishPolicy(Long policyId) {
         BusinessApprovalPolicyDO policy = requirePolicy(policyId);
         BusinessApprovalPolicyMode mode = parseMode(policy.getPolicyMode());
-        executorRegistry.requireExecutor(policy.getEffectExecutorCode());
+        executorRegistry.requirePolicyExecutor(policy.getEffectExecutorCode(), formEffectExecutors.orderedStream().toList());
         if (mode == BusinessApprovalPolicyMode.BPM_REQUIRED && StrUtil.isBlank(policy.getProcessDefinitionKey())) {
             throw new BusinessApprovalException(
                     BusinessApprovalErrorCode.BUSINESS_APPROVAL_PROCESS_DEFINITION_MISSING,
@@ -130,7 +135,7 @@ public class BusinessApprovalPolicyAdministrationService {
         }
         String signaturePassword = StrUtil.trim(reqVO.getSignaturePassword());
         String processDefinitionKey = resolveSwitchProcessDefinitionKey(sourcePolicy, targetMode);
-        executorRegistry.requireExecutor(sourcePolicy.getEffectExecutorCode());
+        executorRegistry.requirePolicyExecutor(sourcePolicy.getEffectExecutorCode(), formEffectExecutors.orderedStream().toList());
         sourcePolicy.setStatus(BusinessApprovalPolicy.STATUS_DISABLED);
         policyMapper.updateById(sourcePolicy);
 

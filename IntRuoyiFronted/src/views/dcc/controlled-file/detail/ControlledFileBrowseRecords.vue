@@ -49,6 +49,8 @@
         <div><dt>文件编制人</dt><dd>{{ file.fileOwnerNicknameSnapshot || file.fileOwnerUsernameSnapshot || '未记录' }}</dd></div>
         <div v-if="file.submittedTime"><dt>申请时间</dt><dd>{{ formatControlledFileDateTime(file.submittedTime) }}</dd></div>
         <div v-if="file.effectiveMode"><dt>申请生效方式</dt><dd>{{ effectiveness.modeText }}</dd></div>
+        <div><dt>{{ effectiveness.effectiveLabel }}</dt><dd>{{ effectiveness.effectiveText }}</dd></div>
+        <div><dt>日常启用时间</dt><dd>{{ effectiveness.activatedText }}</dd></div>
       </dl>
       <DetailApplicationHistory v-if="hasRelationApplicationContext" :key="relationApplicationContextKey"
         display-mode="controlled-overview"
@@ -60,8 +62,11 @@
           <div><dt>文件编制人</dt><dd>{{ file.fileOwnerNicknameSnapshot || file.fileOwnerUsernameSnapshot || '未记录' }}</dd></div>
           <div v-if="selectedRound || file.submittedTime"><dt>申请时间</dt><dd>{{ formatControlledFileDateTime(selectedRound ? selectedRound.applicationTime : file.submittedTime) }}</dd></div>
           <div v-if="file.effectiveMode"><dt>申请生效方式</dt><dd>{{ effectiveness.modeText }}</dd></div>
+          <div><dt>{{ effectiveness.effectiveLabel }}</dt><dd>{{ effectiveness.effectiveText }}</dd></div>
+          <div><dt>日常启用时间</dt><dd>{{ effectiveness.activatedText }}</dd></div>
         </template>
       </DetailApplicationHistory>
+      <p v-if="effectiveness.activationPendingText" role="status">{{ effectiveness.activationPendingText }}</p>
     </section>
     <section v-if="file.revisionChangeType && file.revisionChangeType !== 'INITIAL' || file.changeDescription" class="controlled-detail-card">
       <h3>本次变更</h3>

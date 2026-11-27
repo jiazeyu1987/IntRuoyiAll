@@ -73,7 +73,6 @@ import static cn.iocoder.yudao.module.system.dal.redis.RedisKeyConstants.FENBEIT
 @Slf4j
 public class AuthController {
 
-    private static final String SRM_ROOT_PATH = "/srm";
     private static final String ADMIN_USERNAME = "admin";
     private static final String DCC_ADMIN_MENU_PATH = "controlled-file/admin";
     private static final String DCC_ADMIN_MENU_COMPONENT_NAME = "DccControlledFileAdmin";
@@ -182,10 +181,9 @@ public class AuthController {
         grantedMenuIds.retainAll(convertSet(permissionMenuList, MenuDO::getId));
         List<MenuDO> menuList = menuService.filterDisableMenus(getEnabledMenuList(
                 expandMenuIdsWithParents(permissionMenuList)));
-        if (!TenantAdminBusinessPolicy.isTenantAdmin(roles) && roles.stream().noneMatch(role -> RoleCodeEnum.SRM_ADMIN.getCode().equals(role.getCode()))) {
-            permissionMenuList = filterSrmMenus(permissionMenuList);
-            menuList = filterSrmMenus(menuList);
-        }
+        // 自研 SRM 已下线；旧数据库授权也不能再产生已删除页面的入口。
+        permissionMenuList = filterRetiredSrmMenus(permissionMenuList);
+        menuList = filterRetiredSrmMenus(menuList);
         if (!TenantAdminBusinessPolicy.isTenantAdmin(roles) && !isAdminUser(user)) {
             permissionMenuList = filterDccAdminMenu(permissionMenuList);
             menuList = filterDccAdminMenu(menuList);
@@ -576,35 +574,27 @@ public class AuthController {
         return path.replace("\\", "/").replaceAll("^/+", "").replaceAll("/+$", "");
     }
 
-    private static List<MenuDO> filterSrmMenus(List<MenuDO> menuList) {
-        return menuList.stream()
-                .filter(menu -> !isSrmMenu(menu, menuList))
-                .collect(Collectors.toList());
-    }
-
-    private static boolean isSrmMenu(MenuDO menu, List<MenuDO> allMenus) {
-        if (menu == null) {
-            return false;
-        }
-        if (SRM_ROOT_PATH.equals(menu.getPath())) {
-            return true;
-        }
-        Long currentParentId = menu.getParentId();
-        while (currentParentId != null && currentParentId > 0) {
-            Long parentId = currentParentId;
-            MenuDO parent = allMenus.stream()
-                    .filter(item -> item != null && parentId.equals(item.getId()))
-                    .findFirst()
-                    .orElse(null);
-            if (parent == null) {
-                return false;
+    private static List<MenuDO> filterRetiredSrmMenus(List<MenuDO> menus) {
+        Set<Long> retiredIds = menus.stream()
+                .filter(menu -> {
+                    String path = normalizeMenuPath(menu.getPath());
+                    String component = normalizeMenuPath(menu.getComponent());
+                    return "srm".equals(path) || path.startsWith("srm/")
+                            || component.startsWith("srm/")
+                            || (menu.getPermission() != null && menu.getPermission().startsWith("srm:"));
+                })
+                .map(MenuDO::getId)
+                .collect(Collectors.toSet());
+        boolean changed;
+        do {
+            changed = false;
+            for (MenuDO menu : menus) {
+                if (retiredIds.contains(menu.getParentId())) {
+                    changed |= retiredIds.add(menu.getId());
+                }
             }
-            if (SRM_ROOT_PATH.equals(parent.getPath())) {
-                return true;
-            }
-            currentParentId = parent.getParentId();
-        }
-        return false;
+        } while (changed);
+        return menus.stream().filter(menu -> !retiredIds.contains(menu.getId())).collect(Collectors.toList());
     }
 
     @PostMapping("/register")

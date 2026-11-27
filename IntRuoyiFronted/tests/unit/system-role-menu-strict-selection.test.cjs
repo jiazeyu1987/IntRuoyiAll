@@ -43,6 +43,14 @@ function component() {
 const exact = [1202, 1221, 990248, 990230, 990231, 990232, 990238, 990239, 990246]
 const staleParents = [990200, 1200, 1201]
 
+test('opening and resetting role permissions defaults to independent selection to preserve partial parent grants', () => {
+  const { state } = component()
+  assert.equal(state.checkStrictly.value, true)
+  state.checkStrictly.value = false
+  state.resetForm()
+  assert.equal(state.checkStrictly.value, true)
+})
+
 for (const linked of [false, true]) {
   test(`actual role form ${linked ? 'retains half parents when linked' : 'submits exactly nine checked menus when unlinked'}`, async () => {
     const { state, requests } = component()

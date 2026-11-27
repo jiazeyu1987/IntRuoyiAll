@@ -26,7 +26,7 @@ import static org.mockito.Mockito.*;
 /** Exercises real package/menu filtering, authorization and login projection without a running server. */
 class TenantAdminPackageBoundaryTest {
     @ParameterizedTest
-    @ValueSource(strings = {"srm", "crm", "ai"})
+    @ValueSource(strings = {"erp", "crm", "ai"})
     void packageControlsAdministratorMenusAndApiEvenWithStaleRoleGrants(String module) {
         var permissionService = new PermissionServiceImpl();
         var menuService = new MenuServiceImpl();

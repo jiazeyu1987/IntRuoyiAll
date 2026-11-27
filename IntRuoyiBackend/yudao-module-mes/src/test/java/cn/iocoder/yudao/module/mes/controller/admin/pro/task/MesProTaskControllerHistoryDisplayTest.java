@@ -53,8 +53,45 @@ class MesProTaskControllerHistoryDisplayTest {
     @Mock
     private MesProTaskScheduleExtMapper taskScheduleExtMapper;
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProReplanExplanationSnapshotMapper replanExplanationSnapshotMapper;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper scheduleOrderMapper;
+
     @InjectMocks
     private MesProTaskController controller;
+
+    @Test
+    void latestScopeQueriesOnlyLinkedWorkOrdersAndPreservesFilter() {
+        var snapshot = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProReplanExplanationSnapshotDO();
+        snapshot.setSnapshotJson("{\"orders\":[{\"scheduleOrderId\":7}]}");
+        when(replanExplanationSnapshotMapper.selectLatest()).thenReturn(snapshot);
+        var order = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO();
+        order.setId(7L);
+        when(scheduleOrderMapper.selectListByIds(Set.of(7L))).thenReturn(List.of(order));
+        var ext = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProTaskScheduleExtDO();
+        ext.setTaskId(8L); ext.setScheduleOrderId(7L); ext.setScheduleOrderProcessId(9L);
+        when(taskScheduleExtMapper.selectListByScheduleOrderIds(Set.of(7L))).thenReturn(List.of(ext));
+        MesProTaskDO task = new MesProTaskDO(); task.setId(8L); task.setWorkOrderId(10L);
+        when(taskService.getTaskList(Set.of(8L))).thenReturn(List.of(task));
+        var request = new cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderPageReqVO();
+        request.setCode("FILTER");
+        when(workOrderService.getWorkOrderPageByIds(request, Set.of(10L)))
+                .thenReturn(new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(), 0L));
+        assertTrue(controller.listGanttTaskList(request).getData().isEmpty());
+        assertEquals("FILTER", request.getCode());
+        verify(workOrderService).getWorkOrderPageByIds(request, Set.of(10L));
+        org.mockito.Mockito.verify(workOrderService, org.mockito.Mockito.never()).getWorkOrderPage(org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.verify(scheduleOrderMapper, org.mockito.Mockito.never()).selectList();
+        org.mockito.Mockito.verify(taskService, org.mockito.Mockito.never()).getTaskListByWorkOrderIds(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void emptyScheduleScopeDoesNotQueryWholeWorkOrderPool() {
+        when(scheduleOrderMapper.selectList()).thenReturn(List.of());
+        assertTrue(controller.listGanttTaskList(new cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderPageReqVO()).getData().isEmpty());
+        org.mockito.Mockito.verifyNoInteractions(workOrderService, taskService, taskScheduleExtMapper);
+    }
 
     @Test
     @SuppressWarnings("unchecked")

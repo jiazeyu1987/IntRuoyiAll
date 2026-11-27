@@ -112,6 +112,12 @@
       <el-table-column type="selection" width="55" />
       <el-table-column label="租户编号" align="center" prop="id" />
       <el-table-column label="租户名" align="center" prop="name" />
+      <el-table-column label="登录默认租户" align="center" prop="defaultLogin" width="130">
+        <template #default="scope">
+          <el-tag v-if="scope.row.defaultLogin" type="success">默认</el-tag>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
       <el-table-column label="租户套餐" align="center" prop="packageId">
         <template #default="scope">
           <el-tag v-if="scope.row.packageId === 0" type="danger">系统租户</el-tag>
@@ -156,7 +162,7 @@
         width="180"
         :formatter="dateFormatter"
       />
-      <el-table-column label="操作" align="center" min-width="110" fixed="right">
+      <el-table-column label="操作" align="center" min-width="200" fixed="right">
         <template #default="scope">
           <el-button
             link
@@ -165,6 +171,15 @@
             v-hasPermi="['system:tenant:update']"
           >
             编辑
+          </el-button>
+          <el-button
+            v-if="!scope.row.defaultLogin && scope.row.status === 0"
+            link
+            type="primary"
+            @click="handleSetDefaultLogin(scope.row)"
+            v-hasPermi="['system:tenant:update']"
+          >
+            设为默认
           </el-button>
           <el-button
             link
@@ -239,6 +254,12 @@ const handleQuery = (skipEmptyReset = false) => {
   }
   queryParams.pageNo = 1
   getList()
+}
+
+const handleSetDefaultLogin = async (row: TenantApi.TenantVO) => {
+  await TenantApi.setDefaultLoginTenant(row.id)
+  message.success('已设置登录默认租户')
+  await getList()
 }
 
 /** 重置按钮操作 */

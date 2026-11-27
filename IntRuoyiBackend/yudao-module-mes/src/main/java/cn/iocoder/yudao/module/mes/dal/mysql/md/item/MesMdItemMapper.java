@@ -112,6 +112,18 @@ public interface MesMdItemMapper extends BaseMapperX<MesMdItemDO> {
                 .last("LIMIT " + safeLimit));
     }
 
+    default List<MesMdItemDO> selectListByCodeOrNameInIds(String keyword, Collection<Long> itemIds) {
+        if (keyword == null || keyword.trim().isEmpty() || itemIds == null || itemIds.isEmpty()) {
+            return List.of();
+        }
+        String searchText = keyword.trim();
+        return selectList(new LambdaQueryWrapperX<MesMdItemDO>()
+                .in(MesMdItemDO::getId, itemIds)
+                .and(wrapper -> wrapper.like(MesMdItemDO::getCode, searchText)
+                        .or().like(MesMdItemDO::getName, searchText))
+                .orderByDesc(MesMdItemDO::getId));
+    }
+
     default List<MesMdItemDO> selectListBySpecificationLike(String specification) {
         return selectList(new LambdaQueryWrapperX<MesMdItemDO>()
                 .likeIfPresent(MesMdItemDO::getSpecification, specification)

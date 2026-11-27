@@ -47,9 +47,11 @@
           <div v-else-if="error">
             <el-text type="danger">{{ error }}</el-text>
           </div>
-          <pre v-else-if="testResult" class="result-content"
-            >{{ JSON.stringify(testResult, null, 2) }}
-          </pre>
+          <ReadableData
+            v-else-if="testResult !== null && testResult !== undefined"
+            title="运行结果"
+            :source="JSON.stringify(testResult)"
+          />
           <div v-else> <el-text type="info">点击运行查看结果</el-text> </div>
         </div>
       </fieldset>
@@ -62,6 +64,7 @@
 
 <script setup lang="ts">
 import { useTestMode } from '@/store/modules/testMode'
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
 
 import Tinyflow from '@/components/Tinyflow/Tinyflow.vue'
 import * as WorkflowApi from '@/api/ai/workflow'

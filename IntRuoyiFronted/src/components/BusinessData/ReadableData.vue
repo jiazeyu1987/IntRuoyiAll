@@ -1,11 +1,7 @@
 <template>
   <div class="readable-data">
     <BusinessEvidenceDetails :title="title" :source="source" />
-    <details v-if="source || checksum" class="readable-data__technical">
-      <summary>技术详情（原始数据与校验码）</summary>
-      <p v-if="checksum">内容校验码：{{ checksum }}</p>
-      <pre v-if="source">{{ source }}</pre>
-    </details>
+    <p v-if="checksum" class="readable-data__checksum">内容校验码：{{ checksum }}</p>
   </div>
 </template>
 
@@ -24,18 +20,8 @@ withDefaults(defineProps<{ title?: string; source?: string; checksum?: string }>
   max-height: 420px;
   overflow: auto;
 }
-.readable-data__technical {
+.readable-data__checksum {
   margin-top: 12px;
   overflow-wrap: anywhere;
-}
-.readable-data__technical summary {
-  cursor: pointer;
-  color: var(--el-text-color-secondary);
-}
-.readable-data__technical pre {
-  margin: 8px 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 12px;
 }
 </style>

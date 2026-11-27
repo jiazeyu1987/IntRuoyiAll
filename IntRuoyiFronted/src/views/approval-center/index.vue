@@ -554,7 +554,7 @@ const viewTypeToRouteTab: Record<ApprovalCenterListViewType, ApprovalTabName> = 
 }
 
 const supportedViewTypes: ApprovalCenterListViewType[] = viewTabs.map((item) => item.value)
-const supportedModuleCodes: ApprovalModuleCode[] = ['BPM', 'DCC', 'EDHR', 'SHOWROOM', 'SRM', 'MES_FEEDBACK']
+const supportedModuleCodes: ApprovalModuleCode[] = ['BPM', 'DCC', 'EDHR', 'SHOWROOM', 'MES_FEEDBACK']
 const EMPTY_APPROVAL_DISPLAY = '--'
 
 const APPROVAL_MODULE_LABELS: Record<ApprovalModuleCode, string> = {
@@ -562,7 +562,6 @@ const APPROVAL_MODULE_LABELS: Record<ApprovalModuleCode, string> = {
   DCC: '文控审批',
   EDHR: '电子批记录审批',
   SHOWROOM: '展厅审批',
-  SRM: '供应商协同审批',
   MES_FEEDBACK: '生产报工审批'
 }
 

@@ -53,7 +53,13 @@ const submit = async () => {
   } catch (error: any) {
     resultType.value = 'error'
     const reason = typeof error === 'string' ? error : error?.message
-    resultMessage.value = `${synchronized ? 'ERP同步成功，但列表刷新失败' : '同步失败'}：${reason || '请求失败，请查看错误提示'}`
+    const resultUnknown = !synchronized && props.syncType === 'PRODUCTION_ORDER' &&
+      (error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT' ||
+        error?.code === 'ERR_NETWORK' || /timeout|network error/i.test(reason || '') ||
+        Number(error?.response?.status) >= 500)
+    resultMessage.value = resultUnknown
+      ? `同步结果未知：请求未取得可靠结果，服务端可能仍在执行。请先核实工单及同步记录，勿重复提交。${reason || ''}`
+      : `${synchronized ? 'ERP同步成功，但列表刷新失败' : '同步失败'}：${reason || '请求失败，请查看错误提示'}`
   } finally {
     syncing.value = false
   }

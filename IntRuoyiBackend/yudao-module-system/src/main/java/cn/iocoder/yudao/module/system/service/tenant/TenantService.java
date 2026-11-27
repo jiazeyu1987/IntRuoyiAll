@@ -34,6 +34,9 @@ public interface TenantService {
      */
     void updateTenant(@Valid TenantSaveReqVO updateReqVO);
 
+    /** 设置登录页没有历史选择时默认选中的租户 */
+    void setDefaultLoginTenant(Long id);
+
     /**
      * 更新租户的角色菜单
      *

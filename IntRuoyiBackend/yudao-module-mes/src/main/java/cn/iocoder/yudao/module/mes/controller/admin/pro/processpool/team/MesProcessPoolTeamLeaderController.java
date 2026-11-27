@@ -697,7 +697,7 @@ public class MesProcessPoolTeamLeaderController {
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
     public CommonResult<List<MesTeamLeaderActiveOrderCandidateRespVO>> searchActiveOrderCandidates(
             @RequestParam("keyword") String keyword) {
-        return success(activeOrderService.searchActiveOrderCandidates(keyword).stream()
+        return success(activeOrderService.searchActiveOrderCandidates(SecurityFrameworkUtils.getLoginUserId(), keyword).stream()
                 .map(MesProcessPoolTeamLeaderController::toActiveOrderCandidateRespVO)
                 .toList());
     }

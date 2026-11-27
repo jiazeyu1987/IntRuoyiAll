@@ -38,10 +38,10 @@ test('evidence translates status descriptions while preserving business codes', 
   assert.equal(result.error, '')
   assert.deepEqual(result.rows.map(row => row.value), ['核验通过', '过程质量检验', '返工', '质量保证处置', 'SIM-COPY-001'])
 })
-test('nested hashes are omitted while business values and exact IDs remain', () => {
+test('nested hashes, business values and exact IDs remain', () => {
   const result = readBusinessEvidence('{"contentHash":"secret","businessContent":{"quantity":12,"evidenceHash":"secret","userId":9223372036854775806}}')
   assert.equal(result.error, '')
-  assert.deepEqual(result.rows.map(r => r.value), ['12', '9223372036854775806'])
+  assert.deepEqual(result.rows.map(r => r.value), ['secret', '12', 'secret', '9223372036854775806'])
 })
 test('deviation categories are readable Chinese names', () => {
   assert.deepEqual(readBusinessEvidence('["PRODUCTION_PROCESS","INSPECTION"]', 'categoryCodesJson').rows.map(r => r.value), ['生产过程', '检验'])
@@ -49,7 +49,7 @@ test('deviation categories are readable Chinese names', () => {
 test('nested JSON strings become business fields, not serialized text', () => {
   const result = readBusinessEvidence(JSON.stringify({ investigationMembersJson: JSON.stringify([{ name: '张三' }]), capaAttachmentsJson: JSON.stringify([{ fileName: '调查报告.pdf', contentHash: 'secret' }]) }))
   assert.equal(result.error, '')
-  assert.deepEqual(result.rows.map(r => r.value), ['张三', '调查报告.pdf'])
+  assert.deepEqual(result.rows.map(r => r.value), ['张三', '调查报告.pdf', 'secret'])
 })
 test('malformed evidence reports failure without leaking raw data', () => {
   for (const source of ['{bad', '{"investigationMembersJson":"{bad"}']) {
@@ -79,4 +79,12 @@ test('detail components compile and expose no raw JSON or hash cells', () => {
     assert.deepEqual(compileTemplate({ source: descriptor.template.content, filename: file, id: 'evidence' }).errors, [])
     assert.doesNotMatch(descriptor.template.content, /<pre\b|查看原始技术证据|prop="(?:contentHash|evidenceHash)"|\{\{[^}]*\.(?:contentHash|evidenceHash|aggregateHash|auditHash|initiatorContentHash)/)
   }
+})
+
+
+test('page interaction control label uses its sibling source while parser controls retain their meaning', () => {
+  const page = readBusinessEvidence(JSON.stringify({ source: 'PAGE_INTERACTION', control: '页面校验未通过' }))
+  const parser = readBusinessEvidence(JSON.stringify({ control: '页面校验未通过' }))
+  assert.equal(page.rows.find(row => row.value === '页面校验未通过').label, '页面校验信息')
+  assert.equal(parser.rows.find(row => row.value === '页面校验未通过').label, '输入控件')
 })

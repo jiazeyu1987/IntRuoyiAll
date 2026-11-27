@@ -378,7 +378,7 @@ class MesProScheduleOrderAdmissionTest {
         when(workOrderMapper.selectByIdForUpdate(106L)).thenReturn(workOrder);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(106L))).thenReturn(List.of());
         when(routeProductMapper.selectByItemId(26L)).thenReturn(routeProduct);
-        when(routeMapper.selectById(36L)).thenReturn(route);
+        when(routeMapper.selectByIdForUpdate(36L)).thenReturn(route);
         when(routeProcessMapper.selectListByRouteId(36L)).thenReturn(List.of(routeProcess));
         when(routeFlowConfigMapper.selectByRouteIdAndUseType(
                 36L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()))

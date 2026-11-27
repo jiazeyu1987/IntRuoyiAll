@@ -185,6 +185,10 @@ public class TenantServiceImpl implements TenantService {
     public void updateTenant(TenantSaveReqVO updateReqVO) {
         // 校验存在
         TenantDO tenant = validateUpdateTenant(updateReqVO.getId());
+        if (Boolean.TRUE.equals(tenant.getDefaultLogin())
+                && !Objects.equals(updateReqVO.getStatus(), CommonStatusEnum.ENABLE.getStatus())) {
+            throw exception(TENANT_DEFAULT_LOGIN_CANNOT_DISABLE);
+        }
         // 校验租户名称是否重复
         validTenantNameDuplicate(updateReqVO.getName(), updateReqVO.getId());
         // 校验租户域名是否重复
@@ -198,6 +202,29 @@ public class TenantServiceImpl implements TenantService {
         // 如果套餐发生变化，则修改其角色的权限
         if (ObjectUtil.notEqual(tenant.getPackageId(), updateReqVO.getPackageId())) {
             updateTenantRoleMenu(tenant.getId(), tenantPackage.getMenuIds(), "system:tenant:update");
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @DataPermission(enable = false)
+    public void setDefaultLoginTenant(Long id) {
+        // 所有切换都锁定同一系统租户，串行修改全局默认值。
+        TenantDO operatorTenant = tenantMapper.selectByIdForUpdate(TenantContextHolder.getRequiredTenantId());
+        if (operatorTenant == null || !isSystemTenant(operatorTenant)) {
+            throw exception(cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.FORBIDDEN);
+        }
+        TenantDO tenant = tenantMapper.selectByIdForUpdate(id);
+        if (tenant == null) {
+            throw exception(TENANT_NOT_EXISTS);
+        }
+        if (!Objects.equals(tenant.getStatus(), CommonStatusEnum.ENABLE.getStatus())) {
+            throw exception(TENANT_DISABLE, tenant.getName());
+        }
+        tenantMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<TenantDO>()
+                .set(TenantDO::getDefaultLogin, false));
+        if (tenantMapper.updateById(new TenantDO().setId(id).setDefaultLogin(true)) != 1) {
+            throw new IllegalStateException("登录默认租户保存失败");
         }
     }
 
@@ -269,7 +296,10 @@ public class TenantServiceImpl implements TenantService {
     @Override
     public void deleteTenant(Long id) {
         // 校验存在
-        validateUpdateTenant(id);
+        TenantDO tenant = validateUpdateTenant(id);
+        if (Boolean.TRUE.equals(tenant.getDefaultLogin())) {
+            throw exception(TENANT_DEFAULT_LOGIN_CANNOT_DELETE);
+        }
         // 删除
         tenantMapper.deleteById(id);
     }
@@ -277,7 +307,12 @@ public class TenantServiceImpl implements TenantService {
     @Override
     public void deleteTenantList(List<Long> ids) {
         // 1. 校验存在
-        ids.forEach(this::validateUpdateTenant);
+        ids.forEach(id -> {
+            TenantDO tenant = validateUpdateTenant(id);
+            if (Boolean.TRUE.equals(tenant.getDefaultLogin())) {
+                throw exception(TENANT_DEFAULT_LOGIN_CANNOT_DELETE);
+            }
+        });
 
         // 2. 批量删除
         tenantMapper.deleteByIds(ids);

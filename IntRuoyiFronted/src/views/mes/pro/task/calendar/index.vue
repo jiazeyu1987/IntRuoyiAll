@@ -5,6 +5,8 @@
   />
 
   <div class="schedule-calendar-page">
+    <el-alert v-if="rulesError" :title="rulesError" type="error" :closable="false" show-icon />
+    <el-button v-if="rulesError" @click="initializePage">重新加载日历规则与排程</el-button>
     <div class="workspace-grid">
       <section class="calendar-column">
         <div class="calendar-toolbar">
@@ -30,11 +32,11 @@
           <div class="calendar-status-strip">
             <span class="status-chip">
               <label>任务总数</label>
-              <strong>{{ monthData.currentScheduleStatus?.totalTaskCount ?? 0 }}</strong>
+              <strong>{{ monthLoading || rulesLoading ? '加载中' : !monthLoaded || rulesError ? '无法确认' : monthData.currentScheduleStatus?.totalTaskCount ?? 0 }}</strong>
             </span>
             <span class="status-chip">
               <label>最近更新时间</label>
-              <strong>{{ formatDateTimeValue(monthData.currentScheduleStatus?.updatedAt, '--') }}</strong>
+              <strong>{{ !monthLoaded || rulesError ? '无法确认' : formatDateTimeValue(monthData.currentScheduleStatus?.updatedAt, '--') }}</strong>
             </span>
           </div>
           <div class="toolbar-block toolbar-block-right">
@@ -50,15 +52,15 @@
             <div class="toolbar-stat-strip">
               <span class="toolbar-stat">
                 <label>任务</label>
-                <strong>{{ activeMonthStats.taskCount }}</strong>
+                <strong>{{ monthLoaded && !rulesError ? activeMonthStats.taskCount : '无法确认' }}</strong>
               </span>
               <span class="toolbar-stat">
                 <label>工单</label>
-                <strong>{{ activeMonthStats.orderCount }}</strong>
+                <strong>{{ monthLoaded && !rulesError ? activeMonthStats.orderCount : '无法确认' }}</strong>
               </span>
               <span class="toolbar-stat warning">
                 <label>短缺</label>
-                <strong>{{ activeMonthStats.shortageCount }}</strong>
+                <strong>{{ monthLoaded && !rulesError ? activeMonthStats.shortageCount : '无法确认' }}</strong>
               </span>
             </div>
           </div>
@@ -243,10 +245,10 @@
                   class="mb-12px"
                 />
                 <div class="action-row">
-                  <el-button type="primary" :loading="rulesSaving" @click="saveRules">
+                  <el-button type="primary" :loading="rulesSaving" :disabled="!rulesLoaded || rulesLoading" @click="saveRules">
                     保存班次规则
                   </el-button>
-                  <el-button :loading="capacityGenerateLoading" @click="handleGenerateCapacityPlans">
+                  <el-button :loading="capacityGenerateLoading" :disabled="!rulesLoaded || rulesLoading" @click="handleGenerateCapacityPlans">
                     生成产能
                   </el-button>
                   <el-button type="warning" plain @click="openIssueCreateDialog">异常登记</el-button>
@@ -792,7 +794,8 @@
         <el-button
           type="primary"
           plain
-          :disabled="!workOrderAnalysis?.workOrderId"
+          :disabled="!workOrderAnalysis?.workOrderId || !!workOrderDetailUnavailableReason"
+          :title="workOrderDetailUnavailableReason"
           @click="
             openWorkOrderDetail(
               workOrderAnalysis?.workOrderId,
@@ -803,6 +806,7 @@
           查看工单主数据
         </el-button>
       </div>
+      <el-alert v-if="workOrderDetailUnavailableReason" :title="workOrderDetailUnavailableReason" type="warning" :closable="false" />
 
       <el-alert
         v-if="workOrderAnalysisErrorMessage"
@@ -915,6 +919,8 @@
 </template>
 
 <script setup lang="ts">
+import { Layout } from '@/utils/routerHelper'
+import { checkPermi } from '@/utils/permission'
 import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import ProductCodeLink from '@/components/ProductCodeLink.vue'
@@ -1076,6 +1082,13 @@ const defaultMonthData = (): ProScheduleCalendarMonthRespVO => ({
 const monthLoading = ref(false)
 const detailLoading = ref(false)
 const rulesLoading = ref(false)
+const rulesLoaded = ref(false)
+const rulesError = ref('')
+const monthLoaded = ref(false)
+let monthRequestSerial = 0
+let detailRequestSerial = 0
+let rulesRequestSerial = 0
+let initializationSerial = 0
 const rulesSaving = ref(false)
 const capacityGenerateLoading = ref(false)
 
@@ -1127,6 +1140,15 @@ const taskActionLoadingId = ref<number | null>(null)
 
 const route = useRoute()
 const router = useRouter()
+const workOrderDetailPath = '/mes/pro/work-order'
+const workOrderDetailUnavailableReason = computed(() => {
+  if (!checkPermi(['mes:pro-work-order:query'])) return '没有查看工单主数据的权限'
+  if (!router.getRoutes().some((record) => record.path === workOrderDetailPath && !record.redirect && !!record.components?.default && record.components.default !== Layout)) {
+    return '工单主数据菜单未注册，请联系管理员核对菜单授权'
+  }
+  return ''
+})
+let workOrderDetailVisit = 0
 const { push } = router
 const message = useMessage()
 
@@ -1873,13 +1895,29 @@ onMounted(async () => {
 })
 
 async function initializePage() {
-  await loadRules(true)
+  const serial = ++initializationSerial
+  monthRequestSerial += 1
+  detailRequestSerial += 1
+  monthLoading.value = false
+  detailLoading.value = false
+  monthLoaded.value = false
+  visibleMonthDays.value = []
+  dayDetail.value = null
+  try {
+    await loadRules(true)
+  } catch (error) {
+    if (serial !== initializationSerial) return
+    // 规则失败是明确的失败状态，不能继续把初始零任务当作查询结果。
+    monthLoaded.value = false
+    visibleMonthDays.value = []
+    dayDetail.value = null
+    return
+  }
+  if (serial !== initializationSerial) return
   applyCalendarQueryContext()
   await Promise.all([loadMonthCalendar(), loadDayDetail(selectedDate.value)])
   const queryDate = resolveCalendarQueryDate()
-  if (queryDate) {
-    await openCalendarDateFromQuery(queryDate, shouldOpenShiftEditorFromQuery())
-  }
+  if (queryDate) await openCalendarDateFromQuery(queryDate, shouldOpenShiftEditorFromQuery())
 }
 
 function applyCalendarQueryContext() {
@@ -1894,9 +1932,13 @@ function applyCalendarQueryContext() {
 }
 
 async function loadRules(syncSelection = false) {
+  const serial = ++rulesRequestSerial
   rulesLoading.value = true
+  rulesLoaded.value = false
+  rulesError.value = ''
   try {
     const data = await ProScheduleCalendarApi.getRules()
+    if (serial !== rulesRequestSerial) return
     Object.assign(rulesForm, defaultRules(), data)
     rulesForm.simulationCurrentDate = normalizeDate(data.simulationCurrentDate)
     rulesSnapshot.value = JSON.stringify(buildRulesPayload())
@@ -1904,12 +1946,19 @@ async function loadRules(syncSelection = false) {
       selectedDate.value = rulesForm.simulationCurrentDate
       currentMonth.value = dayjs(rulesForm.simulationCurrentDate).startOf('month')
     }
+    rulesLoaded.value = true
+  } catch (error) {
+    if (serial !== rulesRequestSerial) return
+    rulesError.value = `日历规则加载失败，无法确认正式排程，已禁止保存规则：${extractErrorMessage(error)}`
+    throw error
   } finally {
-    rulesLoading.value = false
+    if (serial === rulesRequestSerial) rulesLoading.value = false
   }
 }
 
 async function loadMonthCalendar() {
+  const serial = ++monthRequestSerial
+  monthLoaded.value = false
   monthLoading.value = true
   monthErrorMessage.value = ''
   try {
@@ -1925,10 +1974,12 @@ async function loadMonthCalendar() {
         )
       }))
     )
+    if (serial !== monthRequestSerial) return
     const currentMonthPayload = monthPayloads.find((item) => item.month === monthText)
     if (!currentMonthPayload) {
       throw new Error(`排程日历当前月份数据未返回：${monthText}`)
     }
+    monthLoaded.value = true
     monthData.value = currentMonthPayload.data
     visibleMonthDays.value = monthPayloads.flatMap((item) => item.data.days)
     if (monthData.value.simulationCurrentDate) {
@@ -1936,6 +1987,7 @@ async function loadMonthCalendar() {
     }
     clearCalendarRecovery('month')
   } catch (error) {
+    if (serial !== monthRequestSerial) return
     const recovery = buildCalendarRecoveryState(error, {
       area: 'month',
       action: '加载月排程',
@@ -1948,15 +2000,18 @@ async function loadMonthCalendar() {
     monthErrorMessage.value = recovery.title
     calendarRecoveryState.value = recovery
   } finally {
-    monthLoading.value = false
+    if (serial === monthRequestSerial) monthLoading.value = false
   }
 }
 
 async function loadDayDetail(date: string) {
+  const serial = ++detailRequestSerial
+  dayDetail.value = null
   detailLoading.value = true
   detailErrorMessage.value = ''
   try {
     const data = await ProScheduleCalendarApi.getDayDetail({ date })
+    if (serial !== detailRequestSerial) return
     dayDetail.value = {
       ...data,
       date: normalizeDate(data.date),
@@ -1982,6 +2037,7 @@ async function loadDayDetail(date: string) {
     }
     clearCalendarRecovery('detail')
   } catch (error) {
+    if (serial !== detailRequestSerial) return
     const recovery = buildCalendarRecoveryState(error, {
       area: 'detail',
       action: '加载日详情',
@@ -1992,11 +2048,12 @@ async function loadDayDetail(date: string) {
     detailErrorMessage.value = recovery.title
     calendarRecoveryState.value = recovery
   } finally {
-    detailLoading.value = false
+    if (serial === detailRequestSerial) detailLoading.value = false
   }
 }
 
 async function saveRules() {
+  if (!rulesLoaded.value || rulesLoading.value) throw new Error('日历规则尚未成功加载，禁止保存或生成')
   rulesSaving.value = true
   try {
     await ProScheduleCalendarApi.updateRules(buildRulesPayload())
@@ -2010,6 +2067,7 @@ async function saveRules() {
 }
 
 async function handleGenerateCapacityPlans() {
+  if (!rulesLoaded.value || rulesLoading.value) throw new Error('日历规则尚未成功加载，禁止保存或生成')
   capacityGenerateLoading.value = true
   try {
     const summary = await ProScheduleCalendarApi.generateCapacityPlans({
@@ -2090,16 +2148,21 @@ async function toggleTaskLock(task: ProScheduleCalendarTaskVO) {
       await ProTaskApi.unlockTask(task.taskId)
       message.success('任务已解锁')
     } else {
-      const result = await message.prompt('请输入锁定原因', '锁定任务')
+      const result = await message.prompt('请输入锁定原因', '锁定任务', {
+        inputValidator: (value) => !!value?.trim() || '请填写锁定原因，不能只输入空格'
+      })
       await ProTaskApi.lockTask({
         taskId: task.taskId,
-        lockedReason: result.value || 'MANUAL_LOCK'
+        lockedReason: result.value.trim()
       })
       message.success('任务已锁定')
     }
     clearPreview()
     calendarShiftEditorDate.value = ''
     await Promise.all([loadMonthCalendar(), loadDayDetail(selectedDate.value)])
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    throw error
   } finally {
     taskActionLoadingId.value = null
   }
@@ -2253,7 +2316,7 @@ async function refreshPreviewMaterialDemand() {
 }
 
 function canEditCalendarDate(dateText: string) {
-  return normalizeDate(dateText) >= todayDateLabel.value
+  return rulesLoaded.value && !rulesLoading.value && normalizeDate(dateText) >= todayDateLabel.value
 }
 
 function hasCalendarShiftOverride(dateText: string) {
@@ -2309,6 +2372,7 @@ function applyCalendarShiftMode(dateText: string, mode: ProScheduleCalendarDateS
 }
 
 function clearCalendarShiftMode(dateText: string) {
+  if (!canEditCalendarDate(dateText)) return
   const normalizedDate = normalizeDate(dateText)
   if (!hasCalendarShiftOverride(normalizedDate)) {
     return
@@ -2391,11 +2455,16 @@ function openWorkOrderDetail(workOrderId?: number, workOrderCode?: string) {
   if (!workOrderId) {
     return
   }
+  if (workOrderDetailUnavailableReason.value) {
+    message.warning(workOrderDetailUnavailableReason.value)
+    return
+  }
   push({
-    name: 'MesProWorkOrder',
+    path: workOrderDetailPath,
     query: {
       code: workOrderCode || undefined,
-      openId: String(workOrderId)
+      openId: String(workOrderId),
+      detailVisit: `${Date.now()}-${++workOrderDetailVisit}`
     }
   })
 }

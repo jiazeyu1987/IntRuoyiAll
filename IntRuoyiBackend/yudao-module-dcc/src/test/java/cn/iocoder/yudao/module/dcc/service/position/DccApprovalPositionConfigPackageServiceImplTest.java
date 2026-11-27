@@ -12,11 +12,36 @@ import jakarta.annotation.Resource;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-@Import(DccApprovalPositionConfigPackageServiceImpl.class)
+@Import({DccApprovalPositionConfigPackageServiceImpl.class, DccApprovalPositionAdminServiceImpl.class})
 class DccApprovalPositionConfigPackageServiceImplTest extends BaseDbUnitTest {
 
     @Resource
     private DccApprovalPositionConfigPackageServiceImpl configPackageService;
+
+    @Resource
+    private DccApprovalPositionAdminServiceImpl positionService;
+
+    @Test
+    void localRoleRoundTripPreservesIdentityAndAssignments() {
+        var position = positionService.createPosition("文控", "本地初始化");
+        var assignment = new cn.iocoder.yudao.module.dcc.controller.admin.position.vo.DccPositionAssignmentSaveReqVO();
+        assignment.setAssignmentType("USER");
+        assignment.setUserId(99L);
+        assignment.setActive(true);
+        assignment.setChangeReason("指定文控审核人");
+        positionService.replaceAssignments(position.getId(), java.util.List.of(assignment));
+
+        configPackageService.importPackage(configPackageService.exportPackage());
+
+        var positions = positionService.getPositionList();
+        assertEquals(1, positions.size());
+        assertEquals(position.getId(), positions.get(0).getId());
+        assertEquals(position.getCode(), positions.get(0).getCode());
+        assertEquals("LOCAL", positions.get(0).getSource());
+        var assignments = positionService.getAssignments(position.getId());
+        assertEquals(1, assignments.size());
+        assertEquals(99L, assignments.get(0).getUserId());
+    }
 
     @Test
     void importPackage_shouldReturnBusinessErrorWhenPositionCodeMissing() {

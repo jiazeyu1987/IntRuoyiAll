@@ -22,6 +22,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProS
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderProcessWipRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderProcessWipSettingsReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderProcessCapacityResetReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderPageReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryDO;
@@ -135,6 +136,117 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProScheduleOrderServiceImplTest {
+
+    private MesProScheduleOrderProcessCapacityResetReqVO capacityResetRequest() {
+        MesProScheduleOrderProcessCapacityResetReqVO request = new MesProScheduleOrderProcessCapacityResetReqVO();
+        request.setId(104106L);
+        request.setScheduleOrderProcessId(81L);
+        request.setReason("清除本工单覆盖");
+        return request;
+    }
+
+    private void stubCapacityResetOrder(boolean frozen) {
+        when(scheduleOrderMapper.selectById(104106L)).thenReturn(MesProScheduleOrderDO.builder()
+                .id(104106L).code("SCH-104106").routeId(19L).routeVersionId(119L)
+                .status(MesProScheduleOrderStatusEnum.SCHEDULED.getStatus()).frozen(frozen).build());
+    }
+
+    private void stubCapacityResetProcess(long ownerId) {
+        when(scheduleOrderProcessMapper.selectById(81L)).thenReturn(MesProScheduleOrderProcessDO.builder()
+                .id(81L).scheduleOrderId(ownerId).routeVersionId(119L).routeProcessId(71L).processId(7L)
+                .capacitySource("MANUAL_OVERRIDE").capacityMode("MANUAL_OVERRIDE")
+                .hourlyCapacityTotal(new BigDecimal("50")).shiftCapacityTotal(new BigDecimal("525")).build());
+    }
+
+    private void stubCapacityResetRoute(String mode) {
+        when(routeProcessService.resolveFrozenRouteProcess(71L, 19L, 7L)).thenReturn(
+                MesProRouteProcessDO.builder().id(71L).routeId(19L).processId(7L).build());
+        when(routeScheduleConfigMapper.selectByRouteVersionIdAndRouteProcessId(119L, 71L)).thenReturn(
+                MesProRouteScheduleConfigDO.builder().id(61L).routeVersionId(119L).routeProcessId(71L)
+                        .capacityMode(mode).build());
+    }
+
+    @Test
+    void resetProcessCapacity_shouldOnlyReplaceRequestedSnapshotAndRequireExplicitReplan() {
+        stubCapacityResetOrder(false);
+        stubCapacityResetProcess(104106L);
+        stubCapacityResetRoute("RESOURCE_CALCULATED");
+        when(workstationMapper.selectListByProcessIds(List.of(7L), CommonStatusEnum.ENABLE.getStatus()))
+                .thenReturn(List.of(MesMdWorkstationDO.builder().id(51L).processId(7L)
+                        .singleStandardHourlyCapacity(new BigDecimal("100")).shiftHours(new BigDecimal("10.5")).build()));
+        when(workstationWorkerMapper.selectListByWorkstationIds(List.of(51L))).thenReturn(List.of(
+                MesMdWorkstationWorkerDO.builder().id(52L).workstationId(51L).quantity(1).build()));
+        when(scheduleOrderProcessMapper.updateById(any(MesProScheduleOrderProcessDO.class))).thenReturn(1);
+
+        scheduleOrderService.resetProcessCapacity(capacityResetRequest());
+
+        ArgumentCaptor<MesProScheduleOrderProcessDO> update = ArgumentCaptor.forClass(MesProScheduleOrderProcessDO.class);
+        verify(scheduleOrderProcessMapper).updateById(update.capture());
+        assertEquals(81L, update.getValue().getId());
+        assertEquals("RESOURCE_CALCULATED", update.getValue().getCapacityMode());
+        assertEquals("WORKER", update.getValue().getCapacitySource());
+        assertEquals(0, new BigDecimal("100").compareTo(update.getValue().getHourlyCapacityTotal()));
+        assertEquals(0, new BigDecimal("1050").compareTo(update.getValue().getShiftCapacityTotal()));
+        assertNull(update.getValue().getPlannedStartTime());
+        assertNull(update.getValue().getPlannedEndTime());
+        org.mockito.Mockito.verifyNoInteractions(taskMapper, taskScheduleExtMapper);
+        verify(routeScheduleConfigMapper, never()).updateById(any(MesProRouteScheduleConfigDO.class));
+        verify(scheduleOrderMapper, never()).updateById(any(MesProScheduleOrderDO.class));
+        ArgumentCaptor<MesProScheduleOrderOperationLogDO> audit = ArgumentCaptor.forClass(MesProScheduleOrderOperationLogDO.class);
+        verify(scheduleOrderOperationLogMapper).insert(audit.capture());
+        assertEquals(104106L, audit.getValue().getScheduleOrderId());
+        assertEquals("PROCESS_CAPACITY_RESET", audit.getValue().getOperationType());
+        assertTrue(audit.getValue().getAfterSnapshotJson().contains("\"requiresReplan\":true"));
+    }
+
+    @Test
+    void resetProcessCapacity_shouldRejectFrozenOrderBeforeReadingProcess() {
+        stubCapacityResetOrder(true);
+        assertThrows(ServiceException.class, () -> scheduleOrderService.resetProcessCapacity(capacityResetRequest()));
+        org.mockito.Mockito.verifyNoInteractions(scheduleOrderProcessMapper, routeScheduleConfigMapper);
+    }
+
+    @Test
+    void resetProcessCapacity_shouldRejectProcessFromAnotherOrder() {
+        stubCapacityResetOrder(false);
+        stubCapacityResetProcess(105183L);
+        assertThrows(ServiceException.class, () -> scheduleOrderService.resetProcessCapacity(capacityResetRequest()));
+        verify(scheduleOrderProcessMapper, never()).updateById(any(MesProScheduleOrderProcessDO.class));
+        org.mockito.Mockito.verifyNoInteractions(routeScheduleConfigMapper, scheduleOrderOperationLogMapper);
+    }
+
+    @Test
+    void resetProcessCapacity_shouldRejectManualRouteStrategyWithoutChangingRoute() {
+        stubCapacityResetOrder(false);
+        stubCapacityResetProcess(104106L);
+        stubCapacityResetRoute("MANUAL_OVERRIDE");
+        assertThrows(ServiceException.class, () -> scheduleOrderService.resetProcessCapacity(capacityResetRequest()));
+        verify(scheduleOrderProcessMapper, never()).updateById(any(MesProScheduleOrderProcessDO.class));
+        verify(routeScheduleConfigMapper, never()).updateById(any(MesProRouteScheduleConfigDO.class));
+    }
+
+    @Test
+    void resetProcessCapacity_shouldRejectMissingResourcesWithoutWritingZeroCapacity() {
+        stubCapacityResetOrder(false);
+        stubCapacityResetProcess(104106L);
+        stubCapacityResetRoute("RESOURCE_CALCULATED");
+        assertThrows(ServiceException.class, () -> scheduleOrderService.resetProcessCapacity(capacityResetRequest()));
+        verify(scheduleOrderProcessMapper, never()).updateById(any(MesProScheduleOrderProcessDO.class));
+        org.mockito.Mockito.verifyNoInteractions(scheduleOrderOperationLogMapper);
+    }
+
+    @Test
+    void resetProcessCapacity_shouldRejectMissingShiftHoursInsteadOfUsingDefault() {
+        stubCapacityResetOrder(false);
+        stubCapacityResetProcess(104106L);
+        stubCapacityResetRoute("RESOURCE_CALCULATED");
+        when(workstationMapper.selectListByProcessIds(List.of(7L), CommonStatusEnum.ENABLE.getStatus()))
+                .thenReturn(List.of(MesMdWorkstationDO.builder().id(51L).processId(7L)
+                        .singleStandardHourlyCapacity(new BigDecimal("100")).build()));
+        assertThrows(ServiceException.class, () -> scheduleOrderService.resetProcessCapacity(capacityResetRequest()));
+        verify(scheduleOrderProcessMapper, never()).updateById(any(MesProScheduleOrderProcessDO.class));
+        org.mockito.Mockito.verifyNoInteractions(scheduleOrderOperationLogMapper);
+    }
 
     @InjectMocks
     private MesProScheduleOrderServiceImpl scheduleOrderService;

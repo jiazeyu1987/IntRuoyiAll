@@ -8,8 +8,6 @@ import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncCommand;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRuntimeService;
 import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeFullSyncHandler;
-import cn.iocoder.yudao.module.mes.service.md.item.sync.MesKingdeeProductBomSyncResult;
-import cn.iocoder.yudao.module.mes.service.md.item.sync.MesKingdeeProductBomSyncService;
 import cn.iocoder.yudao.module.mes.service.md.item.kingdee.MesKingdeeBomListService;
 import cn.iocoder.yudao.module.mes.service.md.item.kingdee.MesKingdeeBomListSyncResult;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +20,6 @@ import java.util.concurrent.atomic.AtomicReference;
 @RequiredArgsConstructor
 public class KingdeeBomSyncJob implements JobHandler, ErpKingdeeFullSyncHandler {
 
-    private final MesKingdeeProductBomSyncService syncService;
     private final MesKingdeeBomListService bomListService;
     private final ErpKingdeeSyncRuntimeService syncRuntimeService;
 
@@ -36,22 +33,18 @@ public class KingdeeBomSyncJob implements JobHandler, ErpKingdeeFullSyncHandler 
             return executeFullSync();
         }
         LocalDateTime windowEnd = LocalDateTime.now();
-        AtomicReference<MesKingdeeProductBomSyncResult> resultReference = new AtomicReference<>();
+        AtomicReference<Integer> resultReference = new AtomicReference<>();
         syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
                 .syncType(ErpKingdeeSyncTypeEnum.BOM)
                 .triggerType(ErpKingdeeSyncTriggerTypeEnum.AUTO)
                 .windowEnd(windowEnd)
                 .build(), context -> {
-            MesKingdeeProductBomSyncResult result = syncService.syncBomLinesModifiedBetween(
-                    context.getWindowStart(), context.getWindowEnd());
+            // Preserve every ERP BOM version. Applying a version to MES product BOMs is a separate operation.
             int syncedBomListCount = bomListService.syncModifiedBetween(context.getWindowStart(), context.getWindowEnd());
-            resultReference.set(result);
-            return ErpKingdeeSyncRunResult.success(context.getWindowEnd(), 0,
-                    result.getSyncedBomCount() + result.getRecalculatedWorkOrderCount() + syncedBomListCount, 0, 0);
+            resultReference.set(syncedBomListCount);
+            return ErpKingdeeSyncRunResult.success(context.getWindowEnd(), 0, syncedBomListCount, 0, 0);
         });
-        MesKingdeeProductBomSyncResult result = resultReference.get();
-        return String.format("ERP BOM sync: parents=%d, bomLines=%d, workOrders=%d",
-                result.getSyncedParentCount(), result.getSyncedBomCount(), result.getRecalculatedWorkOrderCount());
+        return String.format("ERP BOM sync: bomLines=%d", resultReference.get());
     }
 
     @Override

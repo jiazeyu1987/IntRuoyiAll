@@ -55,6 +55,8 @@ import com.alibaba.fastjson.JSONObject;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -213,6 +215,10 @@ class MesProRouteServiceImplTest {
 
     @Mock
     private MesProRouteMapper routeMapper;
+    @Mock
+    private cn.iocoder.yudao.module.system.api.user.AdminUserApi adminUserApi;
+    @Mock
+    private cn.iocoder.yudao.module.system.api.permission.RoleApi roleApi;
     @Mock
     private MesProRouteProcessMapper routeProcessMapper;
     @Mock
@@ -819,7 +825,7 @@ class MesProRouteServiceImplTest {
                 .active(Boolean.TRUE)
                 .lifecycleStatus("ACTIVE")
                 .routeSnapshotJson("""
-                        {"routeId":9006,"configSnapshots":{"productionProcessConfigSchemaVersion":1,"productionProcessConfigs":[{"routeProcessId":9306,"processId":9406,"overagePercent":0,"lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]}],"batchRecordAttachmentOwners":[{"attachmentCode":"INCOMING_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"STERILIZATION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_RECORD","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]}]}}
+                        {"routeId":9006,"configSnapshots":{"batchUseConfigs":[{"routeProcessId":9306,"inputMaterialIds":[7701],"outputMaterialIds":[8801]}],"productionProcessConfigSchemaVersion":1,"productionProcessConfigs":[{"routeProcessId":9306,"processId":9406,"overagePercent":0,"lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]}],"batchRecordAttachmentOwners":[{"attachmentCode":"INCOMING_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"STERILIZATION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_RECORD","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]}]}}
                         """)
                 .build());
         org.mockito.Mockito.doAnswer(invocation -> {
@@ -881,6 +887,331 @@ class MesProRouteServiceImplTest {
         assertEquals(targetVersionId, activeCaptor.getValue().getId());
         assertEquals(targetRouteId, activeCaptor.getValue().getRouteId());
         assertEquals("V1", activeCaptor.getValue().getVersionNo());
+    }
+
+    @Test
+    void copyRoute_preservesMaterialDirectionsEmptyArraysAndHistoricalProcessIdentity() {
+        MesProRouteVersionDO source = prepareMaterialCopy("""
+                [{"routeProcessId":91,"inputMaterialIds":[7702,7701],"outputMaterialIds":[],
+                  "id":999,"routeId":10,"formBindings":[{"routeBindingId":888}]},
+                 {"routeProcessId":102,"inputMaterialIds":[],"outputMaterialIds":[8801,8802]},
+                 {"routeProcessId":103,"inputMaterialIds":[],"outputMaterialIds":[]}]
+                """);
+        String original = source.getRouteSnapshotJson();
+        when(routeProcessService.resolveCurrentRouteProcess(91L, 10L, null))
+                .thenReturn(MesProRouteProcessDO.builder().id(101L).routeId(10L).build());
+
+        assertEquals(20L, routeService.copyRoute(10L, "COPY", "副本", 30L));
+
+        var updates = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper).updateById(updates.capture());
+        var update = updates.getValue();
+        JSONObject snapshot = JSON.parseObject(update.getRouteSnapshotJson());
+        JSONArray configs = snapshot.getJSONObject("configSnapshots").getJSONArray("batchUseConfigs");
+        assertEquals(3, configs.size());
+        for (int i = 0; i < configs.size(); i++) {
+            assertEquals(201L + i, configs.getJSONObject(i).getLong("routeProcessId"));
+            assertEquals(501L + i, configs.getJSONObject(i).getLong("id"));
+            assertEquals(20L, configs.getJSONObject(i).getLong("routeId"));
+            assertTrue(configs.getJSONObject(i).getJSONArray("formBindings").isEmpty());
+            assertTrue(configs.getJSONObject(i).getJSONArray("batchRecordReports").isEmpty());
+        }
+        assertEquals(List.of(7702L, 7701L), configs.getJSONObject(0)
+                .getJSONArray("inputMaterialIds").toJavaList(Long.class));
+        assertEquals(List.of(8801L, 8802L), configs.getJSONObject(1)
+                .getJSONArray("outputMaterialIds").toJavaList(Long.class));
+        assertEquals("[]", configs.getJSONObject(0).getJSONArray("outputMaterialIds").toJSONString());
+        assertEquals("[]", configs.getJSONObject(1).getJSONArray("inputMaterialIds").toJSONString());
+        assertEquals("[]", configs.getJSONObject(2).getJSONArray("inputMaterialIds").toJSONString());
+        assertEquals("[]", configs.getJSONObject(2).getJSONArray("outputMaterialIds").toJSONString());
+        assertEquals(original, source.getRouteSnapshotJson());
+        assertEquals(new MesProRouteSnapshotCanonicalizer().sha256(update.getRouteSnapshotJson()),
+                update.getRouteSnapshotSha256());
+        var created = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper).insert(created.capture());
+        assertEquals(40L, created.getValue().getSourceRouteVersionId());
+        verify(routeVersionMapper, never()).selectOpenCandidateByRouteId(10L);
+        verify(routeProductBomMapper, never()).selectList(eq(10L), any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{}", "{\"inputMaterialIds\":[]}", "{\"outputMaterialIds\":[]}",
+            "{\"inputMaterialIds\":null,\"outputMaterialIds\":[]}",
+            "{\"inputMaterialIds\":\"[]\",\"outputMaterialIds\":[]}",
+            "{\"inputMaterialIds\":[],\"outputMaterialIds\":{}}",
+            "{\"inputMaterialIds\":[null],\"outputMaterialIds\":[]}",
+            "{\"inputMaterialIds\":[0],\"outputMaterialIds\":[]}",
+            "{\"inputMaterialIds\":[-1],\"outputMaterialIds\":[]}",
+            "{\"inputMaterialIds\":[1.5],\"outputMaterialIds\":[]}",
+            "{\"inputMaterialIds\":[\"bad\"],\"outputMaterialIds\":[]}",
+            "{\"inputMaterialIds\":[],\"outputMaterialIds\":[8801,8801]}"
+    })
+    void copyRoute_rejectsIncompleteOrInvalidSourceMaterials(String raw) {
+        JSONObject invalid = JSON.parseObject(raw);
+        invalid.put("routeProcessId", 101L);
+        prepareMaterialCopy("[" + invalid.toJSONString() + "]");
+        AssertUtils.assertServiceException(() -> routeService.copyRoute(10L, "COPY", "副本", 30L),
+                ErrorCodeConstants.PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, 40L);
+        verify(routeVersionMapper, never()).updateById(any(MesProRouteVersionDO.class));
+        verify(platformAdapter, never()).recordActiveRegistered(any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "{}", "[]",
+            "[{\"routeProcessId\":101,\"inputMaterialIds\":[],\"outputMaterialIds\":[]},"
+                    + "{\"routeProcessId\":101,\"inputMaterialIds\":[],\"outputMaterialIds\":[]}]"})
+    void copyRoute_rejectsMissingMaterialCoverageOrDuplicateProcess(String raw) {
+        prepareMaterialCopy(raw);
+        AssertUtils.assertServiceException(() -> routeService.copyRoute(10L, "COPY", "副本", 30L),
+                ErrorCodeConstants.PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, 40L);
+        verify(routeVersionMapper, never()).updateById(any(MesProRouteVersionDO.class));
+        verify(platformAdapter, never()).recordActiveRegistered(any(), any(), any());
+    }
+
+    @Test
+    void copyRoute_rejectsTwoHistoricalEntriesResolvingToSameCurrentProcess() {
+        prepareMaterialCopy("""
+                [{"routeProcessId":91,"inputMaterialIds":[],"outputMaterialIds":[]},
+                 {"routeProcessId":101,"inputMaterialIds":[],"outputMaterialIds":[]}]
+                """);
+        when(routeProcessService.resolveCurrentRouteProcess(91L, 10L, null))
+                .thenReturn(MesProRouteProcessDO.builder().id(101L).routeId(10L).build());
+        AssertUtils.assertServiceException(() -> routeService.copyRoute(10L, "COPY", "副本", 30L),
+                ErrorCodeConstants.PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, 40L);
+        verify(platformAdapter, never()).recordActiveRegistered(any(), any(), any());
+    }
+
+    @Test
+    void copyRoute_rejectsMaterialProcessOutsideCopiedRoute() {
+        prepareMaterialCopy("""
+                [{"routeProcessId":91,"inputMaterialIds":[],"outputMaterialIds":[]}]
+                """);
+        when(routeProcessService.resolveCurrentRouteProcess(91L, 10L, null))
+                .thenReturn(MesProRouteProcessDO.builder().id(999L).routeId(10L).build());
+        AssertUtils.assertServiceException(() -> routeService.copyRoute(10L, "COPY", "副本", 30L),
+                ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_PROCESS_REQUIRED);
+        verify(platformAdapter, never()).recordActiveRegistered(any(), any(), any());
+    }
+
+    @Test
+    void copyRoute_rejectsLostTargetBatchConfigBeforeRegisteringActiveVersion() {
+        prepareMaterialCopy("""
+                [{"routeProcessId":101,"inputMaterialIds":[],"outputMaterialIds":[]},
+                 {"routeProcessId":102,"inputMaterialIds":[],"outputMaterialIds":[]},
+                 {"routeProcessId":103,"inputMaterialIds":[],"outputMaterialIds":[]}]
+                """);
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+                20L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(List.of());
+        AssertUtils.assertServiceException(() -> routeService.copyRoute(10L, "COPY", "副本", 30L),
+                ErrorCodeConstants.PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, 50L);
+        verify(routeVersionMapper, never()).updateById(any(MesProRouteVersionDO.class));
+        verify(platformAdapter, never()).recordActiveRegistered(any(), any(), any());
+    }
+
+    @Test
+    void copyRoute_materialFailureRollsBackTheAdvisedCopyTransaction() {
+        prepareMaterialCopy("[{\"routeProcessId\":101,\"inputMaterialIds\":[]}]");
+        var transactions = org.mockito.Mockito.mock(org.springframework.transaction.PlatformTransactionManager.class);
+        var status = new org.springframework.transaction.support.SimpleTransactionStatus();
+        when(transactions.getTransaction(any())).thenReturn(status);
+        var proxy = new org.springframework.aop.framework.ProxyFactory(routeService);
+        proxy.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(transactions,
+                new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
+        MesProRouteService advised = (MesProRouteService) proxy.getProxy();
+
+        AssertUtils.assertServiceException(() -> advised.copyRoute(10L, "COPY", "副本", 30L),
+                ErrorCodeConstants.PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, 40L);
+
+        verify(transactions).rollback(status);
+        verify(transactions, never()).commit(any());
+        verify(platformAdapter, never()).recordActiveRegistered(any(), any(), any());
+    }
+
+    @Test
+    void copyRoute_nonemptyRouteRequiresAFormalSourceVersionForMaterials() {
+        prepareMaterialCopy("[]");
+        when(routeVersionMapper.selectActiveByRouteId(10L)).thenReturn(null);
+        AssertUtils.assertServiceException(() -> routeService.copyRoute(10L, "COPY", "副本", 30L),
+                ErrorCodeConstants.PRO_ROUTE_VERSION_ACTIVE_NOT_EXISTS, 10L);
+        verify(routeVersionMapper, never()).insert(any(MesProRouteVersionDO.class));
+        verify(platformAdapter, never()).recordActiveRegistered(any(), any(), any());
+    }
+
+    private MesProRouteVersionDO prepareMaterialCopy(String batchConfigs) {
+        // Lenient setup is shared by successful and deliberately early-failing copies.
+        lenient().when(routeMapper.selectById(10L)).thenReturn(MesProRouteDO.builder()
+                .id(10L).code("SOURCE").name("源路线").build());
+        org.mockito.Mockito.doAnswer(call -> {
+            ((MesProRouteDO) call.getArgument(0)).setId(20L);
+            return 1;
+        }).when(routeMapper).insert(any(MesProRouteDO.class));
+        var processes = List.of(101L, 102L, 103L).stream().map(id -> MesProRouteProcessDO.builder()
+                .id(id).routeId(10L).processId(900L).build()).toList();
+        when(routeProcessMapper.selectListByRouteId(10L)).thenReturn(processes);
+        org.mockito.Mockito.doAnswer(call -> {
+            MesProRouteProcessDO process = call.getArgument(0);
+            process.setId(200L + process.getSort());
+            return 1;
+        }).when(routeProcessMapper).insert(any(MesProRouteProcessDO.class));
+        for (int i = 0; i < processes.size(); i++) processes.get(i).setSort(i + 1);
+        JSONObject configs = new JSONObject();
+        if (!"null".equals(batchConfigs)) configs.put("batchUseConfigs", JSON.parse(batchConfigs));
+        JSONObject snapshot = new JSONObject();
+        snapshot.put("configSnapshots", configs);
+        MesProRouteVersionDO source = MesProRouteVersionDO.builder().id(40L).routeId(10L)
+                .active(true).routeSnapshotJson(snapshot.toJSONString()).build();
+        when(routeVersionMapper.selectActiveByRouteId(10L)).thenReturn(source);
+        lenient().doAnswer(call -> {
+            ((MesProRouteVersionDO) call.getArgument(0)).setId(50L);
+            return 1;
+        }).when(routeVersionMapper).insert(any(MesProRouteVersionDO.class));
+        var schedules = processes.stream().map(p -> MesProRouteScheduleConfigDO.builder()
+                .id(p.getId() + 1000L).routeVersionId(40L).routeProcessId(p.getId()).build()).toList();
+        lenient().when(routeScheduleConfigMapper.selectListByRouteVersionId(40L)).thenReturn(schedules);
+        for (var process : processes) {
+            lenient().when(routeProcessService.resolveCurrentRouteProcess(process.getId(), 10L, null))
+                    .thenReturn(process);
+        }
+        var targetConfigs = processes.stream().map(p -> MesProRouteFlowProcessConfigDO.builder()
+                .id(p.getId() + 400L).routeId(20L).routeProcessId(p.getId() + 100L)
+                .useType(MesProRouteFlowConfigTypeEnum.BATCH.getType()).build()).toList();
+        lenient().when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+                20L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(targetConfigs);
+        return source;
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"USER", "USERS", "ROLE"})
+    void copyRoute_preservesLeaderSourcesAndMapsOnlyTheResponsibleRoute(String sourceType) {
+        var assignments = JSON.parseArray("""
+                [{"productionLineId":10,"productionLineCode":"SOURCE","productionLineName":"源路线",
+                  "candidateSourceType":"%s","candidateSourceIds":[901,902],
+                  "candidateSourceNames":["甲","乙"],"sort":1,"remark":"正式分配"}]
+                """.formatted(sourceType));
+        MesProRouteVersionDO source = prepareLeaderCopy(assignments);
+        String before = source.getRouteSnapshotJson();
+
+        assertEquals(20L, routeService.copyRoute(10L, "COPY", "副本", 30L));
+
+        var updates = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper).updateById(updates.capture());
+        var copied = updates.getValue();
+        JSONObject snapshot = JSON.parseObject(copied.getRouteSnapshotJson());
+        JSONArray leaders = snapshot.getJSONObject("configSnapshots").getJSONArray("routeStartProductionLeaders");
+        JSONObject expected = JSON.parseObject(assignments.getJSONObject(0).toJSONString());
+        expected.put("productionLineId", 20L);
+        expected.put("productionLineCode", "COPY");
+        expected.put("productionLineName", "副本");
+        assertEquals(JSON.parseObject(expected.toJSONString()), leaders.getJSONObject(0));
+        assertEquals(before, source.getRouteSnapshotJson());
+        assertEquals(10L, assignments.getJSONObject(0).getLong("productionLineId"));
+        assertEquals(new MesProRouteSnapshotCanonicalizer().sha256(copied.getRouteSnapshotJson()),
+                copied.getRouteSnapshotSha256());
+        assertDoesNotThrow(() -> MesProRouteVersionSnapshotValidator
+                .requireProductionLeaderAssignments(copied.getRouteSnapshotJson()));
+        if ("ROLE".equals(sourceType)) {
+            verify(roleApi).validRoleList(List.of(901L, 902L));
+            org.mockito.Mockito.verifyNoInteractions(adminUserApi);
+        } else {
+            verify(adminUserApi).validateUserList(List.of(901L, 902L));
+            org.mockito.Mockito.verifyNoInteractions(roleApi);
+        }
+        // Subsequent candidate snapshot generation reads the target's saved assignment, not the source route.
+        copied.setRouteId(20L);
+        when(routeVersionMapper.selectById(50L)).thenReturn(copied);
+        when(routeMapper.selectById(20L)).thenReturn(MesProRouteDO.builder()
+                .id(20L).code("COPY").name("副本").nodeType("FLOW").build());
+        JSONObject regenerated = JSON.parseObject(routeService.buildCurrentRouteSnapshotJson(20L, 50L));
+        assertEquals(leaders, regenerated.getJSONObject("configSnapshots").getJSONArray("routeStartProductionLeaders"));
+        assertDoesNotThrow(() -> MesProRouteVersionSnapshotValidator
+                .requireProductionLeaderAssignments(regenerated.toJSONString()));
+        leaders.getJSONObject(0).getJSONArray("candidateSourceIds").add(999L);
+        assertEquals(before, source.getRouteSnapshotJson());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"MISSING", "EMPTY"})
+    void copyRoute_preservesAbsentOrExplicitEmptyLeadersWithoutInventingAssignments(String state) {
+        prepareLeaderCopy("EMPTY".equals(state) ? new JSONArray() : null);
+        routeService.copyRoute(10L, "COPY", "副本", 30L);
+        var updates = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper).updateById(updates.capture());
+        var copied = updates.getValue();
+        JSONObject configs = JSON.parseObject(copied.getRouteSnapshotJson()).getJSONObject("configSnapshots");
+        assertEquals("EMPTY".equals(state), configs.containsKey("routeStartProductionLeaders"));
+        if ("EMPTY".equals(state)) assertTrue(configs.getJSONArray("routeStartProductionLeaders").isEmpty());
+        org.mockito.Mockito.verifyNoInteractions(adminUserApi, roleApi);
+        org.junit.jupiter.api.Assertions.assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> MesProRouteVersionSnapshotValidator.requireProductionLeaderAssignments(copied.getRouteSnapshotJson()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "{}", "[null]", "[1]",
+            "[{\"productionLineId\":99,\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[901]}]",
+            "[{\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[901]}]",
+            "[{\"productionLineId\":10,\"candidateSourceType\":\"DEPT\",\"candidateSourceIds\":[901]}]",
+            "[{\"productionLineId\":10,\"candidateSourceType\":\"USERS\"}]",
+            "[{\"productionLineId\":10,\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[]}]",
+            "[{\"productionLineId\":10,\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[null]}]",
+            "[{\"productionLineId\":10,\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[0]}]",
+            "[{\"productionLineId\":10,\"candidateSourceType\":\"ROLE\",\"candidateSourceIds\":[\"invalid\"]}]"})
+    void copyRoute_rejectsInvalidLeaderSnapshotsBeforeRegisteringSuccess(String raw) {
+        // JSON null is present and invalid; a genuinely absent key has its own successful-copy test.
+        MesProRouteVersionDO source = prepareLeaderCopy(JSON.parse(raw));
+        if ("null".equals(raw)) {
+            JSONObject snapshot = JSON.parseObject(source.getRouteSnapshotJson());
+            snapshot.getJSONObject("configSnapshots").put("routeStartProductionLeaders", null);
+            source.setRouteSnapshotJson(JSON.toJSONString(snapshot,
+                    com.alibaba.fastjson.serializer.SerializerFeature.WriteMapNullValue));
+        }
+        org.junit.jupiter.api.Assertions.assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> routeService.copyRoute(10L, "COPY", "副本", 30L));
+        verify(routeVersionMapper, never()).updateById(any(MesProRouteVersionDO.class));
+        verify(platformAdapter, never()).recordActiveRegistered(any(), any(), any());
+        org.mockito.Mockito.verifyNoInteractions(adminUserApi, roleApi);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"USERS", "ROLE"})
+    void copyRoute_invalidOrDisabledLeaderIdentityRollsBackAndPreservesTheFailure(String sourceType) {
+        prepareLeaderCopy(JSON.parseArray("""
+                [{"productionLineId":10,"candidateSourceType":"%s","candidateSourceIds":[901]}]
+                """.formatted(sourceType)));
+        var identityFailure = new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "正式人员或角色已失效");
+        if ("ROLE".equals(sourceType)) {
+            org.mockito.Mockito.doThrow(identityFailure).when(roleApi).validRoleList(List.of(901L));
+        } else {
+            org.mockito.Mockito.doThrow(identityFailure).when(adminUserApi).validateUserList(List.of(901L));
+        }
+        var transactions = org.mockito.Mockito.mock(org.springframework.transaction.PlatformTransactionManager.class);
+        var status = new org.springframework.transaction.support.SimpleTransactionStatus();
+        when(transactions.getTransaction(any())).thenReturn(status);
+        var proxy = new org.springframework.aop.framework.ProxyFactory(routeService);
+        proxy.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(transactions,
+                new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
+        MesProRouteService advised = (MesProRouteService) proxy.getProxy();
+        var thrown = org.junit.jupiter.api.Assertions.assertThrows(
+                cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> advised.copyRoute(10L, "COPY", "副本", 30L));
+        org.junit.jupiter.api.Assertions.assertSame(identityFailure, thrown);
+        verify(transactions).rollback(status);
+        verify(transactions, never()).commit(any());
+        verify(routeVersionMapper, never()).updateById(any(MesProRouteVersionDO.class));
+        verify(platformAdapter, never()).recordActiveRegistered(any(), any(), any());
+    }
+
+    private MesProRouteVersionDO prepareLeaderCopy(Object assignments) {
+        MesProRouteVersionDO source = prepareMaterialCopy("""
+                [{"routeProcessId":101,"inputMaterialIds":[7701],"outputMaterialIds":[8801]},
+                 {"routeProcessId":102,"inputMaterialIds":[],"outputMaterialIds":[]},
+                 {"routeProcessId":103,"inputMaterialIds":[],"outputMaterialIds":[]}]
+                """);
+        JSONObject snapshot = JSON.parseObject(source.getRouteSnapshotJson());
+        snapshot.put("routeId", 10L);
+        if (assignments != null) snapshot.getJSONObject("configSnapshots").put("routeStartProductionLeaders", assignments);
+        source.setRouteSnapshotJson(snapshot.toJSONString());
+        return source;
     }
 
     @Test

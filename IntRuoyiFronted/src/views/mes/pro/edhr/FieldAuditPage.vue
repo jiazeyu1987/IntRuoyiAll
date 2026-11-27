@@ -172,7 +172,7 @@
                         </div>
                         <div class="edhr-field-audit__evidence-item">
                           <div class="edhr-field-audit__label">当前值原文</div>
-                          <div class="edhr-field-audit__value">{{ row.currentValueJson || '--' }}</div>
+                          <ReadableData :source="row.currentValueJson" title="当前填写值" />
                         </div>
                         <div class="edhr-field-audit__evidence-item">
                           <div class="edhr-field-audit__label">当前值校验码</div>
@@ -347,26 +347,26 @@
                       </div>
                       <template v-if="isRecordbookSyncAudit(row)">
                         <div class="edhr-field-audit__evidence-item">
-                          <div class="edhr-field-audit__label">记录本填写值 JSON</div>
-                          <div class="edhr-field-audit__value">{{ formatJson(row.recordbookValueJson) }}</div>
+                          <div class="edhr-field-audit__label">记录本填写值</div>
+                          <ReadableData :source="formatJson(row.recordbookValueJson)" title="字段值明细" />
                         </div>
                         <div class="edhr-field-audit__evidence-item">
-                          <div class="edhr-field-audit__label">批记录存储值 JSON</div>
-                          <div class="edhr-field-audit__value">{{ formatJson(row.batchRecordValueJson) }}</div>
+                          <div class="edhr-field-audit__label">批记录存储值</div>
+                          <ReadableData :source="formatJson(row.batchRecordValueJson)" title="字段值明细" />
                         </div>
                       </template>
                       <template v-else>
                         <div class="edhr-field-audit__evidence-item">
-                          <div class="edhr-field-audit__label">旧值 JSON</div>
-                          <div class="edhr-field-audit__value">{{ formatJson(row.oldValueJson) }}</div>
+                          <div class="edhr-field-audit__label">旧值</div>
+                          <ReadableData :source="formatJson(row.oldValueJson)" title="字段值明细" />
                         </div>
                         <div class="edhr-field-audit__evidence-item">
                           <div class="edhr-field-audit__label">旧值 hash</div>
                           <div class="edhr-field-audit__value">{{ row.oldValueHash || '--' }}</div>
                         </div>
                         <div class="edhr-field-audit__evidence-item">
-                          <div class="edhr-field-audit__label">新值 JSON</div>
-                          <div class="edhr-field-audit__value">{{ formatJson(row.newValueJson) }}</div>
+                          <div class="edhr-field-audit__label">新值</div>
+                          <ReadableData :source="formatJson(row.newValueJson)" title="字段值明细" />
                         </div>
                       </template>
                       <div class="edhr-field-audit__evidence-item">
@@ -517,6 +517,7 @@
 </template>
 
 <script setup lang="ts">
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import {
   EDHR_FIELD_CHANGE_REASON_OPTIONS,
   EDHR_HASH_STATUS_LABEL_MAP,

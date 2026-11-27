@@ -297,7 +297,7 @@ test('relation selections and canvas deletion retain exact existing and temporar
 })
 const names = ['selectedNode', 'mergeRouteProcessRowWithNode', 'candidateAwareRouteProcessRows', 'selectedRouteProcess',
   'selectedPredecessorRouteProcessIds', 'selectedSuccessorRouteProcessIds', 'routeProcessRelationOptions',
-  'findProductionProcessConfig', 'formatPublishedProductionProcessConfig', 'findRouteProcessConfig', 'findNode',
+  'findProductionProcessConfig', 'findRouteProcessConfig', 'findNode',
   'readRouteFlowLastSelection', 'persistRouteFlowLastSelection', 'selectRouteProcessNode', 'restoreRouteFlowSelection',
   'handleNodeClick', 'handleNodeDragStop', 'isSelectedProcessDetailRequestCurrent', 'loadSelectedRouteProcessDeviceParameterConfig']
 function setup(ids = [A, B]) {
@@ -351,7 +351,7 @@ test('node clicks keep adjacent snowflake IDs distinct across selected rows, rel
     assert.equal(h.selectedNode.value.processName, `node-${index}`)
     assert.equal(h.selectedRouteProcess.value.remark, `row-${index}`)
     assert.equal(h.findRouteProcessConfig([{ routeProcessId: A, text: 'first' }, { routeProcessId: B, text: 'second' }], id).text, index ? 'second' : 'first')
-    assert.equal(JSON.parse(h.formatPublishedProductionProcessConfig()).parameterRules[0].name, `parameter-${index}`)
+    assert.equal(h.findProductionProcessConfig(id).parameterRules[0].name, `parameter-${index}`)
     assert.equal(h.routeProcessRelationOptions.value.length, 1)
     assert.equal(h.routeProcessRelationOptions.value[0].routeProcessId, index ? A : B)
     await h.loadSelectedRouteProcessDeviceParameterConfig()

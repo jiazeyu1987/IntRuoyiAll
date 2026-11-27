@@ -44,8 +44,6 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_DELETE_RELATION_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_DELETE_REFERENCED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_LIFECYCLE_STAGE_INVALID;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.INTAUTH_FILE_CATEGORY_SYNC_AMBIGUOUS;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.INTAUTH_FILE_CATEGORY_SYNC_CONFIG_MISSING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -83,8 +81,6 @@ class DccFileCategoryAdminServiceImplTest extends BaseDbUnitTest {
     private DccControlledFileMasterMapper controlledFileMasterMapper;
     @Resource
     private DataSource dataSource;
-    @MockitoBean
-    private DccIntAuthFileCategoryClient intAuthFileCategoryClient;
     @MockitoBean
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
 
@@ -141,31 +137,9 @@ class DccFileCategoryAdminServiceImplTest extends BaseDbUnitTest {
 
         assertEquals(1, categories.size());
         assertEquals("SOP", categories.get(0).getName());
-        verifyNoInteractions(intAuthFileCategoryClient);
     }
 
-    @Test
-    void importCategoriesFromIntAuth_createsMissingLocalCategory() {
-        when(intAuthFileCategoryClient.listFileCategories()).thenReturn(List.of(
-                new DccIntAuthFileCategoryClient.IntAuthFileCategory(11L, "设计转移方案/报告", true, true)
-        ));
 
-        DccFileCategoryImportResult result = categoryAdminService.importCategoriesFromIntAuth();
-
-        assertEquals(1, result.getTotalCount());
-        assertEquals(1, result.getCreatedCount());
-        assertEquals(0, result.getAdoptedCount());
-        assertEquals(0, result.getUpdatedCount());
-        List<DccFileCategoryDO> categories = categoryMapper.selectList();
-        assertEquals(1, categories.size());
-        assertEquals("INTAUTH-11", categories.get(0).getCode());
-        assertEquals("INTAUTH:11", categories.get(0).getSource());
-        assertEquals("设计转移方案/报告", categories.get(0).getName());
-        assertEquals("TRANSFER", categories.get(0).getLifecycleStage());
-        assertTrue(Boolean.TRUE.equals(categories.get(0).getActive()));
-        assertTrue(Boolean.TRUE.equals(categories.get(0).getDistributionRequired()));
-        assertTrue(Boolean.TRUE.equals(categories.get(0).getTrainingRequired()));
-    }
 
     @Test
     void createCategory_missingRequirementFlags_defaultsToTrue() {
@@ -280,65 +254,13 @@ class DccFileCategoryAdminServiceImplTest extends BaseDbUnitTest {
         assertEquals(category.getFileTypeTaxonomyId(), categoryMapper.selectById(category.getId()).getFileTypeTaxonomyId());
     }
 
-    @Test
-    void importCategoriesFromIntAuth_reusesSameNameLocalCategoryAndPreservesBinding() {
-        DccFileCategoryDO localCategory = createCategory("DCC_FVM_DHF_004", "项目立项书", "LOCAL", true, 5);
-        bindingMapper.insert(DccCategoryDirectoryBindingDO.builder()
-                .id(randomLongId())
-                .categoryId(localCategory.getId())
-                .directoryId(88L)
-                .active(Boolean.TRUE)
-                .build());
 
-        when(intAuthFileCategoryClient.listFileCategories()).thenReturn(List.of(
-                new DccIntAuthFileCategoryClient.IntAuthFileCategory(11L, "项目立项书", false, true)
-        ));
 
-        DccFileCategoryImportResult result = categoryAdminService.importCategoriesFromIntAuth();
 
-        assertEquals(1, result.getAdoptedCount());
-        DccFileCategoryDO category = categoryMapper.selectById(localCategory.getId());
-        assertEquals("DCC_FVM_DHF_004", category.getCode());
-        assertEquals("INTAUTH:11", category.getSource());
-        assertEquals(1, bindingMapper.selectList(DccCategoryDirectoryBindingDO::getCategoryId, localCategory.getId()).size());
-    }
 
-    @Test
-    void importCategoriesFromIntAuth_updatesMappedCategory() {
-        DccFileCategoryDO importedCategory = createCategory("INTAUTH-11", "Old Name", "INTAUTH:11", false, 3);
 
-        when(intAuthFileCategoryClient.listFileCategories()).thenReturn(List.of(
-                new DccIntAuthFileCategoryClient.IntAuthFileCategory(11L, "风险管理报告", true, true)
-        ));
 
-        DccFileCategoryImportResult result = categoryAdminService.importCategoriesFromIntAuth();
 
-        assertEquals(1, result.getUpdatedCount());
-        DccFileCategoryDO category = categoryMapper.selectById(importedCategory.getId());
-        assertEquals("风险管理报告", category.getName());
-        assertEquals("OUTPUT", category.getLifecycleStage());
-        assertTrue(Boolean.TRUE.equals(category.getActive()));
-    }
-
-    @Test
-    void importCategoriesFromIntAuth_duplicateSameNameLocalCategory_failFast() {
-        createCategory("LOCAL-SOP-1", "SOP", "LOCAL", true, 1);
-        createCategory("LOCAL-SOP-2", "SOP", "LOCAL", true, 2);
-
-        when(intAuthFileCategoryClient.listFileCategories()).thenReturn(List.of(
-                new DccIntAuthFileCategoryClient.IntAuthFileCategory(11L, "SOP", true, true)
-        ));
-
-        assertServiceException(categoryAdminService::importCategoriesFromIntAuth, INTAUTH_FILE_CATEGORY_SYNC_AMBIGUOUS);
-    }
-
-    @Test
-    void importCategoriesFromIntAuth_missingIntAuthConfig_failFast() {
-        when(intAuthFileCategoryClient.listFileCategories())
-                .thenThrow(exception(INTAUTH_FILE_CATEGORY_SYNC_CONFIG_MISSING, "yudao.dcc.int-auth.internal-service-token"));
-
-        assertServiceException(categoryAdminService::importCategoriesFromIntAuth, INTAUTH_FILE_CATEGORY_SYNC_CONFIG_MISSING);
-    }
 
     @Test
     void bindDirectory_rebindingWithHistoricalDeletedBinding_doesNotHitDuplicateKey() {
@@ -421,7 +343,7 @@ class DccFileCategoryAdminServiceImplTest extends BaseDbUnitTest {
         assertEquals(1, bindingMapper.selectCount(DccCategoryDirectoryBindingDO::getCategoryId, category.getId()));
         assertEquals(1, permissionRuleMapper.selectCount(DccFileCategoryPermissionRuleDO::getCategoryId, category.getId()));
         assertEquals(1, controlledFileMasterMapper.selectCount(DccControlledFileMasterDO::getCategoryId, category.getId()));
-        verifyNoInteractions(fileTypeTaxonomyAdminService, intAuthFileCategoryClient);
+        verifyNoInteractions(fileTypeTaxonomyAdminService);
     }
 
     @Test

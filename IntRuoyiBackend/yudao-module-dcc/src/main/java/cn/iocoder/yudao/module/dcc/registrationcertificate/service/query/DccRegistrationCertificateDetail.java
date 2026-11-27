@@ -52,6 +52,7 @@ public class DccRegistrationCertificateDetail {
     private String uploadOperatorName;
     private LocalDateTime uploadedAt;
     private String uploadApproverName;
+    /** 首次版本正式建档时间（formalized_at），不是 BPM 审批任务结束时间。 */
     private LocalDateTime uploadApprovedAt;
     private Boolean hasRegistrationFile;
     private String reminderColor;
