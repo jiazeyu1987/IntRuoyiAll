@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260908_system_electronic_signature_t3; type=schema; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260908_system_electronic_signature_t3; type=schema; riskLevel=medium; requiresTargetPreflight=true
 -- 与 eDHR review_opinion 的 1000 UTF-16 单元输入上限一致，不改写历史签名及证据哈希。
 -- 仅接受已核对的 varchar(500)/varchar(1000)、NOT NULL、utf8mb4_unicode_ci；未知结构失败，禁止缩小更宽列。
 DELIMITER $$

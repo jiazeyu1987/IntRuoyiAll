@@ -170,10 +170,11 @@ public class DccRegistrationCertificateCommandTransactionService {
             throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_PENDING_CONFLICT);
         }
         // Only the certificate is soft deleted. Versions, snapshots, files and audit evidence stay intact.
+        // The MySQL guard requires the matching audit in this transaction; both roll back on failure.
+        auditService.recordSuccess(metadata, context, certificate.getCurrentVersionId(),
+                certificate.getCurrentSnapshotId(), null, expectedRowVersion);
         requireSingle(certificateMapper.deletePreservingEvidence(
                 metadata.tenantId(), certificateId, expectedRowVersion, metadata.actorId()));
-        auditService.recordSuccess(metadata, context, certificate.getCurrentVersionId(),
-                certificate.getCurrentSnapshotId(), null);
         return certificateId;
     }
 

@@ -10,6 +10,8 @@
 
 完整脱敏结果见 `test58-temporary-match.md`、`temporary-test-data-repair.json`。**下文保留的是用户本次授权之前的历史方案；其中“当前禁止写入”“逐证确认”等边界已由本节更新，不再要求用户执行165张逐证核对。**
 
+后续正式恢复如何保留本次修复，见 `preserved-recovery-plan.md` 和实际原检查点的隔离演练结果 `preserved-recovery-verification.json`。方案走正式恢复验收，再精确回填原修复ID/时间/内容后发布新包；本轮只完成方案与验证，未在58执行恢复。
+
 ## 当前结论与边界
 
 **当前不具备发布条件，不能重放部署。** 维护侧在测试58实际执行提交 `77d4f35f88208875200b729201adb8322177dac2` 的只读 preflight，返回 `TARGET_PREFLIGHT_BLOCKED:20261127_dcc_registration_certificate_multi_products:UNRESOLVED_PRODUCT`。这是目标数据未满足现行合同，不是多证模型仍受唯一键限制。

@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "observedAt": "2026-11-27T03:44:03.422768+00:00",
+  "actualDatabase": "isolated local MySQL8.0.39",
+  "network": "none",
+  "publishedPorts": [],
+  "remoteServersContacted": false,
+  "checks": [
+    "Access reason: known CHECK accepted, migration preserves rows and permits NULL; absent CHECK accepted; unknown CHECK and unexpected width blocked",
+    "Signature capacity: 500 accepted, actual migration widens to1000 with unchanged existing signature; 1000 accepted, wider2000 blocked rather than shrunk",
+    "Default login: exactly one enabled initial tenant required; actual migration selects it only; duplicate/missing initial tenant and pre-existing column blocked",
+    "SRM: actual migration revokes root/child/menu grants and package entries, disables SRM role/category; unrelated menu/grant/package retained; malformed/non-array package JSON blocked"
+  ],
+  "checksPassed": 4
+}

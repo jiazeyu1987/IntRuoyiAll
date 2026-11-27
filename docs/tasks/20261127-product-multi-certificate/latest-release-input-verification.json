@@ -1,0 +1,160 @@
+{
+  "passed": true,
+  "observedAt": "2026-11-27T03:52:48.056575+00:00",
+  "sourceRef": "975d82300bdf468b64048196082901da201113d5",
+  "inputMethod": "separate Git index read-tree commit and checkout-index with repository attributes",
+  "inputCheckoutSqlEol": "CRLF",
+  "migrationCount": 930,
+  "artifactCount": 1264,
+  "sealedPackageIntegrity": true,
+  "newInputs": {
+    "20261126_dcc_project_access_reason_check_fix": {
+      "migrationId": "20261126_dcc_project_access_reason_check_fix",
+      "file": "sql/mysql/20261126_dcc_project_access_reason_check_fix.sql",
+      "sha256": "f913c36935f57f1662a550d62b231fed929242187a313e082a8f6102bd70b0d5",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20261112_dcc_project_access_reason_optional"
+      ],
+      "riskLevel": "low",
+      "requiresTargetPreflight": true,
+      "supersedes": [],
+      "allowedPublishScopes": [],
+      "applyOrder": null,
+      "sessionProfile": "",
+      "approvedHook": "",
+      "resultAssertion": "",
+      "targetPreflight": {
+        "reference": "sql/mysql/target-preflight/20261126_dcc_project_access_reason_check_fix.preflight.sql",
+        "sha256": "11e0110e6a25ea097d2cd364fa0a7e4bbd8fa3999ecc63cc968b20b474c62b63",
+        "readOnly": true
+      }
+    },
+    "20261126_srm_retirement": {
+      "migrationId": "20261126_srm_retirement",
+      "file": "sql/mysql/20261126_srm_retirement.sql",
+      "sha256": "793b6d57d6c1e42a94f40cb4651ef13d2c4e9c30b34cefd75fc38f41e8b400b3",
+      "type": "menu",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "medium",
+      "requiresTargetPreflight": false,
+      "supersedes": [],
+      "allowedPublishScopes": [],
+      "applyOrder": null,
+      "sessionProfile": "",
+      "approvedHook": "",
+      "resultAssertion": "",
+      "targetPreflight": {
+        "reference": "sql/mysql/target-preflight/20261126_srm_retirement.preflight.sql",
+        "sha256": "f28c5eb403cef2e384964229955bb10fd952e9ea8add9cd64b82ba663c99d90b",
+        "readOnly": true
+      }
+    },
+    "20261126_system_signature_reason_capacity": {
+      "migrationId": "20261126_system_signature_reason_capacity",
+      "file": "sql/mysql/20261126_system_signature_reason_capacity.sql",
+      "sha256": "58d9e7f59118e801522348059be276172cde24fdecf56f52e287cf760edb6a04",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260908_system_electronic_signature_t3"
+      ],
+      "riskLevel": "medium",
+      "requiresTargetPreflight": true,
+      "supersedes": [],
+      "allowedPublishScopes": [],
+      "applyOrder": null,
+      "sessionProfile": "",
+      "approvedHook": "",
+      "resultAssertion": "",
+      "targetPreflight": {
+        "reference": "sql/mysql/target-preflight/20261126_system_signature_reason_capacity.preflight.sql",
+        "sha256": "8e3424ea9368042f80ae07d836b47bdd0cd18c05892662fbc97c40d6a9ad306d",
+        "readOnly": true
+      }
+    },
+    "20261126_system_tenant_default_login": {
+      "migrationId": "20261126_system_tenant_default_login",
+      "file": "sql/mysql/20261126_system_tenant_default_login.sql",
+      "sha256": "dd00a1e5deceba2f0e836bb50273028d73413c70d6587dc22cd015fdbf9be970",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "low",
+      "requiresTargetPreflight": true,
+      "supersedes": [],
+      "allowedPublishScopes": [],
+      "applyOrder": null,
+      "sessionProfile": "",
+      "approvedHook": "",
+      "resultAssertion": "",
+      "targetPreflight": {
+        "reference": "sql/mysql/target-preflight/20261126_system_tenant_default_login.preflight.sql",
+        "sha256": "2f464f9f8ff74a0bfb9441886d6f295432b63957bcc133f5912caca53352ec06",
+        "readOnly": true
+      }
+    }
+  },
+  "targets": {
+    "test-restored-checkpoint": {
+      "ledgerRecords": 855,
+      "pending": [
+        "20261127_dcc_registration_certificate_multi_products",
+        "20261125_dcc_folder_template_menu",
+        "20261126_dcc_project_access_reason_check_fix",
+        "20261126_dcc_registration_certificate_remove_ce_materials",
+        "20261126_dcc_registration_certificate_typed_event_notify_template",
+        "20261126_dcc_registration_fda_change_no_approval_date",
+        "20261126_srm_retirement",
+        "20261126_system_signature_reason_capacity",
+        "20261126_system_tenant_default_login"
+      ],
+      "oldProductMigrations": {
+        "20261125_dcc_registration_certificate_products": "SKIP_IMMUTABLE",
+        "20261127_dcc_registration_certificate_products_admission": "SKIP_IMMUTABLE"
+      },
+      "formalAuditPassed": true,
+      "liveAdmission": false
+    },
+    "prod-cached-ledger": {
+      "ledgerRecords": 851,
+      "pending": [
+        "20261127_dcc_registration_certificate_multi_products",
+        "20261125_dcc_folder_template_menu",
+        "20261126_dcc_project_access_reason_check_fix",
+        "20261126_dcc_registration_certificate_remove_ce_materials",
+        "20261126_dcc_registration_certificate_typed_event_notify_template",
+        "20261126_dcc_registration_fda_change_no_approval_date",
+        "20261126_srm_retirement",
+        "20261126_system_signature_reason_capacity",
+        "20261126_system_tenant_default_login"
+      ],
+      "oldProductMigrations": {
+        "20261125_dcc_registration_certificate_products": "SKIP_IMMUTABLE",
+        "20261127_dcc_registration_certificate_products_admission": "SKIP_IMMUTABLE"
+      },
+      "formalAuditPassed": true,
+      "liveAdmission": false
+    }
+  },
+  "failedLedgerNegativeBlocked": true,
+  "remoteServersContacted": false
+}
