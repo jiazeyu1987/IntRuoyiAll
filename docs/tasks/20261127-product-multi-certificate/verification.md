@@ -57,3 +57,7 @@
 ## 保留修复数据的正式恢复方案
 
 收到正式恢复复核后，已完成 `preserved-recovery-plan.md` 及 `preserved-recovery-verification.json`：原检查点完整文件hash核验；从该实际检查点隔离恢复13张相关表且校验值一致；恢复后的855条真实账本通过现行正式检查，计划新多证优先、两个旧产品迁移SKIP_IMMUTABLE；精确回填修复的原ID/时间/内容后，新多证SQL及preflight通过。FAILED负例仍阻断，6项恢复编排边界测试通过。本轮未在58恢复、写库或部署。
+
+最新串行执行包已封存并交付，8项实际隔离MySQL测试通过，真实客户端超时后会话未关闭时保持维护保护与停写，见 `runner-handoff.md`、`runner-verification.json`。维护线程已开始正式恢复，本线程未并发操作58。
+
+最新4份SQL漏登记已修复，补齐只读目标预检并实际隔离执行验证，见 `release-source-registration.md`。57另行只读调查：102张证缺来源涉及65个现有项目，两类关系均无原始行；加上被首个错误遮住的快照问题共161张证，保持正式准入阻断。完整分类与不补业务数据的处理边界见 `prod57-admission-plan.md`。

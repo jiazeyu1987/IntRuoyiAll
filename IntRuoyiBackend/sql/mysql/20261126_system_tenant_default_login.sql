@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=low
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=low; requiresTargetPreflight=true
 -- Add one centrally managed tenant selection for fresh login pages.
 -- Fail before changing the schema when the required initial tenant is absent.
 DELIMITER $$

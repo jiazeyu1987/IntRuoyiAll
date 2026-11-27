@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20261112_dcc_project_access_reason_optional; type=schema; riskLevel=low
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20261112_dcc_project_access_reason_optional; type=schema; riskLevel=low; requiresTargetPreflight=true
 -- 项目正式授权的变更原因改为选填，不修改已有授权或其他权限约束。
 SET NAMES utf8mb4;
 

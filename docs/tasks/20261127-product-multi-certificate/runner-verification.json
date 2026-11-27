@@ -1,0 +1,33 @@
+{
+  "passed": true,
+  "observedAt": "2026-11-27T03:39:55.826287+00:00",
+  "checks": [
+    "Same worker: read-only original check, exact writers stop, full-field transplant, trigger restoration, replay rejection, frontend-last exact-state resume and resumable repeat",
+    "SQL failure after all transplant writes rolls back; worker returns 10, restores trigger and leaves writers stopped without replay",
+    "Real COMMIT followed by response exception: exact completed-state inspection recognizes commit, never repeats SQL",
+    "Dead worker during guard handoff: reconciliation reinstalls exact original trigger before removing guard and confirms original state",
+    "Actual live MySQL transaction after simulated client timeout: apply/reconcile return 30, preserve guard and stopped writers; only proven session closure permits exact completed-state reconciliation",
+    "Real subprocess timeout kills docker CLI while container MySQL continues sleeping inside transplant transaction: no cleanup/replay until independent session closure and real INNODB_TRX/active-SQL drain; exact committed state reconciled",
+    "Changed original master is rejected before maintenance guard or delta; no automatic correction",
+    "Explicit production57 target rejected before any SQL"
+  ],
+  "checksPassed": 8,
+  "actualDatabase": "isolated local MySQL 8.0.39",
+  "network": "none",
+  "publishedPorts": [],
+  "remoteServersContacted": false,
+  "workerRawSha256": "11caad33e3dcef94a57fc5c4c1bdd4412aa2cbb5afd4a2962eb9cdd20ddcec45",
+  "launcherRawSha256": "03b3619427ebf96acafe6c4324031a8dee056b1c648506a3a67853d1f49402a0",
+  "inputsManifestRawSha256": "5e00e85a3e48b7e6da45d558692d647311e2310a814c1e110d809ee93b6722f6",
+  "delta": {
+    "rawSha256": "deafd09d069613230a7b283c63e17666c68431adf9db2d6090cb9905b551cab6",
+    "rawBytes": 1027444,
+    "lfExecutionSha256": "40e29590cafcf75b062cee2e4e7e1ae7ba18c0f55c80d978bf35a09b0b33a377",
+    "lfExecutionBytes": 1027024,
+    "crlfCount": 420
+  },
+  "scopeMasterRows": 165,
+  "preservedSnapshots": 169,
+  "preservedAuditRows": 169,
+  "formalRecoveryReceiptAndContainerCommands": "test substitutes only; data/SQL/protections use actual restored checkpoint in isolated MySQL"
+}
