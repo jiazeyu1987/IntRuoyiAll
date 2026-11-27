@@ -38,6 +38,10 @@ public class MesProRouteProcessFlowSaveReqVO {
 
     private List<Long> routeProcessDeletes = new ArrayList<>();
 
+    @Schema(description = "当前候选版本的工序 SOP 绑定变更；未列出的工序保留原绑定")
+    @Valid
+    private List<@NotNull MesProRouteProcessSopBindingReqVO> sopBindings = new ArrayList<>();
+
     @Schema(description = "候选图增删工序时必传：同一候选版本、当前快照哈希、schemaVersion及保存后全部工序的完整生产配置；未修改项原值传回，按routeProcessId关联")
     @Valid
     private MesProRouteProductionProcessConfigSaveReqVO productionProcessConfig;

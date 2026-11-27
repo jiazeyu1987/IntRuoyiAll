@@ -383,19 +383,15 @@
               <Icon icon="ep:plus" />
             </el-button>
           </div>
-          <div v-if="selectedNode" data-flow-panel="version-process-sop">
-            <span>版本SOP：</span>
-            <el-link
-              v-if="selectedNode.sopFileUrl"
-              :href="selectedNode.sopFileUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-              type="primary"
-            >
-              查看SOP文件
-            </el-link>
-            <span v-else>该版本无可查看的SOP文件</span>
-          </div>
+          <RouteProcessSopEditor
+            v-if="selectedNode"
+            :key="`${props.routeId}:${props.routeVersionEditContext?.routeVersionId}:${selectedNode.routeProcessId}`"
+            :file-url="selectedNode.sopFileUrl"
+            :editable="canEditProcessSop"
+            :disabled="loading || saving || props.submitting"
+            @change="setSelectedProcessSop"
+            @uploading="sopUploading = $event"
+          />
           <el-empty
             v-if="selectedProcessDetailFields.length === 0"
             :image-size="38"
@@ -2175,6 +2171,7 @@ import RouteLossReasonBinding from './components/RouteLossReasonBinding.vue'
 import RouteDeviceGroups from './components/RouteDeviceGroups.vue'
 import RouteOverageEditor from './components/RouteOverageEditor.vue'
 import RouteCraftBinding from './components/RouteCraftBinding.vue'
+import RouteProcessSopEditor from './components/RouteProcessSopEditor.vue'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 import {
@@ -2425,6 +2422,23 @@ const isDraftCandidateEdit = computed(
     Boolean(props.routeVersionEditContext?.routeVersionId) &&
     props.routeVersionEditContext?.lifecycleStatus === 'DRAFT'
 )
+const canEditProcessSop = computed(() =>
+  canMutateRouteFlow.value && isDraftCandidateEdit.value && checkPermi(['mes:pro-route:update'])
+)
+const sopUploading = ref(false)
+const changedSopBindings = ref(new Map<string, string | null | undefined>())
+const setSelectedProcessSop = (url: string | null) => {
+  const node = selectedNode.value
+  if (!canEditProcessSop.value || !node || saving.value || loading.value || props.submitting) return
+  const key = String(node.routeProcessId)
+  if (!changedSopBindings.value.has(key)) changedSopBindings.value.set(key, node.sopFileUrl)
+  node.sopFileUrl = url
+  if (changedSopBindings.value.get(key) === url) changedSopBindings.value.delete(key)
+  markGraphDraftChanged()
+}
+const assertSopUploadComplete = () => {
+  if (sopUploading.value) throw new Error('SOP 文件正在上传，请等待上传完成后保存')
+}
 const resolveRouteVersionStatusLabel = (status?: ProRouteVersionLifecycleStatus) => {
   const labels: Record<string, string> = {
     DRAFT: '草稿',
@@ -7410,6 +7424,7 @@ const loadGraph = async () => {
       ProRouteProcessApi.getRouteProcessListByRoute(props.routeId, readRouteVersionId)
     ])
     routeNodes.value = normalizeNodes(graph.nodes || [])
+    changedSopBindings.value.clear()
     routeProcessRows.value = routeProcessList || []
     routeEdges.value = (graph.edges || []).map((edge) => ({
       ...edge,
@@ -7777,6 +7792,9 @@ const buildPayload = (): RouteFlowGraphSaveReqVO => ({
   routeVersionId: resolveRouteVersionIdForSave(),
   graphVersion: graphVersion.value,
   productionProcessConfig: buildFlowProductionProcessConfig(),
+  sopBindings: routeNodes.value.filter(isActiveRouteNode)
+    .filter((node) => changedSopBindings.value.has(String(node.routeProcessId)))
+    .map((node) => ({ routeProcessId: node.routeProcessId, processId: node.processId, sopFileUrl: node.sopFileUrl ?? null })),
   edges: routeEdges.value.filter(isActiveRouteEdge).map((edge) => ({
     sourceRouteProcessId: edge.sourceRouteProcessId,
     targetRouteProcessId: edge.targetRouteProcessId,
@@ -8008,6 +8026,7 @@ const markGraphSaveClean = () => {
 }
 
 const validateBeforeSubmit = async () => {
+  assertSopUploadComplete()
   operationError.value = ''
   productionConfigSavedMessage.value = ''
   saving.value = true
@@ -8040,6 +8059,7 @@ const validateBeforeSubmit = async () => {
 }
 
 const saveFromParent = async () => {
+  assertSopUploadComplete()
   operationError.value = ''
   saving.value = true
   let persistedRouteVersionId: MesRouteId | undefined
@@ -8066,6 +8086,7 @@ const saveFromParent = async () => {
     await saveSelectedProcessAttributeDrafts()
     await lossCoefficientEditor.value?.save()
     markGraphSaveClean()
+    changedSopBindings.value.clear()
     emit('saved')
     return result
   } catch (error) {
@@ -8134,6 +8155,7 @@ watch(() => [props.routeId, props.routeVersionEditContext?.routeVersionId], () =
 })
 
 const hasWorkspaceDraftChanges = () =>
+  sopUploading.value || changedSopBindings.value.size > 0 ||
   Boolean(lossCoefficientEditor.value?.hasChanges()) ||
   graphDirty.value ||
   hasSelectedProcessAttributeDraftChanges() ||
@@ -8142,6 +8164,11 @@ const hasWorkspaceDraftChanges = () =>
   hasProductionProcessConfigJsonDraftChanges()
 
 const discardWorkspaceDraftChanges = () => {
+  routeNodes.value.forEach((node) => {
+    const key = String(node.routeProcessId)
+    if (changedSopBindings.value.has(key)) node.sopFileUrl = changedSopBindings.value.get(key)
+  })
+  changedSopBindings.value.clear()
   lossCoefficientEditor.value?.discard()
   graphDirty.value = false
   changedProcessOrderIds.value = new Set()
@@ -8685,6 +8712,7 @@ const handleRouteProcessAdd = async () => {
       processId: process.id,
       processCode: process.code,
       processName: process.name,
+      sopFileUrl: process.sopFileUrl ?? null,
       sort: maxSort + 1,
       x: position.x,
       y: position.y,

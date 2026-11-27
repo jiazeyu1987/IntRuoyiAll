@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRout
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowLayoutReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowNodeRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessSopBindingReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowValidationMessageRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowValidationRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.process.MesProRouteProcessSaveReqVO;
@@ -135,6 +136,11 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
         respVO.setRouteId(routeId);
         respVO.setGraphVersion(graphVersion);
         respVO.setNodes(buildNodes(routeProcesses, layouts));
+        MesProRouteVersionDO activeVersion = readableRouteVersion != null
+                ? readableRouteVersion : routeVersionMapper.selectActiveByRouteId(routeId);
+        if (activeVersion != null) {
+            applyActiveSopBindings(activeVersion, respVO.getNodes());
+        }
         respVO.setEdges(edges.stream().map(this::toEdgeRespVO).toList());
         respVO.setBoundaryEdges(boundaryEdges.stream().map(this::toBoundaryEdgeRespVO).toList());
 
@@ -177,6 +183,9 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
         respVO.setNodes(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(candidateVersion.getLifecycleStatus())
                 ? buildNodes(routeProcesses, layouts)
                 : buildFrozenNodes(candidateVersion, flowGraph, layouts));
+        if (MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(candidateVersion.getLifecycleStatus())) {
+            applyCandidateSopBindings(candidateVersion, flowGraph, respVO.getNodes());
+        }
         respVO.setEdges(edges.stream().map(this::toEdgeRespVO).toList());
         respVO.setBoundaryEdges(boundaryEdges.stream().map(this::toBoundaryEdgeRespVO).toList());
 
@@ -192,6 +201,77 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
                 validateEdges(routeProcesses, edges, boundaryEdges);
         return mark(respVO, messages.isEmpty(), messages.isEmpty() ? STATUS_VALID : STATUS_INVALID,
                 graphVersion, messages);
+    }
+
+    private void applyActiveSopBindings(MesProRouteVersionDO version,
+                                       List<MesProRouteProcessFlowNodeRespVO> nodes) {
+        JSONObject flowGraph = resolveCandidateFlowGraphSnapshot(version);
+        Map<Integer, JSONObject> storedNodes = new HashMap<>();
+        for (Object value : flowGraph.getJSONArray("nodes")) {
+            JSONObject stored = toCandidateJsonObject(version, value);
+            Integer sort = stored.getInteger("sort");
+            if (sort == null || storedNodes.putIfAbsent(sort, stored) != null) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, version.getId());
+            }
+        }
+        // Publishing assigns new route-process IDs; sort and process identity link the frozen SOP.
+        for (MesProRouteProcessFlowNodeRespVO node : nodes) {
+            JSONObject stored = storedNodes.get(node.getSort());
+            if (stored == null || !Objects.equals(node.getProcessId(), stored.getLong("processId"))
+                    || !stored.containsKey("sopFileUrl")
+                    || (stored.get("sopFileUrl") != null && !(stored.get("sopFileUrl") instanceof String))) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, version.getId());
+            }
+            node.setSopFileUrl(stored.getString("sopFileUrl"));
+        }
+    }
+
+    private void applyCandidateSopBindings(MesProRouteVersionDO version, JSONObject flowGraph,
+                                           List<MesProRouteProcessFlowNodeRespVO> nodes) {
+        Map<Long, JSONObject> storedNodes = new HashMap<>();
+        for (Object value : flowGraph.getJSONArray("nodes")) {
+            JSONObject stored = toCandidateJsonObject(version, value);
+            Long id = stored.getLong("routeProcessId");
+            if (id == null) id = stored.getLong("clientRouteProcessId");
+            if (id == null || storedNodes.putIfAbsent(id, stored) != null) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, version.getId());
+            }
+        }
+        for (MesProRouteProcessFlowNodeRespVO node : nodes) {
+            JSONObject stored = storedNodes.get(node.getRouteProcessId());
+            if (stored == null || !Objects.equals(node.getProcessId(), stored.getLong("processId"))
+                    || !stored.containsKey("sopFileUrl")
+                    || (stored.get("sopFileUrl") != null && !(stored.get("sopFileUrl") instanceof String))) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, version.getId());
+            }
+            node.setSopFileUrl(stored.getString("sopFileUrl"));
+        }
+    }
+
+    private void validateSopBindings(MesProRouteProcessFlowSaveReqVO request, MesProRouteVersionDO candidate,
+                                     List<MesProRouteProcessDO> routeProcesses) {
+        if (safeList(request.getSopBindings()).isEmpty()) return;
+        if (candidate == null || !MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(candidate.getLifecycleStatus())) {
+            throw invalidParamException("SOP 仅允许在候选草稿版本中修改");
+        }
+        MesProRouteProductionProcessConfigSaveReqVO config = request.getProductionProcessConfig();
+        if (config == null || StrUtil.isBlank(config.getExpectedRouteSnapshotSha256())) {
+            throw invalidParamException("修改 SOP 必须提供当前候选版本的快照哈希和生产配置");
+        }
+        Map<Long, Long> processIds = routeProcesses.stream().collect(Collectors.toMap(
+                MesProRouteProcessDO::getId, MesProRouteProcessDO::getProcessId));
+        Set<Long> seen = new HashSet<>();
+        for (MesProRouteProcessSopBindingReqVO binding : request.getSopBindings()) {
+            if (binding == null || binding.getRouteProcessId() == null || binding.getProcessId() == null
+                    || !seen.add(binding.getRouteProcessId())
+                    || !Objects.equals(processIds.get(binding.getRouteProcessId()), binding.getProcessId())) {
+                throw invalidParamException("SOP 绑定工序不存在、身份不一致或重复");
+            }
+            String url = binding.getSopFileUrl();
+            if (url != null && (url.length() > 2048 || !url.matches("^(https?://|/)[^\\s]+$"))) {
+                throw invalidParamException("SOP 文件地址无效；解除绑定请使用 null");
+            }
+        }
     }
 
     private List<MesProRouteProcessFlowNodeRespVO> buildFrozenNodes(
@@ -404,6 +484,7 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
             return mark(respVO, false, STATUS_INVALID, graphVersion, draftValidation.messages());
         }
         List<MesProRouteProcessDO> routeProcesses = draftValidation.routeProcesses();
+        validateSopBindings(reqVO, candidateVersion, routeProcesses);
         if (CollUtil.isEmpty(routeProcesses)) {
             return mark(respVO, true, STATUS_EMPTY_PROCESS, graphVersion, List.of());
         }
@@ -617,11 +698,18 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("routeId", reqVO.getRouteId());
         snapshot.put("graphVersion", nextVersion);
-        snapshot.put("nodes", routeProcesses.stream()
+        List<Map<String, Object>> nodes = routeProcesses.stream()
                 .sorted(Comparator.comparing(
                         MesProRouteProcessDO::getSort, Comparator.nullsLast(Integer::compareTo)))
                 .map(routeProcess -> buildCandidateFlowNodeSnapshot(routeProcess, previousNodes.get(routeProcess.getId())))
-                .toList());
+                .toList();
+        Map<Long, MesProRouteProcessSopBindingReqVO> sopBindings = safeList(reqVO.getSopBindings()).stream()
+                .collect(Collectors.toMap(MesProRouteProcessSopBindingReqVO::getRouteProcessId, item -> item));
+        for (Map<String, Object> node : nodes) {
+            MesProRouteProcessSopBindingReqVO binding = sopBindings.get(node.get("routeProcessId"));
+            if (binding != null) node.put("sopFileUrl", binding.getSopFileUrl());
+        }
+        snapshot.put("nodes", nodes);
         snapshot.put("edges", safeList(reqVO.getEdges()));
         snapshot.put("boundaryEdges", safeList(reqVO.getBoundaryEdges()));
         snapshot.put("layouts", safeList(reqVO.getLayouts()));

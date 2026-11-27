@@ -1,5 +1,6 @@
 {
   "changes": [
+    {"source":"IntRuoyiFronted/src/views/mes/pro/route/RouteFlowGraphDesigner.vue","kind":"permission","value":"mes:pro-route:update","reason":"工艺流程内的 SOP 上传、更换和解除绑定复用关系图保存接口既有 mes:pro-route:update 权限，只修改当前候选草稿快照；无新增菜单、页面、路由、权限标识或角色与租户套餐授权，无需迁移。"},
     {"source":"IntRuoyiFronted/src/views/mes/pro/task/calendar/index.vue","kind":"permission","value":"mes:pro-work-order:query","reason":"排程日历查看工单主数据入口复用既有工单查询权限 mes:pro-work-order:query，无权限时禁用并提示；不新增菜单、页面、路由、权限标识、角色或租户套餐授权，无需迁移。"},
     {"source":"IntRuoyiFronted/src/views/mes/pro/route/RouteFlowGraphDesigner.vue","kind":"permission","value":"mes:pro-batch-record-template:query","reason":"工艺路线内部批记录表单选择框及加载入口复用批记录报表 page 接口现有查询权限，缺少权限时禁用并提示；不新增菜单、页面、路由、权限标识、角色或租户套餐授权，无需迁移。独立 formBindings 表单槽位链路不变。"},
     {"source":"IntRuoyiFronted/src/views/system/tenant/index.vue","kind":"permission","value":"system:tenant:update","reason":"既有租户列表增加设置登录默认租户操作，复用租户修改权限 system:tenant:update；不新增菜单、页面路由、权限标识、角色或租户套餐授权，无需菜单迁移。默认值字段及初始值另见 20261126_system_tenant_default_login.sql。"},

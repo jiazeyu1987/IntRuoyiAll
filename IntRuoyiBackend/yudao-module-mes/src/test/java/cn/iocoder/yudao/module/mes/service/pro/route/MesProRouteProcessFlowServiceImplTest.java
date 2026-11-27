@@ -63,6 +63,101 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteProcessFlowServiceImplTest {
+    private static cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessSopBindingReqVO sopBinding(
+            Long routeProcessId, Long processId, String url) {
+        var binding = new cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessSopBindingReqVO();
+        binding.setRouteProcessId(routeProcessId);
+        binding.setProcessId(processId);
+        binding.setSopFileUrl(url);
+        return binding;
+    }
+
+    @Test
+    void sopReplacementChangesOnlyCandidateNodeAndUsesSnapshotLock() {
+        MesProRouteVersionDO candidate = stubProductionCandidate();
+        String before = candidate.getRouteSnapshotJson();
+        var request = productionCandidateRequest();
+        request.setProductionProcessConfig(productionConfig(9902L,
+                List.of(productionProcess(21L, 201L), productionProcess(22L, 202L))));
+        request.setSopBindings(List.of(sopBinding(21L, 201L, "/files/new-sop.pdf")));
+        assertTrue(flowService.saveGraph(request).getValid());
+        ArgumentCaptor<Map<String, Object>> saved = ArgumentCaptor.forClass(Map.class);
+        verify(routeCandidateConfigService).saveConfigSnapshots(eq(9902L), eq("original-hash"), saved.capture());
+        var nodes = JSON.parseObject(JSON.toJSONString(saved.getValue().get("flowGraph"),
+                com.alibaba.fastjson.serializer.SerializerFeature.WriteMapNullValue)).getJSONArray("nodes");
+        assertEquals("/files/new-sop.pdf", nodes.getJSONObject(0).getString("sopFileUrl"));
+        assertEquals(JSON.parseObject(before).getJSONObject("configSnapshots").getJSONObject("flowGraph")
+                .getJSONArray("nodes").getJSONObject(1).get("sopFileUrl"), nodes.getJSONObject(1).get("sopFileUrl"));
+        assertEquals(before, candidate.getRouteSnapshotJson());
+        verifyNoMoreInteractions(processService);
+        verify(flowEdgeMapper, never()).deleteByRouteId(any());
+        verify(routeProcessService, never()).updateRouteProcess(any());
+    }
+
+    @Test
+    void sopUnbindingPersistsExplicitNull() {
+        stubProductionCandidate();
+        var request = productionCandidateRequest();
+        request.setProductionProcessConfig(productionConfig(9902L,
+                List.of(productionProcess(21L, 201L), productionProcess(22L, 202L))));
+        request.setSopBindings(List.of(sopBinding(21L, 201L, null)));
+        flowService.saveGraph(request);
+        ArgumentCaptor<Map<String, Object>> saved = ArgumentCaptor.forClass(Map.class);
+        verify(routeCandidateConfigService).saveConfigSnapshots(eq(9902L), eq("original-hash"), saved.capture());
+        var graph = (Map<?, ?>) saved.getValue().get("flowGraph");
+        var node = (Map<?, ?>) ((List<?>) graph.get("nodes")).get(0);
+        assertTrue(node.containsKey("sopFileUrl"));
+        assertNull(node.get("sopFileUrl"));
+    }
+
+    @Test
+    void sopChangesRejectDuplicateForeignOrMismatchedNodesAndMissingLock() {
+        var request = new MesProRouteProcessFlowSaveReqVO();
+        var candidate = MesProRouteVersionDO.builder().lifecycleStatus("DRAFT").build();
+        var rows = List.of(process(21L, 9002L, 201L, 1, false));
+        request.setProductionProcessConfig(productionConfig(9902L, List.of(productionProcess(21L, 201L))));
+        for (var bindings : List.of(
+                List.of(sopBinding(999L, 201L, "/sop.pdf")),
+                List.of(sopBinding(21L, 999L, "/sop.pdf")),
+                List.of(sopBinding(21L, 201L, "/sop.pdf"), sopBinding(21L, 201L, null)),
+                List.of(sopBinding(21L, 201L, "javascript:alert(1)")))) {
+            request.setSopBindings(bindings);
+            assertThrows(ServiceException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                    flowService, "validateSopBindings", request, candidate, rows));
+        }
+        request.setSopBindings(List.of(sopBinding(21L, 201L, "/sop.pdf")));
+        request.setProductionProcessConfig(null);
+        assertThrows(ServiceException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                flowService, "validateSopBindings", request, candidate, rows));
+        request.setProductionProcessConfig(productionConfig(9902L, List.of(productionProcess(21L, 201L))));
+        assertThrows(ServiceException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                flowService, "validateSopBindings", request, null, rows));
+        candidate.setLifecycleStatus("ACTIVE");
+        assertThrows(ServiceException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                flowService, "validateSopBindings", request, candidate, rows));
+    }
+
+    @Test
+    void draftSopReadUsesStoredBindingIncludingNullRatherThanCurrentMaster() {
+        var version = MesProRouteVersionDO.builder().id(9L).build();
+        var graph = JSON.parseObject("""
+                {"nodes":[{"routeProcessId":21,"processId":201,"sopFileUrl":"/frozen.pdf"},
+                {"routeProcessId":22,"processId":202,"sopFileUrl":null}]}
+                """);
+        var first = new cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowNodeRespVO();
+        first.setRouteProcessId(21L); first.setProcessId(201L); first.setSopFileUrl("/master.pdf");
+        var second = new cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowNodeRespVO();
+        second.setRouteProcessId(22L); second.setProcessId(202L); second.setSopFileUrl("/master.pdf");
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(flowService, "applyCandidateSopBindings",
+                version, graph, List.of(first, second));
+        assertEquals("/frozen.pdf", first.getSopFileUrl());
+        assertNull(second.getSopFileUrl());
+        graph.getJSONArray("nodes").getJSONObject(0).remove("sopFileUrl");
+        assertThrows(ServiceException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                flowService, "applyCandidateSopBindings", version, graph, List.of(first, second)));
+        verifyNoMoreInteractions(processService);
+    }
+
     @Test
     void savingUnchangedNodePreservesFrozenIdentityAndWorkstationDisplay() {
         var previous = com.alibaba.fastjson.JSON.parseObject("""
@@ -202,17 +297,27 @@ class MesProRouteProcessFlowServiceImplTest {
         verify(flowLayoutMapper, never()).insert(any(MesProRouteProcessFlowLayoutDO.class));
     }
 
-    @Test
-    void getGraph_shouldReadActiveGraphWhenRouteVersionIdIsActive() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void getGraph_shouldReadActiveGraphWithFrozenSop(boolean explicitVersion) {
         Long routeId = 9001L;
         Long activeRouteVersionId = 9901L;
         when(routeMapper.selectById(routeId)).thenReturn(route(routeId));
-        when(routeVersionMapper.selectById(activeRouteVersionId)).thenReturn(MesProRouteVersionDO.builder()
+        var activeVersion = MesProRouteVersionDO.builder()
                 .id(activeRouteVersionId)
                 .routeId(routeId)
                 .active(Boolean.TRUE)
                 .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_ACTIVE)
-                .build());
+                .routeSnapshotJson("""
+                        {"configSnapshots":{"flowGraph":{"nodes":[
+                        {"routeProcessId":-1,"sort":1,"processId":101,"sopFileUrl":"/published.pdf"}]}}}
+                        """)
+                .build();
+        if (explicitVersion) {
+            when(routeVersionMapper.selectById(activeRouteVersionId)).thenReturn(activeVersion);
+        } else {
+            when(routeVersionMapper.selectActiveByRouteId(routeId)).thenReturn(activeVersion);
+        }
         when(routeProcessMapper.selectListByRouteId(routeId)).thenReturn(List.of(
                 process(11L, routeId, 101L, 1, true)
         ));
@@ -224,12 +329,14 @@ class MesProRouteProcessFlowServiceImplTest {
         when(flowLayoutMapper.selectListByRouteId(routeId)).thenReturn(List.of());
         when(flowLayoutMapper.selectMaxGraphVersionByRouteId(routeId)).thenReturn(0L);
 
-        MesProRouteProcessFlowGraphRespVO graph = flowService.getGraph(routeId, activeRouteVersionId);
+        MesProRouteProcessFlowGraphRespVO graph = flowService.getGraph(routeId,
+                explicitVersion ? activeRouteVersionId : null);
 
         assertEquals("UNINITIALIZED", graph.getValidationStatus());
         assertEquals(1, graph.getNodes().size());
         assertEquals(11L, graph.getNodes().get(0).getRouteProcessId());
         assertEquals("PROC-001", graph.getNodes().get(0).getProcessCode());
+        assertEquals("/published.pdf", graph.getNodes().get(0).getSopFileUrl());
         verify(routeCandidateConfigService, never()).saveConfigSnapshot(any(), any(), any());
     }
 
@@ -251,8 +358,8 @@ class MesProRouteProcessFlowServiceImplTest {
                               "routeId": 9011,
                               "graphVersion": 12,
                               "nodes": [
-                                {"routeProcessId": 111, "processId": 1001, "routeProcessWorkstationId": 81001, "workstationId": 81001, "sort": 1, "keyFlag": true, "checkFlag": false},
-                                {"routeProcessId": 112, "processId": 1002, "sort": 2, "keyFlag": false, "checkFlag": false}
+                                {"routeProcessId": 111, "processId": 1001, "sopFileUrl": "/frozen-candidate.pdf", "routeProcessWorkstationId": 81001, "workstationId": 81001, "sort": 1, "keyFlag": true, "checkFlag": false},
+                                {"routeProcessId": 112, "processId": 1002, "sopFileUrl": null, "sort": 2, "keyFlag": false, "checkFlag": false}
                               ],
                               "edges": [
                                 {"sourceRouteProcessId": 111, "targetRouteProcessId": 112, "relationType": "NORMAL"}
@@ -319,8 +426,8 @@ class MesProRouteProcessFlowServiceImplTest {
                               "routeId": 9013,
                               "graphVersion": 7,
                               "nodes": [
-                                {"routeProcessId": 131, "processId": 1001, "routeProcessWorkstationId": null, "workstationId": 81001, "sort": 1, "keyFlag": true, "checkFlag": false},
-                                {"routeProcessId": 132, "processId": 1002, "sort": 2, "keyFlag": false, "checkFlag": false}
+                                {"routeProcessId": 131, "processId": 1001, "sopFileUrl": null, "routeProcessWorkstationId": null, "workstationId": 81001, "sort": 1, "keyFlag": true, "checkFlag": false},
+                                {"routeProcessId": 132, "processId": 1002, "sopFileUrl": null, "sort": 2, "keyFlag": false, "checkFlag": false}
                               ],
                               "edges": [
                                 {"sourceRouteProcessId": 131, "targetRouteProcessId": 132, "relationType": "NORMAL"}
@@ -1481,8 +1588,8 @@ class MesProRouteProcessFlowServiceImplTest {
                 .build();
         Map<String, Object> snapshots = new LinkedHashMap<>();
         snapshots.put("flowGraph", Map.of("graphVersion", 3L, "nodes", List.of(
-                Map.of("routeProcessId", 21L, "processId", 201L, "sort", 1, "keyFlag", true, "checkFlag", false),
-                Map.of("routeProcessId", 22L, "processId", 202L, "sort", 2, "keyFlag", false, "checkFlag", false)),
+                Map.of("routeProcessId", 21L, "processId", 201L, "sort", 1, "keyFlag", true, "checkFlag", false, "sopFileUrl", "/original.pdf"),
+                Map.of("routeProcessId", 22L, "processId", 202L, "sort", 2, "keyFlag", false, "checkFlag", false, "sopFileUrl", "/untouched.pdf")),
                 "edges", List.of(), "boundaryEdges", List.of(), "layouts", List.of()));
         snapshots.put("scheduleConfigs", Map.of(
                 "21", Map.of("routeProcessId", 21L, "sort", 1, "capacityMode", "MANUAL_OVERRIDE",

@@ -340,6 +340,7 @@ export interface RouteFlowGraphSaveReqVO {
   routeProcessCreates?: RouteFlowRouteProcessCreateReqVO[]
   routeProcessUpdates?: RouteFlowRouteProcessUpdateReqVO[]
   routeProcessDeletes?: MesRouteId[]
+  sopBindings?: Array<{ routeProcessId: MesRouteId; processId: number; sopFileUrl: string | null }>
 }
 
 export interface RouteFlowRouteProcessCreateReqVO {
