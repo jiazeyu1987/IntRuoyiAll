@@ -39,3 +39,5 @@
 - 3 项失败与本次差异无关：`BpmIntegrationTest` 两个下载审批测试夹具缺少必填 `ownerCompanyName`，在未改动的 `ApprovalService.requireSummaryText` 报错；`CommandControllerTest.lifecycleActionControllers_exposeApprovedRoutesPermissionsAndIdempotencyHeaders` 断言附件控制器不得存在，而该文件在基线 `9a8d14665` 已存在。上述服务、控制器及测试相对基线 diff 为空；本任务未改动这些断言或业务。
 
 固定提交的 CRLF 干净检出发布输入、历史发布包完整性、目标计划与 FAILED 账本负例结果另见同目录 `release-input-verification.json`。
+
+已核验功能提交 `0eadff1a0b9a61157b3051e7a98839503b66f7dc`：926 个迁移、938 个根 SQL、1256 个包输入，无漏登记或缺失输入，历史封包完整性通过。本地缓存账本快照 test 855 条、prod 851 条，两者均计划 5 个待执行迁移，新迁移先执行，两个旧迁移为 SKIP_IMMUTABLE；缺失新 preflight 和旧迁移 FAILED 两个负例均准确阻断。这些是历史快照的离线计划核验，不能替代维护人员对当前服务器的检查。正常、暂存和提交 hook 的菜单门禁通过；任务测试容器已按容器 ID 和标签核实后移除，未影响其他环境。
