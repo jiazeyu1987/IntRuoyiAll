@@ -1,0 +1,43 @@
+.certificate-type-bar { display: flex; align-items: center; gap: 20px; padding: 4px 24px 18px; border-bottom: 1px solid var(--el-border-color-lighter); }
+.certificate-type-label { flex-shrink: 0; color: var(--el-text-color-regular); font-size: 13px; }
+.required-mark { color: var(--el-color-danger); }
+.certificate-type-tabs { display: flex; flex: 1; max-width: 560px; padding: 4px; border: 1px solid var(--el-border-color-lighter); border-radius: 10px; background: var(--el-fill-color-light); }
+.certificate-type-tabs :deep(.el-radio-button) { flex: 1; }
+.certificate-type-tabs :deep(.el-radio-button__inner) { width: 100%; padding: 9px 12px; border: 0; border-radius: 7px; background: transparent; box-shadow: none; }
+.certificate-type-tabs :deep(.el-radio-button.is-active .el-radio-button__inner) { color: var(--el-color-primary); background: var(--el-bg-color); box-shadow: var(--el-box-shadow-lighter); }
+.certificate-type-tabs small { margin-left: 8px; padding: 2px 5px; border-radius: 4px; background: var(--el-color-primary-light-9); font-size: 10px; color: var(--el-color-primary); }
+.registration-certificate-upload-body { max-height: calc(90vh - 214px); overflow-y: auto; overflow-x: hidden; padding: 20px 24px 0; scrollbar-width: thin; }
+.certificate-section { margin-bottom: 20px; }
+.certificate-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 10px; margin-bottom: 16px; border-bottom: 1px solid var(--el-border-color-extra-light); }
+.certificate-section-heading h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 600; color: var(--el-text-color-primary); }
+.certificate-section-heading h3::before { width: 4px; height: 15px; border-radius: 2px; background: var(--el-color-primary); content: ''; }
+.certificate-section-heading > span { font-size: 12px; color: var(--el-text-color-secondary); }
+.certificate-product-readout { padding: 14px 16px 0; border: 1px solid var(--el-border-color-lighter); border-radius: 8px; background: var(--el-fill-color-light); }
+.registration-certificate-upload-body :deep(.el-form-item) { margin-bottom: 16px; }
+.registration-certificate-upload-body :deep(.el-form-item__label) { padding-bottom: 6px; line-height: 20px; font-size: 13px; }
+.registration-certificate-upload-body :deep(.el-select), .registration-certificate-upload-body :deep(.el-date-editor.el-input) { width: 100%; }
+.registration-certificate-upload-body :deep(.el-input__wrapper), .registration-certificate-upload-body :deep(.el-select__wrapper), .registration-certificate-upload-body :deep(.el-textarea__inner) { border-radius: 6px; }
+.registration-certificate-upload-body :deep(.el-textarea__inner) { min-height: 80px; }
+.certificate-upload-card :deep(.el-form-item__content) { display: block; }
+.certificate-upload-card :deep(.el-upload), .certificate-upload-card :deep(.el-upload-dragger) { width: 100%; }
+.certificate-upload-card :deep(.el-upload-dragger) { padding: 20px 10px; border-radius: 8px; background: var(--el-fill-color-lighter); line-height: 24px; font-size: 12px; }
+.certificate-upload-card :deep(.el-icon) { color: var(--el-color-primary); }
+.certificate-upload-tip { padding-top: 6px; color: var(--el-text-color-secondary); font-size: 12px; line-height: 18px; }
+.certificate-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.certificate-footer-hint { color: var(--el-text-color-secondary); font-size: 12px; text-align: left; }
+.certificate-footer-actions { flex-shrink: 0; }
+.upload-material-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.upload-material-grid.is-fda { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+:global(.registration-certificate-upload-dialog.el-dialog) { max-width: calc(100vw - 24px); padding: 0; overflow: hidden; border-radius: 12px; }
+:global(.registration-certificate-upload-dialog > .el-dialog__header) { padding: 20px 56px 16px 24px; margin: 0; }
+:global(.registration-certificate-upload-dialog > .el-dialog__body) { padding: 0; }
+:global(.registration-certificate-upload-dialog > .el-dialog__footer) { padding: 14px 24px; border-top: 1px solid var(--el-border-color-lighter); background: var(--el-fill-color-light); }
+@media (max-width: 600px) {
+  .certificate-type-bar { align-items: stretch; flex-direction: column; gap: 10px; padding-inline: 16px; }
+  .certificate-type-tabs { max-width: none; }
+  .certificate-type-tabs small { display: none; }
+  .registration-certificate-upload-body { max-height: calc(90vh - 280px); padding-inline: 16px; }
+  .certificate-footer { align-items: stretch; flex-direction: column; gap: 10px; }
+  .certificate-footer-actions { text-align: right; }
+  .upload-material-grid, .upload-material-grid.is-fda { grid-template-columns: 1fr; gap: 16px; }
+}

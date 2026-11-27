@@ -94,6 +94,26 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         JdbcTemplate jdbcTemplate(DataSource dataSource) {
             return new JdbcTemplate(dataSource);
         }
+
+        @Bean
+        org.apache.ibatis.plugin.Interceptor mysqlTextCasts() {
+            return new MysqlTextCasts();
+        }
+    }
+
+    /** H2 truncates unqualified CHAR casts to one character; MySQL preserves the full text. */
+    @org.apache.ibatis.plugin.Intercepts(@org.apache.ibatis.plugin.Signature(
+            type = org.apache.ibatis.executor.statement.StatementHandler.class, method = "prepare",
+            args = {java.sql.Connection.class, Integer.class}))
+    static class MysqlTextCasts implements org.apache.ibatis.plugin.Interceptor {
+        @Override
+        public Object intercept(org.apache.ibatis.plugin.Invocation invocation) throws Throwable {
+            var handler = (org.apache.ibatis.executor.statement.StatementHandler) invocation.getTarget();
+            var bound = handler.getBoundSql();
+            org.apache.ibatis.reflection.SystemMetaObject.forObject(bound).setValue("sql",
+                    bound.getSql().replace(" AS CHAR)", " AS VARCHAR)"));
+            return invocation.proceed();
+        }
     }
 
     // H2 CHAR defaults to length 1, unlike MySQL's unbounded CAST AS CHAR.
@@ -156,6 +176,10 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
 
     @BeforeEach
     void setUp() {
+        jdbcTemplate.execute("DROP ALIAS IF EXISTS JSON_CONTAINS");
+        jdbcTemplate.execute("CREATE ALIAS JSON_CONTAINS FOR 'cn.iocoder.yudao.module.dcc.registrationcertificate.DccRegistrationCertificateQueryServiceTest.jsonContains'");
+        jdbcTemplate.execute("DROP ALIAS IF EXISTS JSON_QUOTE");
+        jdbcTemplate.execute("CREATE ALIAS JSON_QUOTE FOR 'cn.iocoder.yudao.module.dcc.registrationcertificate.DccRegistrationCertificateQueryServiceTest.jsonQuote'");
         jdbcTemplate.execute("DROP ALIAS IF EXISTS JSON_EXTRACT");
         jdbcTemplate.execute("CREATE ALIAS JSON_EXTRACT FOR 'cn.iocoder.yudao.module.dcc.registrationcertificate.DccRegistrationCertificateQueryServiceTest.jsonExtract'");
         jdbcTemplate.execute("CREATE ALIAS IF NOT EXISTS JSON_LENGTH FOR 'cn.iocoder.yudao.module.dcc.registrationcertificate.DccRegistrationCertificateQueryServiceTest.jsonLength'");
@@ -165,6 +189,71 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
             Collection<Long> ids = invocation.getArgument(0);
             return ids.stream().map(DccRegistrationCertificateQueryServiceTest::user).toList();
         });
+    }
+
+    @Test
+    void certificateTypeColumnFiltersCurrentOldIndexAndExportByDisplayedLabel() {
+        var currentIds = new java.util.HashMap<String, Long>();
+        var oldIds = new java.util.HashMap<String, Long>();
+        for (String type : List.of("CE", "FDA", "DOMESTIC")) {
+            var current = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "TYPE-" + type, true, 20L);
+            var old = seedOldVersionOnCertificate(current, "OLD-TYPE-" + type);
+            for (var fixture : List.of(current, old)) {
+                var snapshot = snapshotMapper.selectById(fixture.snapshotId());
+                var facts = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(snapshot.getFactsJson(),
+                        cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.class);
+                facts.setCertificateType(type);
+                jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=?",
+                        facts.toJson(), fixture.snapshotId());
+            }
+            currentIds.put(type, current.versionId());
+            oldIds.put(type, old.versionId());
+        }
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+        for (String type : List.of("CE", "FDA", "DOMESTIC")) {
+            String label = "DOMESTIC".equals(type) ? "国内" : type;
+            var query = DccRegistrationCertificatePageQuery.builder()
+                    .listFilters("[{\"key\":\"certificateType\",\"operator\":\"contains\",\"value\":\"" + label + "\"}]")
+                    .build();
+            var page = queryService.getPage(1L, 99L, query, context("TYPE-CURRENT-" + type));
+            assertEquals(1L, page.getTotal());
+            assertEquals(List.of(currentIds.get(type)), page.getList().stream().map(DccRegistrationCertificatePageItem::getVersionId).toList());
+            var oldPage = queryService.getOldIndexPage(1L, 99L, query, context("TYPE-OLD-" + type));
+            assertEquals(1L, oldPage.getTotal());
+            assertEquals(List.of(oldIds.get(type)), oldPage.getList().stream().map(DccRegistrationCertificateOldIndexItem::getVersionId).toList());
+            assertEquals(List.of(currentIds.get(type)), queryService.getExportRows(1L, 99L, query, null, 10)
+                    .stream().map(DccRegistrationCertificatePageItem::getVersionId).toList());
+        }
+    }
+
+    @Test
+    void exportUsesListSortSelectedVersionIdsAndPersistsBatchAudit() throws Exception {
+        var b = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "EXPORT-B", false, 20L);
+        var a = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "EXPORT-A", false, 20L);
+        seedFormal(2L, 12L, "ACTIVE", "CURRENT", "EXPORT-OTHER-TENANT", false, 22L);
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any())).thenReturn(List.of(owner(10L,"Owner A")));
+        var query = DccRegistrationCertificatePageQuery.builder().certificateNo("EXPORT-").sortField("certificateNo").sortOrder("asc").build();
+        var rows = queryService.getExportRows(1L,99L,query,List.of(b.versionId(),a.versionId()),10);
+        assertEquals(List.of(a.versionId(),b.versionId()),rows.stream().map(DccRegistrationCertificatePageItem::getVersionId).toList());
+        var desc = DccRegistrationCertificatePageQuery.builder().sortField("certificateNo").sortOrder("desc").build();
+        assertEquals(List.of(b.versionId(),a.versionId()),queryService.getExportRows(1L,99L,desc,null,10).stream().map(DccRegistrationCertificatePageItem::getVersionId).toList());
+        assertThrows(DccRegistrationCertificateQueryService.ExportLimitExceeded.class,()->queryService.getExportRows(1L,99L,DccRegistrationCertificatePageQuery.builder().build(),null,1));
+        when(permissionApi.hasAnyPermissions(eq(99L),any(String[].class))).thenReturn(true);
+        var exports = new cn.iocoder.yudao.module.dcc.registrationcertificate.service.export.DccRegistrationCertificateExportService(
+                queryService,auditMapper,permissionApi,new DccRegistrationCertificateBusinessClock());
+        var req = new cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.query.vo.DccRegistrationCertificatePageReqVO();
+        req.setSortField("certificateNo");req.setSortOrder("asc");
+        var p=exports.preview(1L,99L,new cn.iocoder.yudao.module.dcc.registrationcertificate.service.export.DccRegistrationCertificateExportService.Scope("current","SELECTED",req,List.of(b.versionId(),a.versionId())));
+        exports.generate(1L,99L,p.snapshotId(),p.requestId());
+        exports.generate(1L,99L,p.snapshotId(),p.requestId());
+        var audits=auditMapper.selectListByCertificateId(a.certificateId());
+        assertEquals(1,audits.size());assertEquals("EXCEL_GENERATED",audits.get(0).getEventType());
+        assertTrue(audits.get(0).getDetailJson().contains("exported_record_ids"));
+        try(var stream=exports.open(1L,99L,p.requestId())){assertEquals(2,stream.status().exported());}
+        jdbcTemplate.update("UPDATE dcc_registration_certificate SET deleted=1 WHERE id=?",a.certificateId());
+        assertThrows(ServiceException.class,()->exports.open(1L,99L,p.requestId()));
+        assertEquals("INVALID",exports.status(1L,99L,p.requestId()).state());
     }
 
     @Test
@@ -241,6 +330,22 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 "detail must return the server snapshot revision instead of asking the user to type it");
         assertEquals("DCC-PROJ-20", detail.getProjectCode(),
                 "detail must return the formal project code instead of the project-code database id");
+    }
+
+    @Test
+    void sharedCertificateCanBeQueriedByItsSecondProjectAndProductMaster() {
+        var fixture=seedFormal(1L,10L,"ACTIVE","CURRENT","SHARED-QUERY",true,20L);
+        seedProjectCode(1L,21L);jdbcTemplate.update("UPDATE dcc_project_code SET product_master_id=99 WHERE id=21 AND tenant_id=1");
+        var facts=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshotMapper.selectById(fixture.snapshotId()).getFactsJson());
+        var second=new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateProjectProduct(21L,664L,"P664","产品乙",List.of());
+        facts.setProjectProducts(List.of(facts.getProjectProduct(),second));
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=?",facts.toJson(),fixture.snapshotId());
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)),any())).thenReturn(List.of(owner(10L,"Owner A")));
+        for(var query:List.of(DccRegistrationCertificatePageQuery.builder().projectCodeId(21L).build(),DccRegistrationCertificatePageQuery.builder().productMasterId(99L).build())){
+            var page=queryService.getPage(1L,99L,query,context("SHARED-"+query.hashCode()));
+            assertEquals(1L,page.getTotal());assertEquals(fixture.certificateId(),page.getList().get(0).getCertificateId());
+            assertEquals("DCC-PROJ-20、DCC-PROJ-21",page.getList().get(0).getProjectCode());
+        }
     }
 
     @Test
@@ -576,7 +681,7 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void ceReminderFiltersAndDetailsUseCeThresholdsAndOnlyTheirOwnVersionMaterials() {
+    void ceReminderFiltersAndDetailsCannotBeClearedBySupportingMaterials() {
         LocalDate today = LocalDate.now(DccRegistrationCertificateBusinessClock.BUSINESS_ZONE);
         FormalFixture warning = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CE-WARNING", true, 20L);
         FormalFixture urgent = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CE-URGENT", true, 21L);
@@ -590,10 +695,10 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                     facts.toJson(), fixture.snapshotId());
         }
         FormalFixture oldWarningVersion = seedOldVersionOnCertificate(warning, "CE-WARNING-OLD");
-        seedSupportingDocument(warning, "CE_RENEWAL_CONTRACT");
+        seedSupportingDocument(warning, "RENEWAL_ACCEPTANCE_RECEIPT");
         jdbcTemplate.update("UPDATE dcc_registration_certificate_supporting_document SET version_id=? WHERE certificate_id=?",
                 oldWarningVersion.versionId(), warning.certificateId());
-        seedSupportingDocument(urgent, "CE_RENEWAL_QUOTATION");
+        seedSupportingDocument(urgent, "RENEWAL_SUPPLEMENT_NOTICE");
         when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
         when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
                 .thenReturn(List.of(owner(10L, "Owner A")));
@@ -607,9 +712,9 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 context("CE-REMINDER-DETAIL")).getVisualState());
         jdbcTemplate.update("UPDATE dcc_registration_certificate_supporting_document SET version_id=? WHERE certificate_id=?",
                 warning.versionId(), warning.certificateId());
-        assertEquals(0L, queryService.getPage(1L, 99L, filter, context("CE-REMINDER-CLEARED-FILTER")).getTotal());
-        assertEquals("CLEARED", queryService.getDetail(1L, 99L, warning.certificateId(), null,
-                context("CE-REMINDER-CLEARED-DETAIL")).getVisualState());
+        assertEquals(1L, queryService.getPage(1L, 99L, filter, context("CE-REMINDER-MATERIAL-FILTER")).getTotal());
+        assertEquals("CE_T_12", queryService.getDetail(1L, 99L, warning.certificateId(), null,
+                context("CE-REMINDER-MATERIAL-DETAIL")).getVisualState());
     }
 
     @Test
@@ -1548,9 +1653,26 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
             node.forEach(item -> { if (item.has("enterpriseName")) names.add(item.get("enterpriseName")); });
             return names.isEmpty() ? null : names.toString();
         }
+        if (path.equals("$.projectProducts[*].projectCodeId")) {
+            var result = cn.iocoder.yudao.framework.common.util.json.JsonUtils.getObjectMapper().createArrayNode();
+            var products = node.get("projectProducts");
+            if (products == null || !products.isArray()) return null;
+            products.forEach(product -> { if (product.has("projectCodeId")) result.add(product.get("projectCodeId")); });
+            return result.toString();
+        }
         var tokens = java.util.regex.Pattern.compile("([a-zA-Z_][a-zA-Z_0-9]*)|\\[([0-9]+)\\]").matcher(path.substring(1));
         while (tokens.find() && node != null) node = tokens.group(1) != null ? node.get(tokens.group(1)) : node.get(Integer.parseInt(tokens.group(2)));
         return node == null ? null : node.toString();
+    }
+    public static Integer jsonContains(String json, String candidate) {
+        if (json == null || candidate == null) return null;
+        var node = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(json);
+        var value = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(candidate);
+        for (var element : node) if (element.equals(value)) return 1;
+        return 0;
+    }
+    public static String jsonQuote(String value) {
+        return value == null ? null : cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(value);
     }
     public static Integer jsonLength(String json) {
         if (json == null) return null;

@@ -197,8 +197,7 @@ public class DccRegistrationCertificateSupportingDocumentService {
             throw new ServiceException(REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REQUIRED);
         }
         String type = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(rows.get(0).factsJson()).getCertificateType();
-        boolean domestic = java.util.Set.of("RENEWAL_ACCEPTANCE_RECEIPT", "RENEWAL_SUPPLEMENT_NOTICE").contains(command.documentType().trim());
-        if (!(domestic && "DOMESTIC".equals(type) || !domestic && "CE".equals(type))) {
+        if (!"DOMESTIC".equals(type)) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REQUIRED);
         }
         return rows.get(0);
@@ -280,9 +279,7 @@ public class DccRegistrationCertificateSupportingDocumentService {
 
     private void validateDocumentType(String documentType) {
         if (!"RENEWAL_ACCEPTANCE_RECEIPT".equals(trim(documentType))
-                && !"RENEWAL_SUPPLEMENT_NOTICE".equals(trim(documentType))
-                && !"CE_RENEWAL_CONTRACT".equals(trim(documentType))
-                && !"CE_RENEWAL_QUOTATION".equals(trim(documentType))) {
+                && !"RENEWAL_SUPPLEMENT_NOTICE".equals(trim(documentType))) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REQUIRED);
         }
     }

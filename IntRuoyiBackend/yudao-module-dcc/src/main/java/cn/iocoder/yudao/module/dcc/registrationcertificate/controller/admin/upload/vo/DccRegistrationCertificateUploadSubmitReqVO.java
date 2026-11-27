@@ -69,6 +69,7 @@ public class DccRegistrationCertificateUploadSubmitReqVO {
 
     @Schema(description = "注册证文件", requiredMode = Schema.RequiredMode.REQUIRED)
     private MultipartFile file;
+    private List<MultipartFile> additionalPrimaryFiles;
     @NotBlank(message = "请选择注册证类型并填写完整证件信息")
     @Size(max = 65535)
     private String factsJson;
@@ -98,6 +99,6 @@ public class DccRegistrationCertificateUploadSubmitReqVO {
         return new DccRegistrationCertificateUploadCommand(
                 projectCodeId, companyId, productName, certificateNo, firstObtainedDate,
                 effectiveDate, expiryDate, classification, entrustedProduction, selfProduction,
-                entrustedEnterpriseIds, remark, file, factsJson, attachments, productDescriptionFiles, sourceRequestId, retainedFileIds, handlingTaskId);
+                entrustedEnterpriseIds, remark, file, factsJson, attachments, productDescriptionFiles, sourceRequestId, retainedFileIds, handlingTaskId, additionalPrimaryFiles);
     }
 }

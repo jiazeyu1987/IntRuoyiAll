@@ -98,6 +98,11 @@ class DccW08DistributionPreviewTest {
         verifyNoInteractions(bodyReceipts);
         assertNull(((ThreadLocal<?>)ReflectionTestUtils.getField(query,"distributionPreviewContext")).get());
     }
+    @Test void metadataReflectsReceiptCompletedFromEitherEntry() {
+        assertFalse(query.getDistributionPreviewMetadata(99L,5L,10L,11L,audit()).getReceiptAcknowledged());
+        recipient.setAcknowledgedAt(time);
+        assertTrue(query.getDistributionPreviewMetadata(99L,5L,10L,11L,audit()).getReceiptAcknowledged());
+    }
     @Test void taskDetailHasOnlyExactSelectedVersionAndNoMaintenanceOrParentHistory() {
         var result=query.getDistributionPreviewDetail(99L,5L,10L,11L);
         assertEquals(5L,result.getId());assertEquals("A/1",result.getVersionNo());assertTrue(result.getCanPreview());

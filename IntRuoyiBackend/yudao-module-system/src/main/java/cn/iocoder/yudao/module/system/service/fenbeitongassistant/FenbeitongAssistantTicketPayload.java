@@ -12,6 +12,7 @@ import java.util.Set;
 public class FenbeitongAssistantTicketPayload {
 
     private Long userId;
+    private Long tenantId;
     private Set<String> permissions;
     private Long expiresAtEpochMilli;
 

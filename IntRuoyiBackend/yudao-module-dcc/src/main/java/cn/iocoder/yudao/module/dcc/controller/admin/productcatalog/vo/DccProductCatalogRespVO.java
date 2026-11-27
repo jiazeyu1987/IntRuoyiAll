@@ -40,6 +40,11 @@ public class DccProductCatalogRespVO {
     @Schema(description = "绑定注册证 ID")
     private Long registrationCertificateId;
 
+    @Schema(description = "已正式关联的现行注册证，按证件ID排序")
+    private java.util.List<RegistrationCertificateSummary> registrationCertificates = java.util.List.of();
+
+    public record RegistrationCertificateSummary(Long certificateId, String certificateName, String certificateNumber) { }
+
     @Schema(description = "批记录总识别 JSON")
     private String batchRecordTotalRecognitionJson;
 

@@ -12,7 +12,7 @@
         <el-descriptions-item v-if="detail.rejectReason" label="驳回原因">{{ detail.rejectReason }}</el-descriptions-item>
         <el-descriptions-item v-if="detail.withdrawReason" label="撤回原因">{{ detail.withdrawReason }}</el-descriptions-item>
       </el-descriptions>
-      <el-descriptions v-if="detail.submission?.operation === 'CHANGE_CERTIFICATE'" :column="2" border class="mt-16px">
+      <el-descriptions v-if="detail.submission?.operation === 'CHANGE_CERTIFICATE' && facts?.certificateType !== 'FDA'" :column="2" border class="mt-16px">
         <el-descriptions-item label="本次变更批件批准日">{{ detail.submission?.approvalDate || '未记录' }}</el-descriptions-item>
         <el-descriptions-item label="原主证批准日">{{ detail.originalApprovalDate || '未记录' }}</el-descriptions-item>
       </el-descriptions>

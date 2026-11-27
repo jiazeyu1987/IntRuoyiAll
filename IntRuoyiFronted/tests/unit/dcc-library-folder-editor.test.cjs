@@ -77,6 +77,34 @@ async function run() {
   }
   const folderRows = projectId => [{ id: '10', projectCodeId: String(projectId), parentId: '0', name: '正式根目录',
     sortOrder: 0, active: true, sourceTemplateId: '5', sourceNodeKey: 'root' }]
+  await test('独立模板页按选中身份打开最新模板，保留已使用标记并可切回新增', async () => {
+    const instance = setup(folderComponent, {
+      [apiPath]: { getFolderTemplates: async () => [template(5, '最新模板', true)] },
+      'element-plus': { ElMessageBox: {} }
+    })
+    await instance.exposed.open(5)
+    assert.equal(instance.bindings.form.id, 5)
+    assert.equal(instance.bindings.form.name, '最新模板')
+    assert.equal(instance.bindings.selectedUsed.value, true)
+    assert.equal(instance.bindings.loading.value, false)
+    instance.bindings.reset()
+    assert.equal(instance.bindings.form.id, undefined)
+    assert.equal(instance.bindings.form.name, '')
+    instance.stop()
+  })
+  await test('目标模板已删除时明确报错并禁止误存为新模板', async () => {
+    let writes = 0
+    const instance = setup(folderComponent, {
+      [apiPath]: { getFolderTemplates: async () => [], saveFolderTemplate: async () => { writes++ } },
+      'element-plus': { ElMessageBox: {} }
+    })
+    await instance.exposed.open(5)
+    assert.match(instance.bindings.error.value, /模板已不存在/)
+    assert.equal(instance.bindings.ready.value, false)
+    await instance.bindings.save()
+    assert.equal(writes, 0)
+    instance.stop()
+  })
   await test('HTTP无randomUUID仍能新增目录，UUID v4键保持父子关系和删除保护', async () => {
     const instance = setup(folderComponent, {
       [apiPath]: { getFolderTemplates: async () => [] },

@@ -338,6 +338,7 @@ yudao:
       probe-timeout-seconds: ${INVOICE_VOUCHER_PRINT_ASSISTANT_PROBE_TIMEOUT_SECONDS:3}
       probe-interval-millis: ${INVOICE_VOUCHER_PRINT_ASSISTANT_PROBE_INTERVAL_MS:1000}
     fenbeitong-assistant:
+      public-url: ${FENBEITONG_ASSISTANT_PUBLIC_URL:}
       assistant-host: ${FENBEITONG_ASSISTANT_HOST:127.0.0.1}
       assistant-port: ${FENBEITONG_ASSISTANT_PORT:18734}
       assistant-root-dir: ${FENBEITONG_ASSISTANT_ROOT_DIR:E:/ProjectPackage/fenbeitong/student-collaboration-kit}

@@ -122,6 +122,30 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
     }
 
     @Override
+    public List<DccRegistrationCertificatePageItem> getExportRows(Long tenantId, Long actorId,
+            DccRegistrationCertificatePageQuery query, List<Long> versionIds, int limit) {
+        var normalized = normalize(query);
+        normalized.setBusinessDate(businessClock.businessDate());
+        validateSort(normalized, CURRENT_SORT_FIELDS);
+        validateCurrentReminderState(normalized);
+        normalized.setExportVersionIds(versionIds);
+        normalized.setListFilterWrapper(DccRegistrationCertificateQueryMapper.SqlProvider.listFilterWrapper(normalized, false));
+        var rows = queryMapper.selectPage(tenantId, scopedCompanyIds(actorId), normalized, limit + 1, 0);
+        if (rows.size() > limit) throw new ExportLimitExceeded();
+        var names = companyNames(tenantId, rows);
+        return rows.stream().map(row -> pageItem(tenantId, row, names.get(row.getOwnerCompanyId()))).toList();
+    }
+
+    @Override
+    public DccRegistrationCertificatePageItem getExportRow(Long tenantId, Long actorId, Long versionId) {
+        var rows = getExportRows(tenantId, actorId, DccRegistrationCertificatePageQuery.builder().build(), List.of(versionId), 1);
+        if (rows.isEmpty()) return null;
+        var row = rows.get(0);
+        accessPolicyService.assertFilePreviewAllowed(tenantId, actorId, row.getCertificateId(), row.getVersionId(), businessClock.now());
+        return row;
+    }
+
+    @Override
     public DccRegistrationCertificateDetail getDetail(
             Long tenantId, Long actorId, Long certificateId, Long versionId, DccRequestAuditContext auditContext) {
         List<Long> scopedCompanyIds = scopedCompanyIds(actorId);
@@ -269,6 +293,8 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
         return DccRegistrationCertificateDetail.builder()
                 .certificateId(row.getCertificateId())
                 .rowVersion(row.getRowVersion())
+                .hasPendingChange(Boolean.TRUE.equals(row.getHasPendingChange()))
+                .hasPendingRenewal(Boolean.TRUE.equals(row.getHasPendingRenewal()))
                 .versionId(row.getVersionId())
                 .snapshotId(row.getSnapshotId())
                 .snapshotRevision(row.getSnapshotRevision())
@@ -320,14 +346,13 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
         }
         DccRegistrationCertificateReminderEvaluation evaluation = reminderService.evaluateThreshold(
                 certificateType, businessClock.businessDate(), row.getExpiryDate(), false);
-        if (!"LIGHT".equals(evaluation.colorCode())) {
+        if (!"DOMESTIC".equals(certificateType) || !"LIGHT".equals(evaluation.colorCode())) {
             return evaluation;
         }
-        boolean ce = "CE".equals(certificateType);
         boolean cleared = reminderService.isSupportingDocumentCleared(
-                tenantId, row.getCertificateId(), row.getVersionId(), ce ? "CE_RENEWAL_CONTRACT" : "RENEWAL_ACCEPTANCE_RECEIPT")
+                tenantId, row.getCertificateId(), row.getVersionId(), "RENEWAL_ACCEPTANCE_RECEIPT")
                 || reminderService.isSupportingDocumentCleared(
-                tenantId, row.getCertificateId(), row.getVersionId(), ce ? "CE_RENEWAL_QUOTATION" : "RENEWAL_SUPPLEMENT_NOTICE");
+                tenantId, row.getCertificateId(), row.getVersionId(), "RENEWAL_SUPPLEMENT_NOTICE");
         return cleared ? reminderService.evaluateThreshold(
                 certificateType, businessClock.businessDate(), row.getExpiryDate(), true) : evaluation;
     }

@@ -87,6 +87,8 @@ class DccRegistrationCertificateApprovalRuntimeTest {
     @Mock
     private DccRegistrationCertificateChangeService changeService;
 
+    @Mock
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService productBindings;
     private DccRegistrationCertificateApprovalService service;
 
     @org.mockito.Mock
@@ -99,6 +101,7 @@ class DccRegistrationCertificateApprovalRuntimeTest {
                 bpmProcessInstanceApi, companyScopeApi, roleApi, permissionApi,
                 businessClock, renewalService, uploadService, changeService);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "registrationHandlingTasks", registrationHandlingTasks);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "productBindings", productBindings);
         lenient().when(businessClock.now()).thenReturn(LocalDateTime.of(2026, 10, 30, 12, 0));
         lenient().when(requestMapper.updateById(any(DccRegistrationCertificateAccessRequestDO.class))).thenReturn(1);
         lenient().when(bindingMapper.updateById(any(DccRegistrationCertificateBpmBindingDO.class))).thenReturn(1);
@@ -317,6 +320,14 @@ class DccRegistrationCertificateApprovalRuntimeTest {
         DccRegistrationCertificateApprovalResult withdrawn = service.withdraw(TENANT_ID, ACTOR_ID, 1001L, "申请人撤回");
         assertEquals("WITHDRAWN", withdrawn.status());
         verify(bpmProcessInstanceApi).cancelProcessInstance(ACTOR_ID, "proc-1", "申请人撤回");
+    }
+
+    @Test
+    void withdrawingInitialUploadReleasesOnlyItsPendingProductReservations() {
+        var request=request("SUBMITTED");request.setRequestType(REQUEST_TYPE_UPLOAD_CERTIFICATE);request.setDetailJson("{\"operation\":\"UPLOAD_CERTIFICATE\"}");
+        when(requestMapper.selectById(1001L)).thenReturn(request);
+        service.withdraw(TENANT_ID,ACTOR_ID,1001L,"重新选择产品");
+        verify(productBindings).releasePending(TENANT_ID,request.getCertificateId());
     }
 
     @Test

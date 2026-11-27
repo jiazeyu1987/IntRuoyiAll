@@ -149,7 +149,7 @@ public class DccRegistrationCertificateProjectCodeFileAssociationService {
                 .eq(DccRegistrationCertificateFileDO::getTenantId,tenantId)
                 .eq(DccRegistrationCertificateFileDO::getOwnerType,ownerType)
                 .eq(DccRegistrationCertificateFileDO::getOwnerId,ownerId)
-                .in(DccRegistrationCertificateFileDO::getFileKind,java.util.List.of("CERTIFICATE_ATTACHMENT","FDA_PRODUCT_DESCRIPTION"))
+                .in(DccRegistrationCertificateFileDO::getFileKind,java.util.List.of("REGISTRATION_CERTIFICATE","CHANGE_APPROVAL","CERTIFICATE_ATTACHMENT","FDA_PRODUCT_DESCRIPTION"))
                 .eq(DccRegistrationCertificateFileDO::getStatus,FILE_STATUS_BOUND));
         if(files.isEmpty())return;
         var path=ensureRegistrationCertificateTaxonomyPath();
@@ -200,7 +200,7 @@ public class DccRegistrationCertificateProjectCodeFileAssociationService {
                            AND f.owner_type = 'VERSION'
                            AND f.file_kind IN ('REGISTRATION_CERTIFICATE','CERTIFICATE_ATTACHMENT','FDA_PRODUCT_DESCRIPTION')
                            AND f.status = 'BOUND'
-                           AND f.dcc_project_code_id = ?
+                           AND EXISTS (SELECT 1 FROM dcc_registration_certificate_product bp WHERE bp.tenant_id=c.tenant_id AND bp.certificate_id=c.id AND bp.state='BOUND' AND bp.project_code_id=?)
                         UNION ALL
                         SELECT f.id AS business_file_id,
                                f.dcc_project_code_id,
@@ -239,12 +239,12 @@ public class DccRegistrationCertificateProjectCodeFileAssociationService {
                            AND f.owner_type = 'CHANGE'
                            AND f.file_kind IN ('CHANGE_APPROVAL','CERTIFICATE_ATTACHMENT','FDA_PRODUCT_DESCRIPTION') AND ch.status='APPLIED'
                            AND f.status = 'BOUND'
-                           AND f.dcc_project_code_id = ?
+                           AND EXISTS (SELECT 1 FROM dcc_registration_certificate_product bp WHERE bp.tenant_id=c.tenant_id AND bp.certificate_id=c.id AND bp.state='BOUND' AND bp.project_code_id=?)
                          ORDER BY business_file_id
                         """,
                 (rs, rowNum) -> new RegistrationAssociatedRow(
                         rs.getLong("business_file_id"),
-                        rs.getLong("dcc_project_code_id"),
+                        projectCodeId,
                         rs.getObject("file_type_taxonomy_id", Long.class),
                         rs.getString("file_type_level1"),
                         rs.getString("file_type_level2"),
@@ -276,14 +276,19 @@ public class DccRegistrationCertificateProjectCodeFileAssociationService {
             return Map.of();
         }
         String placeholders = projectCodeIds.stream().map(ignored -> "?").collect(Collectors.joining(","));
-        Object[] args = projectCodeIds.toArray();
+        var queryArgs = new java.util.ArrayList<Object>();
+        queryArgs.add(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+        queryArgs.addAll(projectCodeIds);
+        Object[] args = queryArgs.toArray();
         return jdbcTemplate.query("""
-                        SELECT dcc_project_code_id, COUNT(*) AS file_count
-                          FROM dcc_registration_certificate_file
-                         WHERE deleted = 0
-                           AND status = 'BOUND'
-                           AND dcc_project_code_id IN (%s)
-                         GROUP BY dcc_project_code_id
+                        SELECT bp.project_code_id AS dcc_project_code_id, COUNT(DISTINCT f.id) AS file_count
+                          FROM dcc_registration_certificate_file f
+                          LEFT JOIN dcc_registration_certificate_version v ON f.owner_type='VERSION' AND v.tenant_id=f.tenant_id AND v.id=f.owner_id AND v.deleted=0
+                          LEFT JOIN dcc_registration_certificate_change ch ON f.owner_type='CHANGE' AND ch.tenant_id=f.tenant_id AND ch.id=f.owner_id AND ch.deleted=0
+                          JOIN dcc_registration_certificate_product bp ON bp.tenant_id=f.tenant_id AND bp.certificate_id=COALESCE(v.certificate_id,ch.certificate_id) AND bp.state='BOUND'
+                         WHERE f.deleted=0 AND f.status='BOUND' AND bp.tenant_id=?
+                           AND bp.project_code_id IN (%s)
+                         GROUP BY bp.project_code_id
                         """.formatted(placeholders), rs -> {
                     Map<Long, Long> result = new LinkedHashMap<>();
                     while (rs.next()) {

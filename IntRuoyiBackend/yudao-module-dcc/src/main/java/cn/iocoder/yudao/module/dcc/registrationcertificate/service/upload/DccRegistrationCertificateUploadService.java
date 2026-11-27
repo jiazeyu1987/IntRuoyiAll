@@ -73,6 +73,9 @@ public class DccRegistrationCertificateUploadService {
 
 
 
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService productBindings;
+
     private static final String REQUEST_TYPE_UPLOAD_CERTIFICATE = "UPLOAD_CERTIFICATE";
     private static final String REQUEST_OPERATION_UPLOAD_CERTIFICATE = "UPLOAD_CERTIFICATE";
     private static final String STATUS_SUBMITTED = "SUBMITTED";
@@ -184,6 +187,20 @@ public class DccRegistrationCertificateUploadService {
         return prerequisiteValidator.resolveProjectProduct(requireProjectCode(tenantId, actorId, projectCodeId, true));
     }
 
+    public java.util.Map<String,Object> candidateBinding(Long tenantId, Long projectId, Long excludedCertificateId) {
+        var rows = projectProductMapper.selectBindings(tenantId, projectId);
+        var result = new java.util.LinkedHashMap<String,Object>();
+        if (rows.isEmpty()) { result.put("disabled",true);result.put("bindingMessage","尚未绑定有效DCC产品"); }
+        return result;
+    }
+
+    public Long rejectedCertificateId(Long tenantId, Long actorId, Long sourceRequestId) {
+        return sourceRequestId == null ? null : requireRejectedSource(tenantId,actorId,sourceRequestId).getCertificateId();
+    }
+
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateProjectProductMapper projectProductMapper;
+
     @Transactional(rollbackFor = Exception.class)
     public DccRegistrationCertificateUploadSubmitResult submitUploadForApproval(
             Long tenantId, Long actorId, String idempotencyKey, String requestTraceId,
@@ -230,6 +247,7 @@ public class DccRegistrationCertificateUploadService {
             requestFile.setStatus(REQUEST_FILE_STATUS_REJECTED);
             requireUpdated(requestFileMapper.updateById(requestFile));
         }
+        productBindings.releasePending(tenantId, request.getCertificateId());
         registrationHandlingTasks.recordDecision(tenantId, actorId, requestId, false, reason);
     }
 
@@ -250,24 +268,29 @@ public class DccRegistrationCertificateUploadService {
         Long projectCodeId = projectCode == null ? null : projectCode.getId();
         String productName = requireProductName(command.productName());
         var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(command.factsJson());
-        facts.validateForUpload();
+        facts.validateCreation();
         if ("CE".equals(facts.getCertificateType())) {
             var records = facts.getCeCertificates();
             facts.setCertificateNo(records == null || records.isEmpty() ? null : records.get(records.size() - 1).getCertificateNo());
         }
         Long productMasterId = Boolean.TRUE.equals(facts.getOwnProduct()) && projectCode != null ? projectCode.getProductMasterId() : null;
         if (Boolean.TRUE.equals(facts.getOwnProduct())) {
-            var product = prerequisiteValidator.resolveProjectProduct(projectCode);
-            if (facts.getProjectProduct() != null && !Objects.equals(facts.getProjectProduct(), product)) {
-                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
-                        "项目的DCC产品关联已变更，请重新选择项目");
+            var selected = facts.getProjectProducts();
+            if (selected == null || selected.isEmpty()) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("请选择至少一个系统项目代码");
+            var products = new java.util.ArrayList<DccRegistrationCertificateProjectProduct>();
+            var ids = new java.util.HashSet<Long>();
+            for (var selection : selected) {
+                if (selection == null) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("产品关联不能为空");
+                var actualProject = requireProjectCode(tenantId, actorId, selection.projectCodeId(), handlingTaskId != null);
+                var product = prerequisiteValidator.resolveProjectProduct(actualProject);
+                if (!Objects.equals(product, selection)) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("项目的DCC产品关联已变更，请重新选择项目");
+                if (!ids.add(product.productCatalogId())) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("多个项目指向同一产品，请保留一个项目");
+                products.add(product);
             }
-            if (!Objects.equals(productName, product.productName())) {
-                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
-                        cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCT_NAME_MISMATCH, product.productName());
-            }
-            facts.setProjectProduct(product);
-        } else if (projectCode != null || facts.getProjectProduct() != null) {
+            if (!Objects.equals(products.get(0).projectCodeId(), projectCodeId)) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("首个项目与产品关联不一致");
+            facts.setProjectProduct(products.get(0));
+            facts.setProjectProducts(products);
+        } else if (projectCode != null || facts.getProjectProduct() != null || facts.getProjectProducts() != null && !facts.getProjectProducts().isEmpty()) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH);
         }
         List<UploadFile> attachments = command.attachments() == null ? List.of() : command.attachments().stream().map(DccRegistrationCertificateUploadService::requireUploadFile).toList();
@@ -358,12 +381,13 @@ public class DccRegistrationCertificateUploadService {
         requestFile.setTenantId(tenantId);
         requireUpdated(requestFileMapper.insert(requestFile));
         for (var retainedFile : retained) {
-            if (FILE_KIND_REGISTRATION_CERTIFICATE.equals(retainedFile.getFileKind())) continue;
+            if (Objects.equals(retainedFile.getId(), businessFile.getId())) continue;
             var linked = DccRegistrationCertificateAccessRequestFileDO.builder().requestId(request.getId())
                     .businessFileId(retainedFile.getId()).fileKind(retainedFile.getFileKind()).downloadRequested(false)
-                    .status(REQUEST_FILE_STATUS_REQUESTED).detailJson(JsonUtils.toJsonString(Map.of("payloadHash", payloadHash))).build();
+                    .status(REQUEST_FILE_STATUS_REQUESTED).detailJson(JsonUtils.toJsonString(Map.of("payloadHash", payloadHash, "additional", true))).build();
             linked.setTenantId(tenantId); requireUpdated(requestFileMapper.insert(linked));
         }
+        for (MultipartFile additional : command.additionalPrimaryFiles()) insertAdditionalFile(tenantId, draftVersion.getId(), request.getId(), requireUploadFile(additional), FILE_KIND_REGISTRATION_CERTIFICATE, payloadHash);
         for (UploadFile attachment : attachments) insertAdditionalFile(tenantId, draftVersion.getId(), request.getId(), attachment, "CERTIFICATE_ATTACHMENT", payloadHash);
         for (UploadFile description : descriptions) insertAdditionalFile(tenantId, draftVersion.getId(), request.getId(), description, "FDA_PRODUCT_DESCRIPTION", payloadHash);
         registrationHandlingTasks.bindRequest(tenantId, actorId, projectCodeId, certificateId, request.getId(), "UPLOAD", handlingTaskId);
@@ -432,13 +456,14 @@ public class DccRegistrationCertificateUploadService {
         file.setTenantId(tenantId); requireUpdated(fileMapper.insert(file));
         var requestFile = DccRegistrationCertificateAccessRequestFileDO.builder().requestId(requestId)
                 .businessFileId(file.getId()).fileKind(kind).downloadRequested(false).status(REQUEST_FILE_STATUS_REQUESTED)
-                .detailJson(JsonUtils.toJsonString(Map.of("payloadHash", payloadHash))).build();
+                .detailJson(JsonUtils.toJsonString(Map.of("payloadHash", payloadHash, "additional", true))).build();
         requestFile.setTenantId(tenantId); requireUpdated(requestFileMapper.insert(requestFile));
     }
 
     private void bindAdditionalFiles(Long tenantId, Long actorId, Long versionId, Long requestId) {
+        Long primaryRequestFileId = requireSingleRequestFile(tenantId, requestId).getId();
         for (var requestFile : requestFileMapper.selectByRequestId(tenantId, requestId)) {
-            if (FILE_KIND_REGISTRATION_CERTIFICATE.equals(requestFile.getFileKind())) continue;
+            if (Objects.equals(requestFile.getId(), primaryRequestFileId)) continue;
             var file = fileMapper.selectById(requestFile.getBusinessFileId());
             if (file == null || !Objects.equals(tenantId, file.getTenantId()) || !Objects.equals(versionId, file.getOwnerId())
                     || !FILE_OWNER_VERSION.equals(file.getOwnerType()) || !FILE_STATUS_STAGED.equals(file.getStatus()))
@@ -490,7 +515,8 @@ public class DccRegistrationCertificateUploadService {
         List<DccRegistrationCertificateAccessRequestFileDO> requestFiles =
                 requestFileMapper.selectByRequestId(tenantId, requestId);
         requestFiles = requestFiles == null ? List.of() : requestFiles.stream()
-                .filter(file -> FILE_KIND_REGISTRATION_CERTIFICATE.equals(file.getFileKind())).toList();
+                .filter(file -> FILE_KIND_REGISTRATION_CERTIFICATE.equals(file.getFileKind())
+                        && (isBlank(file.getDetailJson()) || !Boolean.TRUE.equals(JsonUtils.parseObject(file.getDetailJson(), Map.class).get("additional")))).toList();
         if (requestFiles.size() != 1) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
         }
@@ -642,6 +668,7 @@ public class DccRegistrationCertificateUploadService {
         payload.put("handlingTaskId", command.handlingTaskId());
         payload.put("retainedFileIds", command.retainedFileIds());
         payload.put("factsJson", command.factsJson());
+        payload.put("additionalPrimaryFiles", attachmentHashes(command.additionalPrimaryFiles()));
         payload.put("attachments", attachmentHashes(command.attachments()));
         payload.put("productDescriptionFiles", attachmentHashes(command.productDescriptionFiles()));
         payload.put("ownerCompanyId", ownerCompany.getId());

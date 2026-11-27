@@ -27,6 +27,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DATA_RELA
 
 @Service
 public class DccProductCatalogRegistrationSyncService {
+    @Resource private cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService productBindings;
 
     private static final String CERTIFICATE_STATUS_ACTIVE = "ACTIVE";
     private static final String VERSION_STATUS_CURRENT = "CURRENT";
@@ -48,18 +49,22 @@ public class DccProductCatalogRegistrationSyncService {
     public void enrichCurrentCertificate(cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogRespVO row) {
         if (row.getProjectCodeId() == null) return;
         Long certificateId = row.getRegistrationCertificateId();
+        Long tenantId = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        var summaries = new java.util.ArrayList<cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogRespVO.RegistrationCertificateSummary>();
+        for (var id : productBindings.currentCertificateIds(tenantId, row.getId())) {
+            var current = loadProjection(id);
+            var currentFacts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(current.snapshot().getFactsJson());
+            summaries.add(new cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogRespVO.RegistrationCertificateSummary(
+                    id, current.snapshot().getProductName(), certificateNumber(currentFacts)));
+        }
+        row.setRegistrationCertificates(List.copyOf(summaries));
         if (certificateId == null) {
-            var candidates = certificateMapper.selectList(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<DccRegistrationCertificateDO>()
-                    .eq(DccRegistrationCertificateDO::getProjectCodeId, row.getProjectCodeId())
-                    .eq(DccRegistrationCertificateDO::getStatus, CERTIFICATE_STATUS_ACTIVE));
-            // Multiple certificates require an explicit choice in the association dialog.
-            if (candidates.size() != 1) return;
-            certificateId = candidates.get(0).getId();
+            if (summaries.size() != 1) return;
+            certificateId = summaries.get(0).certificateId();
         }
-        var projection = loadProjection(certificateId);
-        if (!Objects.equals(projection.certificate().getProjectCodeId(), row.getProjectCodeId())) {
-            throw exception(DCC_DATA_RELATION_TARGET_INVALID);
-        }
+        if (!productBindings.containsProduct(tenantId, certificateId, row.getId())) throw exception(DCC_DATA_RELATION_TARGET_INVALID);
+        var certificate = certificateMapper.selectById(certificateId);
+        var projection = loadProjection(certificate);
         var snapshot = projection.snapshot();
         var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshot.getFactsJson());
         row.setRegistrationCertificateId(certificateId);
@@ -104,7 +109,8 @@ public class DccProductCatalogRegistrationSyncService {
         DccProductCatalogDO catalog = productCatalogMapper.selectById(relation.getProductCatalogId());
         DccProjectCodeDO projectCode = projectCodeMapper.selectById(relation.getProjectCodeId());
         if (catalog == null || projectCode == null
-                || !Objects.equals(projectCode.getId(), projection.certificate().getProjectCodeId())
+                || !productBindings.containsProduct(projection.certificate().getTenantId(),projection.certificate().getId(),catalog.getId())
+                || !productBindings.containsProject(projection.certificate().getTenantId(),projection.certificate().getId(),projectCode.getId())
                 || !Objects.equals(relation.getRegistrationCertificateId(), projection.certificate().getId())) {
             throw exception(DCC_DATA_RELATION_TARGET_INVALID);
         }
@@ -124,7 +130,10 @@ public class DccProductCatalogRegistrationSyncService {
     }
 
     private RegistrationProjection loadProjection(Long registrationCertificateId) {
-        DccRegistrationCertificateDO certificate = certificateMapper.selectById(registrationCertificateId);
+        return loadProjection(certificateMapper.selectById(registrationCertificateId));
+    }
+
+    private RegistrationProjection loadProjection(DccRegistrationCertificateDO certificate) {
         if (certificate == null || !CERTIFICATE_STATUS_ACTIVE.equals(certificate.getStatus())) {
             throw exception(DCC_DATA_RELATION_TARGET_INVALID);
         }

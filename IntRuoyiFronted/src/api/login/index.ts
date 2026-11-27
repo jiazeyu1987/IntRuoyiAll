@@ -35,6 +35,7 @@ export interface FenbeitongAssistantTicketRespVO {
 }
 
 export interface FenbeitongAssistantStatusRespVO {
+  publicUrl: string
   running: boolean
   launchable: boolean
   message?: string

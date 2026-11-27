@@ -1,0 +1,82 @@
+{
+  "sourceRef": "0eadff1a0b9a61157b3051e7a98839503b66f7dc",
+  "baseRef": "9a8d14665bc655b014bb0e8726e85159fe1c6949",
+  "checkoutSqlEol": "CRLF",
+  "migrationCount": 926,
+  "rootSqlCount": 938,
+  "artifactCount": 1256,
+  "sourceReferenceCount": 8,
+  "unregistered": [],
+  "missing": [],
+  "sealedPackageIntegrity": "PASS",
+  "predecessorsUnchanged": "PASS",
+  "successor": {
+    "migrationId": "20261127_dcc_registration_certificate_multi_products",
+    "file": "sql/mysql/20261127_dcc_registration_certificate_multi_products.sql",
+    "sha256": "e691b03dd6cc7afb4be31b150f06215b40946c80e4067685d91a15c011f085f0",
+    "type": "schema",
+    "allowedEnvironments": [
+      "test",
+      "backup",
+      "prod"
+    ],
+    "dependsOn": [
+      "20261030_dcc_registration_certificate_regulatory_facts",
+      "20260920_dcc_project_product_create_approval"
+    ],
+    "riskLevel": "high",
+    "requiresTargetPreflight": true,
+    "supersedes": [
+      "20261125_dcc_registration_certificate_products",
+      "20261127_dcc_registration_certificate_products_admission"
+    ],
+    "allowedPublishScopes": [],
+    "applyOrder": 1,
+    "sessionProfile": "",
+    "approvedHook": "",
+    "resultAssertion": "",
+    "targetPreflight": {
+      "reference": "sql/mysql/target-preflight/20261127_dcc_registration_certificate_multi_products.preflight.sql",
+      "sha256": "353c1449b13a92bb56cdf40818c56f97f55403a26e1b1907590dc7d66a40453d",
+      "readOnly": true
+    }
+  },
+  "targets": {
+    "test": {
+      "ledgerRecords": 855,
+      "snapshotObservedAt": "2026-11-26-03-29-34",
+      "historicalIntegrity": "PASS",
+      "pending": [
+        "20261127_dcc_registration_certificate_multi_products",
+        "20261125_dcc_folder_template_menu",
+        "20261126_dcc_registration_certificate_remove_ce_materials",
+        "20261126_dcc_registration_certificate_typed_event_notify_template",
+        "20261126_dcc_registration_fda_change_no_approval_date"
+      ],
+      "predecessorActions": {
+        "20261125_dcc_registration_certificate_products": "SKIP_IMMUTABLE",
+        "20261127_dcc_registration_certificate_products_admission": "SKIP_IMMUTABLE"
+      },
+      "missingPreflightNegative": "PASS",
+      "failedLedgerNegative": "PASS"
+    },
+    "prod": {
+      "ledgerRecords": 851,
+      "snapshotObservedAt": "2026-11-26-04-06-55",
+      "historicalIntegrity": "PASS",
+      "pending": [
+        "20261127_dcc_registration_certificate_multi_products",
+        "20261125_dcc_folder_template_menu",
+        "20261126_dcc_registration_certificate_remove_ce_materials",
+        "20261126_dcc_registration_certificate_typed_event_notify_template",
+        "20261126_dcc_registration_fda_change_no_approval_date"
+      ],
+      "predecessorActions": {
+        "20261125_dcc_registration_certificate_products": "SKIP_IMMUTABLE",
+        "20261127_dcc_registration_certificate_products_admission": "SKIP_IMMUTABLE"
+      },
+      "missingPreflightNegative": "PASS",
+      "failedLedgerNegative": "PASS"
+    }
+  }
+}

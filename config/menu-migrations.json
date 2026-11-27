@@ -4,6 +4,11 @@
     {"source":"IntRuoyiFronted/src/views/mes/pro/route/RouteFlowGraphDesigner.vue","kind":"permission","value":"mes:pro-batch-record-template:query","reason":"工艺路线内部批记录表单选择框及加载入口复用批记录报表 page 接口现有查询权限，缺少权限时禁用并提示；不新增菜单、页面、路由、权限标识、角色或租户套餐授权，无需迁移。独立 formBindings 表单槽位链路不变。"},
     {"source":"IntRuoyiFronted/src/views/system/tenant/index.vue","kind":"permission","value":"system:tenant:update","reason":"既有租户列表增加设置登录默认租户操作，复用租户修改权限 system:tenant:update；不新增菜单、页面路由、权限标识、角色或租户套餐授权，无需菜单迁移。默认值字段及初始值另见 20261126_system_tenant_default_login.sql。"},
     {"source":"IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/tenant/TenantController.java","kind":"permission","value":"system:tenant:update","reason":"设置登录默认租户接口复用既有 system:tenant:update 权限，服务层只允许系统租户操作；不新增菜单、权限标识、角色或租户套餐授权，无需菜单迁移。"},
+    {"source":"IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/folder-template/index.vue","kind":"page","value":"dcc/controlled-file/basic-data/folder-template/index","migrations":["IntRuoyiBackend/sql/mysql/20261125_dcc_folder_template_menu.sql"]},
+    {"source":"IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/folder-template/index.vue","kind":"permission","value":"dcc:project-code:update","migrations":["IntRuoyiBackend/sql/mysql/20261125_dcc_folder_template_menu.sql"]},
+    {"source":"IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/query/DccRegistrationCertificateExportController.java","kind":"permission","value":"dcc:registration-certificate:query-current","reason":"注册证Tab的Excel台账导出复用现有当前注册证查询权限及租户和记录范围，不新增菜单、角色或套餐授权。"},
+    {"source":"IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/service/export/DccRegistrationCertificateExportService.java","kind":"permission","value":"dcc:registration-certificate:query-current","reason":"Excel文件重取复核现有当前注册证查询权限，撤权时使原请求失效，无新增权限标识。"},
+    {"source":"IntRuoyiFronted/src/views/dcc/registration-certificate/index/index.vue","kind":"permission","value":"dcc:registration-certificate:query-current","reason":"批量导出入口位于现有注册证Tab，沿用当前注册证查询权限，无独立菜单或新增授权。"},
     {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/feedback/importer/ThirdPartyFeedbackImportServiceImpl.java","kind":"permission","value":"mes:pro-feedback:create","reason":"报工导入服务复用现有生产报工新增权限 mes:pro-feedback:create，与控制器及页面导入入口一致；只补充服务层校验，不新增菜单、权限标识、角色或租户套餐授权，无需迁移。"},
     {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/feedback/importer/ThirdPartyFeedbackImportServiceImpl.java","kind":"permission","value":"mes:pro-feedback:update","reason":"直接报工导入会更新正式报工数据，服务层复用现有生产报工修改权限 mes:pro-feedback:update，并同时要求新增权限；不新增菜单、权限标识、角色或租户套餐授权，无需迁移。"},
     {"source":"IntRuoyiFronted/src/views/mes/pro/feedback/ThirdPartyFeedbackImportForm.vue","kind":"permission","value":"mes:pro-feedback:create","reason":"现有报工导入弹窗复用 mes:pro-feedback:create 权限控制导入操作，与报工列表及后端导入接口一致；不新增独立页面、菜单、权限标识、角色或租户套餐授权，无需迁移。"},
@@ -5074,6 +5079,9 @@
       "migrations": [
         "IntRuoyiBackend/sql/mysql/20261126_srm_retirement.sql"
       ]
-    }
+    },
+    {"source":"IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/upload/DccRegistrationCertificateProductController.java","kind":"permission","value":"dcc:registration-certificate:upload:create","reason":"注册证详情内的一证多产品关联维护，复用现有 dcc:registration-certificate:upload:create 与 query-current 权限，不新增菜单、角色或租户套餐授权。"},
+    {"source":"IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/upload/DccRegistrationCertificateProductController.java","kind":"permission","value":"dcc:registration-certificate:query-current","reason":"注册证详情内的一证多产品关联维护，复用现有 dcc:registration-certificate:upload:create 与 query-current 权限，不新增菜单、角色或租户套餐授权。"},
+    {"source":"IntRuoyiFronted/src/views/dcc/registration-certificate/components/ProductBindings.vue","kind":"permission","value":"dcc:registration-certificate:upload:create","reason":"注册证详情内的一证多产品关联维护，复用现有 dcc:registration-certificate:upload:create 与 query-current 权限，不新增菜单、角色或租户套餐授权。"}
   ]
 }

@@ -37,7 +37,7 @@ import static org.mockito.Mockito.*;
 /** Real H2 project/provenance and certificate transactions; not a UI or permission test. */
 @Import({DccRegistrationCertificateCommandService.class, DccRegistrationCertificateCommandTransactionService.class,
         DccRegistrationCertificateDraftRepository.class, DccRegistrationCertificatePrerequisiteValidator.class,
-        DccRegistrationCertificateProjectProductService.class,
+        DccRegistrationCertificateProjectProductService.class, DccRegistrationCertificateProductBindingService.class,
         DccRegistrationCertificateTerminalAuditService.class, DccRegistrationCertificateFailureAuditService.class,
         DccRegistrationCertificateFormalizationService.class, DccRegistrationCertificateCommandMutex.class,
         DccRegistrationCertificateCommandServiceTest.DbTestConfiguration.class})
@@ -81,6 +81,10 @@ class DccRegistrationCertificateUnboundPersistenceTest extends BaseDbUnitTest {
         var facts = new DccRegistrationCertificateFacts();
         facts.setCertificateType("DOMESTIC"); facts.setCertificateStatus("VALID"); facts.setOwnProduct(true);
         facts.setCertificateNo("WORD1104-PC-UNBOUND-CERT"); facts.setClassification("II"); facts.setRemark("Task test");
+        var product = new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateProjectProduct(
+                40L, 888L, "TASK-PRODUCT", "Task product", List.of(
+                new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateProjectProduct.Binding("CONFIRMED", 889L)));
+        facts.setProjectProduct(product); facts.setProjectProducts(List.of(product));
         facts.setFirstObtainedDate(LocalDate.of(2026, 1, 1));
         facts.setEffectiveDate(LocalDate.of(2026, 8, 1)); facts.setExpiryDate(LocalDate.of(2031, 8, 1));
         var draft = new DccRegistrationCertificateDraftData(10L, null, "Task product", 40L,

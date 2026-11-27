@@ -37,6 +37,11 @@ class DccRegistrationCertificateDomainTest {
         assertEnum("DccRegistrationCertificateFileKind",
                 Set.of("REGISTRATION_CERTIFICATE", "CHANGE_APPROVAL", "RENEWAL_ACCEPTANCE_RECEIPT",
                         "RENEWAL_SUPPLEMENT_NOTICE", "CERTIFICATE_ATTACHMENT", "FDA_PRODUCT_DESCRIPTION"));
+        Class<?> fileKind = requiredClass(ENUMS + "DccRegistrationCertificateFileKind");
+        for (String unsupported : List.of("CE_RENEWAL_CONTRACT", "CE_RENEWAL_QUOTATION")) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> invokeStatic(fileKind, "fromCode", new Class<?>[]{String.class}, unsupported));
+        }
         assertEnum("DccRegistrationCertificateFileStatus",
                 Set.of("STAGED", "BOUND", "CLEANUP_REQUIRED", "VOIDED"));
         assertEnum("DccRegistrationCertificateAuditResult",

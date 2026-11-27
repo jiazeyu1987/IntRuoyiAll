@@ -204,6 +204,16 @@
                 v-bind="sortColumnAttrs('registrationCertificateName')"
               >
                 <template #default="{ row }">
+                  <div v-if="row.registrationCertificates?.length > 1">
+                    <div v-for="certificate in row.registrationCertificates" :key="certificate.certificateId">
+                      <el-button v-if="canOpenCertificate(certificate.certificateId)" link type="primary"
+                        @click="openLinkedRegistrationCertificate({ ...row, registrationCertificateId: certificate.certificateId })">
+                        {{ certificate.certificateName || '-' }}
+                      </el-button>
+                      <span v-else>{{ certificate.certificateName || '-' }}</span>
+                    </div>
+                  </div>
+                  <template v-else>
                   <el-button
                     v-if="row.registrationCertificateName && row.registrationCertificateId && canOpenCertificate(row.registrationCertificateId)"
                     link
@@ -215,6 +225,7 @@
                     {{ row.registrationCertificateName }}
                   </el-button>
                   <span v-else>{{ row.registrationCertificateName || '-' }}</span>
+                  </template>
                 </template>
               </el-table-column>
               <el-table-column
@@ -228,6 +239,16 @@
                 v-bind="sortColumnAttrs('registrationCertificateNumber')"
               >
                 <template #default="{ row }">
+                  <div v-if="row.registrationCertificates?.length > 1">
+                    <div v-for="certificate in row.registrationCertificates" :key="certificate.certificateId">
+                      <el-button v-if="canOpenCertificate(certificate.certificateId)" link type="primary"
+                        @click="openLinkedRegistrationCertificate({ ...row, registrationCertificateId: certificate.certificateId })">
+                        {{ certificate.certificateNumber || '-' }}
+                      </el-button>
+                      <span v-else>{{ certificate.certificateNumber || '-' }}</span>
+                    </div>
+                  </div>
+                  <template v-else>
                   <el-button
                     v-if="row.registrationCertificateNumber && row.registrationCertificateId && canOpenCertificate(row.registrationCertificateId)"
                     link
@@ -239,6 +260,7 @@
                     {{ row.registrationCertificateNumber }}
                   </el-button>
                   <span v-else>{{ row.registrationCertificateNumber || '-' }}</span>
+                  </template>
                 </template>
               </el-table-column>
               <el-table-column

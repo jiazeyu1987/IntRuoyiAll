@@ -22,7 +22,29 @@ public record DccRegistrationCertificateUploadCommand(
         String factsJson,
         List<MultipartFile> attachments,
         List<MultipartFile> productDescriptionFiles,
+        Long sourceRequestId, List<Long> retainedFileIds, Long handlingTaskId, List<MultipartFile> additionalPrimaryFiles) {
+
+    public DccRegistrationCertificateUploadCommand(
+        Long projectCodeId,
+        Long companyId,
+        String productName,
+        String certificateNo,
+        LocalDate firstObtainedDate,
+        LocalDate effectiveDate,
+        LocalDate expiryDate,
+        String classification,
+        Boolean entrustedProduction,
+        Boolean selfProduction,
+        List<Long> entrustedEnterpriseIds,
+        String remark,
+        MultipartFile file,
+        String factsJson,
+        List<MultipartFile> attachments,
+        List<MultipartFile> productDescriptionFiles,
         Long sourceRequestId, List<Long> retainedFileIds, Long handlingTaskId) {
+        this(projectCodeId, companyId, productName, certificateNo, firstObtainedDate, effectiveDate, expiryDate, classification, entrustedProduction, selfProduction, entrustedEnterpriseIds, remark, file, factsJson, attachments, productDescriptionFiles, sourceRequestId, retainedFileIds, handlingTaskId, List.of());
+    }
+
     public DccRegistrationCertificateUploadCommand(Long projectCodeId, Long companyId, String productName,
             String certificateNo, LocalDate firstObtainedDate, LocalDate effectiveDate, LocalDate expiryDate,
             String classification, Boolean entrustedProduction, Boolean selfProduction,
@@ -36,5 +58,6 @@ public record DccRegistrationCertificateUploadCommand(
     }
     public DccRegistrationCertificateUploadCommand {
         entrustedEnterpriseIds = entrustedEnterpriseIds == null ? null : List.copyOf(entrustedEnterpriseIds);
+        additionalPrimaryFiles = additionalPrimaryFiles == null ? List.of() : List.copyOf(additionalPrimaryFiles);
     }
 }

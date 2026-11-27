@@ -224,11 +224,25 @@ class DccRegistrationCertificateBusinessEventNotificationTest {
         return new DccRegistrationCertificateBusinessEventNotificationCommand(
                 1L, 501L, 1001L, 8001L, 99L, eventType, "EVENT-" + eventType, ROLE_IDS, PERMISSION,
                 Map.of(
+                        "certificateTypeName", "国内注册证",
                         "eventTitle", eventType,
                         "productName", "一次性使用无菌导管",
                         "certificateNo", "NMPA-001",
                         "effectiveDate", "2026-01-01",
                         "expiryDate", "2031-01-01"));
+    }
+
+    @Test
+    void missingCertificateTypeNameFailsBeforeSending() {
+        var original = command("NEW_CERTIFICATE_FORMALIZED");
+        var params = new LinkedHashMap<>(original.detailParams());
+        params.remove("certificateTypeName");
+        var incomplete = new DccRegistrationCertificateBusinessEventNotificationCommand(
+                original.tenantId(), original.ownerCompanyId(), original.certificateId(), original.versionId(),
+                original.actorId(), original.eventType(), original.eventKey(), ROLE_IDS, PERMISSION, params);
+        assertThrows(ServiceException.class, () -> service.send(incomplete));
+        verify(recipientResolver, never()).resolve(any(), any(), any());
+        verify(notifyMessageSendApi, never()).sendSingleMessageIdempotentlyToAdmin(any());
     }
 
     private List<String> capturedBusinessKeysAndReset() {
@@ -246,6 +260,7 @@ class DccRegistrationCertificateBusinessEventNotificationTest {
             assertEquals(99L, request.getTemplateParams().get("actorId"));
             assertEquals(request.getTemplateParams().get("eventType"), request.getTemplateParams().get("eventTitle"));
             assertEquals("一次性使用无菌导管", request.getTemplateParams().get("productName"));
+            assertEquals("国内注册证", request.getTemplateParams().get("certificateTypeName"));
             assertEquals("NMPA-001", request.getTemplateParams().get("certificateNo"));
             assertEquals("2026-01-01", request.getTemplateParams().get("effectiveDate"));
             assertEquals("2031-01-01", request.getTemplateParams().get("expiryDate"));
