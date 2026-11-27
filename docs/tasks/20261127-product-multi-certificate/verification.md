@@ -53,3 +53,7 @@
 2026-11-27 10:19:51（北京时间）实际完成：165张临时匹配到已有有效项目20、产品目录305；追加169份快照及169条审计，4个待生效版本的最新快照同步处理。原192个版本、201份快照、16条受托企业证据及2条审计逐项保持原值。原触发器元数据、范围外证件、目标项目/产品和发布账本前后一致。未删除任何证件，未触及57，58前后端继续停机。
 
 未修改的正式preflight在事务提交前和提交后的真实58均返回 `TARGET_PREFLIGHT_PASS:20261127_dcc_registration_certificate_multi_products`。这是身份预检通过，尚未执行新多证迁移或恢复旧FAILED任务，不代表已部署、页面验收或E2E通过。执行记录和摘要见 `test58-temporary-match.md`、`temporary-test-data-repair.json`。
+
+## 保留修复数据的正式恢复方案
+
+收到正式恢复复核后，已完成 `preserved-recovery-plan.md` 及 `preserved-recovery-verification.json`：原检查点完整文件hash核验；从该实际检查点隔离恢复13张相关表且校验值一致；恢复后的855条真实账本通过现行正式检查，计划新多证优先、两个旧产品迁移SKIP_IMMUTABLE；精确回填修复的原ID/时间/内容后，新多证SQL及preflight通过。FAILED负例仍阻断，6项恢复编排边界测试通过。本轮未在58恢复、写库或部署。
