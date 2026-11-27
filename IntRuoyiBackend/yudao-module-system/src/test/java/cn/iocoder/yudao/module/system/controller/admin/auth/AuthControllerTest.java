@@ -131,7 +131,7 @@ class AuthControllerTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void getPermissionInfoHidesSrmMenusAndPermissionsWhenUserLacksSrmAdminRole() {
+    void getPermissionInfoHidesRetiredSrmMenusAndPermissions() {
         Long loginUserId = 100L;
         AdminUserDO user = randomPojo(AdminUserDO.class).setId(loginUserId).setUsername("admin");
         RoleDO superAdminRole = randomPojo(RoleDO.class)
@@ -167,7 +167,7 @@ class AuthControllerTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void getPermissionInfoKeepsSrmMenusAndPermissionsWhenUserHasSrmAdminRole() {
+    void getPermissionInfoHidesRetiredSrmEvenWithLegacyAdminRole() {
         Long loginUserId = 100L;
         AdminUserDO user = randomPojo(AdminUserDO.class).setId(loginUserId).setUsername("admin");
         RoleDO superAdminRole = randomPojo(RoleDO.class)
@@ -176,7 +176,7 @@ class AuthControllerTest extends BaseMockitoUnitTest {
                 .setStatus(CommonStatusEnum.ENABLE.getStatus());
         RoleDO srmAdminRole = randomPojo(RoleDO.class)
                 .setId(2L)
-                .setCode(RoleCodeEnum.SRM_ADMIN.getCode())
+                .setCode("srm_admin")
                 .setStatus(CommonStatusEnum.ENABLE.getStatus());
         MenuDO systemMenu = menu(900L, 0L, "系统管理", "/system", null, MenuTypeEnum.DIR.getType());
         MenuDO systemPage = menu(901L, 900L, "用户查询", "user", "system:user:query", MenuTypeEnum.MENU.getType());
@@ -198,9 +198,9 @@ class AuthControllerTest extends BaseMockitoUnitTest {
 
             AuthPermissionInfoRespVO respVO = authController.getPermissionInfo().getData();
 
-            assertTrue(respVO.getPermissions().contains("srm:supplier-portal:review"));
-            assertEquals(2, respVO.getMenus().size());
-            assertTrue(respVO.getMenus().stream().anyMatch(item -> "/srm".equals(item.getPath())));
+            assertFalse(respVO.getPermissions().contains("srm:supplier-portal:review"));
+            assertEquals(1, respVO.getMenus().size());
+            assertFalse(respVO.getMenus().stream().anyMatch(item -> "/srm".equals(item.getPath())));
         }
     }
 

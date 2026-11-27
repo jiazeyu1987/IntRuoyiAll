@@ -159,6 +159,45 @@ public class TenantServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testSetDefaultLoginTenant_replacesPreviousDefault() {
+        TenantDO previousDefault = randomPojo(TenantDO.class, o -> o.setId(1L)
+                .setPackageId(PACKAGE_ID_SYSTEM).setStatus(CommonStatusEnum.ENABLE.getStatus()).setDefaultLogin(true));
+        TenantDO selected = randomPojo(TenantDO.class, o -> o.setId(2L)
+                .setStatus(CommonStatusEnum.ENABLE.getStatus()).setDefaultLogin(false));
+        tenantMapper.insert(previousDefault);
+        tenantMapper.insert(selected);
+        TenantContextHolder.setTenantId(1L);
+
+        tenantService.setDefaultLoginTenant(2L);
+
+        assertFalse(tenantMapper.selectById(1L).getDefaultLogin());
+        assertTrue(tenantMapper.selectById(2L).getDefaultLogin());
+    }
+
+    @Test
+    public void testSetDefaultLoginTenant_rejectsOrdinaryTenant() {
+        tenantMapper.insert(randomPojo(TenantDO.class, o -> o.setId(2L).setPackageId(100L)
+                .setStatus(CommonStatusEnum.ENABLE.getStatus()).setDefaultLogin(false)));
+        TenantContextHolder.setTenantId(2L);
+        assertServiceException(() -> tenantService.setDefaultLoginTenant(2L),
+                cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.FORBIDDEN);
+        assertFalse(tenantMapper.selectById(2L).getDefaultLogin());
+    }
+
+    @Test
+    public void testSetDefaultLoginTenant_rejectsMissingAndDisabledTargets() {
+        tenantMapper.insert(randomPojo(TenantDO.class, o -> o.setId(1L).setPackageId(PACKAGE_ID_SYSTEM)
+                .setStatus(CommonStatusEnum.ENABLE.getStatus()).setDefaultLogin(true)));
+        TenantDO disabled = randomPojo(TenantDO.class, o -> o.setId(2L).setPackageId(100L)
+                .setStatus(CommonStatusEnum.DISABLE.getStatus()).setDefaultLogin(false));
+        tenantMapper.insert(disabled);
+        TenantContextHolder.setTenantId(1L);
+        assertServiceException(() -> tenantService.setDefaultLoginTenant(99999L), TENANT_NOT_EXISTS);
+        assertServiceException(() -> tenantService.setDefaultLoginTenant(2L), TENANT_DISABLE, disabled.getName());
+        assertTrue(tenantMapper.selectById(1L).getDefaultLogin());
+    }
+
+    @Test
     public void testCreateTenant() {
         tenantMapper.insert(randomPojo(TenantDO.class, o -> o.setId(1L)));
         // mock 套餐 100L

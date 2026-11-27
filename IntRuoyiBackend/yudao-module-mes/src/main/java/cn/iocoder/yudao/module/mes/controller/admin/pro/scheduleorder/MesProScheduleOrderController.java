@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProS
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderAdmissionDiffPageRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderAdmissionDiffRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderActionReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderProcessCapacityResetReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderBatchReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderCreateFromWorkOrderReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderCreateFromWorkOrdersReqVO;
@@ -358,6 +359,14 @@ public class MesProScheduleOrderController {
     @PreAuthorize("@ss.hasPermission('mes:pro-schedule-order:query')")
     public CommonResult<List<MesProScheduleOrderProcessWipRespVO>> getProcessWipStatistics() {
         return success(scheduleOrderService.getProcessWipStatistics());
+    }
+
+    @PostMapping("/process-capacity-reset")
+    @Operation(summary = "清除单工单单工序手工产能覆盖，正式任务需重新排程")
+    @PreAuthorize("@ss.hasPermission('mes:pro-schedule-order:update')")
+    public CommonResult<Boolean> resetProcessCapacity(@Valid @RequestBody MesProScheduleOrderProcessCapacityResetReqVO reqVO) {
+        scheduleOrderService.resetProcessCapacity(reqVO);
+        return success(true);
     }
 
     @PutMapping("/process-wip-settings")

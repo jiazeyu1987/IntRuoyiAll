@@ -27,6 +27,7 @@ export const effectiveFacts = (facts: EffectiveFacts) => {
     throw new Error('生效方式未识别，请核对正式版本记录')
   }
   return {
+    effectiveLabel: mode === 'AFTER_STANDARDIZATION_SIGNATURE' ? '文控生效签名时间' : '实际生效时间',
     modeText: mode === 'AFTER_STANDARDIZATION_SIGNATURE' ? '文控标准化签名后生效'
       : mode === 'DELAYED' ? '延迟生效' : mode === 'PRESET_DATE' ? '按预设日期生效'
       : mode === 'CONTROLLED_IMPORT' ? '已受控文件上传' : '未记录',
@@ -34,6 +35,8 @@ export const effectiveFacts = (facts: EffectiveFacts) => {
     delayedEffectiveText: formatDelayedEffectiveFact(facts.delayedEffectiveTime) ?? '尚未确认',
     delayedConfirmedText: formatDelayedEffectiveFact(facts.delayedEffectiveConfirmedAt) ?? '尚未签名确认',
     effectiveText: facts.effectiveTime || (mode == null ? '未记录' : '尚未生效'),
-    activatedText: facts.activatedTime || '尚未日常启用'
+    activatedText: facts.activatedTime || '尚未日常启用',
+    activationPendingText: mode === 'AFTER_STANDARDIZATION_SIGNATURE' && !facts.activatedTime && facts.effectiveTime
+      ? '已记录生效签名，培训和受控启用完成前不得作为正式执行文件。' : ''
   }
 }

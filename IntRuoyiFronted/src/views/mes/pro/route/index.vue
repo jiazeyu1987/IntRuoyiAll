@@ -9,7 +9,7 @@
     <el-button :type="routeViewMode === 'tree' ? 'primary' : 'default'" @click="routeViewMode = 'tree'">树形管理</el-button>
     <el-button :type="routeViewMode === 'list' ? 'primary' : 'default'" @click="routeViewMode = 'list'">列表查询与新增</el-button>
   </div>
-  <RouteTreePanel v-if="routeViewMode === 'tree'" @edit="handleEditRouteProductionConfig"
+  <RouteTreePanel ref="routeTreePanelRef" v-if="routeViewMode === 'tree'" @edit="handleEditRouteProductionConfig"
     @view="openEditPage" @versions="openRouteVersionWorkspace" @changed="getList" />
   <ContentWrap v-show="routeViewMode === 'list'" class="route-list-page">
     <UnifiedListTemplate ref="codeLinkListTemplate"
@@ -461,6 +461,7 @@ import {
 } from './routeCandidateEntry'
 
 defineOptions({ name: 'MesProRoute' })
+const routeTreePanelRef = ref<InstanceType<typeof RouteTreePanel>>()
 const routeViewMode = ref<'tree' | 'list'>('tree')
 
 const RouteForm = defineAsyncComponent(() => import('./RouteForm.vue'))
@@ -885,6 +886,7 @@ const reopenRouteCandidateVersion = async (id: number) => {
 const reloadRouteVersionWorkspace = async () => {
   if (routeVersionRoute.value?.id) {
     await loadRouteVersions(routeVersionRoute.value.id)
+    await routeTreePanelRef.value?.load()
     await getList()
   }
 }
@@ -979,8 +981,7 @@ const runRouteVersionAction = async (
     await action()
     message.success(`${actionName}成功`)
     if (routeVersionRoute.value?.id) {
-      await loadRouteVersions(routeVersionRoute.value.id)
-      await getList()
+      await reloadRouteVersionWorkspace()
     }
   } catch (error) {
     routeVersionErrorMessage.value = resolveRouteVersionErrorMessage(

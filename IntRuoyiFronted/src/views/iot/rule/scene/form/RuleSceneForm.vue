@@ -247,7 +247,17 @@ const isEdit = ref(false) // 是否为编辑模式
 const drawerTitle = computed(() => (isEdit.value ? '编辑场景联动规则' : '新增场景联动规则')) // 抽屉标题
 
 /** 提交表单 */
+const message = useMessage()
+const parameterValidators = new Set<() => string>()
+provide('iot-parameter-validators', parameterValidators)
 const handleSubmit = async () => {
+  for (const validate of parameterValidators) {
+    const error = validate()
+    if (error) {
+      message.error(error)
+      return
+    }
+  }
   // 校验表单
   if (!formRef.value) return
   const valid = await formRef.value.validate()

@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.erp.service.purchase;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.number.MoneyUtils;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
@@ -175,14 +176,6 @@ public class ErpPurchaseOrderServiceImpl implements ErpPurchaseOrderService {
             List<ErpPurchaseOrderItemDO> incoming, List<ErpPurchaseOrderSaveReqVO.Item> previous,
             Integer status, ErpPurchaseOrderDO update) {
         var stored = purchaseOrderItemMapper.selectListByOrderId(order.getId());
-        var ids = ErpKingdeeOrderLineIdentity.reconcile(stored.stream().map(o -> new Line(o.getId(),
-                o.getSourceEntryId(), o.getProductId(), o.getProductUnitId(), o.getProductPrice(),
-                o.getCount(), o.getTaxPercent(), o.getRemark())).toList(), incoming.stream().map(o -> new Line(null,
-                o.getSourceEntryId(), o.getProductId(), o.getProductUnitId(), o.getProductPrice(),
-                o.getCount(), o.getTaxPercent(), o.getRemark())).toList(), previous.stream().map(o -> new Line(null,
-                o.getSourceEntryId(), o.getProductId(), o.getProductUnitId(), o.getProductPrice(),
-                o.getCount(), o.getTaxPercent(), o.getRemark())).toList());
-        incoming.forEach(o -> o.setId(ids.get(o.getSourceEntryId())));
         var documents = purchaseInMapper.selectListByOrderId(order.getId());
         var returns = purchaseReturnMapper.selectListByOrderId(order.getId());
         var quantities = purchaseInItemMapper.selectOrderItemCountSumMapByInIds(
@@ -205,6 +198,18 @@ public class ErpPurchaseOrderServiceImpl implements ErpPurchaseOrderService {
         if (!storedIds.containsAll(quantities.keySet()) || !storedIds.containsAll(returnQuantities.keySet())) {
             throw new IllegalStateException("关联出入库单指向不存在的订单明细，请核对订单=" + order.getNo());
         }
+        // Unidentified legacy rows without downstream references are replaced from the source snapshot.
+        // Only referenced rows require adoption of their old IDs; never guess between identical source lines.
+        var ids = ErpKingdeeOrderLineIdentity.reconcile(stored.stream()
+                .filter(o -> StrUtil.isNotBlank(o.getSourceEntryId()) || quantities.containsKey(o.getId())
+                        || returnQuantities.containsKey(o.getId()))
+                .map(o -> new Line(o.getId(), o.getSourceEntryId(), o.getProductId(), o.getProductUnitId(),
+                        o.getProductPrice(), o.getCount(), o.getTaxPercent(), o.getRemark())).toList(),
+                incoming.stream().map(o -> new Line(null, o.getSourceEntryId(), o.getProductId(), o.getProductUnitId(),
+                        o.getProductPrice(), o.getCount(), o.getTaxPercent(), o.getRemark())).toList(),
+                previous.stream().map(o -> new Line(null, o.getSourceEntryId(), o.getProductId(), o.getProductUnitId(),
+                        o.getProductPrice(), o.getCount(), o.getTaxPercent(), o.getRemark())).toList());
+        incoming.forEach(o -> o.setId(ids.get(o.getSourceEntryId())));
         boolean linked = !documents.isEmpty() || !returns.isEmpty();
         if (linked && (!Objects.equals(order.getSupplierId(), req.getSupplierId())
                 || !ErpAuditStatus.APPROVE.getStatus().equals(status))) {

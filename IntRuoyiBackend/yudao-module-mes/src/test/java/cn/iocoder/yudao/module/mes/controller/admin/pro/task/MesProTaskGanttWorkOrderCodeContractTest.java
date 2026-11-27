@@ -161,11 +161,11 @@ class MesProTaskGanttWorkOrderCodeContractTest {
                 "当前排产甘特图必须复用排产工单状态枚举，而不是硬编码状态");
         assertTrue(controller.contains("private MesProScheduleOrderMapper scheduleOrderMapper;"),
                 "当前排产甘特图必须具备排产工单主表查询依赖");
-        assertTrue(currentGanttMethod.contains("Map<Long, MesProScheduleOrderDO> baseActiveScheduleOrderMap = convertMap("),
+        assertTrue(currentGanttMethod.contains("Map<Long, MesProScheduleOrderDO> activeScheduleOrderMap = convertMap("),
                 "当前排产甘特图必须先构造当前有效排产工单集合");
         assertTrue(currentGanttMethod.contains("scheduleOrderMapper.selectListByIds("),
                 "当前排产甘特图必须按任务扩展中的 scheduleOrderId 批量读取排产工单");
-        assertTrue(currentGanttMethod.contains("MesProTaskScheduleExtDO::getScheduleOrderId"),
+        assertTrue(currentGanttMethod.contains("taskScheduleExtMapper.selectListByScheduleOrderIds("),
                 "当前排产甘特图必须从任务排产扩展提取 scheduleOrderId");
         assertTrue(currentGanttMethod.contains(".filter(this::isCurrentGanttScheduleOrder)"),
                 "当前排产甘特图必须复用当前有效排产工单判断");
@@ -198,9 +198,9 @@ class MesProTaskGanttWorkOrderCodeContractTest {
                 "当前甘特图必须注入最近一次成功重排说明快照 mapper");
         assertTrue(currentGanttMethod.contains("Set<Long> latestAppliedReplanScheduleOrderIds = resolveLatestAppliedReplanScheduleOrderIds();"),
                 "当前甘特图必须先解析最新一次成功重排的排产工单范围");
-        assertTrue(currentGanttMethod.contains("Map<Long, MesProScheduleOrderDO> activeScheduleOrderMap = CollUtil.isEmpty(latestAppliedReplanScheduleOrderIds)"),
+        assertTrue(currentGanttMethod.contains("List<MesProScheduleOrderDO> scopeOrders = CollUtil.isEmpty(latestAppliedReplanScheduleOrderIds)"),
                 "当前甘特图必须构造最终不可重新赋值的当前排产工单作用域");
-        assertTrue(currentGanttMethod.contains(".filter(entry -> latestAppliedReplanScheduleOrderIds.contains(entry.getKey()))"),
+        assertTrue(currentGanttMethod.contains("scheduleOrderMapper.selectListByIds(latestAppliedReplanScheduleOrderIds)"),
                 "当前有效排产工单集合必须被最新重排范围收窄");
         assertTrue(currentGanttMethod.contains(".setScheduleOrderId(resolveWorkOrderScheduleOrderId(woTasks, taskExtMap))"),
                 "project 行必须暴露其来自的排产工单 ID");

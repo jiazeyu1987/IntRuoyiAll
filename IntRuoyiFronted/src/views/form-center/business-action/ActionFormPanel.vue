@@ -100,7 +100,7 @@
           <el-table-column label="时间" prop="createdTime" width="180" :formatter="dateTimeValueFormatter" />
           <el-table-column label="表单数据" min-width="260">
             <template #default="{ row }">
-              <span class="form-action-panel__json-preview">{{ stringifySnapshot(row.formData) }}</span>
+              <ReadableData :source="stringifySnapshot(row.formData)" title="表单快照明细" />
             </template>
           </el-table-column>
         </el-table>
@@ -129,6 +129,7 @@
 </template>
 
 <script setup lang="ts">
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import {
   resolveBusinessAction,
   type BusinessActionContextVO,

@@ -26,13 +26,14 @@
         <el-descriptions-item label="内容摘要" :span="2">{{ state.selected.evidence.contentHash || '未记录' }}</el-descriptions-item>
         <el-descriptions-item label="证据摘要" :span="2">{{ state.selected.evidence.evidenceHash || '未记录' }}</el-descriptions-item>
       </el-descriptions>
-      <details class="evidence-fields"><summary>原始签名内容</summary><pre>{{ state.selected.evidence.canonicalContentJson }}</pre></details>
+      <ReadableData class="evidence-fields" title="签名内容明细" :source="state.selected.evidence.canonicalContentJson" />
     </template>
     <template #footer><el-button @click="visible = false">关闭</el-button></template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import { onBeforeUnmount, reactive, ref } from 'vue'
 import { getSignatureGovernanceRecordEvidence, type SignatureGovernanceEvidenceDetail } from '@/api/signature-governance/records'
 import { createSignatureRecordEvidenceLoader, evidenceDimensionLabel, signatureRecordVerificationDisplay, signatureRecordSignedAt } from './signatureRecordEvidence'

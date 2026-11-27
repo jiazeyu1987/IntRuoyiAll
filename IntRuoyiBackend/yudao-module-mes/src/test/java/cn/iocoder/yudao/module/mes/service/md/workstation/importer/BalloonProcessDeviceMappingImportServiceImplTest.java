@@ -55,7 +55,8 @@ import static org.mockito.Mockito.when;
 @Import({
         BalloonProcessDeviceMappingImportServiceImpl.class,
         MesMdWorkstationServiceImpl.class,
-        Sheet1MachineryProcessExcelParser.class
+        Sheet1MachineryProcessExcelParser.class,
+        cn.iocoder.yudao.module.mes.service.dv.machinery.Sheet1ProcessResolver.class
 })
 class BalloonProcessDeviceMappingImportServiceImplTest extends BaseDbUnitTest {
 
@@ -191,7 +192,7 @@ class BalloonProcessDeviceMappingImportServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void importMapping_duplicateDeviceProcessName_usesMachineryProcessPair() throws Exception {
+    void importMapping_duplicateDeviceProcessName_usesExplicitCode() throws Exception {
         seedCommonReferenceData();
         processMapper.insert(MesProProcessDO.builder()
                 .id(815001L).code("B010").name("吹球囊成型").status(CommonStatusEnum.ENABLE.getStatus()).build());
@@ -222,7 +223,7 @@ class BalloonProcessDeviceMappingImportServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void importMapping_duplicateManualProcessName_reusesImporterOwnedWorkstation() throws Exception {
+    void importMapping_duplicateManualProcessName_usesExplicitCode() throws Exception {
         seedCommonReferenceData();
         processMapper.insert(MesProProcessDO.builder()
                 .id(818001L).code("PROC-XLSX-00007").name("包套装管").status(CommonStatusEnum.ENABLE.getStatus()).build());
@@ -282,7 +283,7 @@ class BalloonProcessDeviceMappingImportServiceImplTest extends BaseDbUnitTest {
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> importService.importMapping(buildMixedResourceWorkbook(), 900011L));
 
-        assertEquals("工序 [吹球囊成型] 同时存在设备映射和纯人工行，无法同步", exception.getMessage());
+        assertEquals("工序 [P301] 同时存在设备映射和纯人工行，无法同步", exception.getMessage());
     }
 
     private void seedCommonReferenceData() {
@@ -379,6 +380,23 @@ class BalloonProcessDeviceMappingImportServiceImplTest extends BaseDbUnitTest {
                 row3.createCell(7).setCellValue(740);
             }
 
+            sheet.getRow(0).createCell(8).setCellValue("工序唯一编码");
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                Row dataRow = sheet.getRow(i);
+                if (dataRow != null && dataRow.getCell(3) != null) {
+                    String name = dataRow.getCell(3).getStringCellValue();
+                    String code = switch (name) {
+                        case "吹球囊成型" -> "P001";
+                        case "球囊裁剪" -> "P002";
+                        case "穿显影环" -> "P003";
+                        case "外管拉伸2" -> "P101";
+                        case "内管拉伸2" -> "P201";
+                        case "包套装管" -> "PROC-XLSX-00007";
+                        default -> "IGNORED";
+                    };
+                    dataRow.createCell(8).setCellValue(code);
+                }
+            }
             workbook.write(outputStream);
             return new MockMultipartFile("file", "balloon.xlsx",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -416,6 +434,23 @@ class BalloonProcessDeviceMappingImportServiceImplTest extends BaseDbUnitTest {
             manualRow.createCell(6).setCellValue("/");
             manualRow.createCell(7).setCellValue(740);
 
+            sheet.getRow(0).createCell(8).setCellValue("工序唯一编码");
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                Row dataRow = sheet.getRow(i);
+                if (dataRow != null && dataRow.getCell(3) != null) {
+                    String name = dataRow.getCell(3).getStringCellValue();
+                    String code = switch (name) {
+                        case "吹球囊成型" -> "P301";
+                        case "球囊裁剪" -> "P002";
+                        case "穿显影环" -> "P003";
+                        case "外管拉伸2" -> "P101";
+                        case "内管拉伸2" -> "P201";
+                        case "包套装管" -> "PROC-XLSX-00007";
+                        default -> "IGNORED";
+                    };
+                    dataRow.createCell(8).setCellValue(code);
+                }
+            }
             workbook.write(outputStream);
             return new MockMultipartFile("file", "balloon-mixed.xlsx",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -438,6 +473,23 @@ class BalloonProcessDeviceMappingImportServiceImplTest extends BaseDbUnitTest {
             row.createCell(5).setCellValue(1);
             row.createCell(6).setCellValue(dailyCapacity);
 
+            sheet.getRow(0).createCell(8).setCellValue("工序唯一编码");
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                Row dataRow = sheet.getRow(i);
+                if (dataRow != null && dataRow.getCell(3) != null) {
+                    String name = dataRow.getCell(3).getStringCellValue();
+                    String code = switch (name) {
+                        case "吹球囊成型" -> "B010";
+                        case "球囊裁剪" -> "P002";
+                        case "穿显影环" -> "P003";
+                        case "外管拉伸2" -> "P101";
+                        case "内管拉伸2" -> "P201";
+                        case "包套装管" -> "PROC-XLSX-00007";
+                        default -> "IGNORED";
+                    };
+                    dataRow.createCell(8).setCellValue(code);
+                }
+            }
             workbook.write(outputStream);
             return new MockMultipartFile("file", "balloon-device.xlsx",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -460,6 +512,23 @@ class BalloonProcessDeviceMappingImportServiceImplTest extends BaseDbUnitTest {
             row.createCell(6).setCellValue("/");
             row.createCell(7).setCellValue(manualDailyCapacity);
 
+            sheet.getRow(0).createCell(8).setCellValue("工序唯一编码");
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                Row dataRow = sheet.getRow(i);
+                if (dataRow != null && dataRow.getCell(3) != null) {
+                    String name = dataRow.getCell(3).getStringCellValue();
+                    String code = switch (name) {
+                        case "吹球囊成型" -> "P001";
+                        case "球囊裁剪" -> "P002";
+                        case "穿显影环" -> "P003";
+                        case "外管拉伸2" -> "P101";
+                        case "内管拉伸2" -> "P201";
+                        case "包套装管" -> "PROC-XLSX-00007";
+                        default -> "IGNORED";
+                    };
+                    dataRow.createCell(8).setCellValue(code);
+                }
+            }
             workbook.write(outputStream);
             return new MockMultipartFile("file", "balloon-manual.xlsx",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

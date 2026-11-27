@@ -9,7 +9,6 @@ import java.util.List;
 public interface DccApprovalPositionAdminService {
     List<DccApprovalPositionDO> getPositionList();
     DccApprovalPositionDO createPosition(String name, String changeReason);
-    DccApprovalPositionImportResult importPositionsFromIntAuth();
     List<DccPositionAssignmentDO> getAssignments(Long positionId);
     List<DccPositionAssignmentDO> replaceAssignments(Long positionId, List<DccPositionAssignmentSaveReqVO> reqVOList);
 }

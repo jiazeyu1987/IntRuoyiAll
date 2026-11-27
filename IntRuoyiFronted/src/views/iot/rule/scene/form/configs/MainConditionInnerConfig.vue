@@ -78,21 +78,44 @@
               v-model="condition.value"
               type="service"
               :config="serviceConfig"
-              placeholder="请输入 JSON 格式的服务参数"
+              placeholder="按字段填写服务参数"
             />
             <!-- 事件上报比较值：标量填裸值；结构体／数组填 JSON 整体相等；留空则事件发生即匹配 -->
             <template v-else-if="triggerType === IotRuleSceneTriggerTypeEnum.DEVICE_EVENT_POST">
-              <el-input
+              <el-select
+                v-model="eventValueType"
+                aria-label="事件比较值类型"
+                @change="changeEventValueType"
+              >
+                <el-option
+                  v-for="option in eventValueTypes"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+              <div class="text-12px">切换类型将清空当前比较值；未设置时，事件发生即匹配。</div>
+              <BusinessJsonInput
+                v-if="eventValueType === 'object' || eventValueType === 'array'"
+                ref="eventValueEditor"
                 :model-value="condition.value"
-                @update:model-value="(value) => updateConditionField('value', value)"
-                placeholder="留空则事件发生即匹配"
+                label="事件比较值"
+                :array="eventValueType === 'array'"
+                @update:model-value="updateConditionField('value', $event)"
               />
-              <div class="text-12px text-[var(--el-text-color-secondary)] mt-4px leading-relaxed">
-                标量事件值填裸值（如
-                <code class="px-2px">normal</code>）；结构体／数组事件值填合法
-                JSON（如
-                <code class="px-2px">{"level":"high"}</code>）
-              </div>
+              <el-switch
+                v-else-if="eventValueType === 'boolean'"
+                :model-value="condition.value === 'true'"
+                active-text="是"
+                inactive-text="否"
+                @update:model-value="updateConditionField('value', String($event))"
+              />
+              <el-input
+                v-else-if="eventValueType !== 'unset'"
+                :model-value="condition.value"
+                @update:model-value="updateConditionField('value', $event)"
+                :placeholder="eventValueType === 'number' ? '填写数值' : '填写文本'"
+              />
             </template>
             <!-- 普通值输入 -->
             <ValueInput
@@ -187,6 +210,7 @@ import PropertySelector from '../selectors/PropertySelector.vue'
 import OperatorSelector from '../selectors/OperatorSelector.vue'
 import ValueInput from '../inputs/ValueInput.vue'
 import JsonParamsInput from '../inputs/JsonParamsInput.vue'
+import BusinessJsonInput from '@/components/BusinessData/BusinessJsonInput.vue'
 
 import type { Trigger } from '@/api/iot/rule/scene'
 import {
@@ -330,4 +354,60 @@ const handlePropertyChange = (propertyInfo: any) => {
     }
   }
 }
+
+const eventValueType = ref('unset')
+const eventValueEditor = ref<InstanceType<typeof BusinessJsonInput>>()
+const eventValueTypes = [
+  { value: 'unset', label: '未设置' },
+  { value: 'text', label: '文本' },
+  { value: 'number', label: '数值' },
+  { value: 'boolean', label: '是或否' },
+  { value: 'object', label: '对象' },
+  { value: 'array', label: '列表' }
+]
+const changeEventValueType = (type: string) => {
+  updateConditionField(
+    'value',
+    type === 'object' ? '{}' : type === 'array' ? '[]' : type === 'boolean' ? 'false' : ''
+  )
+}
+const identifyEventValueType = (value: unknown) => {
+  if (value === undefined || value === null || value === '') return 'unset'
+  try {
+    const parsed = JSON.parse(String(value))
+    if (parsed !== null && typeof parsed === 'object')
+      return Array.isArray(parsed) ? 'array' : 'object'
+    if (typeof parsed === 'boolean') return 'boolean'
+    if (typeof parsed === 'number') return 'number'
+    return 'text'
+  } catch {
+    return 'text'
+  } // 接口支持裸文本比较值
+}
+watch(
+  () => [
+    props.modelValue,
+    props.modelValue.identifier,
+    props.modelValue.productId,
+    props.modelValue.deviceId,
+    props.triggerType
+  ],
+  () => {
+    eventValueType.value = identifyEventValueType(condition.value.value)
+  },
+  { immediate: true }
+)
+const eventValidators = inject<Set<() => string>>('iot-parameter-validators')
+if (!eventValidators) throw new Error('参数编辑器缺少场景规则表单验证上下文')
+const validateEventValue = () => {
+  if (props.triggerType !== IotRuleSceneTriggerTypeEnum.DEVICE_EVENT_POST) return ''
+  if (
+    eventValueType.value === 'number' &&
+    (!String(condition.value.value).trim() || !Number.isFinite(Number(condition.value.value)))
+  )
+    return '请填写有效的事件比较数值'
+  return eventValueEditor.value?.validate(false) || ''
+}
+onMounted(() => eventValidators.add(validateEventValue))
+onBeforeUnmount(() => eventValidators.delete(validateEventValue))
 </script>

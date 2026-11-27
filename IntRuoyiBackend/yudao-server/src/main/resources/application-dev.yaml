@@ -201,8 +201,6 @@ signature:
 # 瑛泰配置项，设置当前项目所有自定义的配置
 yudao:
   dcc:
-    int-auth:
-      db-path: .runtime/data/int-auth/auth.db
     preview:
       onlyoffice:
         base-url: ${DCC_ONLYOFFICE_BASE_URL:http://127.0.0.1:8080}

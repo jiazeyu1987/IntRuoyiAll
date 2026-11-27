@@ -9,6 +9,7 @@ const { parse, compileScript, compileTemplate } = require('vue/compiler-sfc')
 const root = path.resolve(__dirname, '../..')
 const cache = new Map()
 function load(file) {
+  if (file === 'src/components/ProductCodeLink.vue') return { default: { props: ['code'], setup: props => () => Vue.h('span', props.code) } }
   const absolute = path.resolve(root, file)
   if (cache.has(absolute)) return cache.get(absolute)
   const source = fs.readFileSync(absolute, 'utf8')
@@ -46,7 +47,7 @@ const { readBusinessEvidence } = load(
 const ReadableData = load('src/components/BusinessData/ReadableData.vue').default
 const Input = load('src/components/BusinessData/BusinessJsonInput.vue').default
 const ApplicationConfirmation = load('src/views/dcc/controlled-file/detail/ApplicationConfirmationContent.vue').default
-test('certificate history labels and exact snapshot identities remain readable without losing source JSON', async () => {
+test('certificate history labels and exact snapshot identities remain readable without raw JSON', async () => {
   const { certificateHistoryLabel } = load('src/views/dcc/registration-certificate/history/historyDisplay.ts')
   assert.equal(certificateHistoryLabel('ACTIVATION_APPLIED'), '新版本生效')
   assert.match(certificateHistoryLabel('FUTURE'), /未识别.*FUTURE/)
@@ -60,7 +61,7 @@ test('certificate history labels and exact snapshot identities remain readable w
   const html = await renderToString(app)
   assert.match(html, /原版本编号/)
   assert.doesNotMatch(html, /<details[^>]*\sopen/)
-  assert.ok(html.includes(source.replaceAll('"', '&quot;')) || html.includes(source))
+  assert.doesNotMatch(html, /技术详情|<pre/)
 })
 
 test('permission audit distinguishes failed, denied and unknown results and explains scoped data', () => {
@@ -76,22 +77,6 @@ test('permission audit distinguishes failed, denied and unknown results and expl
   assert.ok(rows.some(row => row.value === '存在记录'))
   assert.ok(rows.some(row => row.value === '本部门及下级部门数据'))
   for (const value of ['5', '8', '11', '22']) assert.ok(rows.some(row => row.value === value))
-})
-
-test('supplier attachment parsing respects newline contract, URL commas and explicit malformed-address errors', () => {
-  const { readPortalAttachments } = load('src/views/srm/supplier-portal/review/attachmentDisplay.ts')
-  const address = 'https://example.com/%E8%B5%84%E8%B4%A8.pdf?types=a,b&key=original'
-  const rows = readPortalAttachments(`${address}\r\n\nhttps://example.com/\nnot-an-address\njavascript:alert(1)\nhttps://example.com/%ZZ.pdf`)
-  assert.equal(rows.length, 5)
-  assert.equal(rows[0].name, '资质.pdf')
-  assert.equal(rows[0].address, address)
-  assert.equal(rows[0].host, 'example.com')
-  assert.equal(rows[0].error, '')
-  assert.match(rows[1].name, /未提供文件名/)
-  assert.match(rows[2].error, /格式无效/)
-  assert.match(rows[3].error, /不是网页地址/)
-  assert.match(rows[4].error, /文件名编码无效/)
-  assert.equal(rows[4].address, 'https://example.com/%ZZ.pdf')
 })
 
 test('signed dossier sizes accept actual numeric manifest values and preserve large integer byte counts', () => {
@@ -208,7 +193,7 @@ const renderer = Vue.createRenderer({
     node.children = []
   },
   parentNode: (node) => node.parent,
-  nextSibling: () => null,
+  nextSibling: node => { const siblings = node.parent?.children || []; return siblings[siblings.indexOf(node) + 1] || null },
   patchProp: (node, key, _, value) => {
     node.props[key] = value
   },
@@ -256,7 +241,7 @@ test('approval contracts show Chinese fields, statuses, nested records and exact
   assert.equal(value.error, '')
   assert.deepEqual(
     value.rows.map((row) => row.value),
-    ['9223372036854775806', '批记录完整性', '通过', '12']
+    ['9223372036854775806', '批记录完整性', '通过', '12', 'abc']
   )
   assert.ok(value.rows.every((row) => !row.label.includes('未标注字段')))
 })
@@ -277,15 +262,14 @@ test('real document access details explain audit fields and preview purpose in C
   )
   assert.equal(result.rows[3].value, '在线文件预览')
 })
-test('readable evidence keeps original bytes and hashes in collapsed technical details and escapes markup', async () => {
+test('readable evidence displays complete hashes without raw JSON and escapes markup', async () => {
   const source = '{ "name":"<script>bad</script>", "sha256":"' + 'a'.repeat(64) + '" }'
   const app = Vue.createSSRApp(ReadableData, { source, checksum: 'b'.repeat(64) })
   app.component('el-alert', elementStub('el-alert'))
   const html = await renderToString(app)
   assert.match(html, /&lt;script&gt;bad&lt;\/script&gt;/)
   assert.doesNotMatch(html, /<script>|<details[^>]*open/)
-  const business = html.slice(0, html.indexOf('<details'))
-  assert.ok(!business.includes('a'.repeat(64)))
+  assert.doesNotMatch(html, /<pre|<details/)
   assert.match(html, /a{64}/)
   assert.match(html, /b{64}/)
 })
@@ -442,7 +426,7 @@ test('execution snapshot renders nested records and more than twelve fields with
   assert.match(html, /测量项目14/)
   assert.match(html, /9223372036854775806/)
   assert.match(html, />是</)
-  assert.match(html, /<details[^>]*><summary>/)
+  assert.doesNotMatch(html, /<pre|<details/)
   assert.doesNotMatch(html, /<details[^>]* open/)
   assert.match(readBusinessEvidence('{broken').error, /解析|格式/)
 })
@@ -546,4 +530,60 @@ test('correction history renders human verification while exact evidence referen
   assert.match(references, /生产提交/)
   assert.match(references, /核验通过/)
   assert.doesNotMatch(references, />PRODUCTION_SUBMIT<|>VALID</)
+})
+
+
+test('nullable nodes switch types and invalid numeric drafts clear after external replacement', async () => {
+  const view = mount(Node, { modelValue: null })
+  try {
+    const select = find(view.container, n => n.type === 'el-select' && n.props['aria-label'] === '内容类型')
+    for (const [type, expected] of [['boolean', false], ['number', 0], ['object', {}], ['array', []], ['null', null]]) {
+      select.props['onUpdate:modelValue'](type)
+      await Vue.nextTick()
+      assert.deepEqual(view.state.modelValue, expected)
+      assert.equal(view.instance.value.validate(), '')
+    }
+    select.props['onUpdate:modelValue']('number')
+    await Vue.nextTick()
+    const input = find(view.container, n => n.type === 'el-input' && n.props.inputmode === 'decimal')
+    for (const handler of [].concat(input.props['onUpdate:modelValue'])) handler('invalid')
+    assert.match(view.instance.value.validate(), /有效数值/)
+    assert.equal(view.state.modelValue, 0)
+    view.state.modelValue = 12
+    await Vue.nextTick()
+    assert.equal(view.instance.value.validate(), '')
+  } finally { view.stop() }
+})
+
+test('explicit root contracts preserve false zero null and empty containers', async () => {
+  for (const value of [false, 0, null, {}, []]) {
+    const view = mount(Input, { modelValue: JSON.stringify(value), label: '参数', rootTypes: ['object', 'array', 'boolean', 'number', 'null'] })
+    try {
+      assert.equal(view.instance.value.validate(), '')
+      assert.deepEqual(JSON.parse(view.state.modelValue), value)
+    } finally { view.stop() }
+  }
+})
+
+
+test('root editor restricts types and starts with the first explicitly allowed type', async () => {
+  for (const [rootTypes, expected] of [[undefined, {}], [['array', 'object'], []], [['boolean'], false], [['number'], 0], [['null'], null], [['string'], '']]) {
+    const view = mount(Input, { modelValue: '', label: '参数', rootTypes })
+    try {
+      find(view.container, n => n.type === 'el-button').props.onClick()
+      await Vue.nextTick()
+      assert.deepEqual(JSON.parse(view.state.modelValue), expected)
+      assert.equal(view.instance.value.validate(), '')
+      const select = find(view.container, n => n.type === 'el-select' && n.props['aria-label'] === '内容类型')
+      const allowed = rootTypes || ['object']
+      const options = []
+      const collect = node => { if (node.type === 'el-option') options.push(node.props.value); for (const child of node.children || []) collect(child) }
+      if (allowed.length === 1) assert.equal(select, undefined)
+      else {
+        collect(select)
+        assert.deepEqual(options.sort(), allowed.map(type => type === 'string' ? 'text' : type).sort())
+        if (!allowed.includes('boolean')) assert.throws(() => select.props['onUpdate:modelValue']('boolean'), /不允许/)
+      }
+    } finally { view.stop() }
+  }
 })

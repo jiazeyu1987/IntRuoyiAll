@@ -167,34 +167,28 @@ public class MesProTaskController {
     @Operation(summary = "获得甘特图任务列表", description = "后端组装工单=project + 任务=task 列表")
     @PreAuthorize("@ss.hasPermission('mes:pro-task:query')")
     public CommonResult<List<GanttDataRespVO>> listGanttTaskList(@Valid MesProWorkOrderPageReqVO reqVO) {
-        // 1.1 查询匹配的工单（不分页）
-        reqVO.setPageSize(PageParam.PAGE_SIZE_NONE);
-        List<MesProWorkOrderDO> workOrders = workOrderService.getWorkOrderPage(reqVO).getList();
-        if (CollUtil.isEmpty(workOrders)) {
+        // 先限定排产范围，再读取关联任务，避免将整个生产工单池展开为 IN 参数。
+        Set<Long> latestAppliedReplanScheduleOrderIds = resolveLatestAppliedReplanScheduleOrderIds();
+        List<MesProScheduleOrderDO> scopeOrders = CollUtil.isEmpty(latestAppliedReplanScheduleOrderIds)
+                ? scheduleOrderMapper.selectList()
+                : scheduleOrderMapper.selectListByIds(latestAppliedReplanScheduleOrderIds);
+        Map<Long, MesProScheduleOrderDO> activeScheduleOrderMap = convertMap(
+                scopeOrders.stream().filter(this::isCurrentGanttScheduleOrder).toList(),
+                MesProScheduleOrderDO::getId);
+        if (activeScheduleOrderMap.isEmpty()) {
             return success(Collections.emptyList());
         }
-        // 1.2 批量查询所有工单下的任务，按 workOrderId 分组
-        List<MesProTaskDO> allTasks = taskService.getTaskListByWorkOrderIds(
-                convertSet(workOrders, MesProWorkOrderDO::getId));
         Map<Long, MesProTaskScheduleExtDO> taskExtMap = convertMap(
-                taskScheduleExtMapper.selectListByTaskIds(convertSet(allTasks, MesProTaskDO::getId)),
+                taskScheduleExtMapper.selectListByScheduleOrderIds(activeScheduleOrderMap.keySet()),
                 MesProTaskScheduleExtDO::getTaskId);
-        Map<Long, MesProScheduleOrderDO> baseActiveScheduleOrderMap = convertMap(
-                scheduleOrderMapper.selectListByIds(taskExtMap.values().stream()
-                                .map(MesProTaskScheduleExtDO::getScheduleOrderId)
-                                .filter(Objects::nonNull)
-                                .collect(java.util.stream.Collectors.toSet()))
-                        .stream()
-                        .filter(this::isCurrentGanttScheduleOrder)
-                        .toList(),
-                MesProScheduleOrderDO::getId);
-        Set<Long> latestAppliedReplanScheduleOrderIds = resolveLatestAppliedReplanScheduleOrderIds();
-        Map<Long, MesProScheduleOrderDO> activeScheduleOrderMap = CollUtil.isEmpty(latestAppliedReplanScheduleOrderIds)
-                ? baseActiveScheduleOrderMap
-                : baseActiveScheduleOrderMap.entrySet().stream()
-                .filter(entry -> latestAppliedReplanScheduleOrderIds.contains(entry.getKey()))
-                .collect(java.util.stream.Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
-                        (left, right) -> left, LinkedHashMap::new));
+        if (taskExtMap.isEmpty()) {
+            return success(Collections.emptyList());
+        }
+        List<MesProTaskDO> allTasks = taskService.getTaskList(taskExtMap.keySet());
+        // 仅查询关联工单，保留原工单筛选条件及数据权限。
+        reqVO.setPageSize(PageParam.PAGE_SIZE_NONE);
+        List<MesProWorkOrderDO> workOrders = workOrderService.getWorkOrderPageByIds(
+                reqVO, convertSet(allTasks, MesProTaskDO::getWorkOrderId)).getList();
         List<MesProTaskDO> scheduledTasks = allTasks.stream()
                 .filter(task -> isScheduledGanttProcessTask(taskExtMap.get(task.getId()), activeScheduleOrderMap))
                 .toList();

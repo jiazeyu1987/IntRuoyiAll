@@ -46,7 +46,6 @@ class DccFileCategoryAtomicSaveTest extends BaseDbUnitTest {
     @Resource DataSource source;
     @Resource org.mybatis.spring.SqlSessionTemplate sqlSession;
     @Resource TenantLineInnerInterceptor atomicTenantInterceptor;
-    @MockitoBean DccIntAuthFileCategoryClient intAuth;
     Long type;
     Long directory;
     JdbcTemplate jdbc;
@@ -68,6 +67,7 @@ class DccFileCategoryAtomicSaveTest extends BaseDbUnitTest {
     DccFileCategorySaveReqVO request(String code) {
         var req = new DccFileCategorySaveReqVO(); req.setCode(code); req.setName("原类别"); req.setActive(true);
         req.setSort(1); req.setSource("LOCAL"); req.setDescription("原说明"); req.setRemark("原备注");
+        req.setApprovalSourceMode("PUBLIC_MATRIX");
         req.setFileTypeTaxonomyId(type); req.setDistributionRequired(false); req.setTrainingRequired(false);
         return req;
     }

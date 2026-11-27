@@ -654,27 +654,6 @@ const remainingRouter: AppRouteRecordRaw[] = [
     ]
   },
   {
-    path: '/srm',
-    component: Layout,
-    name: 'SrmPortalHidden',
-    meta: {
-      hidden: true
-    },
-    children: [
-      {
-        path: 'portal/application',
-        component: () => import('@/views/srm/supplier-portal/application/index.vue'),
-        name: 'SrmSupplierPortalApplication',
-        meta: {
-          noCache: true,
-          hidden: true,
-          canTo: true,
-          title: '供应商资料提交'
-        }
-      }
-    ]
-  },
-  {
     path: '/mdm',
     component: Layout,
     name: 'MdmHidden',

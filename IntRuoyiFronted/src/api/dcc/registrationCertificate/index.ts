@@ -175,6 +175,7 @@ export interface DccRegistrationCertificateDetailVO {
   uploadOperatorName?: string
   uploadedAt?: string | number
   uploadApproverName?: string
+  /** 首次版本正式建档时间，不是 BPM 审批任务结束时间。 */
   uploadApprovedAt?: string | number
   hasRegistrationFile: boolean
   reminderColor: string
@@ -213,6 +214,7 @@ export interface DccRegistrationCertificateHistoryItemVO {
   renewalOperatorName?: string
   renewalOperatedAt?: string | number
   renewalApproverName?: string
+  /** 延续版本正式建档时间，不是 BPM 审批任务结束时间。 */
   renewalApprovedAt?: string | number
 }
 

@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.bpm.businessapproval.service;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalException;
+import cn.iocoder.yudao.module.bpm.formcenter.service.FormBusinessEffectExecutor;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -38,6 +39,22 @@ public class BusinessApprovalEffectExecutorRegistry {
             }
         }
         this.executors = Map.copyOf(byCode);
+    }
+
+    /** Policies describe both business-request and exact-form actions; execution stays in its owning runtime. */
+    public void requirePolicyExecutor(String executorCode, List<FormBusinessEffectExecutor> formExecutorList) {
+        long formRegistrations = formExecutorList.stream()
+                .filter(executor -> executorCode != null && executorCode.equals(executor.getExecutorCode())).count();
+        if (formRegistrations > 1) {
+            throw new BusinessApprovalException(BusinessApprovalErrorCode.BUSINESS_APPROVAL_EXECUTOR_CONFLICT,
+                    "Form effect executor duplicated: " + executorCode);
+        }
+        // The two runtimes own separate executor contracts; an existing code in each is legitimate.
+        if (executorCode == null || executorCode.isBlank()
+                || (!executors.containsKey(executorCode) && formRegistrations == 0)) {
+            throw new BusinessApprovalException(BusinessApprovalErrorCode.BUSINESS_APPROVAL_EXECUTOR_MISSING,
+                    "Policy effect executor is not registered: " + executorCode);
+        }
     }
 
     public BusinessApprovalEffectExecutor requireExecutor(String executorCode) {

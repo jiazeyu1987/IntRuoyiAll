@@ -21,19 +21,17 @@
       ref="nodeEditor"
       v-else-if="modelValue && !error"
       :model-value="parsed"
+      :allowed-types="allowedRootTypes"
       @update:model-value="update"
     />
-    <el-button v-if="!fileOnly && !modelValue" @click="update(array ? [] : {})"
+    <el-button v-if="!fileOnly && !modelValue" @click="startEditing()"
       >开始填写{{ label }}</el-button
     >
-    <details v-if="!fileOnly && modelValue"
-      ><summary>技术详情（原始数据）</summary><pre>{{ modelValue }}</pre>
-    </details>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import BusinessJsonNode from './BusinessJsonNode.vue'
 import ReadableData from './ReadableData.vue'
 
@@ -44,23 +42,50 @@ const props = withDefaults(
     hint?: string
     fileOnly?: boolean
     array?: boolean
+    rootTypes?: Array<'object' | 'array' | 'string' | 'number' | 'boolean' | 'null'>
   }>(),
   { modelValue: '' }
 )
 const emit = defineEmits<{ 'update:modelValue': [value: string]; imported: [file: File] }>()
 const nodeEditor = ref<InstanceType<typeof BusinessJsonNode>>()
 const fileError = ref('')
+watch(
+  () => props.modelValue,
+  (value) => {
+    if (value) fileError.value = ''
+  }
+)
+const allowedRootTypes = computed(() => props.rootTypes ?? [props.array ? 'array' : 'object'])
+function startEditing() {
+  const type = allowedRootTypes.value[0]
+  if (!type) throw new Error('必须指定至少一种资料类型。')
+  update(
+    type === 'object'
+      ? {}
+      : type === 'array'
+        ? []
+        : type === 'null'
+          ? null
+          : type === 'number'
+            ? 0
+            : type === 'boolean'
+              ? false
+              : ''
+  )
+}
+function validateRoot(value: unknown) {
+  const type = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value
+  const allowed: string[] = allowedRootTypes.value
+  if (!allowed.includes(type))
+    throw new Error(
+      `资料类型不符合要求，允许类型：${allowed.map((type) => (({ object: '业务字段', array: '条目列表', string: '文本', number: '数值', boolean: '是或否', null: '未记录' }) as Record<string, string>)[type]).join('、')}。`
+    )
+}
 const parseResult = computed(() => {
   if (!props.modelValue) return { value: undefined, error: '' }
   try {
     const value = JSON.parse(props.modelValue)
-    if (
-      value === null ||
-      typeof value !== 'object' ||
-      Array.isArray(value) !== Boolean(props.array)
-    ) {
-      throw new Error(props.array ? '资料应包含条目列表。' : '资料应包含业务字段。')
-    }
+    validateRoot(value)
     if (!props.fileOnly) validateEditableNumbers(value)
     return { value, error: '' }
   } catch (error) {
@@ -96,8 +121,7 @@ const importFile = async (event: Event) => {
   try {
     const source = await file.text()
     const value = JSON.parse(source)
-    if (!value || typeof value !== 'object' || Array.isArray(value) !== Boolean(props.array))
-      throw new Error(props.array ? '资料应包含条目列表。' : '资料应包含业务字段。')
+    validateRoot(value)
     if (!props.fileOnly) validateEditableNumbers(value)
     emit('update:modelValue', source)
     emit('imported', file)
@@ -133,18 +157,8 @@ defineExpose({ validate })
 .business-json-input__file input {
   max-width: 100%;
 }
-.business-json-input p,
-summary {
+.business-json-input p {
   color: var(--el-text-color-secondary);
   font-size: 13px;
-}
-summary {
-  cursor: pointer;
-}
-pre {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  max-height: 200px;
-  overflow: auto;
 }
 </style>

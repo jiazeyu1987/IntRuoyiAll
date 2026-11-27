@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.util.List;
@@ -30,6 +31,7 @@ public class MesProEdhrNonconformanceReviewDisposeReqVO {
 
     @Schema(description = "评审意见", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "评审意见不能为空")
+    @Size(max = 1000, message = "评审意见不能超过1000个字符")
     private String reviewOpinion;
 
     @Schema(description = "电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)

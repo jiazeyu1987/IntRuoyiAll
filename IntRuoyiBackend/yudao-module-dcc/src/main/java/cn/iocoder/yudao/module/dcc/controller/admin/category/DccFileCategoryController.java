@@ -22,7 +22,6 @@ import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccCategoryRevie
 import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccCategoryReviewMatrixUserLookupRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccCategoryTrainingRuleRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccCategoryTrainingRuleSaveReqVO;
-import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccFileCategoryImportRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccFileCategoryRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccFileCategorySaveReqVO;
 import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum;
@@ -122,20 +121,9 @@ public class DccFileCategoryController {
                 reqVO.getActive(), reqVO.getConfigured()));
     }
 
-    @PostMapping("/import-intauth")
-    @Operation(summary = "从 IntAuth 一次性导入文件类别")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:category:manage')")
-    public CommonResult<DccFileCategoryImportRespVO> importCategoriesFromIntAuth() {
-        var result = categoryAdminService.importCategoriesFromIntAuth();
-        DccFileCategoryImportRespVO respVO = new DccFileCategoryImportRespVO();
-        respVO.setTotalCount(result.getTotalCount());
-        respVO.setCreatedCount(result.getCreatedCount());
-        respVO.setAdoptedCount(result.getAdoptedCount());
-        respVO.setUpdatedCount(result.getUpdatedCount());
-        return success(respVO);
-    }
 
-    @PostMapping("/import-intauth-matrix")
+
+    @PostMapping("/import-seed-matrix")
     @Operation(summary = "按仓库内置 IntAuth 审批矩阵种子初始化类别审批矩阵")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:category:manage')")
     public CommonResult<DccCategoryApprovalMatrixImportRespVO> importApprovalMatrixFromSeed() {

@@ -568,6 +568,44 @@ class MesProAutoScheduleServiceImplTest {
                 .thenReturn(Collections.emptyMap());
     }
 
+    @Test
+    void refreshScheduleOrderProcessesFromRouteConfig_shouldPreviewHighLowFactorsWithIndependentCapacityOverrides() {
+        routeProcess.setWorkstationId(30L);
+        scheduleOrder.setQuantity(new BigDecimal("2019"));
+        scheduleOrderProcess.setEnabled(Boolean.TRUE);
+        scheduleOrderProcess.setCapacitySource("MANUAL_OVERRIDE");
+        scheduleOrderProcess.setCapacityMode(MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode());
+        scheduleOrderProcess.setShiftHours(new BigDecimal("10.5"));
+        when(routeScheduleConfigMapper.selectListByRouteVersionId(700L)).thenReturn(List.of(
+                MesProRouteScheduleConfigDO.builder().id(9004L).routeVersionId(700L).routeProcessId(3L)
+                        .capacityMode(MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode())
+                        .nightShiftEnabled(Boolean.FALSE).build()));
+        for (String factorValue : List.of("2", "0.5")) {
+            for (String hourlyValue : List.of("50", "200")) {
+                BigDecimal factor = new BigDecimal(factorValue);
+                BigDecimal hourly = new BigDecimal(hourlyValue);
+                scheduleOrderProcess.setHourlyCapacityTotal(hourly);
+                scheduleOrderProcess.setShiftCapacityTotal(hourly.multiply(new BigDecimal("10.5")));
+                when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+                        20L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())).thenReturn(List.of(
+                        MesProRouteFlowProcessConfigDO.builder().routeFlowConfigId(90000L).routeId(20L)
+                                .routeProcessId(3L).useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())
+                                .productionQuantityFactor(factor).build()));
+                ReflectionTestUtils.invokeMethod(autoScheduleService, "refreshScheduleOrderProcessesFromRouteConfig",
+                        scheduleOrder, List.of(scheduleOrderProcess), false);
+                assertEquals(0, new BigDecimal("2019").multiply(factor)
+                        .compareTo(scheduleOrderProcess.getPlannedQuantity()));
+                assertEquals(0, factor.compareTo(scheduleOrderProcess.getProductionQuantityFactor()));
+                assertEquals(0, hourly.compareTo(scheduleOrderProcess.getHourlyCapacityTotal()));
+                assertEquals(0, hourly.multiply(new BigDecimal("10.5"))
+                        .compareTo(scheduleOrderProcess.getShiftCapacityTotal()));
+                assertEquals("MANUAL_OVERRIDE", scheduleOrderProcess.getCapacitySource());
+                assertEquals(700L, scheduleOrderProcess.getRouteVersionId());
+            }
+        }
+        verify(scheduleOrderProcessMapper, never()).updateById(any(MesProScheduleOrderProcessDO.class));
+    }
+
     private Map<Long, Long> identityMap(java.util.Collection<Long> processIds) {
         Map<Long, Long> result = new java.util.LinkedHashMap<>();
         processIds.stream().filter(java.util.Objects::nonNull).forEach(id -> result.put(id, id));

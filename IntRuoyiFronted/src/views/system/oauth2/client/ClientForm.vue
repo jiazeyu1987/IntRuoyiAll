@@ -130,10 +130,12 @@
         </el-select>
       </el-form-item>
       <el-form-item label="附加信息" prop="additionalInformation">
-        <el-input
+        <BusinessJsonInput
+          ref="additionalInformationInput"
           v-model="formData.additionalInformation"
-          placeholder="请输入附加信息，JSON 格式数据"
-          type="textarea"
+          label="附加信息"
+          :root-types="['object', 'array']"
+          hint="按字段填写客户端附加信息，可保留文字、数字、开关及嵌套资料。"
         />
       </el-form-item>
     </el-form>
@@ -147,6 +149,7 @@
 import { DICT_TYPE, getDictOptions, getIntDictOptions } from '@/utils/dict'
 import { CommonStatusEnum } from '@/utils/constants'
 import * as ClientApi from '@/api/system/oauth2/client'
+import BusinessJsonInput from '@/components/BusinessData/BusinessJsonInput.vue'
 
 defineOptions({ name: 'SystemOAuth2ClientForm' })
 
@@ -191,6 +194,7 @@ const formRules = reactive({
   authorizedGrantTypes: [{ required: true, message: '授权类型不能为空', trigger: 'blur' }]
 })
 const formRef = ref() // 表单 Ref
+const additionalInformationInput = ref<InstanceType<typeof BusinessJsonInput>>()
 
 /** 打开弹窗 */
 const open = async (type: string, id?: number) => {
@@ -217,6 +221,11 @@ const submitForm = async () => {
   if (!formRef) return
   const valid = await formRef.value.validate()
   if (!valid) return
+  const informationError = additionalInformationInput.value?.validate(false)
+  if (informationError) {
+    message.error(informationError)
+    return
+  }
   // 提交请求
   formLoading.value = true
   try {

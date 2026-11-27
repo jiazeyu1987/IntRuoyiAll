@@ -30,11 +30,16 @@ class TenantAdminBusinessPolicyTest {
         }
     }
     @Test void businessEntriesAndButtonsAreGrantedButDisabledEntriesAreNot() {
-        for (String permission : List.of("mes:pro-feedback:create", "srm:supplier:query", "dcc:document:update", "erp:invoice-voucher-print:query")) {
+        for (String permission : List.of("mes:pro-feedback:create", "crm:customer:query", "dcc:document:update", "erp:invoice-voucher-print:query")) {
             assertTrue(TenantAdminBusinessPolicy.isBusinessPermission(permission));
             assertTrue(TenantAdminBusinessPolicy.isBusinessMenu(new MenuDO().setStatus(0).setPermission(permission)));
             assertFalse(TenantAdminBusinessPolicy.isBusinessMenu(new MenuDO().setStatus(1).setPermission(permission)));
         }
         assertTrue(TenantAdminBusinessPolicy.isBusinessMenu(new MenuDO().setStatus(0).setPath("controlled-file/admin")));
+    }
+    @Test void retiredSrmIsNoLongerGrantedAsAnActiveBusinessModule() {
+        assertFalse(TenantAdminBusinessPolicy.isBusinessPermission("srm:supplier:query"));
+        assertFalse(TenantAdminBusinessPolicy.isBusinessMenu(new MenuDO().setStatus(0).setPath("/srm")));
+        assertFalse(TenantAdminBusinessPolicy.isBusinessMenu(new MenuDO().setStatus(0).setComponent("srm/supplier-access/index")));
     }
 }

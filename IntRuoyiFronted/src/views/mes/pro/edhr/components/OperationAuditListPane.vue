@@ -307,7 +307,7 @@
                   <div>
                     <dt>元数据</dt>
                     <dd>
-                      <pre class="edhr-operation-audit-pane__metadata">{{ detail.metadataJson || "--" }}</pre>
+                      <ReadableData :source="detail.metadataJson" title="操作附加信息" />
                     </dd>
                   </div>
                 </dl>
@@ -321,6 +321,7 @@
 </template>
 
 <script setup lang="ts">
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import '@/views/mes/pro/edhr/shared/detail-surface.scss'

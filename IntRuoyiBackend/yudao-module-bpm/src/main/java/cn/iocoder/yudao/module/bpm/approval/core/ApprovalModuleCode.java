@@ -6,6 +6,5 @@ public enum ApprovalModuleCode {
     DCC,
     EDHR,
     SHOWROOM,
-    SRM,
     MES_FEEDBACK
 }

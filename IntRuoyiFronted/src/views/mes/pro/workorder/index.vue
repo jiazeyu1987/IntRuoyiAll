@@ -773,7 +773,7 @@ const resetQuery = () => {
   workOrderQuickFilter.resetQuickFilter()
 }
 
-const openForm = (type: string, id?: number, parentRow?: any) => {
+const openForm = (type: string, id?: number | string, parentRow?: any) => {
   formRef.value?.open(type, id, parentRow)
 }
 const handleExport = async () => {
@@ -813,7 +813,7 @@ const loadListFromRoute = async () => {
     return
   }
   openedRouteDetailId.value = openId
-  openForm('detail', Number(openId))
+  openForm('detail', openId)
 }
 const handleCreateKingdeeProductionOrder = async (row: WorkOrderTreeRow) => {
   await message.confirm(`确认根据生产工单 ${row.code} 创建 ERP 测试生产订单？`)

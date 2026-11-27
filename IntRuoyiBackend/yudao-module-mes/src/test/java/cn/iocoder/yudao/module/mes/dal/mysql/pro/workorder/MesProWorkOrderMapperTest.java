@@ -38,6 +38,24 @@ public class MesProWorkOrderMapperTest extends BaseDbUnitTest {
     }
 
     @Test
+    void scopedQueryIntersectsIdsWithExistingFiltersAndEmptyScopeReturnsNothing() {
+        MesProWorkOrderDO a = createWorkOrder(row -> row.setCode("SCOPE-A"));
+        MesProWorkOrderDO b = createWorkOrder(row -> row.setCode("SCOPE-B"));
+        workOrderMapper.insert(a);
+        workOrderMapper.insert(b);
+        MesProWorkOrderPageReqVO request = new MesProWorkOrderPageReqVO();
+        request.setCode("SCOPE");
+        assertEquals(List.of(a.getId()), workOrderMapper.selectPageByProductIdsAndWorkOrderIds(
+                request, null, List.of(a.getId())).getList().stream().map(MesProWorkOrderDO::getId).toList());
+        request.setCode("SCOPE-B");
+        assertTrue(workOrderMapper.selectPageByProductIdsAndWorkOrderIds(
+                request, null, List.of(a.getId())).getList().isEmpty());
+        request.setCode(null);
+        assertTrue(workOrderMapper.selectPageByProductIdsAndWorkOrderIds(
+                request, null, List.of()).getList().isEmpty());
+    }
+
+    @Test
     void updateErpSnapshot_clearsSourceFieldsAndPreservesLocalProductionState() {
         MesProWorkOrderDO existing = createWorkOrder(workOrder -> {
             workOrder.setCode("ERP-SNAPSHOT-001");
@@ -171,12 +189,31 @@ public class MesProWorkOrderMapperTest extends BaseDbUnitTest {
         for (int index = 1; index <= 24; index++) {
             String code = "881MO-SEARCH-" + index;
             expectedCodes.add(code);
-            workOrderMapper.insert(createWorkOrder(workOrder -> workOrder.setCode(code)));
+            workOrderMapper.insert(createWorkOrder(workOrder -> { workOrder.setCode(code); workOrder.setProductId(1001L); }));
         }
 
-        List<MesProWorkOrderDO> result = workOrderMapper.selectCandidatesByKeyword("88", List.of());
+        List<MesProWorkOrderDO> result = workOrderMapper.selectCandidatesByKeyword("88", List.of(), List.of(1001L));
 
         assertEquals(24, result.size());
         assertTrue(result.stream().map(MesProWorkOrderDO::getCode).toList().containsAll(expectedCodes));
     }
+    @Test
+    void candidateKeywordAndProductMatchesCannotEscapeLeaderScope() {
+        for (long productId : List.of(1001L, 2001L)) {
+            workOrderMapper.insert(createWorkOrder(row -> {
+                row.setCode("881-SCOPE-" + productId);
+                row.setProductId(productId);
+            }));
+        }
+        workOrderMapper.insert(createWorkOrder(row -> {
+            row.setCode("OTHER-CODE");
+            row.setProductId(1001L);
+        }));
+        assertEquals(1, workOrderMapper.selectCandidatesByKeyword("881", List.of(), List.of(1001L)).size());
+        var matches = workOrderMapper.selectCandidatesByKeyword("881", List.of(1001L, 2001L), List.of(1001L));
+        assertEquals(2, matches.size());
+        assertTrue(matches.stream().allMatch(row -> row.getProductId().equals(1001L)));
+        assertTrue(workOrderMapper.selectCandidatesByKeyword("881", List.of(1001L), List.of()).isEmpty());
+    }
+
 }

@@ -34,7 +34,6 @@ class DccFileTypeConfigurationTransactionTest extends BaseDbUnitTest {
     @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.directory.DccFileDirectoryMapper directoryMapper;
     @MockitoSpyBean private DccCategoryDirectoryBindingMapper bindingMapper;
     @MockitoBean private DccCategoryApprovalMatrixAdminService matrixService;
-    @MockitoBean private DccIntAuthFileCategoryClient intAuthFileCategoryClient;
     @MockitoBean private cn.iocoder.yudao.module.dcc.service.file.DccStorageMappingMutationGuard storageMappingGuard;
     private Long parent;
     private Long directoryId;

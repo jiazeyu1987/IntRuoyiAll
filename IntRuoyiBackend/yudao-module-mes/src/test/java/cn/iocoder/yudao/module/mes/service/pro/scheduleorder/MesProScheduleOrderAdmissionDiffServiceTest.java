@@ -667,6 +667,60 @@ class MesProScheduleOrderAdmissionDiffServiceTest {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"missingCapacity", "missingLaterConfig", "valid"})
+    void getAdmissionDiff_defaultWarningMustNotHideBlockers(String scenario) {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        try {
+            var admissionMapper = org.mockito.Mockito.mock(
+                    cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProAdmissionListMapper.class);
+            org.springframework.test.util.ReflectionTestUtils.setField(scheduleOrderService, "admissionListMapper", admissionMapper);
+            var request = new MesProScheduleOrderAdmissionDiffPageReqVO();
+            request.setPageNo(1);
+            request.setPageSize(10);
+            when(admissionMapper.countBasic(eq(1L), org.mockito.ArgumentMatchers.any(), eq(request))).thenReturn(1L);
+            when(admissionMapper.selectBasicPageIds(eq(1L), org.mockito.ArgumentMatchers.any(), eq(request), eq(0L)))
+                    .thenReturn(List.of(100L));
+            when(workOrderMapper.selectListByIds(List.of(100L))).thenReturn(List.of(buildWorkOrder(
+                    100L, "MO-DEFAULT-BLOCKER", 10L, false, MesProWorkOrderStatusEnum.CONFIRMED.getStatus())));
+            when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(100L))).thenReturn(List.of());
+            mockReadyRoute(10L, 201L, 301L, 401L, 501L);
+            when(routeScheduleConfigMapper.selectListByRouteVersionId(301L)).thenReturn(List.of(
+                    MesProRouteScheduleConfigDO.builder().routeVersionId(301L).routeProcessId(401L)
+                            .configVersion(MesProRouteServiceImpl.DEFAULT_SCHEDULE_CONFIG_VERSION)
+                            .capacityMode("missingCapacity".equals(scenario)
+                                    ? MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode() : "FINITE_HOURLY")
+                            .hourlyCapacity(BigDecimal.ONE).build()));
+            if ("missingLaterConfig".equals(scenario)) {
+                when(routeProcessMapper.selectListByRouteId(201L)).thenReturn(List.of(
+                        MesProRouteProcessDO.builder().id(401L).routeId(201L).processId(501L).build(),
+                        MesProRouteProcessDO.builder().id(402L).routeId(201L).processId(502L).build()));
+                when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(201L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()))
+                        .thenReturn(List.of(401L, 402L).stream().map(id -> MesProRouteFlowProcessConfigDO.builder()
+                                .routeFlowConfigId(201L).routeId(201L).routeProcessId(id)
+                                .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()).enabled(true).build()).toList());
+                org.mockito.Mockito.lenient().when(workstationMapper.selectListByProcessIds(
+                        List.of(501L), CommonStatusEnum.ENABLE.getStatus())).thenReturn(List.of());
+            }
+            var result = scheduleOrderService.getAdmissionDiff(request);
+            var row = result.getList().get(0);
+            if ("valid".equals(scenario)) {
+                assertEquals("READY_TO_ADMIT", row.getAdmissionStatus());
+                assertEquals("WARN_DEFAULT_ROUTE_SCHEDULE_CONFIG", row.getReasonCode());
+                assertTrue(row.getSelectable());
+                assertEquals(1, result.getSummary().getWarnCount());
+            } else {
+                assertEquals("BLOCKED", row.getAdmissionStatus());
+                assertEquals("missingCapacity".equals(scenario) ? "BLOCKED_RESOURCE_CAPACITY_MISSING"
+                        : "BLOCKED_ROUTE_SCHEDULE_CONFIG_MISSING", row.getReasonCode());
+                assertFalse(row.getSelectable());
+                assertEquals(1, result.getSummary().getBlockedCount());
+            }
+        } finally {
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+        }
+    }
+
     private void mockReadyRoute(Long productId, Long routeId, Long routeVersionId, Long routeProcessId, Long processId) {
         when(routeProductMapper.selectListByItemId(productId)).thenReturn(List.of(MesProRouteProductDO.builder()
                 .routeId(routeId)

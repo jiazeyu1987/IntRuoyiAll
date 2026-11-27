@@ -14,7 +14,7 @@ const apiSource = fs.readFileSync(
 
 assert.match(
   apiSource,
-  /resetQaRegulationForTesting:\s*async\s*\(\s*dccProjectCodeId: number\s*\)[\s\S]*\/mes\/qa\/inspection-regulation\/test-reset/,
+  /resetQaRegulationForTesting:\s*async\s*\(\s*dccProjectCodeId: number \| string\s*\)[\s\S]*\/mes\/qa\/inspection-regulation\/test-reset/,
   'QA regulation API must expose the administrator test reset endpoint.'
 )
 

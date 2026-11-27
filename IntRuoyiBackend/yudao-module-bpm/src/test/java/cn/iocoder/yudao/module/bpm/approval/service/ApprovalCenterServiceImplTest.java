@@ -268,42 +268,6 @@ class ApprovalCenterServiceImplTest {
     }
 
     @Test
-    void listProvidersHidesSrmModuleWhenUserLacksSrmAdminRole() {
-        ApprovalTaskProvider showroom = provider(ApprovalModuleCode.SHOWROOM, Set.of(ApprovalTaskViewType.TODO),
-                List.of(summary("showroom-new", LocalDateTime.parse("2026-06-23T11:00:00"))),
-                loginUserId -> true);
-        ApprovalTaskProvider srm = provider(ApprovalModuleCode.SRM, Set.of(ApprovalTaskViewType.TODO),
-                List.of(summary("srm-new", LocalDateTime.parse("2026-06-23T12:00:00"))),
-                loginUserId -> false);
-        ApprovalCenterService service = new ApprovalCenterServiceImpl(
-                new ApprovalTaskProviderRegistry(List.of(showroom, srm)), permissionApi, adminUserApi,
-                signatureRecordService);
-
-        List<ApprovalProviderDescriptor> descriptors = service.listProviders(100L);
-
-        assertEquals(1, descriptors.size());
-        assertEquals(ApprovalModuleCode.SHOWROOM, descriptors.get(0).getModuleCode());
-    }
-
-    @Test
-    void listProvidersKeepsSrmModuleWhenUserHasSrmAdminRole() {
-        ApprovalTaskProvider showroom = provider(ApprovalModuleCode.SHOWROOM, Set.of(ApprovalTaskViewType.TODO),
-                List.of(summary("showroom-new", LocalDateTime.parse("2026-06-23T11:00:00"))),
-                loginUserId -> true);
-        ApprovalTaskProvider srm = provider(ApprovalModuleCode.SRM, Set.of(ApprovalTaskViewType.TODO),
-                List.of(summary("srm-new", LocalDateTime.parse("2026-06-23T12:00:00"))),
-                loginUserId -> true);
-        ApprovalCenterService service = new ApprovalCenterServiceImpl(
-                new ApprovalTaskProviderRegistry(List.of(showroom, srm)), permissionApi, adminUserApi,
-                signatureRecordService);
-
-        List<ApprovalProviderDescriptor> descriptors = service.listProviders(100L);
-
-        assertEquals(2, descriptors.size());
-        assertTrue(descriptors.stream().anyMatch(item -> item.getModuleCode() == ApprovalModuleCode.SRM));
-    }
-
-    @Test
     void getTaskPageMarksGlobalViewWhenLoginUserHasApprovalAdminRole() {
         when(permissionApi.hasAnyRoles(100L, RoleCodeEnum.APPROVAL_ADMIN.getCode())).thenReturn(true);
         ApprovalTaskProvider provider = provider(ApprovalModuleCode.BPM, Set.of(ApprovalTaskViewType.TODO),

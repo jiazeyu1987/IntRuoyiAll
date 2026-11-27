@@ -1,5 +1,9 @@
 {
   "changes": [
+    {"source":"IntRuoyiFronted/src/views/mes/pro/task/calendar/index.vue","kind":"permission","value":"mes:pro-work-order:query","reason":"排程日历查看工单主数据入口复用既有工单查询权限 mes:pro-work-order:query，无权限时禁用并提示；不新增菜单、页面、路由、权限标识、角色或租户套餐授权，无需迁移。"},
+    {"source":"IntRuoyiFronted/src/views/mes/pro/route/RouteFlowGraphDesigner.vue","kind":"permission","value":"mes:pro-batch-record-template:query","reason":"工艺路线内部批记录表单选择框及加载入口复用批记录报表 page 接口现有查询权限，缺少权限时禁用并提示；不新增菜单、页面、路由、权限标识、角色或租户套餐授权，无需迁移。独立 formBindings 表单槽位链路不变。"},
+    {"source":"IntRuoyiFronted/src/views/system/tenant/index.vue","kind":"permission","value":"system:tenant:update","reason":"既有租户列表增加设置登录默认租户操作，复用租户修改权限 system:tenant:update；不新增菜单、页面路由、权限标识、角色或租户套餐授权，无需菜单迁移。默认值字段及初始值另见 20261126_system_tenant_default_login.sql。"},
+    {"source":"IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/tenant/TenantController.java","kind":"permission","value":"system:tenant:update","reason":"设置登录默认租户接口复用既有 system:tenant:update 权限，服务层只允许系统租户操作；不新增菜单、权限标识、角色或租户套餐授权，无需菜单迁移。"},
     {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/feedback/importer/ThirdPartyFeedbackImportServiceImpl.java","kind":"permission","value":"mes:pro-feedback:create","reason":"报工导入服务复用现有生产报工新增权限 mes:pro-feedback:create，与控制器及页面导入入口一致；只补充服务层校验，不新增菜单、权限标识、角色或租户套餐授权，无需迁移。"},
     {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/feedback/importer/ThirdPartyFeedbackImportServiceImpl.java","kind":"permission","value":"mes:pro-feedback:update","reason":"直接报工导入会更新正式报工数据，服务层复用现有生产报工修改权限 mes:pro-feedback:update，并同时要求新增权限；不新增菜单、权限标识、角色或租户套餐授权，无需迁移。"},
     {"source":"IntRuoyiFronted/src/views/mes/pro/feedback/ThirdPartyFeedbackImportForm.vue","kind":"permission","value":"mes:pro-feedback:create","reason":"现有报工导入弹窗复用 mes:pro-feedback:create 权限控制导入操作，与报工列表及后端导入接口一致；不新增独立页面、菜单、权限标识、角色或租户套餐授权，无需迁移。"},
@@ -5062,6 +5066,14 @@
       "kind": "permission",
       "value": "system:role-category:create",
       "reason": "权限角色页面整包导入导出角色授权、审批策略及依赖流程，组合核验既有 system:role-category:create 权限；沿用原角色授权服务和审批策略导入导出服务，不新增菜单、权限标识或静态角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "e9305dca982fa1f9d2018b87738ada29913374efbbc7e8e6ff4331eb928387a2",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261126_srm_retirement.sql"
+      ]
     }
   ]
 }

@@ -190,7 +190,7 @@ export const ProWorkOrderApi = {
     return await request.get({ url: `/mes/pro/work-order/product-name-options`, params: { keyword } })
   },
 
-  getWorkOrder: async (id: number) => {
+  getWorkOrder: async (id: number | string) => {
     return await request.get({ url: `/mes/pro/work-order/get?id=` + id })
   },
 

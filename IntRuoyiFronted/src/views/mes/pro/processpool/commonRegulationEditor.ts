@@ -32,8 +32,8 @@ export function createCommonEditorDraft(
   }
 }
 
-export function commonEditorIssues(draft: Draft): string[] {
-  const issues = validateCommonDraft(draft).map((issue) => issue.message)
+export function commonEditorIssues(draft: Draft, existingCode?: string): string[] {
+  const issues = validateCommonDraft(draft, existingCode).map((issue) => issue.message)
   if (!draft.versionNo.trim()) issues.unshift('请填写新版本号')
   const processCodes = new Set<string>()
   const itemCodes = new Set<string>()

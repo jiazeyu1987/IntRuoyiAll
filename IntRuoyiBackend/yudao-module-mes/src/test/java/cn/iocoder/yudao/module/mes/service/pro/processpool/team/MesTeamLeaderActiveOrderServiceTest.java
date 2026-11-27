@@ -296,7 +296,11 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .thenReturn(List.of());
         org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", handoffService);
-        lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
+        lenient().when(routeStartAuthorizationService.listResponsibleRoutes(3001L)).thenReturn(List.of(
+                MesProRouteDO.builder().id(448L).build()));
+        lenient().when(routeProductMapper.selectListByRouteIds(List.of(448L))).thenReturn(List.of(
+                MesProRouteProductDO.builder().routeId(448L).itemId(1001L).build()));
+        lenient().when(itemMapper.selectListByCodeOrNameInIds(any(), eq(List.of(1001L)))).thenReturn(List.of());
         lenient().when(itemMapper.selectById(anyLong())).thenAnswer(invocation -> MesMdItemDO.builder()
                 .id(invocation.getArgument(0, Long.class))
                 .productMasterId(11L)
@@ -585,12 +589,42 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
+    void shouldResolveLeaderScopeBeforeSearchingKeywordAndLoadingHistory() {
+        when(workOrderMapper.selectCandidatesByKeyword("881", List.of(), List.of(1001L)))
+                .thenReturn(List.of());
+        assertTrue(service.searchActiveOrderCandidates(3001L, "881").isEmpty());
+        var order = org.mockito.Mockito.inOrder(routeStartAuthorizationService, routeProductMapper,
+                itemMapper, workOrderMapper);
+        order.verify(routeStartAuthorizationService).listResponsibleRoutes(3001L);
+        order.verify(routeProductMapper).selectListByRouteIds(List.of(448L));
+        order.verify(itemMapper).selectListByCodeOrNameInIds("881", List.of(1001L));
+        order.verify(workOrderMapper).selectCandidatesByKeyword("881", List.of(), List.of(1001L));
+        verify(activeOrderMapper, never()).selectHistoryByWorkOrderIds(any());
+        verify(itemMapper, never()).selectListByCodeOrNameLike(any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    void shouldReturnNoCandidatesWithoutResponsibleRoutesOrProducts() {
+        when(routeStartAuthorizationService.listResponsibleRoutes(3002L)).thenReturn(List.of());
+        assertTrue(service.searchActiveOrderCandidates(3002L, "881").isEmpty());
+        verify(workOrderMapper, never()).selectCandidatesByKeyword(any(), any(), any());
+        verify(routeProductMapper, never()).selectListByRouteIds(any());
+        when(routeProductMapper.selectListByRouteIds(List.of(448L))).thenReturn(List.of());
+        assertTrue(service.searchActiveOrderCandidates(3001L, "881").isEmpty());
+        verify(workOrderMapper, never()).selectCandidatesByKeyword(any(), any(), any());
+        verify(activeOrderMapper, never()).selectHistoryByWorkOrderIds(any());
+    }
+
+    @Test
     void shouldSearchWorkOrderCandidatesByCodeWhenProductionRouteExists() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        var processMapper = org.mockito.Mockito.mock(
+                cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "processMapper", processMapper);
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         stubCandidatePqcPrerequisites(publishedRegulation(9902L));
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertEquals(9001L, candidates.get(0).getWorkOrderId());
@@ -598,38 +632,39 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertTrue(candidates.get(0).isEligible());
         assertEquals("ADDABLE", candidates.get(0).getCandidateState());
         assertEquals(null, candidates.get(0).getIneligibleReason());
-        verify(workOrderMapper).selectCandidatesByKeyword("WO-9", List.of());
+        verify(workOrderMapper).selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any());
         verify(scheduleOrderMapper, never()).selectEffectiveListByWorkOrderIds(any());
         verify(routeProductMapper).selectListByItemIds(List.of(1001L));
         verify(routeVersionMapper).selectListByRouteIds(List.of(922119L));
+        verify(processMapper, never()).selectByIdIgnoreDeleted(any());
     }
 
     @Test
     void shouldSearchWorkOrderCandidatesByProductKeywordWhenProductionRouteExists() {
-        when(itemMapper.selectListByCodeOrNameLike("球囊", 20)).thenReturn(List.of(
+        when(itemMapper.selectListByCodeOrNameInIds(eq("球囊"), any())).thenReturn(List.of(
                 MesMdItemDO.builder().id(1001L).code("AW.107.02.01.2010").name("球囊扩张压力泵").build()));
-        when(workOrderMapper.selectCandidatesByKeyword("球囊", List.of(1001L)))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("球囊"), eq(List.of(1001L)), any()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         stubCandidatePqcPrerequisites(publishedRegulation(9902L));
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("球囊");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "球囊");
 
         assertEquals(1, candidates.size());
         assertEquals(9001L, candidates.get(0).getWorkOrderId());
         assertEquals("WO-9001", candidates.get(0).getWorkOrderCode());
         assertTrue(candidates.get(0).isEligible());
-        verify(itemMapper).selectListByCodeOrNameLike("球囊", 20);
-        verify(workOrderMapper).selectCandidatesByKeyword("球囊", List.of(1001L));
+        verify(itemMapper).selectListByCodeOrNameInIds("球囊", List.of(1001L, 924005L));
+        verify(workOrderMapper).selectCandidatesByKeyword(eq("球囊"), eq(List.of(1001L)), any());
     }
 
     @Test
     void shouldReturnReusableCandidateFromUniqueActiveHistoryWithoutResolvingCurrentRoute() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L)))
                 .thenReturn(List.of(existingActiveOrder(8101L, "ACTIVE", 7)));
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertTrue(candidates.get(0).isEligible());
@@ -642,13 +677,13 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldBlockRecoverableCandidateWhenCurrentRouteIsUnavailable() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L)))
                 .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
         when(routeProductMapper.selectListByItemIds(List.of(1001L))).thenReturn(List.of());
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertFalse(candidates.get(0).isEligible());
@@ -660,13 +695,13 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldBlockCandidateWithExactAmbiguousHistoryReasonBeforeResolvingCurrentRoute() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L))).thenReturn(List.of(
                 existingActiveOrder(8101L, "REMOVED", 7),
                 existingActiveOrder(8102L, "REMOVED", 3)));
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertFalse(candidates.get(0).isEligible());
@@ -679,14 +714,14 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldBlockCandidateWithExactInvalidFrozenIdentityReasonBeforeResolvingCurrentRoute() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         stubCandidatePqcPrerequisites(publishedRegulation(9902L));
         MesProcessPoolActiveOrderDO removed = existingActiveOrder(8101L, "REMOVED", 7);
         removed.setQaRegulationVersionId(null);
         when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L))).thenReturn(List.of(removed));
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertTrue(candidates.get(0).isEligible());
@@ -696,13 +731,13 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldBlockRemovedCandidateWhenFrozenRouteVersionDoesNotBelongToFrozenRoute() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         stubCandidatePqcPrerequisites(publishedRegulation(9902L));
         when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L)))
                 .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertTrue(candidates.get(0).isEligible());
@@ -713,13 +748,13 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldBlockRemovedCandidateWhenFrozenProcessSnapshotsAreMissing() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         stubCandidatePqcPrerequisites(publishedRegulation(9902L));
         when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L)))
                 .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertTrue(candidates.get(0).isEligible());
@@ -730,13 +765,13 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldBlockRemovedCandidateWhenFrozenProcessSnapshotsDoNotCoverFrozenRouteVersion() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         stubCandidatePqcPrerequisites(publishedRegulation(9902L));
         when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L)))
                 .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertTrue(candidates.get(0).isEligible());
@@ -747,13 +782,13 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldBlockRemovedCandidateWhenFrozenPqcTaskIdentityIsMismatched() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         stubCandidatePqcPrerequisites(publishedRegulation(9902L));
         when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L)))
                 .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertTrue(candidates.get(0).isEligible());
@@ -764,13 +799,13 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldResolveProductionRouteWhenWorkOrderProductDiffers() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrder(9001L, "WO-9001", new BigDecimal("200"), 1002L)));
         MesQaInspectionRegulationDO routeRegulation = publishedRegulation(
                 9902L, 1001L, 922119L, 448L, 928609L, 6001L);
         stubFormalRouteQaContext(1002L, 448L, routeRegulation);
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertTrue(candidates.get(0).isEligible());
@@ -784,13 +819,13 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldIgnoreQaRouteVersionFieldsWhenResolvingProductionRoute() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         MesQaInspectionRegulationDO legacyRouteFields = publishedRegulation(
                 9902L, 1001L, 922119L, 448L, 928608L, 6000L);
         stubFormalRouteQaContext(1001L, 627L, legacyRouteFields);
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertTrue(candidates.get(0).isEligible());
@@ -799,12 +834,12 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldKeepCandidateVisibleButIneligibleWhenRouteHasNoDccProjectBinding() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         stubFormalRouteQaContext(1001L, 448L, publishedRegulation(9902L));
         lenient().when(routeDccProjectBindingMapper.selectCurrentByRouteId(922119L)).thenReturn(null);
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertFalse(candidates.get(0).isEligible());
@@ -813,13 +848,13 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldKeepCandidateVisibleButIneligibleWhenRouteDccProjectIsDisabled() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         stubFormalRouteQaContext(1001L, 448L, publishedRegulation(9902L));
         lenient().when(dccProjectCodeMapper.selectById(147L)).thenReturn(DccProjectCodeDO.builder()
                 .id(147L).productMasterId(11L).projectCode("ID").status("DISABLE").build());
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertFalse(candidates.get(0).isEligible());
@@ -828,7 +863,7 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldAllowCandidateWhenRouteItemHasNoShowroomMaster() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         stubFormalRouteQaContext(1001L, 448L, publishedRegulation(9902L));
         doReturn(List.of(
@@ -836,7 +871,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 MesMdItemDO.builder().id(924005L).productMasterId(11L).build()))
                 .when(itemMapper).selectListByIds(any());
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertTrue(candidates.get(0).isEligible());
@@ -845,7 +880,7 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldAllowCandidateWithDifferentShowroomMastersWithinOneProject() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         stubFormalRouteQaContext(1001L, 448L, publishedRegulation(9902L));
         doReturn(List.of(
@@ -853,7 +888,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 MesMdItemDO.builder().id(924005L).productMasterId(12L).build()))
                 .when(itemMapper).selectListByIds(any());
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertTrue(candidates.get(0).isEligible());
@@ -862,13 +897,13 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldAllowCandidateWhenProjectShowroomMasterChanges() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         stubFormalRouteQaContext(1001L, 448L, publishedRegulation(9902L));
         lenient().when(dccProjectCodeMapper.selectById(147L)).thenReturn(DccProjectCodeDO.builder()
                 .id(147L).productMasterId(12L).projectCode("ID").status("ENABLE").build());
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertTrue(candidates.get(0).isEligible());
@@ -877,7 +912,7 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldIgnoreDeletedRouteBindingWhenOneFormalRouteStillExists() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         stubFormalRouteQaContext(1001L, 448L, publishedRegulation(9902L));
         doReturn(List.of(
@@ -887,7 +922,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         when(routeMapper.selectBatchIds(any())).thenReturn(List.of(
                 MesProRouteDO.builder().id(922119L).code("ROUTE-922119").build()));
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertTrue(candidates.get(0).isEligible());
@@ -897,9 +932,9 @@ class MesTeamLeaderActiveOrderServiceTest {
     void shouldBlockCancelledWorkOrderBeforeProductionRouteResolution() {
         MesProWorkOrderDO cancelled = confirmedWorkOrder();
         cancelled.setStatus(MesProWorkOrderStatusEnum.CANCELED.getStatus());
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of())).thenReturn(List.of(cancelled));
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any())).thenReturn(List.of(cancelled));
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertFalse(candidates.get(0).isEligible());
@@ -909,10 +944,10 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldRequireFormalProductRouteBindingForCandidate() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrderWithPlannedStart()));
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertFalse(candidates.get(0).isEligible());
@@ -923,11 +958,11 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldKeepCandidateVisibleButIneligibleWhenPublishedQaIsMissing() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrderWithPlannedStart()));
         stubFormalRouteQaContext(1001L, 448L);
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertFalse(candidates.get(0).isEligible());
@@ -937,12 +972,12 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldSortEligibleActiveOrderCandidatesBeforeBlockedCandidates() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO", List.of())).thenReturn(List.of(
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO"), eq(List.of()), any())).thenReturn(List.of(
                 confirmedWorkOrder(9002L, "WO-9002", new BigDecimal("200"), 1002L),
                 confirmedWorkOrder(9001L, "WO-9001", new BigDecimal("200"), 1001L)));
         stubCandidatePqcPrerequisites(publishedRegulation(9902L, 928609L, 6001L));
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO");
 
         assertEquals(List.of(9001L, 9002L), candidates.stream()
                 .map(MesTeamLeaderActiveOrderCandidateBO::getWorkOrderId)
@@ -958,12 +993,12 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldLoadQaIdentityWithoutLoadingQaItemsForRemoteDropdown() {
-        when(workOrderMapper.selectCandidatesByKeyword("88", List.of())).thenReturn(List.of(
+        when(workOrderMapper.selectCandidatesByKeyword(eq("88"), eq(List.of()), any())).thenReturn(List.of(
                 confirmedWorkOrder(9001L, "881MO093613", new BigDecimal("200"), 1001L),
                 confirmedWorkOrder(9002L, "881MO093615", new BigDecimal("200"), 1001L)));
         stubCandidatePqcPrerequisites(publishedRegulation(9902L, 928609L, 6001L));
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("88");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "88");
 
         assertEquals(List.of(9001L, 9002L), candidates.stream()
                 .map(MesTeamLeaderActiveOrderCandidateBO::getWorkOrderId)
@@ -992,10 +1027,10 @@ class MesTeamLeaderActiveOrderServiceTest {
         matches.add(confirmedWorkOrder(9002L, "881MO090972", new BigDecimal("5223"), 1001L));
         matches.add(confirmedWorkOrder(9003L, "881MO090973", new BigDecimal("4223"), 1001L));
         matches.add(confirmedWorkOrder(9004L, "881MO090974", new BigDecimal("8543"), 1001L));
-        when(workOrderMapper.selectCandidatesByKeyword("88", List.of())).thenReturn(matches);
+        when(workOrderMapper.selectCandidatesByKeyword(eq("88"), eq(List.of()), any())).thenReturn(matches);
         stubCandidatePqcPrerequisites(publishedRegulation(9902L, 928609L, 6001L));
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("88");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "88");
 
         assertEquals(20, candidates.size());
         assertEquals(List.of("881MO090935", "881MO090972", "881MO090973", "881MO090974"),
@@ -1242,7 +1277,7 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldOfferCurrentRemovedCandidateAfterMultipleSupersededCycles() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), eq(List.of()), any()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         stubCandidatePqcPrerequisites(publishedRegulation(9902L));
         when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L))).thenReturn(List.of(
@@ -1251,7 +1286,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 existingActiveOrder(8003L, "REMOVED", 3).setBusinessStatus("REWORKED"),
                 existingActiveOrder(8101L, "REMOVED", 7)));
 
-        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
 
         assertEquals(1, candidates.size());
         assertTrue(candidates.get(0).isEligible());
@@ -1296,7 +1331,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 """);
         JSONObject lossConfig = JSON.parseObject(routeSnapshot);
         lossConfig.getJSONObject("configSnapshots").put("lossCoefficient", new BigDecimal("1.23"));
-        routeSnapshot = lossConfig.toJSONString();
+        routeSnapshot = JSON.toJSONString(lossConfig, com.alibaba.fastjson.serializer.SerializerFeature.WriteMapNullValue);
         stubFormalRouteQaContext(1001L, 448L, routeSnapshot,
                 publishedRegulation(9902L, 928609L, 6001L));
         stubSuccessfulActiveOrderInsert();
@@ -1421,7 +1456,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("10")));
         JSONObject routeSnapshot = JSON.parseObject(activeRouteSnapshotJson(1));
         routeSnapshot.getJSONObject("configSnapshots").put("productionProcessConfigSchemaVersion", 1);
-        stubFormalRouteQaContext(1001L, 448L, routeSnapshot.toJSONString(),
+        stubFormalRouteQaContext(1001L, 448L, JSON.toJSONString(routeSnapshot, com.alibaba.fastjson.serializer.SerializerFeature.WriteMapNullValue),
                 publishedRegulation(9902L, null, null));
         when(commonRegulationProductBindingMapper.selectEnabledByProjectId(147L)).thenReturn(
                 MesQaCommonRegulationProductBindingDO.builder()
@@ -2391,9 +2426,9 @@ class MesTeamLeaderActiveOrderServiceTest {
         var order = confirmedWorkOrder();
         var released = existingActiveOrder(8101L, "CLOSED", 2);
         released.setBusinessStatus("RELEASED");
-        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), any())).thenReturn(List.of(order));
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), any(), any())).thenReturn(List.of(order));
         when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L))).thenReturn(List.of(released));
-        var candidates = service.searchActiveOrderCandidates("WO-9");
+        var candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
         assertEquals(1, candidates.size());
         assertFalse(candidates.get(0).isEligible());
         assertTrue(candidates.get(0).getIneligibleReason().contains("已关闭或已放行"));
@@ -2410,10 +2445,10 @@ class MesTeamLeaderActiveOrderServiceTest {
     void frozenOrVoidedWorkOrderCannotReuseAnExistingActiveOrder() {
         var order = confirmedWorkOrder();
         order.setTemporaryFrozen(true);
-        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), any())).thenReturn(List.of(order));
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), any(), any())).thenReturn(List.of(order));
         when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L)))
                 .thenReturn(List.of(existingActiveOrder(8101L, "ACTIVE", 0)));
-        var candidates = service.searchActiveOrderCandidates("WO-9");
+        var candidates = service.searchActiveOrderCandidates(3001L, "WO-9");
         assertFalse(candidates.get(0).isEligible());
         assertTrue(candidates.get(0).getIneligibleReason().contains("冻结或作废"));
         stubWorkOrderExists(order);
@@ -4057,7 +4092,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                         + ",\"processId\":" + regulation.getProcessId()
                         + ",\"processCode\":\"" + processCode(regulation.getProcessId()) + "\""
                         + ",\"processName\":\"" + processName(regulation.getProcessId()) + "\""
-                        + ",\"sort\":10}")
+                        + ",\"sopFileUrl\":null,\"sort\":10}")
                 .collect(java.util.stream.Collectors.joining(","));
         String configs = source.stream()
                 .map(regulation -> "{\"routeId\":922119,\"routeProcessId\":" + regulation.getRouteProcessId()
@@ -4088,13 +4123,32 @@ class MesTeamLeaderActiveOrderServiceTest {
                 """.formatted(nodes, configs, productionConfigs, batchUseConfigs);
     }
 
+    @org.junit.jupiter.api.Test
+    void routeAdmissionRejectsMissingOrMalformedSopBindingAndAcceptsExplicitUnbound() {
+        var workOrder = MesProWorkOrderDO.builder().id(123L).quantity(new BigDecimal("10")).build();
+        String valid = activeRouteSnapshotJson(1);
+        for (String sop : new String[] {"null", "\"\"", "\"/formal/sop.pdf\""}) {
+            var version = MesProRouteVersionDO.builder().id(456L)
+                    .routeSnapshotJson(valid.replace("\"sopFileUrl\":null", "\"sopFileUrl\":" + sop)).build();
+            java.util.List<?> result = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                    service, "toRouteProcessSources", workOrder, version);
+            assertEquals(1, result.size());
+        }
+        for (String snapshot : new String[] {valid.replace("\"sopFileUrl\":null,", ""),
+                valid.replace("\"sopFileUrl\":null", "\"sopFileUrl\":123")}) {
+            var version = MesProRouteVersionDO.builder().id(456L).routeSnapshotJson(snapshot).build();
+            assertThrows(ServiceException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                    service, "toRouteProcessSources", workOrder, version));
+        }
+    }
+
     private static String activeRouteSnapshotJson(int processCount) {
         String nodes = java.util.stream.IntStream.rangeClosed(1, processCount)
                 .mapToObj(index -> "{\"routeProcessId\":" + (928600L + index)
                         + ",\"processId\":" + (6000L + index)
                         + ",\"processCode\":\"" + processCode(6000L + index) + "\""
                         + ",\"processName\":\"" + processName(6000L + index) + "\""
-                        + ",\"sort\":" + (index * 10) + "}")
+                        + ",\"sopFileUrl\":null,\"sort\":" + (index * 10) + "}")
                 .collect(java.util.stream.Collectors.joining(","));
         String configs = java.util.stream.IntStream.rangeClosed(1, processCount)
                 .mapToObj(index -> "{\"routeId\":922119,\"routeProcessId\":" + (928600L + index)
@@ -4143,7 +4197,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .orElseThrow();
         config.put("deviceSelectionGroups", JSON.parseArray(deviceGroupsJson));
         config.put("parameterRules", JSON.parseArray(parameterRulesJson));
-        return root.toJSONString();
+        return JSON.toJSONString(root, com.alibaba.fastjson.serializer.SerializerFeature.WriteMapNullValue);
     }
 
     private static List<MesQaInspectionRegulationItemDO> defaultPqcItems(Long regulationVersionId) {

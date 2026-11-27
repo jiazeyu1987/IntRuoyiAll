@@ -8,7 +8,6 @@ import cn.iocoder.yudao.module.dcc.controller.admin.directory.vo.DccDirectoryAcc
 import cn.iocoder.yudao.module.dcc.controller.admin.directory.vo.DccDirectoryActiveNasTransferRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.directory.vo.DccDirectoryDeleteSubtreeReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.directory.vo.DccDirectoryDeleteSubtreeRespVO;
-import cn.iocoder.yudao.module.dcc.controller.admin.directory.vo.DccDirectoryImportRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.directory.vo.DccDirectoryRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.directory.vo.DccDirectorySaveReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.directory.DccDirectoryAccessRuleDO;
@@ -81,16 +80,7 @@ public class DccDirectoryController {
                 this::toDirectoryRespVO));
     }
 
-    @PostMapping("/import-intauth")
-    @Operation(summary = "从 IntAuth 一次性导入 DCC 目录树")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:directory:manage')")
-    public CommonResult<DccDirectoryImportRespVO> importDirectoriesFromIntAuth() {
-        var result = directoryAdminService.importDirectoriesFromIntAuth();
-        DccDirectoryImportRespVO respVO = new DccDirectoryImportRespVO();
-        respVO.setImportedCount(result.getImportedCount());
-        respVO.setRootCount(result.getRootCount());
-        return success(respVO);
-    }
+
 
     @PostMapping
     @Operation(summary = "创建 DCC 目录")

@@ -1,11 +1,13 @@
 package cn.iocoder.yudao.module.mes.service.md.item;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
 import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
 import cn.iocoder.yudao.module.mes.controller.admin.md.item.vo.MesMdItemImportExcelVO;
 import cn.iocoder.yudao.module.mes.controller.admin.md.item.vo.MesMdItemSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemBatchConfigDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemTypeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.unitmeasure.MesMdUnitMeasureDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
@@ -31,6 +33,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.*;
 
 @ExtendWith(MockitoExtension.class)
 class MesMdItemProductMasterLifecycleTest {
@@ -45,6 +48,10 @@ class MesMdItemProductMasterLifecycleTest {
     private MesWmBarcodeService barcodeService;
     @Mock
     private MdmProductApi mdmProductApi;
+    @Mock
+    private MesMdItemBatchConfigService itemBatchConfigService;
+    @Mock
+    private MesMdProductBomService productBomService;
 
     private MesMdItemServiceImpl service;
 
@@ -55,8 +62,88 @@ class MesMdItemProductMasterLifecycleTest {
         ReflectionTestUtils.setField(service, "itemTypeService", itemTypeService);
         ReflectionTestUtils.setField(service, "unitMeasureService", unitMeasureService);
         ReflectionTestUtils.setField(service, "barcodeService", barcodeService);
+        ReflectionTestUtils.setField(service, "itemBatchConfigService", itemBatchConfigService);
+        ReflectionTestUtils.setField(service, "productBomService", productBomService);
         assertDoesNotThrow(() -> ReflectionTestUtils.setField(service, "mdmProductApi", mdmProductApi),
                 "MES item service must own an explicit MDM product validation boundary");
+    }
+
+    @Test
+    void enableProductWithoutBomPersistsEnabledStatus() {
+        stubDisabledProduct(false);
+        lenient().when(productBomService.getProductBomListByItemId(101L)).thenReturn(List.of());
+
+        service.updateItemStatus(101L, CommonStatusEnum.ENABLE.getStatus());
+
+        assertStatusWritten(CommonStatusEnum.ENABLE.getStatus());
+    }
+
+    @Test
+    void enableBatchProductWithoutBomWithValidBatchConfigPersistsEnabledStatus() {
+        stubDisabledProduct(true);
+        when(itemBatchConfigService.getItemBatchConfigByItemId(101L))
+                .thenReturn(MesMdItemBatchConfigDO.builder().lotNumberFlag(true).build());
+
+        service.updateItemStatus(101L, CommonStatusEnum.ENABLE.getStatus());
+
+        assertStatusWritten(CommonStatusEnum.ENABLE.getStatus());
+    }
+
+    @Test
+    void enableBatchProductStillRejectsMissingBatchConfigBeforeWrite() {
+        stubDisabledProduct(true);
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.updateItemStatus(101L, CommonStatusEnum.ENABLE.getStatus()));
+
+        assertEquals(MD_ITEM_BATCH_CONFIG_NOT_EXISTS.getCode(), error.getCode());
+        verify(itemMapper, never()).updateById(any(MesMdItemDO.class));
+    }
+
+    @Test
+    void enableBatchProductStillRejectsBatchConfigWithoutSelectedAttributes() {
+        stubDisabledProduct(true);
+        when(itemBatchConfigService.getItemBatchConfigByItemId(101L))
+                .thenReturn(MesMdItemBatchConfigDO.builder().lotNumberFlag(false).build());
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.updateItemStatus(101L, CommonStatusEnum.ENABLE.getStatus()));
+
+        assertEquals(MD_ITEM_BATCH_CONFIG_AT_LEAST_ONE_FLAG.getCode(), error.getCode());
+        verify(itemMapper, never()).updateById(any(MesMdItemDO.class));
+    }
+
+    @Test
+    void disableBatchProductDoesNotRequireBatchConfigOrBom() {
+        stubDisabledProduct(true);
+
+        service.updateItemStatus(101L, CommonStatusEnum.DISABLE.getStatus());
+
+        assertStatusWritten(CommonStatusEnum.DISABLE.getStatus());
+        verify(itemBatchConfigService, never()).getItemBatchConfigByItemId(101L);
+    }
+
+    @Test
+    void updateStatusStillRejectsMissingItemBeforeWrite() {
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.updateItemStatus(101L, CommonStatusEnum.ENABLE.getStatus()));
+
+        assertEquals(MD_ITEM_NOT_EXISTS.getCode(), error.getCode());
+        verify(itemMapper, never()).updateById(any(MesMdItemDO.class));
+    }
+
+    private void stubDisabledProduct(boolean batchFlag) {
+        when(itemMapper.selectById(101L)).thenReturn(MesMdItemDO.builder().id(101L)
+                .itemTypeId(21L).batchFlag(batchFlag).status(CommonStatusEnum.DISABLE.getStatus()).build());
+        lenient().when(itemTypeService.getItemType(21L))
+                .thenReturn(MesMdItemTypeDO.builder().id(21L).itemOrProduct("PRODUCT").build());
+    }
+
+    private void assertStatusWritten(Integer expectedStatus) {
+        ArgumentCaptor<MesMdItemDO> captor = ArgumentCaptor.forClass(MesMdItemDO.class);
+        verify(itemMapper).updateById(captor.capture());
+        assertEquals(101L, captor.getValue().getId());
+        assertEquals(expectedStatus, captor.getValue().getStatus());
     }
 
     @Test

@@ -1,6 +1,40 @@
 import { parseExactIntegerJson } from '@/utils/exactIntegerJson'
 
 const labels: Record<string, string> = {
+  step: '步长',
+  actualValue: '实际值',
+  criticalProcess: '关键工序',
+  signatureImagePayloadHash: '签名图像内容校验码',
+  resultStatus: '操作结果',
+  actorName: '操作人',
+  reviewResult: '审核结果',
+  businessKey: '业务标识',
+  publishedAt: '发布时间',
+  lifecycleStatus: '生命周期状态',
+  beforeVersionNo: '变更前版本号',
+  beforeVersionId: '变更前版本编号',
+  ownerModule: '归属模块',
+  dccProjectCodeId: '文控项目编号',
+  regulationId: '检验规程编号',
+  options: '选项',
+  max: '最大值',
+  min: '最小值',
+  defaultValue: '默认值',
+  control: '输入控件',
+  outputs: '输出物料',
+  inputs: '输入物料',
+  sourceCodeLabel: '原始编码',
+  effectiveDate: '生效日期',
+  regulationName: '规程名称',
+  regulationCode: '规程编码',
+  referenceValue: '参考值',
+  selectionMode: '选择模式',
+  ui: '填写方式',
+  parameters: '参数列表',
+  equipmentOptions: '可选设备',
+  equipmentGroups: '设备组',
+  processes: '工序列表',
+  schemaVersion: '结构版本',
   certificateId: '注册证编号',
   oldVersionId: '原版本编号',
   currentVersionId: '当前版本编号',
@@ -390,6 +424,12 @@ const labels: Record<string, string> = {
 }
 
 const enums: Record<string, Record<string, string>> = {
+  adapter: { BPM_APPROVAL: '流程审批' },
+  moduleCode: { BPM: '审批流程' },
+  ownerModule: { BPM: '审批流程' },
+  businessType: { BPM_APPROVAL: '流程审批' },
+  reviewResult: { APPROVE: '审批通过' },
+  resultStatus: { BLOCKED: '已拦截' },
   verificationStatus: { VALID: '核验通过', INCOMPLETE: '证据不完整', MISMATCH: '核验不一致' },
   disposition: { concession_release: '让步放行', rework: '返工', void: '作废' },
   actionCode: {
@@ -400,14 +440,14 @@ const enums: Record<string, Record<string, string>> = {
   },
   state: { PRESENT: '存在记录' },
   purpose: { ONLINE_FILE_PREVIEW: '在线文件预览' },
-  source: { real_word_import: '正式Word文件导入' },
+  source: {PAGE_INTERACTION: '页面操作',  real_word_import: '正式Word文件导入' },
   diffGroup: {
     FIRST_IMPORT: '首次导入',
     FIELD: '字段差异',
     SIGNATURE: '签名差异',
     FORM: '表单差异'
   },
-  scope: { tenant_role: '租户与角色权限', menu: '菜单', permission: '权限', template: '模板', masterData: '主数据' },
+  scope: {MARKET_RELEASE: '上市放行',  tenant_role: '租户与角色权限', menu: '菜单', permission: '权限', template: '模板', masterData: '主数据' },
   code: {
     DHR_COMPLETENESS: '批记录完整性',
     DOSSIER_INCOMING_INSPECTION_REPORT: '进货检验报告',
@@ -437,7 +477,7 @@ const enums: Record<string, Record<string, string>> = {
   domainSubjectType: { EDHR_RELEASE: '电子批记录放行' },
   sourceKey: { MES_MANAGEMENT_REPRESENTATIVE: '管理者代表' },
   businessScopeType: { RELEASE_TRANSACTION: '放行事务' },
-  sourceTaskType: { EDHR_WORK_TASK: '电子批记录工作任务' },
+  sourceTaskType: {BPM_TASK_TODO: '流程审批待办',  EDHR_WORK_TASK: '电子批记录工作任务' },
   gateStatus: { MATERIALS_READY: '资料已齐备' },
   releaseStatus: { PENDING_APPROVAL: '待审批' },
   batchRecordStatus: { SUCCESS: '已生成' },
@@ -543,8 +583,8 @@ export const readBusinessEvidence = (source?: string, rootField = '') => {
   const rows: EvidenceRow[] = []
   let error = ''
   const visit = (item: unknown, path: string[], names: string[], field: string) => {
-    // Cryptographic values remain in the evidence record, never in the business display.
-    if (/hash|digest|sha256/i.test(field)) return
+
+
     if (
       typeof item === 'string' &&
       /(?:Json|JsonRaw|SnapshotRaw|PayloadRaw)$/i.test(field) &&
@@ -562,7 +602,7 @@ export const readBusinessEvidence = (source?: string, rootField = '') => {
         visit(
           child,
           [...path, key],
-          [...names, Array.isArray(item) ? `第 ${Number(key) + 1} 项` : businessFieldLabel(key)],
+          [...names, Array.isArray(item) ? `第 ${Number(key) + 1} 项` : key === 'control' && (item as Record<string, unknown>).source === 'PAGE_INTERACTION' ? '页面校验信息' : businessFieldLabel(key)],
           Array.isArray(item) ? field : key
         )
       )
@@ -573,8 +613,6 @@ export const readBusinessEvidence = (source?: string, rootField = '') => {
     else if (item === '') text = '空文本'
     else if (typeof item === 'boolean') text = item ? '是' : '否'
     else if (typeof item === 'object') text = Array.isArray(item) ? '无条目' : '无字段'
-    else if (typeof item === 'string' && /^[a-f0-9]{64}$/i.test(item))
-      text = '校验信息（见技术详情）'
     else text = businessValueLabel(field, item)
     rows.push({
       key: JSON.stringify(path), label: names.join(' / ') || '记录内容', value: text,

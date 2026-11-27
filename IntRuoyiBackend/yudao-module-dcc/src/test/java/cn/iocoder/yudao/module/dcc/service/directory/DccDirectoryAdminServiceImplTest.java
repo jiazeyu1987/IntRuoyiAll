@@ -54,7 +54,6 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_DIRECTOR
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_DIRECTORY_DELETE_MASTER_OUT_OF_SCOPE;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_DIRECTORY_DELETE_NAS_TRANSFER_ACTIVE;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_DIRECTORY_NOT_EXISTS;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.INTAUTH_DIRECTORY_IMPORT_NOT_ALLOWED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -186,8 +185,6 @@ class DccDirectoryAdminServiceImplTest extends BaseDbUnitTest {
     private DccProjectCodeAssignmentFileMapper projectCodeAssignmentFileMapper;
     @MockitoBean
     private DccDirectoryAccessPermissionService accessPermissionService;
-    @MockitoBean
-    private DccIntAuthDirectoryClient intAuthDirectoryClient;
     @MockitoBean
     private FileMapper fileMapper;
     @MockitoBean
@@ -579,61 +576,9 @@ class DccDirectoryAdminServiceImplTest extends BaseDbUnitTest {
         assertEquals(Boolean.FALSE, directoryMapper.selectById(directory.getId()).getAccessRuleManuallyBound());
     }
 
-    @Test
-    void testImportDirectoriesFromIntAuth_success() {
-        when(intAuthDirectoryClient.listBaselineDirectories()).thenReturn(List.of(
-                new DccIntAuthDirectoryClient.IntAuthDirectoryNode("dmr-root", null, "3.DMR"),
-                new DccIntAuthDirectoryClient.IntAuthDirectoryNode("cat-a", "dmr-root", "01.图纸"),
-                new DccIntAuthDirectoryClient.IntAuthDirectoryNode("cat-b", "cat-a", "设计输入")
-        ));
 
-        DccDirectoryImportResult result = directoryAdminService.importDirectoriesFromIntAuth();
 
-        assertEquals(3, result.getImportedCount());
-        assertEquals(1, result.getRootCount());
 
-        when(accessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
-        List<DccFileDirectoryDO> directories = directoryAdminService.getDirectoryTree(99L);
-
-        assertEquals(3, directories.size());
-        DccFileDirectoryDO root = directories.stream()
-                .filter(item -> item.getParentId() == null)
-                .findFirst()
-                .orElseThrow();
-        DccFileDirectoryDO firstChild = directories.stream()
-                .filter(item -> root.getId().equals(item.getParentId()))
-                .findFirst()
-                .orElseThrow();
-        DccFileDirectoryDO grandChild = directories.stream()
-                .filter(item -> firstChild.getId().equals(item.getParentId()))
-                .findFirst()
-                .orElseThrow();
-
-        assertEquals("3.DMR", root.getName());
-        assertEquals("01.图纸", firstChild.getName());
-        assertEquals("设计输入", grandChild.getName());
-        assertEquals(Boolean.TRUE, root.getActive());
-        assertEquals(1, root.getSort());
-        assertEquals(1, firstChild.getSort());
-        assertEquals(1, grandChild.getSort());
-    }
-
-    @Test
-    void testImportDirectoriesFromIntAuth_whenLocalDirectoryExists_failFast() {
-        directoryMapper.insert(DccFileDirectoryDO.builder()
-                .id(randomLongId())
-                .code("LOCAL-ROOT")
-                .name("本地目录")
-                .active(Boolean.TRUE)
-                .sort(1)
-                .remark("manual")
-                .build());
-
-        assertServiceException(directoryAdminService::importDirectoriesFromIntAuth,
-                INTAUTH_DIRECTORY_IMPORT_NOT_ALLOWED);
-
-        verifyNoInteractions(intAuthDirectoryClient);
-    }
 
     @Test
     void testDeleteDirectorySubtree_withProdConfirmation_deletesBusinessGraphAndInfraFiles() throws Exception {

@@ -6,6 +6,15 @@ import java.time.LocalDate;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 class DccRegistrationCertificateFactsTest {
+ @Test void traditional510kRequiresNumberForUploadAndReplacementWhileExemptDoesNot(){
+  var f=base("FDA");f.setSubmissionType("TRADITIONAL_510K");f.setCustomerHeld(true);
+  f.setApprovalLetterStatus("VALID");f.setFactoryRegistrationStatus("ACTIVE");
+  for(String number:new String[]{null,"","   "}){f.setKpNumber(number);
+   assertEquals("请填写K/P号",assertThrows(ServiceException.class,f::validate).getMessage());
+   assertEquals("请填写K/P号",assertThrows(ServiceException.class,f::validateForUpload).getMessage());}
+  f.setKpNumber("K001");assertDoesNotThrow(f::validateForUpload);
+  f.setSubmissionType("EXEMPT");f.setKpNumber(null);assertDoesNotThrow(f::validateForUpload);
+ }
  @Test void domesticUploadRequiresApprovalDateWithoutInventingIt(){
   var f=base("DOMESTIC");f.setCertificateNo("CERT");f.setFirstObtainedDate(LocalDate.of(2020,1,1));
   f.setEffectiveDate(LocalDate.of(2026,1,1));f.setExpiryDate(LocalDate.of(2027,1,1));
@@ -14,7 +23,7 @@ class DccRegistrationCertificateFactsTest {
  }
 
  @Test void fdaHasNoInventedEffectiveOrExpiryDates(){
-  var facts=base("FDA");facts.setSubmissionType("TRADITIONAL_510K");facts.setCustomerHeld(true);
+  var facts=base("FDA");facts.setSubmissionType("TRADITIONAL_510K");facts.setKpNumber("K001");facts.setCustomerHeld(true);
   facts.setApprovalLetterStatus("VALID");facts.setFactoryRegistrationStatus("ACTIVE");facts.setCertificateHolder("Customer A");
   assertDoesNotThrow(facts::validate);var saved=DccRegistrationCertificateFacts.parse(facts.toJson());
   assertNull(saved.getEffectiveDate());assertNull(saved.getExpiryDate());assertEquals("Customer A",saved.getCertificateHolder());

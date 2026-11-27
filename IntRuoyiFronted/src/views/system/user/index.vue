@@ -345,6 +345,7 @@
 </template>
 <script lang="ts" setup>
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import type { ListMultiFilterState, ListMultiFilterOperator } from '@/hooks/web/useTableMultiFilter'
 
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import download from '@/utils/download'
@@ -732,9 +733,28 @@ const handleUserExport = async (generic: boolean) => {
       if (!scope.ids.length) throw new Error('当前筛选结果为空，无用户可导出')
       params.ids = scope.ids
     }
+    const conditions: string[] = []
+    if (params.username) conditions.push(`用户名称包含“${params.username}”`)
+    if (params.mobile) conditions.push(`手机号码包含“${params.mobile}”`)
+    if (params.status !== undefined) conditions.push(`状态：${params.status === 0 ? '启用' : '停用'}`)
+    if (params.deptId !== undefined) conditions.push(`部门：${selectedDeptName.value}（编号 ${params.deptId}）`)
+    if (params.createTime?.length) conditions.push(`创建时间：${params.createTime.join(' 至 ')}`)
+    if (scope?.active) {
+      const state: ListMultiFilterState = JSON.parse(scope.state)
+      const operators: Record<ListMultiFilterOperator, string> = { contains: '包含', eq: '等于', in: '属于', between: '介于', gte: '大于等于', lte: '小于等于' }
+      for (const condition of state.appliedConditions) {
+        const definition = [...userQuickFilterDefinitions.value, ...listColumnFilterDefinitions0.value]
+          .find((item) => item.key === condition.key)
+        const label = definition?.label || userDefaultColumns.find((column) => column.key === condition.key)?.label || condition.key
+        const describe = (value: unknown) => definition?.options?.find((option) => option.value === value)?.label || String(value)
+        const value = Array.isArray(condition.value) ? condition.value.map(describe).join('、') : describe(condition.value)
+        conditions.push(`${label}${operators[condition.operator]}：${value}${condition.operator === 'between' ? ` 至 ${describe(condition.valueEnd)}` : ''}`)
+      }
+    }
+    if (params.sortKey) conditions.push(`排序：${userDefaultColumns.find((column) => column.key === params.sortKey)?.label || params.sortKey}（${params.sortOrder === 'ascending' ? '升序' : '降序'}）`)
     const range = generic
       ? '当前租户全部通用账户不合规记录，不应用页面部门、查询或列筛选。'
-      : `当前已应用筛选的全部匹配用户（所有分页），不是仅当前页。${scope?.active ? `列筛选匹配 ${total.value} 位用户。` : ''}筛选参数：${JSON.stringify(params)}`
+      : `当前已应用筛选的全部匹配用户（所有分页），不是仅当前页。${scope?.active ? `列筛选匹配 ${total.value} 位用户。` : ''}筛选条件：${conditions.length ? conditions.join('；') : '未设置筛选条件'}`
     try {
       await message.confirm(`导出类型：${generic ? '通用账户不合规清单' : '用户数据'}\n租户 ID：${visit || tenant}\n范围：${range}`, '确认导出类型及范围')
     } catch (error) {

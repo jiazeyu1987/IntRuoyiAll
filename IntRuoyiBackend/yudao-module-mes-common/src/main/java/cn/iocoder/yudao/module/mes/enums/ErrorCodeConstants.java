@@ -227,10 +227,10 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_SCHEDULE_ORDER_MANUAL_FINISH_STATUS_INVALID = new ErrorCode(1_040_270_016, "排产工单当前状态不允许人工完成");
     ErrorCode PRO_SCHEDULE_ORDER_MANUAL_FINISH_ALREADY = new ErrorCode(1_040_270_017, "排产工单已人工完成，不能重复操作");
     ErrorCode PRO_SCHEDULE_ORDER_MANUAL_FINISH_NOT_ACTIVE = new ErrorCode(1_040_270_018, "排产工单未处于人工完成状态，不能撤销");
-    ErrorCode PRO_SCHEDULE_ORDER_WORKER_QUANTITY_REQUIRED = new ErrorCode(1_040_270_019, "排产资源缺少人员数量配置，routeProcessId={}, workstationId={}");
+    ErrorCode PRO_SCHEDULE_ORDER_WORKER_QUANTITY_REQUIRED = new ErrorCode(1_040_270_019, "工序所需的人员数量尚未配置。请联系工艺维护人员，在工艺路线的排产配置中补齐人员数量后重试。");
     ErrorCode PRO_SCHEDULE_ORDER_PROCESS_WIP_NOT_EXISTS = new ErrorCode(1_040_270_020, "当前没有可写入的工序在制记录，processId={}");
     ErrorCode PRO_SCHEDULE_ORDER_PROCESS_WIP_CALENDAR_RULE_REQUIRED = new ErrorCode(1_040_270_021, "工序启用夜班但缺少排程日历规则，processId={}");
-    ErrorCode PRO_SCHEDULE_ORDER_RESOURCE_CAPACITY_REQUIRED = new ErrorCode(1_040_270_022, "资源计算排产工序缺少可用资源产能，routeProcessId={}");
+    ErrorCode PRO_SCHEDULE_ORDER_RESOURCE_CAPACITY_REQUIRED = new ErrorCode(1_040_270_022, "工序尚未配置可用的工作站资源和产能。请联系工艺维护人员，在工艺路线的排产配置中检查工作站、资源及产能，补齐配置后重试。");
     ErrorCode PRO_SCHEDULE_ORDER_WORK_ORDER_ERP_SYNC_REQUIRED = new ErrorCode(1_040_270_023, "生产工单缺少 ERP 正式生产订单同步记录或正式 ID/编号，不能生成排产工单");
     ErrorCode PRO_SCHEDULE_ORDER_BATCH_ADMISSION_BLOCKED = new ErrorCode(1_040_270_024, "以下生产工单无法加入排产工单池：{}");
 
@@ -653,6 +653,8 @@ public interface ErrorCodeConstants {
             new ErrorCode(1_040_600_313, "通用检验规程产品绑定无效：{}");
     ErrorCode QA_COMMON_REGULATION_SET_INVALID =
             new ErrorCode(1_040_600_314, "通用检验规程套无效：{}");
+    ErrorCode QA_COMMON_REGULATION_CODE_IMMUTABLE =
+            new ErrorCode(1_040_600_315, "通用检验规程文件编号不可修改：{}");
 
     // ========== MES 质量管理-质检指标（1-040-601-000） ==========
     ErrorCode QC_INDICATOR_NOT_EXISTS = new ErrorCode(1_040_601_000, "质检指标不存在");

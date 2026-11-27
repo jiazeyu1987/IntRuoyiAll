@@ -12,7 +12,6 @@ public interface DccDirectoryAdminService {
 
     void updateDirectory(cn.iocoder.yudao.module.dcc.controller.admin.directory.vo.DccDirectorySaveReqVO reqVO);
 
-    DccDirectoryImportResult importDirectoriesFromIntAuth();
 
     List<DccFileDirectoryDO> getDirectoryTree(Long userId);
 

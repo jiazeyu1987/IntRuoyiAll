@@ -4,7 +4,6 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
-import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil;
 import cn.iocoder.yudao.module.mes.controller.admin.dv.machinery.vo.MesDvMachineryFinalSyncRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.wm.barcode.vo.MesWmBarcodeSaveReqVO;
@@ -18,7 +17,6 @@ import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryTypeMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkshopMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
 import cn.iocoder.yudao.module.mes.enums.dv.MesDvMachineryStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.wm.BarcodeBizTypeEnum;
 import cn.iocoder.yudao.module.mes.service.dv.checkplan.MesDvCheckPlanMachineryService;
@@ -27,27 +25,17 @@ import cn.iocoder.yudao.module.mes.service.dv.maintenrecord.MesDvMaintenRecordSe
 import cn.iocoder.yudao.module.mes.service.dv.repair.MesDvRepairService;
 import cn.iocoder.yudao.module.mes.service.wm.barcode.MesWmBarcodeService;
 import jakarta.annotation.Resource;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.DataFormatter;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.InputStream;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -55,23 +43,9 @@ import java.util.stream.Collectors;
 @Validated
 public class MesDvMachineryFinalSheetSyncServiceImpl implements MesDvMachineryFinalSheetSyncService {
 
-    private static final String SHEET_NAME = "Sheet1";
-    private static final String PLACEHOLDER_CODE = "/";
     private static final String DEFAULT_WORKSHOP_CODE = "AUTO-WSHOP";
     private static final String DEFAULT_TYPE_CODE = "DEFAULT-MACHINERY-TYPE";
     private static final String DEFAULT_TYPE_NAME = "\u9ED8\u8BA4\u8BBE\u5907\u7C7B\u578B";
-    private static final BigDecimal DAY_HOURS = new BigDecimal("10.5");
-    private static final List<String> EXPECTED_HEADERS = List.of(
-            "\u4EA7\u54C1\u540D\u79F0",
-            "\u7269\u6599\u7F16\u7801",
-            "\u8BBE\u5907\u7F16\u7801",
-            "\u5DE5\u5E8F\u540D\u79F0",
-            "\u8BBE\u5907\u540D\u79F0",
-            "\u8BBE\u5907\u6570\u91CF",
-            "10.5\u5C0F\u65F6\u65E5\u4EA7\u80FD",
-            "\u4EBA\u5DE5"
-    );
-
     @Resource
     private MesDvMachineryMapper machineryMapper;
     @Resource
@@ -81,9 +55,9 @@ public class MesDvMachineryFinalSheetSyncServiceImpl implements MesDvMachineryFi
     @Resource
     private MesMdWorkshopMapper workshopMapper;
     @Resource
-    private MesProProcessMapper processMapper;
-    @Resource
     private Sheet1MachineryProcessExcelParser parser;
+    @Resource
+    private Sheet1ProcessResolver processResolver;
     @Resource
     private MesWmBarcodeService barcodeService;
     @Resource
@@ -102,7 +76,9 @@ public class MesDvMachineryFinalSheetSyncServiceImpl implements MesDvMachineryFi
             throw ServiceExceptionUtil.invalidParamException("\u6700\u7EC8\u7248 Excel \u4E0D\u80FD\u4E3A\u7A7A");
         }
 
-        ParsedSheet parsedSheet = parseSheet(file);
+        var parsed = parser.parse(file);
+        Map<String, MesProProcessDO> processes = processResolver.resolve(parsed);
+        ParsedSheet parsedSheet = parseSheet(parsed);
         if (CollUtil.isEmpty(parsedSheet.validRows())) {
             throw ServiceExceptionUtil.invalidParamException("\u6700\u7EC8\u7248 Excel \u4E2D\u6CA1\u6709\u53EF\u5BFC\u5165\u7684\u8BBE\u5907\u884C");
         }
@@ -144,7 +120,7 @@ public class MesDvMachineryFinalSheetSyncServiceImpl implements MesDvMachineryFi
         }
 
         machineryProcessMapper.deleteByMachineryIds(machineryIdByCode.values());
-        List<MesDvMachineryProcessDO> detailRows = buildProcessRows(parsedSheet.validRows(), machineryIdByCode);
+        List<MesDvMachineryProcessDO> detailRows = buildProcessRows(parsedSheet.validRows(), machineryIdByCode, processes);
         machineryProcessMapper.insertBatch(detailRows);
 
         return MesDvMachineryFinalSyncRespVO.builder()
@@ -160,61 +136,13 @@ public class MesDvMachineryFinalSheetSyncServiceImpl implements MesDvMachineryFi
                 .build();
     }
 
-    private ParsedSheet parseSheet(MultipartFile file) {
-        Sheet1MachineryProcessExcelParser.ParsedSheet parsedSheet = parser.parse(file);
+    private ParsedSheet parseSheet(Sheet1MachineryProcessExcelParser.ParsedSheet parsedSheet) {
         List<FinalSheetRow> validRows = parsedSheet.deviceRows().stream()
-                .map(row -> new FinalSheetRow(row.sourceRowNo(), row.lineName(), row.machineryCode(), row.processName(),
+                .map(row -> new FinalSheetRow(row.sourceRowNo(), row.lineName(), row.machineryCode(), row.processCode(), row.processName(),
                         row.deviceName(), row.deviceQuantity(), row.tenHalfHourDailyCapacity(),
                         row.standardHourlyCapacity()))
                 .toList();
         return new ParsedSheet(validRows, parsedSheet.ignoredPlaceholderRowCount());
-    }
-
-    private void validateHeader(Row headerRow, DataFormatter formatter) {
-        if (headerRow == null) {
-            throw ServiceExceptionUtil.invalidParamException("Excel \u7F3A\u5C11\u8868\u5934");
-        }
-        for (int i = 0; i < EXPECTED_HEADERS.size(); i++) {
-            String actual = readString(headerRow.getCell(i), formatter);
-            String expected = EXPECTED_HEADERS.get(i);
-            if (!Objects.equals(expected, actual)) {
-                throw ServiceExceptionUtil.invalidParamException(
-                        "Excel \u8868\u5934\u4E0D\u7B26\u5408\u9884\u671F: \u7B2C {} \u5217\u5E94\u4E3A [{}], \u5B9E\u9645\u4E3A [{}]",
-                        i + 1, expected, actual);
-            }
-        }
-    }
-
-    private boolean isEmptyRow(Row row, DataFormatter formatter) {
-        for (int i = 0; i < EXPECTED_HEADERS.size(); i++) {
-            if (StrUtil.isNotBlank(readString(row.getCell(i), formatter))) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private String readString(Cell cell, DataFormatter formatter) {
-        if (cell == null) {
-            return "";
-        }
-        return StrUtil.trim(formatter.formatCellValue(cell));
-    }
-
-    private BigDecimal readPositiveDecimal(Cell cell, DataFormatter formatter, String fieldName, int sourceRowNo) {
-        String raw = readString(cell, formatter);
-        if (StrUtil.isBlank(raw)) {
-            throw ServiceExceptionUtil.invalidParamException("Excel \u7B2C {} \u884C{} \u4E0D\u80FD\u4E3A\u7A7A", sourceRowNo, fieldName);
-        }
-        try {
-            BigDecimal value = new BigDecimal(raw);
-            if (value.compareTo(BigDecimal.ZERO) <= 0) {
-                throw ServiceExceptionUtil.invalidParamException("Excel \u7B2C {} \u884C{} \u5FC5\u987B\u5927\u4E8E 0", sourceRowNo, fieldName);
-            }
-            return value;
-        } catch (NumberFormatException exception) {
-            throw ServiceExceptionUtil.invalidParamException("Excel \u7B2C {} \u884C{} \u4E0D\u662F\u6709\u6548\u6570\u503C", sourceRowNo, fieldName);
-        }
     }
 
     private Map<String, DeviceAggregate> aggregateByDeviceCode(List<FinalSheetRow> rows) {
@@ -230,7 +158,7 @@ public class MesDvMachineryFinalSheetSyncServiceImpl implements MesDvMachineryFi
     private void validateUniqueCapacityByMachineryAndProcess(List<FinalSheetRow> rows) {
         Map<MachineryProcessKey, FinalSheetRow> firstRowByKey = new LinkedHashMap<>();
         for (FinalSheetRow row : rows) {
-            MachineryProcessKey key = new MachineryProcessKey(row.machineryCode(), row.processName());
+            MachineryProcessKey key = new MachineryProcessKey(row.machineryCode(), row.processCode());
             FinalSheetRow existing = firstRowByKey.putIfAbsent(key, row);
             if (existing == null) {
                 continue;
@@ -240,7 +168,7 @@ public class MesDvMachineryFinalSheetSyncServiceImpl implements MesDvMachineryFi
             }
             throw ServiceExceptionUtil.invalidParamException(
                     "\u540C\u4E00\u8BBE\u5907\u540C\u4E00\u5DE5\u5E8F\u53EA\u80FD\u914D\u7F6E\u4E00\u4E2A\u6807\u51C6\u5C0F\u65F6\u4EA7\u80FD: \u8BBE\u5907\u7F16\u7801 {}, \u5DE5\u5E8F {}, Excel \u884C {} \u7684\u4EA7\u80FD {} \u4E0E Excel \u884C {} \u7684\u4EA7\u80FD {} \u4E0D\u4E00\u81F4",
-                    row.machineryCode(), row.processName(),
+                    row.machineryCode(), row.processName() + "（" + row.processCode() + "）",
                     existing.sourceRowNo(), existing.standardHourlyCapacity().toPlainString(),
                     row.sourceRowNo(), row.standardHourlyCapacity().toPlainString());
         }
@@ -343,13 +271,14 @@ public class MesDvMachineryFinalSheetSyncServiceImpl implements MesDvMachineryFi
     }
 
     private List<MesDvMachineryProcessDO> buildProcessRows(List<FinalSheetRow> rows,
-                                                           Map<String, Long> machineryIdByCode) {
-        Map<String, Long> processIdByName = resolveEnabledProcessIdMap(rows);
+                                                           Map<String, Long> machineryIdByCode,
+                                                           Map<String, MesProProcessDO> processes) {
         List<MesDvMachineryProcessDO> detailRows = new ArrayList<>();
         for (FinalSheetRow row : rows) {
             detailRows.add(MesDvMachineryProcessDO.builder()
                     .machineryId(machineryIdByCode.get(row.machineryCode()))
-                    .processId(processIdByName.get(row.processName()))
+                    .processId(processes.get(row.processCode()).getId())
+                    .processCode(row.processCode())
                     .machineryCode(row.machineryCode())
                     .lineName(row.lineName())
                     .processName(row.processName())
@@ -364,42 +293,22 @@ public class MesDvMachineryFinalSheetSyncServiceImpl implements MesDvMachineryFi
         return detailRows;
     }
 
-    private Map<String, Long> resolveEnabledProcessIdMap(List<FinalSheetRow> rows) {
-        Set<String> processNames = rows.stream().map(FinalSheetRow::processName).collect(Collectors.toCollection(LinkedHashSet::new));
-        List<MesProProcessDO> enabledProcesses = processMapper.selectListByStatus(CommonStatusEnum.ENABLE.getStatus());
-        Map<String, Long> processIdByName = new LinkedHashMap<>();
-        for (MesProProcessDO process : enabledProcesses) {
-            if (!processNames.contains(process.getName())) {
-                continue;
-            }
-            Long existing = processIdByName.putIfAbsent(process.getName(), process.getId());
-            if (existing != null) {
-                throw ServiceExceptionUtil.invalidParamException("启用工序中存在重名记录: {}", process.getName());
-            }
-        }
-        if (processIdByName.size() != processNames.size()) {
-            Set<String> missing = new LinkedHashSet<>(processNames);
-            missing.removeAll(processIdByName.keySet());
-            throw ServiceExceptionUtil.invalidParamException("以下工序不存在或未启用: {}", String.join(", ", missing));
-        }
-        return processIdByName;
-    }
-
     private record ParsedSheet(List<FinalSheetRow> validRows, Integer ignoredPlaceholderRowCount) {
     }
 
-    private record FinalSheetRow(Integer sourceRowNo, String lineName, String machineryCode, String processName, String deviceName,
+    private record FinalSheetRow(Integer sourceRowNo, String lineName, String machineryCode, String processCode, String processName, String deviceName,
                                  BigDecimal deviceQuantity, BigDecimal tenHalfHourDailyCapacity,
                                  BigDecimal standardHourlyCapacity) {
     }
 
-    private record MachineryProcessKey(String machineryCode, String processName) {
+    private record MachineryProcessKey(String machineryCode, String processCode) {
     }
 
     private static final class DeviceAggregate {
         private final String code;
         private final List<FinalSheetRow> rows = new ArrayList<>();
         private final Set<String> deviceNames = new LinkedHashSet<>();
+        private final Set<String> processCodes = new LinkedHashSet<>();
         private final Set<String> processNames = new LinkedHashSet<>();
         private final Set<BigDecimal> standardHourlyCapacities = new LinkedHashSet<>();
 
@@ -411,6 +320,7 @@ public class MesDvMachineryFinalSheetSyncServiceImpl implements MesDvMachineryFi
             rows.add(row);
             deviceNames.add(row.deviceName());
             processNames.add(row.processName());
+            processCodes.add(row.processCode());
             standardHourlyCapacities.add(row.standardHourlyCapacity());
             if (deviceNames.size() > 1) {
                 throw ServiceExceptionUtil.invalidParamException(
@@ -428,7 +338,7 @@ public class MesDvMachineryFinalSheetSyncServiceImpl implements MesDvMachineryFi
         }
 
         private boolean hasSingleProcessAndSingleCapacity() {
-            return processNames.size() == 1 && standardHourlyCapacities.size() == 1;
+            return processCodes.size() == 1 && standardHourlyCapacities.size() == 1;
         }
 
         private String singleProcessName() {

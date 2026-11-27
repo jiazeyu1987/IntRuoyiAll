@@ -12,7 +12,7 @@
         <p class="controlled-detail-note" :class="{ 'controlled-detail-note--pending': ['pending', 'unknown'].includes(predecessorFact.kind) }">
           <template v-if="predecessorFact.kind === 'obsolete'">旧版已作废：{{ predecessorFact.versions.map(row => getDccVersionDisplayText(row.versionNo)).join('、') }}</template>
           <template v-else-if="predecessorFact.kind === 'initial'">{{ file.effectiveTime ? '初始版本，首次生效，无旧版作废事项。' : '初始版本，尚未记录实际生效，无旧版作废事项。' }}</template>
-          <template v-else-if="predecessorFact.kind === 'pending'">旧版作废情况待核验</template>
+          <template v-else-if="predecessorFact.kind === 'pending'">{{ file.activatedTime ? '当前可见历史不足以核验旧版作废，请由文控人员查看作废归档。' : '新版尚未日常启用，旧版作废情况待核验。' }}</template>
           <template v-else>未查到由本次生效产生的作废记录，初始版本及前版信息尚未确认。</template>
         </p>
         <p v-if="file.finalizationError" class="controlled-detail-note controlled-detail-note--pending">受控处理待核验：{{ file.finalizationError }}</p>

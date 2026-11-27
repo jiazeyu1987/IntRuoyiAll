@@ -747,17 +747,16 @@ class MesQaInspectionRegulationServiceTest {
     }
 
     @Test
-    void publish_preservesItemEquipmentOptionsInVersionSnapshotResponse() {
+    void publish_freezesCurrentEquipmentEvenWhenClientOmitsItAndHistoryDoesNotReadLiveConfig() {
         MesQaInspectionRegulationSaveReqVO reqVO = validRequest();
-        MesQaInspectionRegulationSaveReqVO.EquipmentOption equipment =
-                new MesQaInspectionRegulationSaveReqVO.EquipmentOption();
-        equipment.setEquipmentId(7001L);
-        equipment.setEquipmentCode("EQ-7001");
-        equipment.setEquipmentName("目测灯箱");
-        equipment.setEquipmentNumber("EQ-7001");
-        equipment.setDefaultFlag(true);
-        equipment.setSort(1);
-        reqVO.getProcesses().get(0).getItems().get(0).setEquipmentOptions(List.of(equipment));
+        var equipmentService = org.mockito.Mockito.mock(
+                cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentConfigService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "equipmentConfigService", equipmentService);
+        String itemCode = reqVO.getProcesses().get(0).getItems().get(0).getItemCode();
+        when(equipmentService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
+                DCC_PROJECT_ID, VERSION_ID, List.of(itemCode))).thenReturn(java.util.Map.of(itemCode, List.of(
+                new cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentOption(
+                        itemCode, 7001L, "EQ-7001", "目测灯箱", "EQ-7001", true, 1))));
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
         when(regulationMapper.selectByDccProjectCodeId(
                 DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA))
@@ -791,6 +790,18 @@ class MesQaInspectionRegulationServiceTest {
         assertEquals("EQ-7001", saved.getEquipmentNumber());
         assertEquals(true, saved.getDefaultFlag());
         assertEquals(1, saved.getSort());
+        var updates = ArgumentCaptor.forClass(MesQaInspectionRegulationVersionDO.class);
+        verify(versionMapper).updateById(updates.capture());
+        var storedVersion = publishedVersion().setSnapshotJson(updates.getValue().getSnapshotJson())
+                .setLifecycleStatus("RETIRED");
+        assertTrue(storedVersion.getSnapshotJson().contains("EQ-7001"));
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(versionMapper.selectById(VERSION_ID)).thenReturn(storedVersion);
+        org.mockito.Mockito.reset(equipmentService);
+        var historical = service.getPublishedVersion(DCC_PROJECT_ID, VERSION_ID);
+        assertEquals("EQ-7001", historical.getProcesses().get(0).getItems().get(0)
+                .getEquipmentOptions().get(0).getEquipmentNumber());
+        verifyNoInteractions(equipmentService);
     }
 
     @Test
@@ -976,6 +987,8 @@ class MesQaInspectionRegulationServiceTest {
                 () -> service.resetForTesting(DCC_PROJECT_ID));
 
         assertEquals(QA_INSPECTION_REGULATION_RESET_REFERENCED.getCode(), ex.getCode());
+        assertTrue(ex.getMessage().contains("生产订单引用 1 条，PQC 任务引用 2 条"));
+        assertTrue(ex.getMessage().contains("未删除任何规程或版本"));
         verify(itemMapper, never()).deleteByVersionIds(any());
         verify(processMapper, never()).deleteByVersionIds(any());
         verify(versionMapper, never()).deleteByRegulationId(any());

@@ -13,6 +13,7 @@ import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderActionReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderProcessCapacityResetReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderAdmissionDiffPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderAdmissionDiffPageRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderAdmissionDiffRespVO;
@@ -1144,6 +1145,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         }
         Map<Long, MesProRouteScheduleConfigDO> scheduleConfigMap =
                 buildScheduleConfigMap(activeRouteVersion);
+        AdmissionRouteCheck defaultConfigWarning = null;
         for (MesProRouteProcessDO routeProcess : routeProcesses) {
             MesProRouteScheduleConfigDO scheduleConfig = scheduleConfigMap.get(routeProcess.getId());
             if (scheduleConfig == null) {
@@ -1151,8 +1153,8 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                         "工序缺少排产策略配置", "工艺维护",
                         routeConfigAction(route.getId(), routeProcess.getId(), "维护排产策略"));
             }
-            if (isDefaultScheduleConfig(scheduleConfig)) {
-                return AdmissionRouteCheck.warn(WARN_DEFAULT_ROUTE_SCHEDULE_CONFIG,
+            if (defaultConfigWarning == null && isDefaultScheduleConfig(scheduleConfig)) {
+                defaultConfigWarning = AdmissionRouteCheck.warn(WARN_DEFAULT_ROUTE_SCHEDULE_CONFIG,
                         "工序排产策略仍为系统默认值，允许入池但建议尽快维护正式策略", "工艺维护",
                         routeConfigAction(route.getId(), routeProcess.getId(), "维护排产策略"));
             }
@@ -1163,7 +1165,8 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         if (resourceCheck != null) {
             return resourceCheck;
         }
-        return AdmissionRouteCheck.ready();
+        // 默认策略只是提示，不能跳过后续工序和资源产能的阻断检查。
+        return defaultConfigWarning != null ? defaultConfigWarning : AdmissionRouteCheck.ready();
     }
 
     private AdmissionRouteCheck checkResourceCalculatedCapacity(MesProRouteDO route,
@@ -1818,6 +1821,53 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
             }
         }
         throw new IllegalStateException("最近一次成功排产日志包含非数字工单ID：" + idNode);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void resetProcessCapacity(MesProScheduleOrderProcessCapacityResetReqVO reqVO) {
+        validateOperationReason(reqVO.getReason());
+        scheduleOrderMapper.selectByIdForUpdate(reqVO.getId());
+        MesProScheduleOrderDO order = validateWritableScheduleOrder(reqVO.getId());
+        if (Boolean.TRUE.equals(order.getManualFinished())
+                || Objects.equals(order.getStatus(), MesProScheduleOrderStatusEnum.FINISHED.getStatus())
+                || Objects.equals(order.getStatus(), MesProScheduleOrderStatusEnum.CANCELED.getStatus())) {
+            throw exception0(PRO_SCHEDULE_ORDER_DELETE_BLOCKED.getCode(), "该工单已结束，不能恢复产能");
+        }
+        MesProScheduleOrderProcessDO process = scheduleOrderProcessMapper.selectById(reqVO.getScheduleOrderProcessId());
+        if (process == null || !Objects.equals(process.getScheduleOrderId(), order.getId())) {
+            throw exception0(PRO_SCHEDULE_ORDER_ROUTE_PROCESS_REQUIRED.getCode(), "排产工序不属于当前工单");
+        }
+        if (!CAPACITY_SOURCE_MANUAL_OVERRIDE.equals(process.getCapacitySource())) {
+            throw exception0(PRO_SCHEDULE_ORDER_RESOURCE_CAPACITY_REQUIRED.getCode(), "当前工序没有手工产能覆盖");
+        }
+        MesProRouteProcessDO routeProcess = routeProcessService.resolveFrozenRouteProcess(
+                process.getRouteProcessId(), order.getRouteId(), process.getProcessId());
+        MesProRouteScheduleConfigDO config = requireRouteScheduleConfig(
+                resolveRouteVersionId(process, order), routeProcess.getId(), routeProcess.getProcessId());
+        if (!isResourceCalculated(config)) {
+            throw exception0(PRO_SCHEDULE_ORDER_RESOURCE_CAPACITY_REQUIRED.getCode(),
+                    "该工序所用路线版本不是资源计算策略，不能以清除单据覆盖修改路线策略");
+        }
+        ResourceSnapshotContext context = buildResourceSnapshotContext(List.of(routeProcess), true, true);
+        validateResourceCalculatedSnapshots(List.of(routeProcess), Map.of(routeProcess.getId(), config), context);
+        ResourceSnapshot snapshot = applyScheduleConfig(context.snapshotByRouteProcessId.get(routeProcess.getId()), config);
+        requirePositiveHourlyCapacity(snapshot.hourlyCapacityTotal, routeProcess.getId());
+        requirePositiveShiftCapacity(snapshot.shiftCapacityTotal, routeProcess.getId());
+        MesProScheduleOrderProcessDO update = new MesProScheduleOrderProcessDO();
+        update.setId(process.getId());
+        update.setRouteScheduleConfigId(config.getId());
+        update.setCapacityMode(MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode());
+        update.setCapacitySource(snapshot.capacitySource);
+        update.setHourlyCapacityTotal(snapshot.hourlyCapacityTotal);
+        update.setShiftHours(snapshot.shiftHours);
+        update.setShiftCapacityTotal(snapshot.shiftCapacityTotal);
+        update.setResourceSnapshotJson(JsonUtils.toJsonString(snapshot.payload));
+        if (scheduleOrderProcessMapper.updateById(update) != 1) {
+            throw new IllegalStateException("恢复资源计算失败：工序快照未更新");
+        }
+        insertOperationLog(order, Map.of("beforeProcess", process, "afterProcess", update,
+                "requiresReplan", true), "PROCESS_CAPACITY_RESET", reqVO.getReason());
     }
 
     @Override
@@ -2643,13 +2693,13 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         }
         String detail = issues.stream()
                 .map(issue -> issue.workOrderCode() + "：" + StrUtil.blankToDefault(issue.message(), "入池校验未通过"))
-                .collect(Collectors.joining("；"));
+                .collect(Collectors.joining("\n\n"));
         Set<Integer> errorCodes = issues.stream().map(BatchAdmissionIssue::code).collect(Collectors.toSet());
         if (errorCodes.size() == 1) {
-            throw exception0(issues.get(0).code(), "以下生产工单无法加入排产工单池：{}", detail);
+            throw exception0(issues.get(0).code(), "本次未加入任何工单，请处理以下问题后重试：\n\n{}", detail);
         }
         throw exception0(PRO_SCHEDULE_ORDER_BATCH_ADMISSION_BLOCKED.getCode(),
-                PRO_SCHEDULE_ORDER_BATCH_ADMISSION_BLOCKED.getMsg(), detail);
+                "本次未加入任何工单，请处理以下问题后重试：\n\n{}", detail);
     }
 
     private Map<Long, BigDecimal> sumFeedbackByScheduleOrderProcessId(List<MesProFeedbackDO> feedbackList,
@@ -3248,6 +3298,12 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
 
     private ResourceSnapshotContext buildResourceSnapshotContext(List<MesProRouteProcessDO> routeProcesses,
                                                                 boolean failFastOnMissingResource) {
+        return buildResourceSnapshotContext(routeProcesses, failFastOnMissingResource, false);
+    }
+
+    private ResourceSnapshotContext buildResourceSnapshotContext(List<MesProRouteProcessDO> routeProcesses,
+                                                                boolean failFastOnMissingResource,
+                                                                boolean requireExplicitShiftHours) {
         List<Long> processIds = routeProcesses.stream().map(MesProRouteProcessDO::getProcessId)
                 .filter(Objects::nonNull).distinct().toList();
         if (processIds.isEmpty()) {
@@ -3318,6 +3374,14 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
             } else if (currentRouteProcessProcessId != null) {
                 routeBoundWorkstations = workstationsByProcessId.getOrDefault(
                         currentRouteProcessProcessId, Collections.emptyList());
+            }
+            if (requireExplicitShiftHours) {
+                for (MesMdWorkstationDO workstation : routeBoundWorkstations) {
+                    if (!positiveResourceValue(workstation.getShiftHours())) {
+                        throw exception(PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED,
+                                routeProcess.getId(), workstation.getId());
+                    }
+                }
             }
             snapshotMap.put(routeProcess.getId(), buildResourceSnapshot(routeProcess,
                     routeBoundWorkstations,

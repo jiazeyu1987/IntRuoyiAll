@@ -5,7 +5,7 @@
     <section class="qa-parser-json-editor">
       <header class="qa-parser-panel-head">
         <div>
-          <div class="qa-parser-panel-title">检验规程 JSON编辑</div>
+          <div class="qa-parser-panel-title">检验规程 字段编辑</div>
           <div class="qa-parser-panel-subtitle">{{ qaLastDownloadName }}</div>
         </div>
         <div class="qa-parser-panel-actions">
@@ -46,14 +46,10 @@
         </span>
       </div>
 
-      <el-input
+      <ParserFieldsEditor
+        @update:model-value="resetQaJsonSearchPosition"
         ref="qaJsonEditorInputRef"
         v-model="qaEditableJson"
-        class="qa-parser-json-input"
-        type="textarea"
-        :autosize="{ minRows: 28, maxRows: 44 }"
-        spellcheck="false"
-        @input="resetQaJsonSearchPosition"
       />
     </section>
 
@@ -260,6 +256,8 @@
 </template>
 
 <script setup lang="ts">
+import ParserFieldsEditor from './ParserFieldsEditor.vue'
+
 import download from '@/utils/download'
 import { formatInspectionLevel, inspectionLevelIssue } from '../simplePqc'
 import {
@@ -275,7 +273,7 @@ type QaPreviewResult = 'PASS' | 'FAIL' | 'PIECE'
 type QaFactDialogType = 'equipment' | 'standard' | 'method'
 
 const message = useMessage()
-const qaJsonEditorInputRef = ref<{ textarea?: HTMLTextAreaElement }>()
+const qaJsonEditorInputRef = ref<InstanceType<typeof ParserFieldsEditor>>()
 const qaEditableJson = ref('')
 const qaPreviewJson = ref<QaInspectionRegulationParseVO>()
 const qaLastDownloadName = ref('')
@@ -365,6 +363,11 @@ const parseWordFile = async (file: File): Promise<boolean> => {
 }
 
 const applyQaEditedJson = () => {
+  const fieldError = qaJsonEditorInputRef.value?.validate()
+  if (fieldError) {
+    message.error(fieldError)
+    return
+  }
   try {
     const parsed = JSON.parse(qaEditableJson.value) as unknown
     const mapping = validateQaRecognitionJson(parsed)
@@ -464,20 +467,6 @@ const resetQaJsonSearchPosition = () => {
   qaJsonSearchLastContent.value = ''
 }
 
-const findQaJsonKeywordMatches = () => {
-  const keyword = qaJsonSearchKeyword.value.trim()
-  const matches: Array<{ start: number; end: number }> = []
-  if (!keyword) return matches
-  let startIndex = 0
-  while (startIndex <= qaEditableJson.value.length) {
-    const start = qaEditableJson.value.indexOf(keyword, startIndex)
-    if (start < 0) break
-    matches.push({ start, end: start + keyword.length })
-    startIndex = start + keyword.length
-  }
-  return matches
-}
-
 const locateNextQaJsonKeyword = async () => {
   const keyword = qaJsonSearchKeyword.value.trim()
   if (!keyword) {
@@ -485,7 +474,8 @@ const locateNextQaJsonKeyword = async () => {
     message.warning('请输入查找关键词')
     return
   }
-  const matches = findQaJsonKeywordMatches()
+  await nextTick()
+  const matches = qaJsonEditorInputRef.value?.findMatches(keyword) || []
   qaJsonSearchMatchTotal.value = matches.length
   if (!matches.length) {
     qaJsonSearchMatchIndex.value = -1
@@ -501,22 +491,8 @@ const locateNextQaJsonKeyword = async () => {
     qaJsonSearchLastContent.value = qaEditableJson.value
   }
   qaJsonSearchMatchIndex.value = (qaJsonSearchMatchIndex.value + 1) % matches.length
-  const match = matches[qaJsonSearchMatchIndex.value]
   await nextTick()
-  const textarea = qaJsonEditorInputRef.value?.textarea
-  if (!textarea) {
-    message.error('QA JSON编辑器未就绪')
-    return
-  }
-  textarea.focus()
-  textarea.setSelectionRange(match.start, match.end)
-  const lineHeight = Number.parseFloat(window.getComputedStyle(textarea).lineHeight)
-  if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
-    message.error('QA JSON编辑器行高无效')
-    return
-  }
-  const lineIndex = qaEditableJson.value.slice(0, match.start).split('\n').length - 1
-  textarea.scrollTop = Math.max(lineIndex * lineHeight - textarea.clientHeight / 2, 0)
+  qaJsonEditorInputRef.value?.locate(keyword, qaJsonSearchMatchIndex.value)
 }
 
 const validateQaRecognitionJson = (value: unknown): QaInspectionRegulationParseVO => {
@@ -578,8 +554,10 @@ const validateQaItem = (value: unknown, processIndex: number, itemIndex: number)
     throw new Error(`QA 检验规程 JSON ${path}.applicableInspectionTypes 无效`)
   }
   validateQaOptionalNumber(value.firstInspectionQuantity, `${path}.firstInspectionQuantity`)
-  if (value.applicableInspectionTypes.includes('PATROL') &&
-    !['I', 'II', 'III', 'S1', 'S2', 'S3', 'S4'].includes(String(value.inspectionLevel))) {
+  if (
+    value.applicableInspectionTypes.includes('PATROL') &&
+    !['I', 'II', 'III', 'S1', 'S2', 'S3', 'S4'].includes(String(value.inspectionLevel))
+  ) {
     throw new Error(`QA 检验规程 JSON ${path}.inspectionLevel 无效`)
   }
   validateQaOptionalNumber(value.aql, `${path}.aql`)

@@ -28,6 +28,7 @@ vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(path.dirname(fil
 function harness() {
   const ref = value => ({ value })
   const context = {
+    qaEquipmentDirtyRows: new Set(), loadedQaVersionId: { value: undefined }, selectedDccProjectCodeLabel: { value: '项目' }, ElMessageBox: { confirm: async () => {} },
     qaRegulationDraft: { dccProjectCodeId: 10 }, qaInspectionTypeRules: [],
     commonRegulationBindingRows: ref([]), commonRegulationBindingRowSerial: 0,
     qaCurrentConfigurationLoading: ref(false), qaCurrentConfigurationLoadError: ref(''),

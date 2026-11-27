@@ -11,7 +11,7 @@ import java.util.Set;
 public final class TenantAdminBusinessPolicy {
     private static final Set<String> MODULES = Set.of("ai", "bpm", "crm", "dcc", "erp",
             "iot", "mall", "member", "mes", "mdm", "mp", "pay", "report", "showroom",
-            "signature", "srm", "product", "trade", "promotion", "statistics");
+            "signature", "product", "trade", "promotion", "statistics");
     private static final Set<String> BUSINESS_PATHS = Set.of("controlled-file", "form-center", "signature-governance");
 
     private TenantAdminBusinessPolicy() { }

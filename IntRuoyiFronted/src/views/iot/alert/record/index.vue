@@ -145,7 +145,7 @@
                 查看消息
               </el-button>
             </template>
-            <pre>{{ scope.row.deviceMessage }}</pre>
+            <ReadableData title="触发设备消息" :source="JSON.stringify(scope.row.deviceMessage)" />
           </el-popover>
           <span v-else class="text-gray-400">-</span>
         </template>
@@ -188,6 +188,7 @@
 </template>
 
 <script setup lang="ts">
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { ElMessageBox } from 'element-plus'
 import { dateFormatter } from '@/utils/formatTime'

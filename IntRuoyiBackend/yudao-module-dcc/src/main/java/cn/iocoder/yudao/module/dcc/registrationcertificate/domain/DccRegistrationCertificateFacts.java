@@ -82,6 +82,8 @@ public class DccRegistrationCertificateFacts {
                 throw invalidParamException("FDA请使用批准信函及工厂登记状态，不得携带国内证件状态或有效期字段");
             if (!Set.of("EXEMPT", "PMA", "TRADITIONAL_510K", "SPECIAL_510K", "ABBREVIATED_510K").contains(submissionType == null ? "" : submissionType))
                 throw invalidParamException("FDA注册提交类型无效");
+            if ("TRADITIONAL_510K".equals(submissionType) && blank(kpNumber))
+                throw invalidParamException("请填写K/P号");
             if (!Set.of("VALID", "REVOKED").contains(approvalLetterStatus == null ? "" : approvalLetterStatus)
                     || !Set.of("ACTIVE", "INACTIVE").contains(factoryRegistrationStatus == null ? "" : factoryRegistrationStatus)
                     || customerHeld == null) throw invalidParamException("请填写FDA批准信函状态、工厂登记状态及是否客户持证");

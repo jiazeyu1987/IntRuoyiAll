@@ -61,17 +61,6 @@
           刷新目录树
         </el-button>
         <TreeExpandActions @expand="expandAll" @collapse="collapseAll" />
-        <el-button
-          v-hasPermi="['dcc:controlled-file:directory:manage']"
-          plain
-          type="success"
-          :disabled="directories.length > 0"
-          :loading="importLoading"
-          @click="handleImportFromIntAuth"
-        >
-          <Icon icon="ep:download" class="mr-5px" />
-          NAS同步
-        </el-button>
       </template>
       <template #table="{ resolveRows }">
         <el-alert
@@ -239,7 +228,6 @@ import {
   deleteDirectorySubtree,
   getDirectoryActiveNasTransfer,
   getDirectoryChildren,
-  importDirectoriesFromIntAuth,
   searchDirectories,
   stopDirectoryActiveNasTransfer,
   type ControlledFileDirectoryVO
@@ -256,7 +244,6 @@ const DirectoryForm = defineAsyncComponent(() => import('./components/DirectoryF
 const message = useMessage()
 const router = useRouter()
 const loading = ref(false)
-const importLoading = ref(false)
 const directories = ref<ControlledFileDirectoryVO[]>([])
 const directoryTableRef = ref()
 const queryFormRef = ref()
@@ -366,16 +353,6 @@ const loadDirectoryChildren = async (
   }
 }
 
-const handleImportFromIntAuth = async () => {
-  importLoading.value = true
-  try {
-    const result = await importDirectoriesFromIntAuth()
-    message.success(`已导入 ${result.importedCount} 个目录节点，根目录 ${result.rootCount} 个`)
-    await getList()
-  } finally {
-    importLoading.value = false
-  }
-}
 
 const filterTree = (nodes: ControlledFileDirectoryVO[]): ControlledFileDirectoryVO[] => {
   const nameKeyword = appliedQueryParams.name.toLowerCase()

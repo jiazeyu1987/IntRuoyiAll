@@ -627,6 +627,7 @@ CREATE TABLE IF NOT EXISTS "system_tenant" (
     "package_id"  bigint NOT NULL,
     "expire_time" timestamp NOT NULL,
     "account_count" int NOT NULL,
+    "default_login" bit NOT NULL DEFAULT FALSE,
     "creator" varchar(64) DEFAULT '',
     "create_time" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updater" varchar(64) DEFAULT '',

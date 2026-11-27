@@ -22,8 +22,8 @@
                 <span aria-hidden="true"> → </span>
                 <span class="tree-publish-preview__overwrite">{{ summary(change.after) }}</span>
               </summary>
-              <div><strong>修改前</strong><pre>{{ format(change.before) }}</pre></div>
-              <div class="tree-publish-preview__overwrite"><strong>覆盖后</strong><pre>{{ format(change.after) }}</pre></div>
+              <div><strong>修改前</strong><ReadableData :source="JSON.stringify(change.before)" title="修改前配置" /></div>
+              <div class="tree-publish-preview__overwrite"><strong>覆盖后</strong><ReadableData :source="JSON.stringify(change.after)" title="修改后配置" /></div>
             </details>
           </template>
           <span v-else class="tree-publish-preview__unchanged">保持原值</span>
@@ -34,7 +34,7 @@
       <el-collapse-item :title="'父节点修改（' + parentChanges.length + ' 项）'">
         <div v-for="(change, index) in parentChanges" :key="index" class="tree-publish-preview__detail">
           <strong>{{ fieldLabel(change.field) }}</strong>
-          <div class="tree-publish-preview__compare"><div><span>修改前</span><pre>{{ format(change.before) }}</pre></div><div><span>修改后</span><pre>{{ format(change.after) }}</pre></div></div>
+          <div class="tree-publish-preview__compare"><div><span>修改前</span><ReadableData :source="JSON.stringify(change.before)" title="修改前配置" /></div><div><span>修改后</span><ReadableData :source="JSON.stringify(change.after)" title="修改后配置" /></div></div>
         </div>
       </el-collapse-item>
     </el-collapse>
@@ -45,6 +45,7 @@
   </div>
 </template>
 <script setup lang="ts">
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import type { TreeChange, TreePreview } from '@/api/mes/pro/route/tree'
 import { computed } from 'vue'
 import { buildRouteTreePublishMatrix } from './routeTreePublishMatrix'
@@ -147,16 +148,20 @@ const blockers = computed(() => {
 })
 const fieldLabel = (path: string) => path.split('.').filter(key => !['configSnapshots', 'nodes'].includes(key))
   .map(key => processLabels.value.get(key) || labels[key] || key).join(' / ')
-const format = (value: unknown): string => {
-  const readable = (item: unknown): unknown => Array.isArray(item) ? item.map(readable) : objectValue(item)
-    ? Object.fromEntries(Object.entries(item).filter(([key]) => !internalFields.has(key) && key !== 'processId').map(([key, val]) => [labels[key] || key, readable(val)])) : item
-  return value == null || value === '' ? '未设置' : typeof value === 'boolean' ? (value ? '是' : '否')
-    : typeof value === 'object' ? JSON.stringify(readable(value), null, 2) : String(value)
-}
-const summary = (value: unknown) => {
-  const text = format(value).replace(/\s+/g, ' ')
+const summary = (value: unknown): string => {
+  if (value == null || value === '') return '未设置'
+  if (typeof value === 'boolean') return value ? '是' : '否'
+  if (Array.isArray(value)) return value.length ? `共 ${value.length} 项配置（展开查看明细）` : '无配置项'
+  if (objectValue(value)) {
+    const entries = Object.entries(value)
+    const highlights = entries.filter(([, item]) => item != null && typeof item !== 'object')
+      .slice(0, 2).map(([key, item]) => `${labels[key] || key}：${summary(item)}`)
+    return `共 ${entries.length} 个配置字段${highlights.length ? `；${highlights.join('；')}` : '（展开查看明细）'}`
+  }
+  const text = String(value)
   return text.length > 70 ? `${text.slice(0, 70)}…` : text
 }
+
 </script>
 <style scoped>
 :global(.route-tree-publish-message) { width: min(1400px, 94vw); max-width: 1400px; }

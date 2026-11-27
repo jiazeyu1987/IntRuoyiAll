@@ -21,8 +21,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkshopMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationMachineMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationWorkerMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
 import cn.iocoder.yudao.module.mes.service.dv.machinery.Sheet1MachineryProcessExcelParser;
+import cn.iocoder.yudao.module.mes.service.dv.machinery.Sheet1ProcessResolver;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationService;
 import cn.iocoder.yudao.module.mes.service.wm.warehouse.MesWmWarehouseAreaService;
 import cn.iocoder.yudao.module.mes.service.wm.warehouse.MesWmWarehouseLocationService;
@@ -44,7 +44,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.StringJoiner;
 
 @Service
 @Validated
@@ -59,7 +58,7 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
     @Resource
     private Sheet1MachineryProcessExcelParser parser;
     @Resource
-    private MesProProcessMapper processMapper;
+    private Sheet1ProcessResolver processResolver;
     @Resource
     private MesMdWorkshopMapper workshopMapper;
     @Resource
@@ -89,9 +88,10 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
             throw ServiceExceptionUtil.invalidParamException("目标车间不存在: {}", workshopId);
         }
 
-        NormalizedSheet normalizedSheet = normalize(parser.parse(file));
+        var parsed = parser.parse(file);
+        Map<String, MesProProcessDO> processMap = processResolver.resolve(parsed);
+        NormalizedSheet normalizedSheet = normalize(parsed);
         Map<String, MesDvMachineryDO> machineryByCode = resolveExistingMachineryMap(normalizedSheet.deviceRows());
-        Map<String, MesProProcessDO> processMap = resolveEnabledProcessMap(normalizedSheet, machineryByCode);
         validateExistingMachineryProcessPairs(normalizedSheet.deviceRows(), processMap, machineryByCode);
         WorkstationSyncResult workstationSyncResult = syncWorkstations(normalizedSheet, processMap, targetWorkshop);
         int machineryBindingCount = replaceWorkstationMachineBindings(
@@ -100,7 +100,7 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
                 workstationSyncResult.workstationIdByProcessId());
 
         return BalloonProcessDeviceMappingImportRespVO.builder()
-                .processCount(normalizedSheet.processNames().size())
+                .processCount(normalizedSheet.processCodes().size())
                 .machineryCount(machineryByCode.size())
                 .machineryProcessCount(normalizedSheet.deviceRows().size())
                 .reusedWorkstationCount(workstationSyncResult.reusedCount())
@@ -120,10 +120,11 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
         Map<String, CapacityConflictAccumulator> capacityConflictMap = new LinkedHashMap<>();
         for (Sheet1MachineryProcessExcelParser.DeviceRow deviceRow : parsedSheet.deviceRows()) {
             Integer quantity = toPositiveInt(deviceRow.deviceQuantity(), "设备数量", deviceRow.sourceRowNo());
-            String key = buildProcessDeviceKey(deviceRow.processName(), deviceRow.machineryCode());
+            String key = buildProcessDeviceKey(deviceRow.processCode(), deviceRow.machineryCode());
             NormalizedDeviceRow normalized = new NormalizedDeviceRow(
                     deviceRow.sourceRowNo(),
                     deviceRow.machineryCode(),
+                    deviceRow.processCode(),
                     deviceRow.processName(),
                     deviceRow.deviceName(),
                     quantity);
@@ -148,12 +149,13 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
         for (Sheet1MachineryProcessExcelParser.ManualRow manualRow : parsedSheet.manualRows()) {
             NormalizedManualRow normalized = new NormalizedManualRow(
                     manualRow.sourceRowNo(),
+                    manualRow.processCode(),
                     manualRow.processName(),
                     manualRow.manualDailyCapacity().stripTrailingZeros().toPlainString(),
                     normalizeWorkstationCapacity(manualRow.singleStandardHourlyCapacity()));
-            NormalizedManualRow existing = manualRowMap.get(normalized.processName());
+            NormalizedManualRow existing = manualRowMap.get(normalized.processCode());
             if (existing == null) {
-                manualRowMap.put(normalized.processName(), normalized);
+                manualRowMap.put(normalized.processCode(), normalized);
                 continue;
             }
             if (!Objects.equals(existing.manualDailyCapacity(), normalized.manualDailyCapacity())) {
@@ -163,12 +165,12 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
             }
         }
 
-        Set<String> processNames = new LinkedHashSet<>();
-        deviceRowMap.values().forEach(row -> processNames.add(row.processName()));
-        manualRowMap.values().forEach(row -> processNames.add(row.processName()));
-        for (String processName : manualRowMap.keySet()) {
-            if (deviceRowMap.values().stream().anyMatch(row -> processName.equals(row.processName()))) {
-                throw ServiceExceptionUtil.invalidParamException("工序 [{}] 同时存在设备映射和纯人工行，无法同步", processName);
+        Set<String> processCodes = new LinkedHashSet<>();
+        deviceRowMap.values().forEach(row -> processCodes.add(row.processCode()));
+        manualRowMap.values().forEach(row -> processCodes.add(row.processCode()));
+        for (String processCode : manualRowMap.keySet()) {
+            if (deviceRowMap.values().stream().anyMatch(row -> processCode.equals(row.processCode()))) {
+                throw ServiceExceptionUtil.invalidParamException("工序 [{}] 同时存在设备映射和纯人工行，无法同步", processCode);
             }
         }
 
@@ -181,58 +183,9 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
         return new NormalizedSheet(
                 new ArrayList<>(deviceRowMap.values()),
                 manualRowMap,
-                processNames,
+                processCodes,
                 parsedSheet.ignoredPlaceholderRowCount(),
                 warnings);
-    }
-
-    private Map<String, MesProProcessDO> resolveEnabledProcessMap(NormalizedSheet normalizedSheet,
-                                                                  Map<String, MesDvMachineryDO> machineryByCode) {
-        Collection<String> processNames = normalizedSheet.processNames();
-        List<MesProProcessDO> enabledProcesses = processMapper.selectListByStatus(CommonStatusEnum.ENABLE.getStatus());
-        Map<String, List<MesProProcessDO>> candidatesByName = new LinkedHashMap<>();
-        for (MesProProcessDO process : enabledProcesses) {
-            if (!processNames.contains(process.getName())) {
-                continue;
-            }
-            candidatesByName.computeIfAbsent(process.getName(), key -> new ArrayList<>()).add(process);
-        }
-        if (candidatesByName.size() != processNames.size()) {
-            Set<String> missing = new LinkedHashSet<>(processNames);
-            missing.removeAll(candidatesByName.keySet());
-            throw ServiceExceptionUtil.invalidParamException("以下工序不存在或未启用: {}", String.join(", ", missing));
-        }
-
-        Map<String, List<NormalizedDeviceRow>> deviceRowsByProcessName = groupDeviceRowsByProcessName(
-                normalizedSheet.deviceRows());
-        Set<String> existingPairKeys = selectExistingMachineryProcessKeys(machineryByCode.values().stream()
-                .map(MesDvMachineryDO::getId)
-                .collect(LinkedHashSet::new, Set::add, Set::addAll));
-        Set<Long> importerOwnedWorkstationProcessIds = selectImporterOwnedWorkstationProcessIds(candidatesByName);
-
-        Map<String, MesProProcessDO> processMap = new LinkedHashMap<>();
-        for (String processName : processNames) {
-            List<MesProProcessDO> candidates = candidatesByName.get(processName);
-            if (candidates.size() == 1) {
-                processMap.put(processName, candidates.get(0));
-                continue;
-            }
-
-            List<NormalizedDeviceRow> deviceRows = deviceRowsByProcessName.getOrDefault(processName, List.of());
-            MesProProcessDO resolved = deviceRows.isEmpty()
-                    ? resolveDuplicateManualProcess(processName, candidates, importerOwnedWorkstationProcessIds)
-                    : resolveDuplicateDeviceProcess(processName, candidates, deviceRows, machineryByCode, existingPairKeys);
-            processMap.put(processName, resolved);
-        }
-        return processMap;
-    }
-
-    private Map<String, List<NormalizedDeviceRow>> groupDeviceRowsByProcessName(List<NormalizedDeviceRow> deviceRows) {
-        Map<String, List<NormalizedDeviceRow>> result = new LinkedHashMap<>();
-        for (NormalizedDeviceRow row : deviceRows) {
-            result.computeIfAbsent(row.processName(), key -> new ArrayList<>()).add(row);
-        }
-        return result;
     }
 
     private Set<String> selectExistingMachineryProcessKeys(Collection<Long> machineryIds) {
@@ -244,77 +197,6 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
             result.add(buildMachineryProcessKey(row.getProcessId(), row.getMachineryId()));
         }
         return result;
-    }
-
-    private Set<Long> selectImporterOwnedWorkstationProcessIds(Map<String, List<MesProProcessDO>> candidatesByName) {
-        Set<Long> processIds = new LinkedHashSet<>();
-        for (List<MesProProcessDO> candidates : candidatesByName.values()) {
-            for (MesProProcessDO candidate : candidates) {
-                processIds.add(candidate.getId());
-            }
-        }
-        if (processIds.isEmpty()) {
-            return Collections.emptySet();
-        }
-        Set<Long> result = new LinkedHashSet<>();
-        for (MesMdWorkstationDO workstation : workstationMapper.selectListByProcessIds(processIds)) {
-            if (WORKSTATION_REMARK.equals(workstation.getRemark()) && workstation.getProcessId() != null) {
-                result.add(workstation.getProcessId());
-            }
-        }
-        return result;
-    }
-
-    private MesProProcessDO resolveDuplicateDeviceProcess(String processName,
-                                                          List<MesProProcessDO> candidates,
-                                                          List<NormalizedDeviceRow> deviceRows,
-                                                          Map<String, MesDvMachineryDO> machineryByCode,
-                                                          Set<String> existingPairKeys) {
-        List<MesProProcessDO> matched = new ArrayList<>();
-        for (MesProProcessDO candidate : candidates) {
-            boolean allDevicePairsExist = true;
-            for (NormalizedDeviceRow row : deviceRows) {
-                MesDvMachineryDO machinery = machineryByCode.get(row.machineryCode());
-                if (machinery == null || !existingPairKeys.contains(buildMachineryProcessKey(candidate.getId(), machinery.getId()))) {
-                    allDevicePairsExist = false;
-                    break;
-                }
-            }
-            if (allDevicePairsExist) {
-                matched.add(candidate);
-            }
-        }
-        if (matched.size() == 1) {
-            return matched.get(0);
-        }
-        throw ServiceExceptionUtil.invalidParamException(
-                "工序 [{}] 存在多个启用记录，无法通过设备工序明细唯一匹配: {}",
-                processName, formatProcessCandidates(candidates));
-    }
-
-    private MesProProcessDO resolveDuplicateManualProcess(String processName,
-                                                          List<MesProProcessDO> candidates,
-                                                          Set<Long> importerOwnedWorkstationProcessIds) {
-        List<MesProProcessDO> matched = new ArrayList<>();
-        for (MesProProcessDO candidate : candidates) {
-            if (importerOwnedWorkstationProcessIds.contains(candidate.getId())) {
-                matched.add(candidate);
-            }
-        }
-        if (matched.size() == 1) {
-            return matched.get(0);
-        }
-        throw ServiceExceptionUtil.invalidParamException(
-                "工序 [{}] 存在多个启用记录且为人工行，无法唯一匹配: {}",
-                processName, formatProcessCandidates(candidates));
-    }
-
-    private String formatProcessCandidates(List<MesProProcessDO> candidates) {
-        StringJoiner joiner = new StringJoiner(", ");
-        for (MesProProcessDO candidate : candidates) {
-            joiner.add(candidate.getCode() + "(" + candidate.getId() + ")");
-        }
-        return joiner.toString();
     }
 
     private Map<String, MesDvMachineryDO> resolveExistingMachineryMap(List<NormalizedDeviceRow> deviceRows) {
@@ -346,11 +228,11 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
 
         List<String> missingPairs = new ArrayList<>();
         for (NormalizedDeviceRow row : deviceRows) {
-            Long processId = processMap.get(row.processName()).getId();
+            Long processId = processMap.get(row.processCode()).getId();
             Long machineryId = machineryByCode.get(row.machineryCode()).getId();
             String key = buildMachineryProcessKey(processId, machineryId);
             if (!existingPairKeys.contains(key)) {
-                missingPairs.add(row.processName() + " + " + row.machineryCode());
+                missingPairs.add(row.processName() + "（" + row.processCode() + "）" + " + " + row.machineryCode());
             }
         }
         if (!missingPairs.isEmpty()) {
@@ -372,19 +254,19 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
         int reusedCount = 0;
         int createdCount = 0;
         Map<Long, Long> workstationIdByProcessId = new LinkedHashMap<>();
-        for (String processName : normalizedSheet.processNames()) {
-            MesProProcessDO process = processMap.get(processName);
+        for (String processCode : normalizedSheet.processCodes()) {
+            MesProProcessDO process = processMap.get(processCode);
             List<MesMdWorkstationDO> candidates = workstationMap.getOrDefault(process.getId(), List.of());
             if (candidates.size() > 1) {
-                throw ServiceExceptionUtil.invalidParamException("工序 [{}] 存在多个有效工作站，无法自动同步", processName);
+                throw ServiceExceptionUtil.invalidParamException("工序 [{}] 存在多个有效工作站，无法自动同步", processCode);
             }
             if (candidates.isEmpty()) {
                 MesMdWorkstationSaveReqVO createReqVO = buildCreateWorkstationReq(process, targetWorkshop,
-                        resolveSingleStandardHourlyCapacity(processName, normalizedSheet.manualRows()));
+                        resolveSingleStandardHourlyCapacity(processCode, normalizedSheet.manualRows()));
                 applyVirtualWarehouseHierarchyIfMissing(createReqVO);
                 Long workstationId = workstationService.createWorkstation(createReqVO);
                 if (workstationId == null) {
-                    throw ServiceExceptionUtil.invalidParamException("工序 [{}] 创建工作站未返回编号，无法同步", processName);
+                    throw ServiceExceptionUtil.invalidParamException("工序 [{}] 创建工作站未返回编号，无法同步", processCode);
                 }
                 workstationIdByProcessId.put(process.getId(), workstationId);
                 createdCount++;
@@ -392,7 +274,7 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
             }
 
             MesMdWorkstationDO existing = candidates.get(0);
-            BigDecimal singleStandardHourlyCapacity = resolveSingleStandardHourlyCapacity(processName, normalizedSheet.manualRows());
+            BigDecimal singleStandardHourlyCapacity = resolveSingleStandardHourlyCapacity(processCode, normalizedSheet.manualRows());
             MesMdWorkstationSaveReqVO updateReqVO = buildUpdateWorkstationReq(existing, process, targetWorkshop,
                     singleStandardHourlyCapacity);
             applyVirtualWarehouseHierarchyIfMissing(updateReqVO);
@@ -426,9 +308,9 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
         reqVO.setAreaId(area.getId());
     }
 
-    private BigDecimal resolveSingleStandardHourlyCapacity(String processName,
+    private BigDecimal resolveSingleStandardHourlyCapacity(String processCode,
                                                            Map<String, NormalizedManualRow> manualRows) {
-        NormalizedManualRow manualRow = manualRows.get(processName);
+        NormalizedManualRow manualRow = manualRows.get(processCode);
         return manualRow == null ? null : manualRow.singleStandardHourlyCapacity();
     }
 
@@ -480,7 +362,7 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
         }
         int count = 0;
         for (NormalizedDeviceRow row : deviceRows) {
-            MesProProcessDO process = processMap.get(row.processName());
+            MesProProcessDO process = processMap.get(row.processCode());
             MesDvMachineryDO machinery = machineryByCode.get(row.machineryCode());
             Long workstationId = workstationIdByProcessId.get(process.getId());
             if (workstationId == null) {
@@ -504,7 +386,7 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
             workstationWorkerMapper.deleteByWorkstationId(workstationId);
         }
         for (NormalizedManualRow row : manualRows.values()) {
-            MesProProcessDO process = processMap.get(row.processName());
+            MesProProcessDO process = processMap.get(row.processCode());
             Long workstationId = workstationIdByProcessId.get(process.getId());
             if (workstationId == null) {
                 throw ServiceExceptionUtil.invalidParamException("工序 [{}] 未找到同步后的工作站，无法配置人数", row.processName());
@@ -532,8 +414,8 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
         }
     }
 
-    private String buildProcessDeviceKey(String processName, String machineryCode) {
-        return processName + "::" + machineryCode;
+    private String buildProcessDeviceKey(String processCode, String machineryCode) {
+        return processCode + "::" + machineryCode;
     }
 
     private String buildMachineryProcessKey(Long processId, Long machineryId) {
@@ -542,19 +424,21 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
 
     private record NormalizedSheet(List<NormalizedDeviceRow> deviceRows,
                                    Map<String, NormalizedManualRow> manualRows,
-                                   Set<String> processNames,
+                                   Set<String> processCodes,
                                    Integer ignoredPlaceholderRowCount,
                                    List<BalloonProcessDeviceMappingImportRespVO.IgnoredCapacityConflictPair> ignoredCapacityConflictPairs) {
     }
 
     private record NormalizedDeviceRow(Integer sourceRowNo,
                                        String machineryCode,
+                                       String processCode,
                                        String processName,
                                        String deviceName,
                                        Integer deviceQuantity) {
     }
 
     private record NormalizedManualRow(Integer sourceRowNo,
+                                       String processCode,
                                        String processName,
                                        String manualDailyCapacity,
                                        BigDecimal singleStandardHourlyCapacity) {

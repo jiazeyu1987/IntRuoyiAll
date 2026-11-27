@@ -84,15 +84,17 @@
                         <DataDefinition :data="row" />
                       </template>
                     </el-table-column>
-                    <el-table-column align="center" label="值" width="200">
+                    <el-table-column align="center" label="值" min-width="360">
                       <template #default="scope">
-                        <el-input
+                        <BusinessJsonInput
+                          :root-types="['object', 'array', 'string', 'number', 'boolean', 'null']"
+                          :ref="
+                            (editor) =>
+                              parameterEditors.set('event:' + scope.row.identifier, editor as any)
+                          "
                           :model-value="getFormValue(scope.row.identifier)"
                           @update:model-value="setFormValue(scope.row.identifier, $event)"
-                          type="textarea"
-                          :rows="3"
-                          placeholder="输入事件参数（JSON格式）"
-                          size="small"
+                          label="事件参数"
                         />
                       </template>
                     </el-table-column>
@@ -200,15 +202,17 @@
                         <DataDefinition :data="row" />
                       </template>
                     </el-table-column>
-                    <el-table-column align="center" label="参数值" width="200">
+                    <el-table-column align="center" label="参数值" min-width="360">
                       <template #default="scope">
-                        <el-input
+                        <BusinessJsonInput
+                          :root-types="['object', 'array', 'string', 'number', 'boolean', 'null']"
+                          :ref="
+                            (editor) =>
+                              parameterEditors.set('service:' + scope.row.identifier, editor as any)
+                          "
                           :model-value="getFormValue(scope.row.identifier)"
                           @update:model-value="setFormValue(scope.row.identifier, $event)"
-                          type="textarea"
-                          :rows="3"
-                          placeholder="输入服务参数（JSON格式）"
-                          size="small"
+                          label="服务参数"
                         />
                       </template>
                     </el-table-column>
@@ -242,6 +246,7 @@
 </template>
 
 <script lang="ts" setup>
+import BusinessJsonInput from '@/components/BusinessData/BusinessJsonInput.vue'
 import { ProductVO } from '@/api/iot/product/product'
 import { ThingModelData } from '@/api/iot/thingmodel'
 import { DeviceApi, DeviceVO } from '@/api/iot/device/device'
@@ -316,7 +321,17 @@ const handlePropertyPost = async () => {
 }
 
 /** 模拟事件上报 */
+const parameterEditors = new Map<string, InstanceType<typeof BusinessJsonInput> | null>()
+const validateParameter = (identifier: string) => {
+  const error = parameterEditors.get(identifier)?.validate()
+  if (error) {
+    message.error(error)
+    return false
+  }
+  return true
+}
 const handleEventPost = async (eventItem: ThingModelData) => {
+  if (!validateParameter('event:' + eventItem.identifier)) return
   const value = getFormValue(eventItem.identifier)
   if (!value) {
     message.warning('请输入事件参数')
@@ -393,6 +408,7 @@ const handlePropertySet = async () => {
 
 /** 模拟服务调用 */
 const handleServiceInvoke = async (serviceItem: ThingModelData) => {
+  if (!validateParameter('service:' + serviceItem.identifier)) return
   const value = getFormValue(serviceItem.identifier)
   if (!value) {
     message.warning('请输入服务参数')

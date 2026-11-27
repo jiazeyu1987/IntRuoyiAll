@@ -35,7 +35,7 @@
                   v-for="project in dccProjectCodeOptions"
                   :key="project.id"
                   :label="formatDccProjectCodeOption(project)"
-                  :value="project.id"
+                  :value="resolveDccProjectId(project.id)"
                   :class="getDccProjectCodeOptionClass(project)"
                 >
                   <span
@@ -161,7 +161,7 @@
               !selectedDccProjectCode ||
               qaCurrentConfigurationLoading ||
               qaRegulationPublishing ||
-              qaRegulationResetting
+              qaRegulationResetting || qaEquipmentAutoSaving
             "
             @click="previewQaRegulationDraft"
           >
@@ -174,7 +174,7 @@
               !selectedDccProjectCode ||
               qaCurrentConfigurationLoading ||
               qaRegulationSaving ||
-              qaRegulationResetting
+              qaRegulationResetting || qaEquipmentAutoSaving
             "
             @click="runQaPublishPrecheck"
           >
@@ -184,7 +184,7 @@
             plain
             data-qa-regulation-word-import
             :loading="qaWordImportSubmitting"
-            :disabled="qaRegulationSaving || qaRegulationPublishing || qaRegulationResetting"
+            :disabled="qaRegulationSaving || qaRegulationPublishing || qaRegulationResetting || qaEquipmentAutoSaving"
             @click="openQaWordImportDialog"
           >
             <Icon icon="ep:document" class="mr-4px" />
@@ -434,7 +434,7 @@
               v-for="project in dccProjectCodeOptions"
               :key="project.id"
               :label="formatDccProjectCodeOption(project)"
-              :value="project.id"
+              :value="resolveDccProjectId(project.id)"
             >
               <span
                 class="qa-regulation-page__project-option-label"
@@ -1795,11 +1795,11 @@ v-if="row.finalInspectionEnabled" :model-value="row.finalInspectionQuantity"
                         class="qa-regulation-page__equipment-binding"
                       >
                         <el-select
-                          v-model="equipment.equipmentId"
+                          :model-value="equipment.equipmentId"
                           filterable
                           :loading="qaMachineryOptionsLoading"
                           :disabled="
-                            qaMachineryOptionsLoading ||
+                            !canEditCommonRegulationBindings || qaRegulationSaving || qaRegulationPublishing || qaCurrentConfigurationLoading || (selectedQaRegulationVersionStatus !== 'DRAFT' && selectedQaRegulationVersionId !== qaCurrentPublishedVersion?.publishedVersionId) || qaMachineryOptionsLoading ||
                             qaEquipmentAutoSaving ||
                             qaMachineryOptions.length === 0
                           "
@@ -1823,7 +1823,7 @@ v-if="row.finalInspectionEnabled" :model-value="row.finalInspectionQuantity"
                           type="danger"
                           :aria-label="`删除${row.itemName || '检验项目'}的检验设备`"
                           title="删除检验设备"
-                          @click="removeQaItemEquipment(row, equipmentIndex)"
+                          :disabled="qaEquipmentAutoSaving || !canEditCommonRegulationBindings || qaRegulationSaving || qaRegulationPublishing || qaCurrentConfigurationLoading || (selectedQaRegulationVersionStatus !== 'DRAFT' && selectedQaRegulationVersionId !== qaCurrentPublishedVersion?.publishedVersionId)" @click="removeQaItemEquipment(row, equipmentIndex)"
                         >
                           <Icon icon="ep:delete" />
                         </el-button>
@@ -1832,7 +1832,7 @@ v-if="row.finalInspectionEnabled" :model-value="row.finalInspectionQuantity"
                         link
                         type="primary"
                         :disabled="
-                          qaMachineryOptionsLoading ||
+                          !canEditCommonRegulationBindings || qaRegulationSaving || qaRegulationPublishing || qaCurrentConfigurationLoading || (selectedQaRegulationVersionStatus !== 'DRAFT' && selectedQaRegulationVersionId !== qaCurrentPublishedVersion?.publishedVersionId) || qaMachineryOptionsLoading ||
                           qaEquipmentAutoSaving ||
                           qaMachineryOptions.length === 0
                         "
@@ -1842,7 +1842,31 @@ v-if="row.finalInspectionEnabled" :model-value="row.finalInspectionQuantity"
                         <Icon icon="ep:plus" class="mr-4px" />
                         新增设备
                       </el-button>
-                      <template v-if="!row.equipmentOptions.length && isNonSensoryTool(row.inspectionTool)">
+                      <el-button
+                        link
+                        type="primary"
+                        :disabled="
+                          !qaEquipmentDirtyRows.has(row) || !canEditCommonRegulationBindings ||
+                          qaRegulationSaving ||
+                          qaRegulationPublishing ||
+                          qaCurrentConfigurationLoading ||
+                          (selectedQaRegulationVersionStatus !== 'DRAFT' &&
+                            selectedQaRegulationVersionId !==
+                              qaCurrentPublishedVersion?.publishedVersionId)
+                        "
+                        :loading="qaEquipmentAutoSaving"
+                        @click="saveQaItemEquipment(row)"
+                      >
+                        {{
+                          qaEquipmentDirtyRows.has(row)
+                            ? '保存设备配置（未保存）'
+                            : '保存设备配置（立即生效）'
+                        }}
+                      </el-button>
+                      <el-button v-if="qaEquipmentDirtyRows.has(row)" link :disabled="qaEquipmentAutoSaving" @click="discardQaItemEquipment(row)">放弃设备修改</el-button>
+                      <template
+                        v-if="!row.equipmentOptions.length && isNonSensoryTool(row.inspectionTool)"
+                      >
                         <el-input
                           v-model="row.equipmentUnboundReason"
                           type="textarea"
@@ -2015,7 +2039,7 @@ v-if="row.finalInspectionEnabled" :model-value="row.finalInspectionQuantity"
                   fixed="right"
                 >
                   <template #default="{ row }">
-                    <el-button link type="danger" @click="removeQaRegulationItemByRow(row)">
+                    <el-button link type="danger" :disabled="qaEquipmentAutoSaving" @click="removeQaRegulationItemByRow(row)">
                       删除
                     </el-button>
                   </template>
@@ -2206,7 +2230,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { EQUIPMENT_UNBOUND_NOTICE, isNonSensoryTool } from '@/views/form-center/parser/simplePqc'
 import type { UploadFile, UploadUserFile } from 'element-plus'
 import { useClipboard, useMediaQuery } from '@vueuse/core'
-import { useRoute } from 'vue-router'
+import { useRoute, onBeforeRouteLeave } from 'vue-router'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import {
@@ -2306,7 +2330,9 @@ interface QaRegulationItem extends QaItemInspectionState {
   sourceOriginalItem?: string
   sourceOriginalExcerpt?: string
   sourceOriginalMethod?: string
-  equipmentOptions: QaInspectionRegulationItemVO['equipmentOptions']
+  equipmentOptions: (Omit<QaInspectionRegulationItemEquipmentVO, 'equipmentId'> & {
+    equipmentId?: number
+  })[]
 }
 
 interface QaRegulationDraft {
@@ -2505,6 +2531,7 @@ const qaRegulationItems = ref<QaRegulationItem[]>([])
 const qaPublishedVersionNo = ref('')
 const qaRegulationVersionOptions = ref<QaInspectionRegulationVersionOptionVO[]>([])
 const selectedQaRegulationVersionId = ref<number>()
+const loadedQaVersionId = ref<number>()
 const qaRegulationVersionOptionsLoading = ref(false)
 const qaRegulationVersionOptionsLoadError = ref('')
 let qaRegulationVersionOptionsLoadSerial = 0
@@ -2532,6 +2559,39 @@ const qaMachineryOptionsLoading = ref(false)
 const qaMachineryOptionsLoadError = ref('')
 const qaEquipmentBindingLoadError = ref('')
 const qaEquipmentAutoSaving = ref(false)
+const qaEquipmentBaseline = new Map<QaRegulationItem, { options: QaRegulationItem['equipmentOptions']; reason?: string }>()
+const rememberQaEquipmentBaseline = (row: QaRegulationItem) => {
+  getQaItemNameGroup(row).forEach((item) => {
+    if (!qaEquipmentBaseline.has(item)) qaEquipmentBaseline.set(item, {
+      options: item.equipmentOptions.map((option) => ({ ...option })),
+      reason: item.equipmentUnboundReason
+    })
+  })
+}
+const discardQaItemEquipment = (row: QaRegulationItem) => {
+  const items = getQaItemNameGroup(row).filter((item) => qaEquipmentDirtyRows.has(item))
+  if (items.some((item) => !qaEquipmentBaseline.has(item))) throw new Error('设备修改基线缺失，无法放弃修改')
+  items.forEach((item) => {
+    const baseline = qaEquipmentBaseline.get(item)!
+    item.equipmentOptions = baseline.options.map((option) => ({ ...option }))
+    item.equipmentUnboundReason = baseline.reason
+    qaEquipmentDirtyRows.delete(item)
+    qaEquipmentBaseline.delete(item)
+  })
+}
+const qaEquipmentDirtyRows = reactive(new Set<QaRegulationItem>())
+const warnBeforeQaEquipmentUnload = (event: BeforeUnloadEvent) => {
+  if (!qaEquipmentDirtyRows.size) return
+  event.preventDefault()
+  event.returnValue = ''
+}
+onMounted(() => window.addEventListener('beforeunload', warnBeforeQaEquipmentUnload))
+onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeQaEquipmentUnload))
+onBeforeRouteLeave(() => {
+  if (!qaEquipmentDirtyRows.size) return true
+  ElMessage.warning('设备配置尚未保存，请先保存后离开')
+  return false
+})
 const QA_MACHINERY_PAGE_SIZE = 100
 const qaRegulationProjectStatusByDccId = ref(
   new Map<string, QaInspectionRegulationProjectStatusVO>()
@@ -3147,12 +3207,13 @@ const flattenQaRegulationProcesses = (
           sourceOriginalItem: item.sourceOriginalItem,
           sourceOriginalExcerpt: item.sourceOriginalExcerpt,
           sourceOriginalMethod: item.sourceOriginalMethod,
-          equipmentOptions: [],
+          equipmentOptions: (item.equipmentOptions || []).map((equipment) => ({ ...equipment })),
           ...createQaItemInspectionState(item)
         }))
     )
 
 const resetQaRegulationConfiguration = (dccProjectCodeId?: number | string) => {
+  loadedQaVersionId.value = undefined
   Object.assign(qaRegulationDraft, createEmptyQaRegulationDraft(), { dccProjectCodeId })
   qaInspectionTypeRules.splice(
     0,
@@ -3206,6 +3267,7 @@ const applyQaRegulationConfiguration = (
   qaPublishedVersionNo.value =
     configuration.lifecycleStatus === 'PUBLISHED' ? configuration.versionNo : ''
   selectedQaRegulationVersionId.value = configuration.publishedVersionId
+  loadedQaVersionId.value = configuration.publishedVersionId
   qaItemsQuery.pageNo = 1
 }
 
@@ -3230,13 +3292,13 @@ const toQaEquipmentOptions = (
 const getQaItemNameGroup = (row: QaRegulationItem) => {
   const itemName = row.itemName.trim()
   return qaRegulationItems.value.filter(
-    (candidate) => candidate.itemName.trim() === itemName && candidate.itemCode.trim()
+    (candidate) => candidate === row || (Boolean(itemName) && candidate.itemName.trim() === itemName && Boolean(candidate.itemCode.trim()))
   )
 }
 
 const applyQaEquipmentOptionsToItemNameGroup = (
   row: QaRegulationItem,
-  options: QaInspectionRegulationItemEquipmentVO[]
+  options: QaRegulationItem['equipmentOptions']
 ) => {
   getQaItemNameGroup(row).forEach((candidate) => {
     candidate.equipmentOptions = options.map((option) => ({ ...option }))
@@ -3405,6 +3467,7 @@ const getAvailableQaMachinery = (row: QaRegulationItem, equipmentIndex: number) 
 }
 
 const addQaItemEquipment = (row: QaRegulationItem) => {
+  rememberQaEquipmentBaseline(row)
   if (qaMachineryOptions.value.length === 0) {
     throw new Error('设备台账为空，不能添加检验设备')
   }
@@ -3419,23 +3482,26 @@ const addQaItemEquipment = (row: QaRegulationItem) => {
     return
   }
   row.equipmentOptions.push({
-    equipmentId: firstAvailable.id,
-    equipmentCode: firstAvailable.code,
-    equipmentName: firstAvailable.name,
-    equipmentNumber: firstAvailable.code,
+    equipmentId: undefined,
+    equipmentCode: '',
+    equipmentName: '',
+    equipmentNumber: '',
     defaultFlag: row.equipmentOptions.length === 0,
     sort: row.equipmentOptions.length + 1
   })
-  row.equipmentUnboundReason = undefined
-  return autoSaveQaItemEquipment(row)
+  applyQaEquipmentOptionsToItemNameGroup(row, row.equipmentOptions)
+  getQaItemNameGroup(row).forEach((item) => qaEquipmentDirtyRows.add(item))
 }
 
 const removeQaItemEquipment = (row: QaRegulationItem, equipmentIndex: number) => {
+  rememberQaEquipmentBaseline(row)
   row.equipmentOptions.splice(equipmentIndex, 1)
   row.equipmentOptions.forEach((equipment, index) => {
     equipment.sort = index + 1
   })
-  return autoSaveQaItemEquipment(row)
+
+  applyQaEquipmentOptionsToItemNameGroup(row, row.equipmentOptions)
+  getQaItemNameGroup(row).forEach((item) => qaEquipmentDirtyRows.add(item))
 }
 
 const handleQaItemEquipmentChange = (
@@ -3443,6 +3509,7 @@ const handleQaItemEquipmentChange = (
   equipmentIndex: number,
   equipmentId: number
 ) => {
+  rememberQaEquipmentBaseline(row)
   const machinery = qaMachineryOptions.value.find(
     (candidate) => Number(candidate.id) === Number(equipmentId)
   )
@@ -3465,7 +3532,9 @@ const handleQaItemEquipmentChange = (
   equipment.equipmentName = machinery.name
   equipment.equipmentNumber = machinery.code
   row.equipmentUnboundReason = undefined
-  return autoSaveQaItemEquipment(row)
+
+  applyQaEquipmentOptionsToItemNameGroup(row, row.equipmentOptions)
+  getQaItemNameGroup(row).forEach((item) => qaEquipmentDirtyRows.add(item))
 }
 
 const addCommonRegulationItemEquipment = (row: CommonRegulationItem) => {
@@ -3532,15 +3601,27 @@ const handleCommonRegulationItemEquipmentChange = (
   equipment.sort = equipmentIndex + 1
 }
 
-const autoSaveQaItemEquipment = async (row: QaRegulationItem) => {
-  const dccProjectCodeId = resolveDccProjectId(qaRegulationDraft.dccProjectCodeId)
-  const itemRows = getQaItemNameGroup(row)
-  const itemCodes = itemRows.map((candidate) => candidate.itemCode.trim())
-  if (!itemCodes.length) {
-    throw new Error('检验项目编号不能为空')
-  }
+const saveQaItemEquipment = async (row: QaRegulationItem) => {
+  if (!qaEquipmentDirtyRows.has(row) || qaCurrentConfigurationLoading.value || (selectedQaRegulationVersionStatus.value !== 'DRAFT' && selectedQaRegulationVersionId.value !== qaCurrentPublishedVersion.value?.publishedVersionId)) return
+  if (
+    qaEquipmentAutoSaving.value ||
+    qaRegulationSaving.value ||
+    qaRegulationPublishing.value ||
+    !canEditCommonRegulationBindings.value
+  )
+    return
   qaEquipmentAutoSaving.value = true
   try {
+    const dccProjectCodeId = resolveDccProjectId(qaRegulationDraft.dccProjectCodeId)
+    const itemRows = getQaItemNameGroup(row)
+    const itemCodes = itemRows.map((candidate) => candidate.itemCode.trim())
+    if (!itemCodes.length || itemCodes.some((code) => !code)) {
+      throw new Error('检验项目编号不能为空')
+    }
+    const ids = row.equipmentOptions.map((equipment) =>
+      resolvePositiveId(equipment.equipmentId, '检验设备')
+    )
+    if (new Set(ids).size !== ids.length) throw new Error('同一检验项目不能重复绑定同一台设备')
     const saved = await QcTemplateApi.savePqcItemEquipmentConfigBatch({
       dccProjectCodeId,
       itemCode: itemCodes[0],
@@ -3564,9 +3645,10 @@ const autoSaveQaItemEquipment = async (row: QaRegulationItem) => {
       }))
     })
     applyQaEquipmentOptionsToItemNameGroup(row, toQaEquipmentOptions(saved))
-    ElMessage.success('检验设备配置已自动保存')
+    getQaItemNameGroup(row).forEach((item) => { qaEquipmentDirtyRows.delete(item); qaEquipmentBaseline.delete(item) })
+    ElMessage.success('检验设备配置已保存，立即用于生产检验')
   } catch (error) {
-    ElMessage.error('检验设备配置自动保存失败：' + resolveDccProjectCodeErrorMessage(error))
+    ElMessage.error('检验设备配置保存失败：' + resolveDccProjectCodeErrorMessage(error))
     throw error
   } finally {
     qaEquipmentAutoSaving.value = false
@@ -3583,7 +3665,7 @@ const loadCurrentPublishedQaRegulationVersion = async (project?: DccProjectCodeR
   }
   const dccProjectCodeId = resolveDccProjectId(project.id)
   const status = qaRegulationProjectStatusByDccId.value.get(dccProjectCodeId)
-  if (status?.lifecycleStatus !== 'PUBLISHED') {
+  if (!status?.productionReady && !status?.currentVersionId) {
     return
   }
   qaCurrentPublishedVersionLoading.value = true
@@ -3907,6 +3989,11 @@ const deleteCommonRegulationSetVersion = async (
 }
 
 const handleQaRegulationVersionChange = async (versionId?: number) => {
+  if (qaEquipmentDirtyRows.size) {
+    selectedQaRegulationVersionId.value = loadedQaVersionId.value
+    ElMessage.warning('设备配置尚未保存，请先保存后切换版本')
+    return
+  }
   if (!versionId || !selectedDccProjectCode.value) {
     return
   }
@@ -4013,6 +4100,10 @@ const copySelectedDccProjectCode = async () => {
 }
 
 const selectDccProjectCode = async (project?: DccProjectCodeRespVO) => {
+  if (qaEquipmentDirtyRows.size) {
+    ElMessage.warning('设备配置尚未保存，请先保存后切换项目')
+    return
+  }
   selectedDccProjectCode.value = project
   persistLastDccProjectCodeSelection(project)
   if (!project) {
@@ -4041,6 +4132,7 @@ const selectDccProjectCode = async (project?: DccProjectCodeRespVO) => {
 }
 
 const handleDccProjectCodeChange = async (projectId?: number | string) => {
+  if (qaEquipmentDirtyRows.size) { qaRegulationDraft.dccProjectCodeId = selectedDccProjectCode.value ? resolveDccProjectId(selectedDccProjectCode.value.id) : undefined; ElMessage.warning('请先保存设备配置后切换项目'); return }
   if (!projectId) {
     await selectDccProjectCode()
     return
@@ -4083,6 +4175,8 @@ const resetQaWordImportDialog = () => {
 }
 
 const openQaWordImportDialog = () => {
+  if (qaEquipmentAutoSaving.value) return
+  if (qaEquipmentDirtyRows.size) { ElMessage.warning('设备配置尚未保存，请先保存或放弃设备修改'); return }
   qaWordImportFile.value = undefined
   qaWordImportFileList.value = []
   qaWordImportDccProjectCodeId.value = qaRegulationDraft.dccProjectCodeId
@@ -4136,6 +4230,12 @@ const handleQaWordImportProjectVisibleChange = (visible: boolean) => {
 }
 
 const submitQaWordImport = async () => {
+  if (qaWordImportSubmitting.value) return
+  if (qaEquipmentAutoSaving.value) {
+    ElMessage.warning('设备配置正在保存，请稍后再导入')
+    return
+  }
+  if (qaEquipmentDirtyRows.size) { ElMessage.warning('设备配置尚未保存，请先保存或放弃设备修改'); return }
   let savedResult: QaInspectionRegulationImportRespVO | undefined
   try {
     if (!qaWordImportFile.value) {
@@ -4178,6 +4278,7 @@ const submitQaWordImport = async () => {
     statusMap.set(dccProjectCodeId, {
       dccProjectCodeId,
       configured: true,
+      ...currentStatus,
       regulationCount: currentStatus?.regulationCount || 1,
       regulationId: savedResult.regulationId,
       currentVersionId: currentStatus?.currentVersionId,
@@ -4206,6 +4307,8 @@ const submitQaWordImport = async () => {
 }
 
 const resetQaRegulationForTesting = async () => {
+  if (qaEquipmentAutoSaving.value) return
+  if (qaEquipmentDirtyRows.size) { ElMessage.warning('设备配置尚未保存，请先保存或放弃设备修改'); return }
   let resetCompleted = false
   try {
     const dccProjectCodeId = resolveDccProjectId(qaRegulationDraft.dccProjectCodeId)
@@ -4249,7 +4352,14 @@ const resetQaRegulationForTesting = async () => {
       return
     }
     const prefix = resetCompleted ? 'QA 规程已重置，但页面刷新失败：' : 'QA 规程重置失败：'
-    ElMessage.error(prefix + resolveDccProjectCodeErrorMessage(error))
+    await ElMessageBox.alert(prefix + resolveDccProjectCodeErrorMessage(error),
+      resetCompleted ? '重置已完成，页面刷新失败' : '测试重置未执行', {
+        type: 'error',
+        confirmButtonText: '知道了',
+        closeOnClickModal: false,
+        closeOnPressEscape: false,
+        showClose: false
+      })
   } finally {
     qaRegulationResetting.value = false
   }
@@ -4355,6 +4465,7 @@ const handleQaPatrolInspectionEnabledChange = (item: QaRegulationItem) => {
 }
 
 const addQaRegulationItem = () => {
+  if (qaEquipmentAutoSaving.value) return
   const nextSort = qaRegulationItems.value.length + 1
   qaRegulationItems.value.push({
     processCode: '',
@@ -4382,8 +4493,11 @@ const addQaRegulationItem = () => {
 }
 
 const removeQaRegulationItemByRow = (row: QaRegulationItem) => {
+  if (qaEquipmentAutoSaving.value) return
   const index = qaRegulationItems.value.indexOf(row)
   if (index >= 0) {
+    qaEquipmentDirtyRows.delete(row)
+    qaEquipmentBaseline.delete(row)
     qaRegulationItems.value.splice(index, 1)
     keepQaLocalPageInRange(qaItemsQuery, qaRegulationItems.value.length)
   }
@@ -4471,7 +4585,7 @@ const buildQaRegulationProcesses = (): QaInspectionRegulationSaveProcessVO[] => 
 }
 
 const buildCommonRegulationItemEquipmentOptions = (
-  item: CommonRegulationItem,
+  item: QaRegulationItem,
   itemName: string
 ): QaInspectionRegulationItemEquipmentVO[] =>
   item.equipmentOptions.map((equipment, index) => ({
@@ -4738,6 +4852,8 @@ watch(
   (total) => keepQaLocalPageInRange(commonRegulationItemsQuery, total)
 )
 const previewQaRegulationDraft = async () => {
+  if (qaEquipmentAutoSaving.value) return
+
   let payload: ProductQaRegulationSaveReqVO
   try {
     payload = buildQaRegulationSavePayload()
@@ -4755,11 +4871,13 @@ const previewQaRegulationDraft = async () => {
     qaRegulationDraft.lifecycleStatus = result.lifecycleStatus
     qaConfigurationExists.value = true
     selectedQaRegulationVersionId.value = result.draftVersionId
+    loadedQaVersionId.value = result.draftVersionId
     const statusMap = new Map(qaRegulationProjectStatusByDccId.value)
     const currentStatus = statusMap.get(resolveDccProjectId(payload.dccProjectCodeId))
     statusMap.set(resolveDccProjectId(payload.dccProjectCodeId), {
       dccProjectCodeId: payload.dccProjectCodeId,
       configured: true,
+      ...currentStatus,
       regulationCount: currentStatus?.regulationCount || 1,
       regulationId: result.regulationId,
       currentVersionId: currentStatus?.currentVersionId,
@@ -4769,6 +4887,7 @@ const previewQaRegulationDraft = async () => {
     })
     qaRegulationProjectStatusByDccId.value = statusMap
     await loadQaRegulationVersionOptions(payload.dccProjectCodeId)
+    if (qaEquipmentDirtyRows.size) ElMessage.warning('草稿已保存，设备配置仍未保存，请继续点击保存设备配置')
     ElMessage.success('QA 规程草稿已保存：' + result.versionNo + '；关联修改仍需发布后生效')
   } catch (error) {
     ElMessage.error('QA 规程草稿保存失败：' + resolveDccProjectCodeErrorMessage(error))
@@ -4778,6 +4897,12 @@ const previewQaRegulationDraft = async () => {
 }
 
 const runQaPublishPrecheck = async () => {
+  if (qaEquipmentAutoSaving.value) return
+  if (qaRegulationPublishing.value) return
+  if (qaEquipmentDirtyRows.size) {
+    ElMessage.warning('请先保存未保存的设备配置，再发布规程')
+    return
+  }
   if (qaPublishBlockers.value.length > 0) {
     ElMessage.warning(qaPublishBlockers.value.map((check) => check.detail).join('；'))
     return
@@ -4788,6 +4913,36 @@ const runQaPublishPrecheck = async () => {
   } catch (error) {
     ElMessage.warning(resolveDccProjectCodeErrorMessage(error))
     return
+  }
+  let commonAssociationPreview: string
+  qaRegulationPublishing.value = true
+  try {
+    commonAssociationPreview = (await Promise.all(payload.commonRegulationVersionIds!.map(async (versionId) => {
+      const snapshot = await QcTemplateApi.getCommonRegulationPublishedVersion(versionId)
+      if (String(snapshot.publishedVersionId) !== String(versionId))
+        throw new Error('关联通用规程版本详情与指定版本不一致，请重新加载')
+      return `${resolveRequiredText(snapshot.regulationCode, '关联通用规程编号')} ${resolveRequiredText(snapshot.regulationName, '关联通用规程名称')} ${resolveRequiredText(snapshot.versionNo, '关联通用规程版本')}`
+    }))).join('、') || '无'
+  } catch (error) {
+    qaRegulationPublishing.value = false
+    ElMessage.warning(resolveDccProjectCodeErrorMessage(error))
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `项目：${selectedDccProjectCodeLabel.value}；规程：${payload.regulationCode} / ${payload.regulationName}；源版本：${qaRegulationDraft.loadedVersionNo || '新建'}；目标版本：${payload.versionNo}；工序：${new Set(qaRegulationItems.value.map((item) => item.processCode)).size}；检验项目：${qaRegulationItems.value.length}；通用规程关联：${commonAssociationPreview}。确认后将生成不可变正式版本。`,
+      '发布确认预览',
+      {
+        confirmButtonText: '确认发布',
+        cancelButtonText: '返回修改',
+        type: 'warning',
+        distinguishCancelAndClose: true
+      }
+    )
+  } catch (action) {
+    qaRegulationPublishing.value = false
+    if (action === 'cancel' || action === 'close') return
+    throw action
   }
   qaRegulationPublishing.value = true
   let publicationCommitted = false
@@ -4803,6 +4958,8 @@ const runQaPublishPrecheck = async () => {
       regulationCount: statusMap.get(resolveDccProjectId(payload.dccProjectCodeId))?.regulationCount || 1,
       regulationId: publishedVersion.regulationId,
       currentVersionId: publishedVersion.publishedVersionId,
+      productionReady: true,
+      publishedVersionNo: publishedVersion.versionNo,
       regulationCode: publishedVersion.regulationCode,
       regulationName: publishedVersion.regulationName,
       lifecycleStatus: 'PUBLISHED'
@@ -4865,6 +5022,14 @@ const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() =
 ])
 
 const listColumnFilterDefinitions2 = computed<ListColumnFilterDefinition[]>(() => [
+  { key: 'qaProcessName', label: '工序', type: 'text', getValue: (row) => row.processName },
+  { key: 'qaProcessCode', label: '工序编码', type: 'text', getValue: (row) => row.processCode },
+  {
+    key: 'applicableTypes',
+    label: '适用检验类型',
+    type: 'text',
+    getValue: (row) => resolveQaItemApplicableTypes(row).map(resolveQaInspectionTypeLabel).join(' ')
+  },
   {
     key: 'samplingPlan',
     label: '原抽样方案',

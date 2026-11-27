@@ -90,9 +90,11 @@ public class MesProRouteTreeService {
         Long sourceId = parentId == null || groupTemplate(parentId) == null ? sourceRouteId : parentId;
         if (sourceId == null) throw invalid("请选择分组的初始工艺模板");
         JSONObject source = snapshot(active(sourceId));
-        if (!MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(
-                MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(source))) {
-            throw invalid("初始工艺模板快照不完整，请先完成源流程生产配置迁移并发布后再创建目录");
+        String snapshotProblem = MesProRouteVersionSnapshotValidator.configSnapshotProblem(
+                MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(source));
+        if (snapshotProblem != null) {
+            throw invalid("初始工艺模板（流程 " + sourceId + "）快照不完整：" + snapshotProblem
+                    + "。请修复源流程配置并发布后再创建目录");
         }
         MesProRouteDO group = MesProRouteDO.builder().name(name.trim())
                 .code("GROUP-" + UUID.randomUUID().toString().replace("-", ""))

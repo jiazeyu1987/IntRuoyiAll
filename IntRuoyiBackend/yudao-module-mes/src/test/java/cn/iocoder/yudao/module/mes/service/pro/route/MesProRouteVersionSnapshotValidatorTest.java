@@ -33,6 +33,22 @@ class MesProRouteVersionSnapshotValidatorTest {
                 "\"routeProcessId\":2,\"processId\":2}", "\"routeProcessId\":2,\"processId\":2,\"sopFileUrl\":null}")));
     }
 
+    @Test
+    void diagnosticsLocateMissingKeysTypesAndSopNodeWithoutWeakeningValidation() {
+        String valid = sopSnapshot(",\"sopFileUrl\":null");
+        org.junit.jupiter.api.Assertions.assertNull(MesProRouteVersionSnapshotValidator.configSnapshotProblem(valid));
+        for (String key : new String[]{"products", "scheduleConfigs", "batchUseConfigs", "scheduleUseConfigs"}) {
+            String missing = valid.replace("\"" + key + "\":[],", "");
+            assertFalse(MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(missing));
+            assertTrue(MesProRouteVersionSnapshotValidator.configSnapshotProblem(missing).contains(key));
+            String wrong = valid.replace("\"" + key + "\":[]", "\"" + key + "\":true");
+            assertFalse(MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(wrong));
+            assertTrue(MesProRouteVersionSnapshotValidator.configSnapshotProblem(wrong).contains(key));
+        }
+        assertTrue(MesProRouteVersionSnapshotValidator.configSnapshotProblem(sopSnapshot(""))
+                .contains("nodes[0]"));
+    }
+
     private boolean complete(String field) {
         return MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(sopSnapshot(field));
     }

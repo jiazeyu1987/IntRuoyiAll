@@ -39,7 +39,7 @@ export const getApprovalReviewPreview = async (data: { moduleCode: ApprovalModul
 
 export type ApprovalTaskViewType = 'TODO' | 'DONE' | 'MY_INITIATED' | 'CC'
 
-export type ApprovalModuleCode = 'BPM' | 'DCC' | 'EDHR' | 'SHOWROOM' | 'SRM' | 'MES_FEEDBACK'
+export type ApprovalModuleCode = 'BPM' | 'DCC' | 'EDHR' | 'SHOWROOM' | 'MES_FEEDBACK'
 
 export type ApprovalTaskReviewResult = 'APPROVE' | 'REJECT'
 

@@ -308,7 +308,7 @@ const handleLogin = async (params) => {
     } else if (redirect.indexOf('sso') !== -1) {
       window.location.href = window.location.href.replace('/login?redirect=', '')
     } else {
-      push({ path: redirect || permissionStore.addRouters[0]?.path || '/srm/portal/application' })
+      push({ path: redirect || permissionStore.addRouters[0]?.path || '/' })
     }
   } finally {
     loginLoading.value = false

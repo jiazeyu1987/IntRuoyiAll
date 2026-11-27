@@ -20,6 +20,9 @@ public class MesProScheduleOrderProcessRespVO {
     @Schema(description = "路线工序编号", example = "200")
     private Long routeProcessId;
 
+    @Schema(description = "本工序当前采用的路线版本编号")
+    private Long routeVersionId;
+
     @Schema(description = "工序编号", example = "300")
     private Long processId;
 

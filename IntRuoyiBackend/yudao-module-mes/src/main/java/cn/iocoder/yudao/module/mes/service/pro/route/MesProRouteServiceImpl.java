@@ -55,6 +55,8 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleCapacityModeEnum;
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.schedulerworkbench.MesProSchedulerWorkbenchService;
+import cn.iocoder.yudao.module.system.api.permission.RoleApi;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -93,6 +95,11 @@ public class MesProRouteServiceImpl implements MesProRouteService {
 
     @jakarta.annotation.Resource
     private MesVersionOperateLogService versionOperateLogService;
+
+    @Resource
+    private AdminUserApi adminUserApi;
+    @Resource
+    private RoleApi roleApi;
 
     private static final String OWNER_PREFIX = "[owner]";
     private static final String OWNER_SUFFIX = "[/owner]";
@@ -406,6 +413,9 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         }
 
         MesProRouteVersionDO sourceVersion = routeVersionMapper.selectActiveByRouteId(sourceRouteId);
+        if (sourceVersion == null && !copiedRouteProcessIds.isEmpty()) {
+            throw exception(PRO_ROUTE_VERSION_ACTIVE_NOT_EXISTS, sourceRouteId);
+        }
         MesProRouteVersionDO targetVersion = createRouteVersion(targetRoute, "V1",
                 sourceVersion == null ? null : sourceVersion.getId());
         JSONObject inheritedRouteLevelConfigSnapshots = extractReusableRouteLevelConfigSnapshots(sourceVersion);
@@ -414,6 +424,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         }
         inheritCopiedProductionProcessConfigs(inheritedRouteLevelConfigSnapshots, sourceVersion,
                 copiedRouteProcessIds);
+        inheritCopiedMaterialConfigs(inheritedRouteLevelConfigSnapshots, sourceVersion, copiedRouteProcessIds);
+        inheritCopiedProductionLeaders(inheritedRouteLevelConfigSnapshots, sourceVersion, targetRoute);
         if (sourceVersion != null) {
             copyScheduleConfigs(sourceRouteId, sourceVersion.getId(), targetVersion.getId(), copiedRouteProcessIds);
         }
@@ -997,6 +1009,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
                                              JSONObject inheritedConfigSnapshots) {
         JSONObject configSnapshots = buildCompleteRouteConfigSnapshots(route.getId(), routeVersionId);
         inheritConfigSnapshotIfMissing(configSnapshots, inheritedConfigSnapshots, BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
+        inheritConfigSnapshotIfMissing(configSnapshots, inheritedConfigSnapshots, ROUTE_START_PRODUCTION_LEADERS_KEY);
         inheritConfigSnapshotIfMissing(configSnapshots, inheritedConfigSnapshots, "sharedSourceSnapshots");
         if (inheritedConfigSnapshots != null && inheritedConfigSnapshots.containsKey("lossCoefficient")) {
             configSnapshots.put("lossCoefficient", MesRouteLossCoefficient.read(inheritedConfigSnapshots));
@@ -1005,6 +1018,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
             configSnapshots.put(PRODUCTION_PROCESS_CONFIGS_KEY,
                     inheritedConfigSnapshots.get(PRODUCTION_PROCESS_CONFIGS_KEY));
         }
+        applyCopiedMaterialConfigs(configSnapshots, inheritedConfigSnapshots, routeVersionId);
         MesProRouteVersionDO update = new MesProRouteVersionDO();
         update.setId(routeVersionId);
         MesProRouteVersionSnapshotIdentityWriter.apply(update,
@@ -1349,6 +1363,114 @@ public class MesProRouteServiceImpl implements MesProRouteService {
             copiedConfigs.add(copiedConfig);
         }
         inheritedConfigSnapshots.put(PRODUCTION_PROCESS_CONFIGS_KEY, copiedConfigs);
+    }
+
+    private void inheritCopiedProductionLeaders(JSONObject inheritedConfigSnapshots,
+                                                MesProRouteVersionDO sourceVersion,
+                                                MesProRouteDO targetRoute) {
+        JSONObject sourceConfigs = extractConfigSnapshots(sourceVersion);
+        if (sourceConfigs == null || !sourceConfigs.containsKey(ROUTE_START_PRODUCTION_LEADERS_KEY)) {
+            return;
+        }
+        if (!(sourceConfigs.get(ROUTE_START_PRODUCTION_LEADERS_KEY) instanceof JSONArray assignments)) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, sourceVersion.getId());
+        }
+        // Absence and an explicit empty assignment remain distinct; publication keeps its own gate.
+        if (!assignments.isEmpty()) {
+            MesProRouteVersionSnapshotValidator.requireProductionLeaderAssignments(sourceVersion.getRouteSnapshotJson());
+        }
+        JSONArray copiedAssignments = new JSONArray();
+        for (Object raw : assignments) {
+            JSONObject assignment = (JSONObject) raw;
+            if (!Objects.equals(sourceVersion.getRouteId(), assignment.getLong("productionLineId"))) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, sourceVersion.getId());
+            }
+            List<Long> sourceIds = assignment.getJSONArray("candidateSourceIds").toJavaList(Long.class);
+            if ("ROLE".equals(assignment.getString("candidateSourceType"))) {
+                roleApi.validRoleList(sourceIds);
+            } else {
+                adminUserApi.validateUserList(sourceIds);
+            }
+            JSONObject copied = JSON.parseObject(assignment.toJSONString());
+            copied.put("productionLineId", targetRoute.getId());
+            copied.put("productionLineCode", targetRoute.getCode());
+            copied.put("productionLineName", targetRoute.getName());
+            copiedAssignments.add(copied);
+        }
+        inheritedConfigSnapshots.put(ROUTE_START_PRODUCTION_LEADERS_KEY, copiedAssignments);
+    }
+
+    private void inheritCopiedMaterialConfigs(JSONObject inheritedConfigSnapshots,
+                                               MesProRouteVersionDO sourceVersion,
+                                               Map<Long, Long> copiedRouteProcessIds) {
+        if (sourceVersion == null) {
+            return;
+        }
+        JSONObject sourceConfigs = extractConfigSnapshots(sourceVersion);
+        if (sourceConfigs == null || !(sourceConfigs.get(BATCH_USE_CONFIGS_KEY) instanceof JSONArray batchConfigs)) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, sourceVersion.getId());
+        }
+        JSONArray copiedMaterials = new JSONArray();
+        Set<Long> mappedProcessIds = new LinkedHashSet<>();
+        for (Object raw : batchConfigs) {
+            if (!(raw instanceof JSONObject sourceConfig)
+                    || !(sourceConfig.get("inputMaterialIds") instanceof JSONArray inputs)
+                    || !(sourceConfig.get("outputMaterialIds") instanceof JSONArray outputs)) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, sourceVersion.getId());
+            }
+            Long targetProcessId = resolveCopiedRouteProcessId(sourceVersion.getRouteId(),
+                    sourceConfig.getLong("routeProcessId"), copiedRouteProcessIds);
+            if (!mappedProcessIds.add(targetProcessId)) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, sourceVersion.getId());
+            }
+            validateCopiedMaterialIds(inputs, sourceVersion.getId());
+            validateCopiedMaterialIds(outputs, sourceVersion.getId());
+            // Only materials cross this boundary; bindings and config IDs come from the copied rows.
+            JSONObject materials = new JSONObject(true);
+            materials.put("routeProcessId", targetProcessId);
+            materials.put("inputMaterialIds", JSON.parseArray(inputs.toJSONString()));
+            materials.put("outputMaterialIds", JSON.parseArray(outputs.toJSONString()));
+            copiedMaterials.add(materials);
+        }
+        if (!mappedProcessIds.equals(new LinkedHashSet<>(copiedRouteProcessIds.values()))) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, sourceVersion.getId());
+        }
+        inheritedConfigSnapshots.put(BATCH_USE_CONFIGS_KEY, copiedMaterials);
+    }
+
+    private void validateCopiedMaterialIds(JSONArray ids, Long sourceVersionId) {
+        Set<Long> distinctIds = new LinkedHashSet<>();
+        for (Object raw : ids) {
+            Long id;
+            try {
+                id = raw == null ? null : Long.valueOf(String.valueOf(raw));
+            } catch (NumberFormatException ex) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, sourceVersionId);
+            }
+            if (id == null || id <= 0 || !distinctIds.add(id)) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, sourceVersionId);
+            }
+        }
+    }
+
+    private void applyCopiedMaterialConfigs(JSONObject targetConfigs, JSONObject inheritedConfigs, Long versionId) {
+        if (inheritedConfigs == null || !inheritedConfigs.containsKey(BATCH_USE_CONFIGS_KEY)) {
+            return;
+        }
+        Map<Long, RouteProcessMaterialSnapshot> materials = extractRouteProcessMaterialSnapshots(
+                inheritedConfigs.get(BATCH_USE_CONFIGS_KEY), versionId);
+        for (Object raw : targetConfigs.getJSONArray(BATCH_USE_CONFIGS_KEY)) {
+            JSONObject target = (JSONObject) raw;
+            RouteProcessMaterialSnapshot material = materials.remove(target.getLong("routeProcessId"));
+            if (material == null) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, versionId);
+            }
+            target.put("inputMaterialIds", material.inputMaterialIds());
+            target.put("outputMaterialIds", material.outputMaterialIds());
+        }
+        if (!materials.isEmpty()) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, versionId);
+        }
     }
 
     private void inheritConfigSnapshotIfMissing(JSONObject targetConfigSnapshots,

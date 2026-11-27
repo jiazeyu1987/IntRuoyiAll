@@ -2,19 +2,16 @@
 <template>
   <div>
     <el-alert
-      title="支持远程更新设备的配置文件(JSON 格式)，可以在下方编辑配置模板，对设备的系统参数、网络参数等进行远程配置。配置完成后，需点击「下发」按钮，设备即可进行远程配置。"
+      title="支持远程更新设备的配置资料，可以在下方编辑配置模板，对设备的系统参数、网络参数等进行远程配置。配置完成后，需点击「下发」按钮，设备即可进行远程配置。"
       type="info"
       show-icon
       class="my-4"
       description="如需编辑文件，请点击下方编辑按钮"
     />
-    <JsonEditor
-      v-model="config"
-      :mode="isEditing ? 'code' : 'view'"
-      height="600px"
-      @error="onError"
-    />
-    <div class="mt-5 text-center">
+    <el-alert v-if="configError" :title="configError" type="error" :closable="false" />
+    <BusinessJsonNode v-else-if="isEditing" v-model="config" ref="configEditor" />
+    <ReadableData v-else-if="!configError" title="设备配置" :source="JSON.stringify(config)" />
+    <div v-if="!configError" class="mt-5 text-center">
       <el-button v-if="isEditing" @click="cancelEdit">取消</el-button>
       <el-button v-if="isEditing" type="primary" @click="saveConfig" :disabled="hasJsonError">
         保存
@@ -30,8 +27,8 @@
 <script lang="ts" setup>
 import { DeviceApi, DeviceVO } from '@/api/iot/device/device'
 import { IotDeviceMessageMethodEnum } from '@/views/iot/utils/constants'
-import { jsonParse } from '@/utils'
-import { isEmpty } from '@/utils/is'
+import BusinessJsonNode from '@/components/BusinessData/BusinessJsonNode.vue'
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
 
 defineOptions({ name: 'DeviceDetailConfig' })
 
@@ -46,30 +43,54 @@ const emit = defineEmits<{
 const message = useMessage()
 const loading = ref(false) // 加载中
 const pushLoading = ref(false) // 推送加载中
-const config = ref<any>({}) // 只存储 config 字段
-const hasJsonError = ref(false) // 是否有 JSON 格式错误
+const config = ref<unknown>()
+const configError = ref('')
+const configEditor = ref<InstanceType<typeof BusinessJsonNode>>()
+const hasJsonError = ref(false)
+const isEditing = ref(false)
+const validateConfigNumbers = (value: unknown): void => {
+  if (typeof value === 'number' && (!Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value))))
+    throw new Error('设备配置包含超出精度范围的数值，请核查源配置中的编号类型')
+  if (value !== null && typeof value === 'object') Object.values(value).forEach(validateConfigNumbers)
+}
+const loadConfig = () => {
+  configError.value = ''
+  config.value = undefined
+  isEditing.value = false
+  try {
+    if (!props.device.config?.trim()) throw new Error('设备尚未提供配置资料')
+    const parsed = JSON.parse(props.device.config)
+    validateConfigNumbers(parsed)
+    config.value = parsed
+  } catch (error) {
+    configError.value =
+      error instanceof SyntaxError ? '设备配置资料格式错误，请核查源配置' : (error as Error).message
+  }
+}
+watch(() => props.device.config, loadConfig, { immediate: true })
 
-/** 监听 props.device 的变化，只更新 config 字段 */
-watchEffect(() => {
-  config.value = jsonParse(props.device.config)
-})
-
-const isEditing = ref(false) // 编辑状态
 /** 启用编辑模式的函数 */
 const enableEdit = () => {
+  if (configError.value) return
   isEditing.value = true
   hasJsonError.value = false // 重置错误状态
 }
 
 /** 取消编辑的函数 */
 const cancelEdit = () => {
-  config.value = jsonParse(props.device.config)
+  loadConfig()
   isEditing.value = false
   hasJsonError.value = false // 重置错误状态
 }
 
 /** 保存配置的函数 */
 const saveConfig = async () => {
+  if (configError.value) return
+  const error = configEditor.value?.validate()
+  if (error) {
+    message.error(error)
+    return
+  }
   if (hasJsonError.value) {
     message.error('JSON格式错误，请修正后再提交！')
     return
@@ -80,6 +101,7 @@ const saveConfig = async () => {
 
 /** 配置推送处理函数 */
 const handleConfigPush = async () => {
+  if (configError.value) return
   try {
     // 二次确认
     await message.confirm('确定要推送配置到设备吗？此操作将远程更新设备配置。', '配置推送确认')
@@ -116,19 +138,8 @@ const updateDeviceConfig = async () => {
     message.success('更新成功！')
     // 触发 success 事件
     emit('success')
-  } catch (error) {
-    console.error(error)
   } finally {
     loading.value = false
   }
-}
-
-/** 处理 JSON 编辑器错误的函数 */
-const onError = (errors: any) => {
-  if (isEmpty(errors)) {
-    hasJsonError.value = false
-    return
-  }
-  hasJsonError.value = true
 }
 </script>

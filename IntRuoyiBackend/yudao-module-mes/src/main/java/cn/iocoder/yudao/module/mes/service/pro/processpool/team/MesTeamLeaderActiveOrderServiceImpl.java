@@ -398,17 +398,32 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     }
 
     @Override
-    public List<MesTeamLeaderActiveOrderCandidateBO> searchActiveOrderCandidates(String keyword) {
+    public List<MesTeamLeaderActiveOrderCandidateBO> searchActiveOrderCandidates(Long leaderUserId, String keyword) {
         String searchText = keyword == null ? "" : keyword.trim();
         if (searchText.isEmpty()) {
             return List.of();
         }
-        List<Long> productIds = itemMapper.selectListByCodeOrNameLike(searchText, 20).stream()
+        List<Long> responsibleRouteIds = routeStartAuthorizationService.listResponsibleRoutes(leaderUserId).stream()
+                .map(MesProRouteDO::getId)
+                .distinct()
+                .toList();
+        if (responsibleRouteIds.isEmpty()) {
+            return List.of();
+        }
+        List<Long> responsibleProductIds = routeProductMapper.selectListByRouteIds(responsibleRouteIds).stream()
+                .map(MesProRouteProductDO::getItemId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (responsibleProductIds.isEmpty()) {
+            return List.of();
+        }
+        List<Long> productIds = itemMapper.selectListByCodeOrNameInIds(searchText, responsibleProductIds).stream()
                 .map(MesMdItemDO::getId)
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
-        List<MesProWorkOrderDO> workOrders = workOrderMapper.selectCandidatesByKeyword(searchText, productIds);
+        List<MesProWorkOrderDO> workOrders = workOrderMapper.selectCandidatesByKeyword(searchText, productIds, responsibleProductIds);
         Map<Long, List<MesProcessPoolActiveOrderDO>> historyByWorkOrderId = loadCandidateHistory(workOrders);
         List<MesProWorkOrderDO> workOrdersRequiringCurrentContext = workOrders.stream()
                 .filter(workOrder -> workOrder.getId() != null)
@@ -754,15 +769,21 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED,
                         workOrder == null ? null : workOrder.getId());
             }
-            MesProProcessDO formalProcess = processMapper == null ? null
-                    : processMapper.selectByIdIgnoreDeleted(processId);
+            if (!node.containsKey("sopFileUrl")
+                    || (node.get("sopFileUrl") != null && !(node.get("sopFileUrl") instanceof String))) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersion.getId());
+            }
             String processCode = node.getString("processCode");
             String processName = node.getString("processName");
-            if (processCode == null || processCode.isBlank()) {
-                processCode = formalProcess == null ? null : formalProcess.getCode();
-            }
-            if (processName == null || processName.isBlank()) {
-                processName = formalProcess == null ? null : formalProcess.getName();
+            if (processCode == null || processCode.isBlank() || processName == null || processName.isBlank()) {
+                MesProProcessDO formalProcess = processMapper == null ? null
+                        : processMapper.selectByIdIgnoreDeleted(processId);
+                if (processCode == null || processCode.isBlank()) {
+                    processCode = formalProcess == null ? null : formalProcess.getCode();
+                }
+                if (processName == null || processName.isBlank()) {
+                    processName = formalProcess == null ? null : formalProcess.getName();
+                }
             }
             processCode = requireSnapshotText(processCode, workOrder == null ? null : workOrder.getId());
             processName = requireSnapshotText(processName, workOrder == null ? null : workOrder.getId());

@@ -92,26 +92,6 @@ const sourceExpectations = [
     file: 'src/views/showroom-admin/version-center/VersionCenterHeader.vue',
     required: ['formatDateTimeValue(currentRelease.publishedAt)'],
     forbidden: ['currentRelease.publishedAt}`']
-  },
-  {
-    file: 'src/views/srm/outsource-execution/index.vue',
-    required: [
-      'prop="createTime" width="180" :formatter="dateTimeValueFormatter"',
-      'prop="eventTime" width="180" :formatter="dateTimeValueFormatter"'
-    ],
-    forbidden: ['dateFormatter']
-  },
-  {
-    file: 'src/views/srm/outsource-execution/my.vue',
-    required: ['prop="eventTime" width="180" :formatter="dateTimeValueFormatter"']
-  },
-  {
-    file: 'src/views/srm/payment-execution/index.vue',
-    required: ['prop="eventTime" width="180" :formatter="dateTimeValueFormatter"']
-  },
-  {
-    file: 'src/views/srm/supplier-portal/review/index.vue',
-    required: ['prop="submittedTime" width="168" :formatter="dateTimeValueFormatter"']
   }
 ]
 

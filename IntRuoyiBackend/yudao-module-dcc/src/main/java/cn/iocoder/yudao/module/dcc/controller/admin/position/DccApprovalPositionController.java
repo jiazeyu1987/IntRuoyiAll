@@ -3,7 +3,6 @@ package cn.iocoder.yudao.module.dcc.controller.admin.position;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.module.dcc.controller.admin.position.vo.DccApprovalPositionCreateReqVO;
-import cn.iocoder.yudao.module.dcc.controller.admin.position.vo.DccApprovalPositionImportRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.position.vo.DccApprovalPositionRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.position.vo.DccPositionAssignmentRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.position.vo.DccPositionAssignmentSaveReqVO;
@@ -50,27 +49,13 @@ public class DccApprovalPositionController {
     }
 
     @PostMapping
-    @Operation(summary = "新增 IntAuth 审批岗位")
+    @Operation(summary = "新增本地审批岗位")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:position:manage')")
     public CommonResult<DccApprovalPositionRespVO> createPosition(@Valid @RequestBody DccApprovalPositionCreateReqVO reqVO) {
         var position = positionAdminService.createPosition(reqVO.getName(), reqVO.getChangeReason());
         DccApprovalPositionRespVO respVO = BeanUtils.toBean(position, DccApprovalPositionRespVO.class);
         respVO.setAssignments(convertList(positionAdminService.getAssignments(position.getId()),
                 assignment -> BeanUtils.toBean(assignment, DccPositionAssignmentRespVO.class)));
-        return success(respVO);
-    }
-
-    @PostMapping("/import-intauth")
-    @Operation(summary = "从 IntAuth 一次性导入审批岗位")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:position:manage')")
-    public CommonResult<DccApprovalPositionImportRespVO> importPositionsFromIntAuth() {
-        var result = positionAdminService.importPositionsFromIntAuth();
-        DccApprovalPositionImportRespVO respVO = new DccApprovalPositionImportRespVO();
-        respVO.setTotalCount(result.getTotalCount());
-        respVO.setCreatedCount(result.getCreatedCount());
-        respVO.setAdoptedCount(result.getAdoptedCount());
-        respVO.setUpdatedCount(result.getUpdatedCount());
-        respVO.setDisabledCount(result.getDisabledCount());
         return success(respVO);
     }
 

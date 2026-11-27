@@ -212,7 +212,7 @@ const handleRegister = async (params: any) => {
     } else if (redirect.value.indexOf('sso') !== -1) {
       window.location.href = window.location.href.replace('/login?redirect=', '')
     } else {
-      push({ path: redirect.value || permissionStore.addRouters[0]?.path || '/srm/portal/application' })
+      push({ path: redirect.value || permissionStore.addRouters[0]?.path || '/' })
     }
   } finally {
     loginLoading.value = false

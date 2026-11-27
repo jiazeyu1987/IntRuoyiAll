@@ -32,6 +32,7 @@ import java.util.Set;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception0;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_WORK_ORDER_ERP_CLEANUP_BLOCKED;
 
+@lombok.extern.slf4j.Slf4j
 @Service
 @RequiredArgsConstructor
 public class MesProWorkOrderErpCleanupService {
@@ -44,6 +45,9 @@ public class MesProWorkOrderErpCleanupService {
     private final GxpAuditService gxpAuditService;
 
     public MesProWorkOrderErpCleanupPreviewRespVO analyze() {
+        String phase = "load";
+        long started = System.nanoTime();
+        try {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         ErpKingdeeProperties properties = configService.getEffectiveProperties();
         properties.validateBaseConfig();
@@ -64,8 +68,12 @@ public class MesProWorkOrderErpCleanupService {
             }
             records.put(workOrder.getId(), record);
         }
+        phase = "erp-check";
+        long loaded = System.nanoTime();
         Set<String> existing = productionOrderClient.findExistingProductionOrderBillNos(properties,
                 records.values().stream().map(MesKingdeeProductionOrderSyncRecordDO::getSourceBillNo).distinct().toList());
+        phase = "protection-check";
+        long erpChecked = System.nanoTime();
         List<MesProWorkOrderErpCleanupPreviewRespVO.Item> missing = new ArrayList<>();
         for (MesProWorkOrderDO workOrder : workOrders) {
             MesKingdeeProductionOrderSyncRecordDO record = records.get(workOrder.getId());
@@ -89,7 +97,17 @@ public class MesProWorkOrderErpCleanupService {
         result.setAnalyzedCount(records.size());
         result.setUnverifiableCount(unverifiableCount);
         result.setMissingWorkOrders(missing);
+        log.info("ERP cleanup preview tenant={} total={} verified={} missing={} loadMs={} erpMs={} protectionMs={}",
+                tenantId, workOrders.size(), records.size(), missing.size(),
+                (loaded - started) / 1_000_000, (erpChecked - loaded) / 1_000_000,
+                (System.nanoTime() - erpChecked) / 1_000_000);
         return result;
+        } catch (RuntimeException ex) {
+            // 不输出 ERP 配置、响应或异常消息，原异常继续交给统一异常处理。
+            log.warn("ERP cleanup preview failed phase={} elapsedMs={} errorType={}",
+                    phase, (System.nanoTime() - started) / 1_000_000, ex.getClass().getSimpleName());
+            throw ex;
+        }
     }
 
     @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)

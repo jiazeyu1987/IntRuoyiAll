@@ -1,6 +1,10 @@
 <template>
   <div class="scheduler-workbench" v-loading="loading">
+    <el-alert v-if="summaryError" title="工作台汇总加载失败" :description="summaryError" type="error" :closable="false" show-icon />
+    <el-button v-if="summaryError || processWipErrorMessage" @click="reloadWorkbench">重新加载工作台</el-button>
     <Dialog v-model="schedulerSettingsDialogVisible" title="排产设置" width="1280px">
+      <el-alert v-if="schedulerSettingsError" title="排产设置加载失败，当前显示值不可视为已保存配置，已禁止编辑和保存" :description="schedulerSettingsError" type="error" :closable="false" show-icon />
+      <el-button v-if="schedulerSettingsError" @click="ensureSchedulerSettingsLoaded">重新加载设置</el-button>
       <div class="scheduler-workbench__settings-dialog" v-loading="schedulerSettingsLoading">
         <div class="scheduler-workbench__panel-head">
           <span>排产</span>
@@ -31,7 +35,7 @@
                   :precision="2"
                   controls-position="right"
                   class="scheduler-workbench__settings-control"
-                  :disabled="!canUpdateSettings"
+                  :disabled="!canUpdateSettings || !schedulerSettingsLoaded"
                 />
                 <span class="scheduler-workbench__shift-unit">时</span>
               </div>
@@ -41,6 +45,7 @@
                 v-if="canUpdateSettings"
                 type="primary"
                 class="scheduler-workbench__settings-button"
+                :disabled="!schedulerSettingsLoaded"
                 :loading="shiftHoursSaving"
                 @click="saveShiftHoursSetting"
               >
@@ -67,7 +72,7 @@
               <div class="scheduler-workbench__settings-control scheduler-workbench__switch-control">
                 <el-switch
                   v-model="scheduleRulesForm.skipStatutoryHolidays"
-                  :disabled="!canUpdateSettings"
+                  :disabled="!canUpdateSettings || !schedulerSettingsLoaded"
                 />
               </div>
             </el-form-item>
@@ -75,7 +80,7 @@
               <el-select
                 v-model="scheduleRulesForm.weekendRestMode"
                 class="scheduler-workbench__settings-control"
-                :disabled="!canUpdateSettings"
+                :disabled="!canUpdateSettings || !schedulerSettingsLoaded"
               >
                 <el-option label="双休" value="DOUBLE" />
                 <el-option label="单休" value="SINGLE" />
@@ -87,7 +92,7 @@
                 v-if="canUpdateSettings"
                 type="primary"
                 class="scheduler-workbench__settings-button"
-                :disabled="!scheduleRulesDirty"
+                :disabled="!schedulerSettingsLoaded || !scheduleRulesDirty"
                 :loading="scheduleRulesSaving"
                 @click="saveScheduleRules"
               >
@@ -117,7 +122,7 @@
               v-model="policySettingsForm.erpWorkOrderSyncTime"
               placeholder="HH:mm"
               class="scheduler-workbench__settings-control"
-              :disabled="!canUpdateSettings"
+              :disabled="!canUpdateSettings || !schedulerSettingsLoaded"
             />
           </el-form-item>
           <el-form-item
@@ -129,7 +134,7 @@
               v-model="policySettingsForm.nightlyReplanTime"
               placeholder="HH:mm"
               class="scheduler-workbench__settings-control"
-              :disabled="!canUpdateSettings"
+              :disabled="!canUpdateSettings || !schedulerSettingsLoaded"
             />
           </el-form-item>
           <el-form-item
@@ -140,7 +145,7 @@
             <el-select
               v-model="policySettingsForm.priorityRule"
               class="scheduler-workbench__settings-control"
-              :disabled="!canUpdateSettings"
+              :disabled="!canUpdateSettings || !schedulerSettingsLoaded"
             >
               <el-option label="交期优先" value="PROMISE_DATE" />
               <el-option label="订单优先" value="ORDER_PRIORITY" />
@@ -165,7 +170,7 @@
           >
             <el-switch
               v-model="policySettingsForm.defaultScheduleUseEnabled"
-              :disabled="!canUpdateSettings"
+              :disabled="!canUpdateSettings || !schedulerSettingsLoaded"
               inline-prompt
               active-text="开启"
               inactive-text="关闭"
@@ -179,7 +184,7 @@
             <el-select
               v-model="policySettingsForm.defaultScheduleCapacityMode"
               class="scheduler-workbench__settings-control"
-              :disabled="!canUpdateSettings"
+              :disabled="!canUpdateSettings || !schedulerSettingsLoaded"
             >
               <el-option label="资源计算" value="RESOURCE_CALCULATED" />
               <el-option label="产能覆盖" value="MANUAL_OVERRIDE" />
@@ -198,7 +203,7 @@
               :precision="6"
               controls-position="right"
               class="scheduler-workbench__settings-control"
-              :disabled="!canUpdateSettings"
+              :disabled="!canUpdateSettings || !schedulerSettingsLoaded"
             />
           </el-form-item>
           <el-form-item
@@ -213,7 +218,7 @@
               :precision="6"
               controls-position="right"
               class="scheduler-workbench__settings-control"
-              :disabled="!canUpdateSettings"
+              :disabled="!canUpdateSettings || !schedulerSettingsLoaded"
             />
           </el-form-item>
           <el-form-item
@@ -228,7 +233,7 @@
               :precision="6"
               controls-position="right"
               class="scheduler-workbench__settings-control"
-              :disabled="!canUpdateSettings"
+              :disabled="!canUpdateSettings || !schedulerSettingsLoaded"
             />
           </el-form-item>
           <el-form-item
@@ -238,7 +243,7 @@
           >
             <el-switch
               v-model="policySettingsForm.defaultNightShiftEnabled"
-              :disabled="!canUpdateSettings"
+              :disabled="!canUpdateSettings || !schedulerSettingsLoaded"
               inline-prompt
               active-text="允许"
               inactive-text="不允许"
@@ -255,7 +260,7 @@
               :precision="0"
               controls-position="right"
               class="scheduler-workbench__settings-control"
-              :disabled="!canUpdateSettings"
+              :disabled="!canUpdateSettings || !schedulerSettingsLoaded"
             />
           </el-form-item>
           <el-form-item
@@ -269,7 +274,7 @@
               :precision="6"
               controls-position="right"
               class="scheduler-workbench__settings-control"
-              :disabled="!canUpdateSettings"
+              :disabled="!canUpdateSettings || !schedulerSettingsLoaded"
             />
           </el-form-item>
           <div class="scheduler-workbench__policy-runtime-status">
@@ -349,6 +354,7 @@
               v-if="canUpdateSettings"
               type="primary"
               class="scheduler-workbench__settings-button"
+              :disabled="!schedulerSettingsLoaded"
               :loading="policySettingsSaving"
               @click="savePolicySettings"
             >
@@ -675,17 +681,17 @@
               :total="0"
               :page="1"
               :limit="20"
-              :filter-rows="summary.routeActiveOrders || []"
+              :filter-rows="summaryError || loading ? [] : summary.routeActiveOrders || []"
               :column-filter-definitions="listColumnFilterDefinitions0"
             >
               <template #table="{ resolveRows }">
                 <el-table
-                  :data="resolveRows(summary.routeActiveOrders || [])"
+                  :data="resolveRows(summaryError || loading ? [] : summary.routeActiveOrders || [])"
                   data-user-table-column-explicit
                   data-user-table-key="mes.pro.schedulerWorkbench.routeActiveOrders"
                   border
                   size="small"
-                  empty-text="暂无工艺路线在制订单"
+                  :empty-text="loading ? '正在加载' : summaryError ? '汇总加载失败，请重试' : '暂无工艺路线在制订单'"
                   @header-dragend="handleRouteActiveOrderHeaderDragend"
                 >
                   <el-table-column
@@ -1258,6 +1264,10 @@ type SchedulerWorkbenchMetricSummary = Pick<
 const loading = ref(false)
 const processWipLoading = ref(false)
 const processWipErrorMessage = ref('')
+const summaryError = ref('')
+const schedulerSettingsError = ref('')
+let summaryRequestSerial = 0
+let processWipRequestSerial = 0
 const shiftHoursSaving = ref(false)
 const scheduleRulesLoading = ref(false)
 const scheduleRulesSaving = ref(false)
@@ -1285,16 +1295,9 @@ const autoScheduleJobStatus = ref<AutoScheduleJobStatusVO | null>(null)
 const nightShiftCapacityStatus = ref<NightShiftCapacityStatusVO | null>(null)
 let replanExplanationRequest: Promise<void> | null = null
 let schedulerWorkbenchRequestSerial = 0
-let schedulerWorkbenchSecondaryFrameId: number | undefined
 
 const isStaleSchedulerWorkbenchRequest = (requestSerial: number) =>
   requestSerial !== schedulerWorkbenchRequestSerial
-
-const cancelDeferredSchedulerWorkbenchSecondaryLoad = () => {
-  if (schedulerWorkbenchSecondaryFrameId === undefined) return
-  cancelAnimationFrame(schedulerWorkbenchSecondaryFrameId)
-  schedulerWorkbenchSecondaryFrameId = undefined
-}
 
 const resolveSchedulerWorkbenchErrorMessage = (error: unknown, defaultMessage: string) => {
   if (error instanceof Error && error.message) {
@@ -1716,13 +1719,20 @@ const isAutoScheduleLatestFailure = (status?: AutoScheduleJobStatusVO | null) =>
   status?.latestStatus === 'FAILURE' || status?.latestStatus === 'PARTIAL_FAILURE'
 
 const loadSummary = async (requestSerial?: number) => {
+  const serial = ++summaryRequestSerial
+  summaryError.value = ''
   loading.value = true
   try {
     const nextSummary = await SchedulerWorkbenchApi.getSummary(selectedDate.value)
     if (requestSerial !== undefined && isStaleSchedulerWorkbenchRequest(requestSerial)) return
-    summary.value = nextSummary
+    if (serial === summaryRequestSerial) summary.value = nextSummary
+  } catch (error) {
+    if (serial === summaryRequestSerial && (requestSerial === undefined || !isStaleSchedulerWorkbenchRequest(requestSerial))) {
+      summaryError.value = resolveSchedulerWorkbenchErrorMessage(error, '汇总数据不可用，请重试')
+    }
+    throw error
   } finally {
-    if (requestSerial === undefined || !isStaleSchedulerWorkbenchRequest(requestSerial)) {
+    if (serial === summaryRequestSerial && (requestSerial === undefined || !isStaleSchedulerWorkbenchRequest(requestSerial))) {
       loading.value = false
     }
   }
@@ -1765,27 +1775,29 @@ const getProcessWipRowKey = (row: MesProScheduleOrderProcessWipVO) => {
 }
 
 const loadProcessWipStatistics = async (requestSerial?: number) => {
+  const serial = ++processWipRequestSerial
   processWipLoading.value = true
   processWipErrorMessage.value = ''
   try {
     const rows = await MesProScheduleOrderApi.getProcessWipStatistics()
-    if (requestSerial !== undefined && isStaleSchedulerWorkbenchRequest(requestSerial)) return
+    if (serial !== processWipRequestSerial || (requestSerial !== undefined && isStaleSchedulerWorkbenchRequest(requestSerial))) return
     rows.forEach(getProcessWipRowKey)
-    if (requestSerial !== undefined && isStaleSchedulerWorkbenchRequest(requestSerial)) return
+    if (serial !== processWipRequestSerial || (requestSerial !== undefined && isStaleSchedulerWorkbenchRequest(requestSerial))) return
     syncProcessWipPlannedStartDateDrafts(rows)
     syncProcessWipShiftCapacityDrafts(rows)
     processWipStatistics.value = rows
   } catch (error) {
-    if (requestSerial !== undefined && isStaleSchedulerWorkbenchRequest(requestSerial)) return
+    if (serial !== processWipRequestSerial || (requestSerial !== undefined && isStaleSchedulerWorkbenchRequest(requestSerial))) return
     const message = resolveSchedulerWorkbenchErrorMessage(
       error,
       '工序在制数据缺少路线工序标识'
     )
+    processWipStatistics.value = []
     processWipErrorMessage.value = message
     ElMessage.error(message)
     throw error
   } finally {
-    if (requestSerial === undefined || !isStaleSchedulerWorkbenchRequest(requestSerial)) {
+    if (serial === processWipRequestSerial && (requestSerial === undefined || !isStaleSchedulerWorkbenchRequest(requestSerial))) {
       processWipLoading.value = false
     }
   }
@@ -1957,6 +1969,10 @@ const loadScheduleRules = async () => {
     const rules = await ProScheduleCalendarApi.getRules()
     Object.assign(scheduleRulesForm, defaultScheduleRules(), rules)
     scheduleRulesSnapshot.value = JSON.stringify(buildScheduleRulesPayload())
+  } catch (error) {
+    schedulerSettingsLoaded.value = false
+    schedulerSettingsError.value = resolveSchedulerWorkbenchErrorMessage(error, '排程规则加载失败，请重新加载设置')
+    throw error
   } finally {
     scheduleRulesLoading.value = false
   }
@@ -1976,6 +1992,7 @@ const loadRuntimeStatus = async () => {
 }
 
 const saveShiftHoursSetting = async () => {
+  if (!schedulerSettingsLoaded.value) throw new Error('排产设置尚未成功加载，禁止保存')
   await shiftHoursFormRef.value.validate()
   if (!shiftHoursForm.shiftHours || shiftHoursForm.shiftHours <= 0) {
     throw new Error('班次小时必须大于 0')
@@ -1998,6 +2015,7 @@ const saveShiftHoursSetting = async () => {
 }
 
 const savePolicySettings = async () => {
+  if (!schedulerSettingsLoaded.value) throw new Error('排产设置尚未成功加载，禁止保存')
   await policySettingsFormRef.value.validate()
   policySettingsSaving.value = true
   try {
@@ -2020,6 +2038,7 @@ const buildScheduleRulesPayload = (): ProScheduleCalendarRulesUpdateReqVO => ({
 })
 
 const saveScheduleRules = async () => {
+  if (!schedulerSettingsLoaded.value) throw new Error('排产设置尚未成功加载，禁止保存')
   scheduleRulesSaving.value = true
   try {
     await ProScheduleCalendarApi.updateRules(buildScheduleRulesPayload())
@@ -2093,13 +2112,19 @@ const ensureSchedulerSettingsLoaded = async () => {
     schedulerSettingsRequest = (async () => {
       schedulerSettingsLoading.value = true
       try {
-        await Promise.all([
+        schedulerSettingsError.value = ''
+        const results = await Promise.allSettled([
           loadShiftHoursSetting(),
           loadPolicySettings(),
           loadScheduleRules(),
           loadRuntimeStatus()
         ])
+        const failures = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+        if (failures.length) throw failures[0].reason
         schedulerSettingsLoaded.value = true
+      } catch (error) {
+        schedulerSettingsLoaded.value = false
+        schedulerSettingsError.value = resolveSchedulerWorkbenchErrorMessage(error, '请重新加载设置')
       } finally {
         schedulerSettingsLoading.value = false
         schedulerSettingsRequest = null
@@ -2115,22 +2140,11 @@ const openSchedulerSettingsDialog = async () => {
 }
 
 const openProcessWipOrders = (item: MesProScheduleOrderProcessWipVO) => {
-  const processId = Number(item.processId)
-  if (
-    item.processId !== undefined &&
-    item.processId !== null &&
-    (!Number.isFinite(processId) || !Number.isInteger(processId))
-  ) {
-    throw new Error(`工序在制订单缺少有效工序编号: ${item.processId}`)
-  }
-  router.push({
-    name: 'MesProScheduleOrder',
-    query: {
-      currentProcessId: Number.isFinite(processId) && processId > 0 ? String(processId) : undefined,
-      currentProcessName: item.processName || undefined,
-      source: 'scheduler-workbench'
-    }
-  })
+  const processId = String(item.processId ?? '')
+  if (!/^[1-9]\d*$/.test(processId)) throw new Error('工序在制订单缺少有效工序编号')
+  router.push({ name: 'MesProScheduleOrder', query: {
+    currentProcessId: processId, currentProcessName: item.processName || undefined, source: 'scheduler-workbench'
+  } })
 }
 
 type ProcessWipCapacitySourceFocus = 'resource' | 'schedule'
@@ -2396,28 +2410,18 @@ const loadSchedulerWorkbenchSecondaryData = async (requestSerial: number) => {
   }
 }
 
-const deferSchedulerWorkbenchSecondaryLoad = (requestSerial: number) => {
-  cancelDeferredSchedulerWorkbenchSecondaryLoad()
-  processWipLoading.value = true
-  processWipErrorMessage.value = ''
-  schedulerWorkbenchSecondaryFrameId = requestAnimationFrame(() => {
-    schedulerWorkbenchSecondaryFrameId = undefined
-    if (isStaleSchedulerWorkbenchRequest(requestSerial)) return
-    void loadSchedulerWorkbenchSecondaryData(requestSerial)
-  })
+const reloadWorkbench = async () => {
+  const requestSerial = ++schedulerWorkbenchRequestSerial
+  await Promise.allSettled([loadSummary(requestSerial), loadSchedulerWorkbenchSecondaryData(requestSerial)])
 }
 
 onMounted(async () => {
-  const requestSerial = ++schedulerWorkbenchRequestSerial
   window.addEventListener('focus', handleReplanExplanationWindowFocus)
-  await loadSummary(requestSerial)
-  if (isStaleSchedulerWorkbenchRequest(requestSerial)) return
-  deferSchedulerWorkbenchSecondaryLoad(requestSerial)
+  await reloadWorkbench()
 })
 
 onBeforeUnmount(() => {
   schedulerWorkbenchRequestSerial += 1
-  cancelDeferredSchedulerWorkbenchSecondaryLoad()
   window.removeEventListener('focus', handleReplanExplanationWindowFocus)
 })
 

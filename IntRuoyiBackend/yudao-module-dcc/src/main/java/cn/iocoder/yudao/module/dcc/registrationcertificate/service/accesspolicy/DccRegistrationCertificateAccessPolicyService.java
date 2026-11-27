@@ -221,12 +221,30 @@ public class DccRegistrationCertificateAccessPolicyService {
     }
 
     private boolean isRegistrationDepartment(Long tenantId, Long actorId) {
-        Integer count = jdbcTemplate.queryForObject("""
-                SELECT COUNT(*) FROM system_users u JOIN system_dept d ON d.id=u.dept_id AND d.tenant_id=u.tenant_id
-                 WHERE u.tenant_id=? AND u.id=? AND u.deleted=0 AND d.deleted=0 AND d.name='注册部'
-                """, Integer.class, tenantId, actorId);
-        return count != null && count > 0;
+        List<Long> departments = jdbcTemplate.queryForList("""
+                SELECT dept_id FROM system_users WHERE tenant_id=? AND id=? AND deleted=0
+                """, Long.class, tenantId, actorId);
+        if (departments.size() != 1) return false;
+        Long departmentId = departments.get(0);
+        java.util.Set<Long> visited = new java.util.HashSet<>();
+        // 国内/国际注册等子部门继承注册部身份，仍须通过逐文件授权校验。
+        while (departmentId != null && departmentId > 0) {
+            if (!visited.add(departmentId)) {
+                throw new IllegalStateException("注册证下载权限检查发现部门层级循环");
+            }
+            List<DepartmentMembership> rows = jdbcTemplate.query("""
+                    SELECT name,parent_id FROM system_dept WHERE tenant_id=? AND id=? AND deleted=0
+                    """, (rs, rowNum) -> new DepartmentMembership(rs.getString("name"),
+                            rs.getObject("parent_id", Long.class)), tenantId, departmentId);
+            if (rows.size() != 1) return false;
+            DepartmentMembership department = rows.get(0);
+            if ("注册部".equals(department.name())) return true;
+            departmentId = department.parentId();
+        }
+        return false;
     }
+
+    private record DepartmentMembership(String name, Long parentId) { }
 
     private boolean isExpired(Long tenantId, DccRegistrationCertificateVersionDO version, LocalDateTime at) {
         List<String> jsons = jdbcTemplate.queryForList("""

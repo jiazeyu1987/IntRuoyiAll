@@ -20,9 +20,14 @@ const ref = value => ({ value })
 function harness({ failPublish = false, failRefresh = false } = {}) {
   const calls = [], messages = []
   const context = {
-    commonRegulationBindingRows: ref([{ rowKey: 1, commonRegulationVersionId: 11 }]),
+    qaEquipmentAutoSaving: ref(false), qaEquipmentDirtyRows: new Set(), loadedQaVersionId: { value: undefined }, selectedDccProjectCodeLabel: { value: '项目' }, ElMessageBox: { confirm: async () => {} },
+    commonRegulationBindingRows: ref([{ rowKey: 1, commonRegulationVersionId: 11,
+      commonRegulationCode: 'PQC-C-001', commonRegulationName: '通用检验规程', versionNo: 'A/1' }]),
     commonRegulationBindingRowSerial: 1,
-    commonRegulationVersionOptions: ref([{ commonRegulationVersionId: 22 }]),
+    commonRegulationVersionOptions: ref([
+      { commonRegulationVersionId: 11, commonRegulationCode: 'PQC-C-001', commonRegulationName: '通用检验规程', versionNo: 'A/1' },
+      { commonRegulationVersionId: 22, commonRegulationCode: 'PQC-C-001', commonRegulationName: '通用检验规程', versionNo: 'A/2' }
+    ]),
     commonRegulationBindingLoading: ref(false), commonRegulationBindingLoadError: ref(''),
     commonRegulationVersionOptionsLoading: ref(false), commonRegulationVersionOptionsLoadError: ref(''),
     qaPublishBlockers: ref([]), qaRegulationPublishing: ref(false),
@@ -38,7 +43,8 @@ function harness({ failPublish = false, failRefresh = false } = {}) {
     resolvePositiveId: value => { if (!(Number(value) > 0)) throw Error('请选择规程'); return Number(value) },
     resolveDccProjectCodeErrorMessage: error => error.message,
     ElMessage: { success: text => messages.push(text), error: text => messages.push(text), warning: text => messages.push(text) },
-    QcTemplateApi: { saveQaRegulationDraft: async payload => {
+    QcTemplateApi: { getCommonRegulationPublishedVersion: async id => ({ publishedVersionId: id,
+      regulationCode: 'PQC-C-001', regulationName: '通用检验规程', versionNo: id === 11 ? 'A/1' : 'A/2' }), saveQaRegulationDraft: async payload => {
       calls.push(structuredClone(payload))
       return { regulationId: 1, draftVersionId: 30, versionNo: 'B/3', draftRevision: 3, lifecycleStatus: 'DRAFT' }
     }, publishQaRegulation: async payload => {
@@ -129,4 +135,51 @@ test('save draft submits selected associations and subsequent explicit clearing 
   await h.previewQaRegulationDraft()
   assert.deepEqual(h.calls[2].commonRegulationVersionIds, [])
   assert.equal(h.context.qaCurrentPublishedVersion.value, null)
+})
+
+test('canceling publication sends no publish request and releases the lock', async () => {
+  const h = harness()
+  h.context.ElMessageBox.confirm = async () => { throw 'cancel' }
+  await h.runQaPublishPrecheck()
+  assert.equal(h.calls.length, 0)
+  assert.equal(h.context.qaRegulationPublishing.value, false)
+})
+
+test('repeated publish clicks share one pending confirmation and one request', async () => {
+  const h = harness()
+  let confirmCount = 0, accept
+  h.context.ElMessageBox.confirm = () => { confirmCount++; return new Promise(resolve => { accept = resolve }) }
+  const first = h.runQaPublishPrecheck()
+  await h.runQaPublishPrecheck()
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(confirmCount, 1)
+  assert.equal(h.calls.length, 0)
+  accept()
+  await first
+  assert.equal(h.calls.length, 1)
+  assert.equal(h.context.qaRegulationPublishing.value, false)
+})
+
+test('historical associations absent from current options retain their exact version in preview and publication', async () => {
+  const h = harness()
+  h.context.commonRegulationVersionOptions.value = []
+  let queried, confirmation
+  h.context.QcTemplateApi.getCommonRegulationPublishedVersion = async id => {
+    queried = id
+    return { publishedVersionId: id, regulationCode: 'PQC-CR-003', regulationName: '初包装', versionNo: 'A/7', lifecycleStatus: 'RETIRED' }
+  }
+  h.context.ElMessageBox.confirm = async text => { confirmation = text }
+  await h.runQaPublishPrecheck()
+  assert.equal(queried, 11)
+  assert.match(confirmation, /PQC-CR-003 初包装 A\/7/)
+  assert.deepEqual(h.calls[0].commonRegulationVersionIds, [11])
+})
+
+test('historical association lookup failure is visible and releases the publication lock', async () => {
+  const h = harness()
+  h.context.QcTemplateApi.getCommonRegulationPublishedVersion = async () => { throw Error('history unavailable') }
+  await h.runQaPublishPrecheck()
+  assert.equal(h.calls.length, 0)
+  assert.equal(h.context.qaRegulationPublishing.value, false)
+  assert.match(h.messages[0], /history unavailable/)
 })

@@ -549,11 +549,10 @@
                     v-if="hasErpWorkOrderCleanupPermission"
                     type="danger"
                     plain
-                    :loading="erpWorkOrderCleanupAnalyzing"
                     :disabled="erpWorkOrderCleanupDeleting"
-                    @click="analyzeErpMissingWorkOrders"
+                    @click="openErpCleanupPreview"
                   >
-                    <Icon icon="ep:delete" class="mr-5px" /> 清理 ERP 不存在工单
+                    <Icon icon="ep:delete" class="mr-5px" /> {{ erpWorkOrderCleanupAnalyzing ? '查看预检进度' : erpWorkOrderCleanupPreview || erpWorkOrderCleanupError ? '查看 ERP 预检结果' : '清理 ERP 不存在工单' }}
                   </el-button>
                   <UserTableColumnSettings
                     class="schedule-order-pool__tab-column-settings"
@@ -568,6 +567,7 @@
 
               <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
                 <div class="schedule-order-pool__admission-table-shell">
+                  <el-alert v-if="workOrderAdmissionLoadError" :title="workOrderAdmissionLoadError" type="error" :closable="false" show-icon />
                   <el-table
                     v-loading="workOrderAdmissionLoading"
                     data-user-table-column-explicit
@@ -1130,6 +1130,11 @@
     
 
     <ScheduleOrderProcessDetail v-model="processDialogVisible">
+      <el-alert v-if="processError" :title="processError" type="error" :closable="false" show-icon />
+      <el-button v-if="processError && currentScheduleOrder" class="my-12px" @click="openProcessDialog(currentScheduleOrder)">重新加载工序</el-button>
+      <el-alert
+        class="mb-12px" type="info" :closable="false" show-icon
+        title="以下为工单已保存的工序快照。生产系数候选保存不生效；发布后，所选且可重排工单在预览时按最新生效路线试算，正式应用后更新快照与任务。冻结工单不可重排；生产中工单的数量快照也可能更新，请核对预览。共享路线变更会影响后续采用该路线的排程。" />
       <div v-if="currentScheduleOrder" class="schedule-order-pool__dialog-actions">
         <el-button @click="openDailyCompareDialog(currentScheduleOrder)">报工对比</el-button>
         
@@ -1173,6 +1178,7 @@
               data-user-table-key="mes.pro.scheduleOrder.processRoute"
               v-loading="processLoading"
               :data="resolveRows(processRouteFilteredList)"
+              :empty-text="processLoading ? '正在加载工序' : processError ? '加载失败，无法确认工序数据' : '该工单暂无工序'"
               max-height="calc(100vh - 292px)"
               :stripe="true"
               :show-overflow-tooltip="true"
@@ -1191,9 +1197,17 @@
                   <div class="schedule-order-pool__capacity-snapshot">
                     <div class="schedule-order-pool__capacity-snapshot-title">
                       产能快照
+                      <el-button
+                        v-if="row.capacitySource === 'MANUAL_OVERRIDE' && !currentScheduleOrder?.frozen && !currentScheduleOrder?.manualFinished"
+                        v-hasPermi="['mes:pro-schedule-order:update']" link type="primary" :loading="capacityResetting"
+                        @click="resetProcessCapacity(row)">清除手工覆盖／恢复资源计算</el-button>
                       <span>{{ getProcessCapacityModeText(row.capacityMode) }}</span>
                     </div>
                     <div class="schedule-order-pool__capacity-snapshot-grid">
+                      <span>路线版本编号</span>
+                      <strong>{{ row.routeVersionId ?? '未提供' }}</strong>
+                      <span>生产系数</span>
+                      <strong>{{ row.productionQuantityFactor ?? '未提供' }}</strong>
                       <span>策略</span>
                       <strong>{{ getProcessCapacityModeText(row.capacityMode) }}</strong>
                       <span>来源</span>
@@ -1944,12 +1958,14 @@
 
     <el-dialog
       v-model="erpWorkOrderCleanupDialogVisible"
-      title="确认清理 ERP 不存在工单"
+      title="ERP 全量清理预检结果"
       width="900px"
       :close-on-click-modal="false"
       :close-on-press-escape="!erpWorkOrderCleanupDeleting"
       :show-close="!erpWorkOrderCleanupDeleting"
     >
+      <el-alert v-if="erpWorkOrderCleanupAnalyzing" title="正在核对全部工单与 ERP 来源，可能需要数分钟，请等待；尚未执行删除。" type="info" :closable="false" show-icon />
+      <el-alert v-if="erpWorkOrderCleanupError && !erpWorkOrderCleanupPreview" :title="erpWorkOrderCleanupError" type="error" :closable="false" show-icon />
       <template v-if="erpWorkOrderCleanupPreview">
         <el-alert
           :title="`已核对全部同步工单中的 ${erpWorkOrderCleanupPreview.analyzedCount} 个 ERP 来源工单，发现 ${erpWorkOrderCleanupPreview.missingWorkOrders.length} 个在当前 ERP 环境中不存在；其中 ${erpWorkOrderCleanupDeletableItems.length} 个可删除。`"
@@ -1964,12 +1980,6 @@
           另有 {{ erpWorkOrderCleanupPreview.unverifiableCount }} 个工单缺少完整 ERP
           同步关联，无法核对，保留不删除。
         </p>
-        <el-alert
-          v-if="erpWorkOrderCleanupError"
-          :title="erpWorkOrderCleanupError"
-          type="error"
-          :closable="false"
-        />
         <el-table
           :data="erpWorkOrderCleanupPreview.missingWorkOrders"
           row-key="workOrderId"
@@ -1993,6 +2003,7 @@
         </el-table>
       </template>
       <template #footer>
+        <el-button :disabled="erpWorkOrderCleanupAnalyzing || erpWorkOrderCleanupDeleting" @click="analyzeErpMissingWorkOrders">重新预检</el-button>
         <el-button
           :disabled="erpWorkOrderCleanupDeleting"
           @click="erpWorkOrderCleanupDialogVisible = false"
@@ -2001,7 +2012,7 @@
         <el-button
           type="danger"
           :loading="erpWorkOrderCleanupDeleting"
-          :disabled="erpWorkOrderCleanupDeletableItems.length === 0 || !!erpWorkOrderCleanupError"
+          :disabled="erpWorkOrderCleanupAnalyzing || !erpWorkOrderCleanupPreview || erpWorkOrderCleanupDeletableItems.length === 0 || !!erpWorkOrderCleanupError"
           @click="confirmDeleteErpMissingWorkOrders"
         >
           确认删除 {{ erpWorkOrderCleanupDeletableItems.length }} 个工单
@@ -2027,6 +2038,7 @@
 </template>
 
 <script setup lang="ts">
+import { h } from 'vue'
 import ProcessCodeLink from '@/components/ProcessCodeLink.vue'
 import MaterialCodeLink from '@/components/MaterialCodeLink.vue'
 import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
@@ -2317,7 +2329,7 @@ const scheduleOrderQueryParams = reactive({
   erpWorkOrderCode: undefined as string | undefined,
   productCode: undefined as string | undefined,
   productName: undefined as string | undefined,
-  currentProcessId: undefined as number | undefined,
+  currentProcessId: undefined as string | undefined,
   currentProcessKeyword: undefined as string | undefined,
   status: undefined as number | undefined,
   removedFromSchedule: false,
@@ -2438,6 +2450,16 @@ const scheduleOrderMultiFilterDefinitions: ListMultiFilterDefinition[] = [
 
 const processDialogVisible = ref(false)
 const processLoading = ref(false)
+const processError = ref('')
+let processRequestSerial = 0
+const capacityResetting = ref(false)
+watch(processDialogVisible, (visible) => {
+  if (!visible) {
+    processRequestSerial += 1
+    processList.value = []
+    processLoading.value = false
+  }
+})
 const processList = ref<MesProScheduleOrderProcessVO[]>([])
 const processRouteQuickFilterParams = reactive<{
   pageNo: number
@@ -2510,6 +2532,7 @@ const latestSuccessfulScheduleApplyError = ref('')
 
 const scheduleOrderActiveTab = ref<'scheduleOrders' | 'workOrderAdmission'>('scheduleOrders')
 const workOrderAdmissionLoading = ref(false)
+const workOrderAdmissionLoadError = ref('')
 const workOrderAdmissionSaving = ref(false)
 const workOrderAdmissionList = ref<MesProScheduleOrderAdmissionDiffRowVO[]>([])
 const selectedWorkOrders = ref<MesProScheduleOrderAdmissionDiffRowVO[]>([])
@@ -2550,6 +2573,13 @@ const workOrderAdmissionQueryParams = reactive({
   ownerRole: undefined as string | undefined,
   requestDate: undefined as string[] | undefined
 })
+const admissionStatusOptions = [
+  { label: '可入池', value: 'READY_TO_ADMIT' },
+  { label: '已入池', value: 'ALREADY_ADMITTED' },
+  { label: '阻断', value: 'BLOCKED' },
+  { label: '警告', value: 'WARN' }
+]
+
 const workOrderAdmissionMultiFilterDefinitions: ListMultiFilterDefinition[] = [
   {
     key: 'workOrderCode',
@@ -2590,11 +2620,7 @@ const workOrderAdmissionMultiFilterDefinitions: ListMultiFilterDefinition[] = [
     label: '入池状态',
     type: 'select',
     queryParamKey: 'admissionStatus',
-    options: [
-      { label: '可入池', value: 'READY_TO_ADMIT' },
-      { label: '已入池', value: 'ALREADY_ADMITTED' },
-      { label: '阻断', value: 'BLOCKED' }
-    ]
+    options: admissionStatusOptions
   },
   {
     key: 'reasonCode',
@@ -3441,15 +3467,49 @@ const clearScheduleOrderSelection = () => {
 }
 
 const openProcessDialog = async (row: MesProScheduleOrderVO) => {
+  const requestSerial = ++processRequestSerial
   currentScheduleOrder.value = row
   processDialogVisible.value = true
+  processList.value = []
+  processError.value = ''
   processRouteQuickFilterParams.pageNo = 1
   delete processRouteQuickFilterParams.quickFilter
   processLoading.value = true
   try {
-    processList.value = await MesProScheduleOrderApi.getProcessList(row.id)
+    const rows = await MesProScheduleOrderApi.getProcessList(row.id)
+    if (requestSerial !== processRequestSerial) return
+    if (!Array.isArray(rows)) throw new Error('工序列表响应格式错误')
+    processList.value = rows
+  } catch (error) {
+    if (requestSerial !== processRequestSerial) return
+    processError.value = `工单 ${row.erpWorkOrderCode || row.code} 工序加载失败：${error instanceof Error ? error.message : String(error)}`
   } finally {
-    processLoading.value = false
+    if (requestSerial === processRequestSerial) processLoading.value = false
+  }
+}
+
+const resetProcessCapacity = async (process: MesProScheduleOrderProcessVO) => {
+  const order = currentScheduleOrder.value
+  if (!order || capacityResetting.value) return
+  try {
+    await ElMessageBox.confirm(
+      `仅清除工单 ${order.erpWorkOrderCode || order.code} 的「${process.processName}」手工产能覆盖，按本工序所用路线版本的资源计算重新生成产能快照。不修改其他工单或共享路线。正式任务和起止时间需重新检查并应用排程。是否继续？`,
+      '恢复资源计算', { type: 'warning' }
+    )
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    throw error
+  }
+  capacityResetting.value = true
+  try {
+    await MesProScheduleOrderApi.resetProcessCapacity({
+      id: order.id, scheduleOrderProcessId: process.id, reason: '排产员清除本工单单工序手工产能覆盖'
+    })
+    message.success('已恢复资源计算；请仅选择本工单重新检查并应用排程')
+    if (processDialogVisible.value && currentScheduleOrder.value?.id === order.id) await openProcessDialog(order)
+    await getScheduleOrderList()
+  } finally {
+    capacityResetting.value = false
   }
 }
 
@@ -3745,6 +3805,11 @@ const handleScheduleOrderTabChange = async (tabName: string | number) => {
 const getWorkOrderAdmissionList = async () => {
   const requestSerial = ++workOrderAdmissionRequestSerial
   workOrderAdmissionLoading.value = true
+  workOrderAdmissionLoadError.value = ''
+  // 新条件开始查询即移除旧结果，失败时不能把旧行误当作本次结果。
+  workOrderAdmissionList.value = []
+  workOrderAdmissionTotal.value = 0
+  selectedWorkOrders.value = []
   try {
     const data = await MesProScheduleOrderApi.getAdmissionDiff(workOrderAdmissionQueryParams)
     if (requestSerial !== workOrderAdmissionRequestSerial) {
@@ -3755,6 +3820,7 @@ const getWorkOrderAdmissionList = async () => {
     return true
   } catch (error) {
     if (requestSerial === workOrderAdmissionRequestSerial) {
+      workOrderAdmissionLoadError.value = `本次查询未成功，未显示查询结果：${error instanceof Error ? error.message : String(error)}`
       console.error('[MES] 加载同步工单列表失败', error)
       message.error(
         `加载同步工单列表失败：${error instanceof Error ? error.message : String(error)}`
@@ -4011,26 +4077,24 @@ const getAdmissionCellClassName = ({ column }: { column: { property?: string } }
     : ''
 }
 
+const openErpCleanupPreview = () => {
+  erpWorkOrderCleanupDialogVisible.value = true
+  if (!erpWorkOrderCleanupAnalyzing.value && !erpWorkOrderCleanupPreview.value && !erpWorkOrderCleanupError.value) {
+    void analyzeErpMissingWorkOrders()
+  }
+}
+
 const analyzeErpMissingWorkOrders = async () => {
+  if (erpWorkOrderCleanupAnalyzing.value || erpWorkOrderCleanupDeleting.value) return
+  erpWorkOrderCleanupDialogVisible.value = true
   erpWorkOrderCleanupAnalyzing.value = true
   erpWorkOrderCleanupPreview.value = undefined
   erpWorkOrderCleanupError.value = ''
   try {
     const preview = await MesProScheduleOrderApi.analyzeErpMissingWorkOrders()
     erpWorkOrderCleanupPreview.value = preview
-    if (preview.missingWorkOrders.length === 0) {
-      if (preview.unverifiableCount > 0) {
-        message.warning(
-          `已核对 ${preview.analyzedCount} 个工单，未发现 ERP 不存在的工单；${preview.unverifiableCount} 个工单缺少完整同步关联，无法核对，保留不删除`
-        )
-      } else {
-        message.success(`已核对 ${preview.analyzedCount} 个工单，未发现 ERP 不存在的工单，无需清理`)
-      }
-      return
-    }
-    erpWorkOrderCleanupDialogVisible.value = true
   } catch (error) {
-    message.error(`分析失败，未执行删除：${error instanceof Error ? error.message : String(error)}`)
+    erpWorkOrderCleanupError.value = `全量预检失败，未执行删除：${error instanceof Error ? error.message : String(error)}。请重新预检，不能依据本次失败执行清理。`
   } finally {
     erpWorkOrderCleanupAnalyzing.value = false
   }
@@ -4040,6 +4104,7 @@ const confirmDeleteErpMissingWorkOrders = async () => {
   const preview = erpWorkOrderCleanupPreview.value
   if (
     !preview ||
+    erpWorkOrderCleanupAnalyzing.value ||
     erpWorkOrderCleanupDeletableItems.value.length === 0 ||
     erpWorkOrderCleanupDeleting.value ||
     erpWorkOrderCleanupError.value
@@ -4087,13 +4152,25 @@ const submitWorkOrderAdmission = async () => {
     await getScheduleOrderList()
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    await ElMessageBox.alert(errorMessage, '工单无法加入排产工单池', {
-      type: 'warning',
-      confirmButtonText: '知道了',
-      closeOnClickModal: false,
-      closeOnPressEscape: false,
-      showClose: false
-    })
+    await ElMessageBox.alert(
+      h('div', {
+        style: {
+          whiteSpace: 'pre-wrap',
+          overflowWrap: 'anywhere',
+          maxHeight: '60vh',
+          overflowY: 'auto'
+        }
+      }, errorMessage),
+      '暂时无法加入排产工单池',
+      {
+        type: 'warning',
+        customStyle: { width: '640px', maxWidth: 'calc(100vw - 32px)' },
+        confirmButtonText: '知道了',
+        closeOnClickModal: false,
+        closeOnPressEscape: false,
+        showClose: false
+      }
+    )
   } finally {
     workOrderAdmissionSaving.value = false
   }
@@ -4128,12 +4205,9 @@ const applyRouteProcessFilter = () => {
   if (!currentProcessId) {
     return
   }
-  const processId = Number(currentProcessId)
-  if (processId === 0) {
-    return
-  }
-  if (!Number.isFinite(processId) || !Number.isInteger(processId) || processId < 0) {
-    throw new Error(`当前工序筛选参数不是有效数字: ${currentProcessId}`)
+  const processId = String(currentProcessId)
+  if (!/^[1-9]\d*$/.test(processId)) {
+    throw new Error(`当前工序筛选参数不是有效编号: ${currentProcessId}`)
   }
   scheduleOrderQueryParams.currentProcessId = processId
   scheduleOrderQueryParams.pageNo = 1
@@ -4686,6 +4760,9 @@ const getReasonCodeText = (reasonCode?: string) => {
       BLOCKED_ROUTE_PROCESS_SCHEDULE_USE_MISSING: '缺智能排产用途',
       BLOCKED_ROUTE_PROCESS_DISABLED_FOR_SCHEDULE: '智能排产已关闭',
       BLOCKED_ROUTE_SCHEDULE_CONFIG_MISSING: '缺排产策略',
+      WARN_DEFAULT_ROUTE_SCHEDULE_CONFIG: '默认排产策略',
+      BLOCKED_WORKER_QUANTITY_REQUIRED: '缺人员数量',
+      BLOCKED_RESOURCE_CAPACITY_MISSING: '缺资源产能',
       BLOCKED_SHIFT_HOURS_REQUIRED: '缺班次小时',
       BLOCKED_INVALID_FINITE_CAPACITY: '缺产能',
       BLOCKED_INVALID_INFINITE_FORMULA: '缺无限产能公式',
@@ -4814,7 +4891,9 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
   {
     key: 'admissionStatus',
     label: '入池状态',
-    type: 'text',
+    type: 'select',
+    // 列筛选接口按中文显示值匹配，正式 admissionStatus 参数仍使用状态编码。
+    options: admissionStatusOptions.map(({ label }) => ({ label, value: label })),
     getValue: (row) => [getAdmissionStatusText(row.admissionStatus)].join(' ')
   },
   {

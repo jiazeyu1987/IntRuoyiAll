@@ -12,6 +12,7 @@ export interface TenantVO {
   password: string
   expireTime: Date
   accountCount: number
+  defaultLogin?: boolean
   websites: string[]
   createTime: Date
 }
@@ -45,6 +46,10 @@ export const getTenant = (id: number) => {
 // 获取租户精简信息列表
 export const getTenantList = () => {
   return request.get({ url: '/system/tenant/simple-list' })
+}
+
+export const setDefaultLoginTenant = (id: number) => {
+  return request.put({ url: '/system/tenant/set-default-login?id=' + id })
 }
 
 // 新增租户

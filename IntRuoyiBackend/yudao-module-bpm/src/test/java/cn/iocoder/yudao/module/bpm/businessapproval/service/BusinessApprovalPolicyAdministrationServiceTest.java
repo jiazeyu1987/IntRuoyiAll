@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.bpm.controller.admin.businessapproval.vo.Business
 import cn.iocoder.yudao.module.bpm.controller.admin.businessapproval.vo.BusinessApprovalPolicySwitchModeReqVO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.businessapproval.BusinessApprovalPolicyDO;
 import cn.iocoder.yudao.module.bpm.dal.mysql.businessapproval.BusinessApprovalPolicyMapper;
+import cn.iocoder.yudao.module.bpm.formcenter.service.FormBusinessEffectExecutor;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.AfterEach;
@@ -74,6 +75,25 @@ class BusinessApprovalPolicyAdministrationServiceTest extends BaseDbUnitTest {
     @AfterEach
     void tearDown() {
         TenantContextHolder.clear();
+    }
+
+    @Test
+    void publishesExactFormActionPolicyWithRegisteredExecutor() {
+        var req = bpmRequiredReq("dcc-controlled-file-obsolete");
+        req.setDataDomain("DCC");
+        req.setSystemCode("DCC");
+        req.setObjectType("CONTROLLED_FILE");
+        req.setActionCode("OBSOLETE");
+        req.setObjectState("ACTIVE");
+        req.setEffectExecutorCode("DCC_OBSOLETE");
+        var saved = policyService.savePolicy(req);
+
+        policyService.publishPolicy(saved.getId());
+
+        var published = policyMapper.selectById(saved.getId());
+        assertEquals("PUBLISHED", published.getStatus());
+        assertEquals("BPM_REQUIRED", published.getPolicyMode());
+        assertEquals("dcc-controlled-file-obsolete", published.getProcessDefinitionKey());
     }
 
     @Test
@@ -478,6 +498,13 @@ class BusinessApprovalPolicyAdministrationServiceTest extends BaseDbUnitTest {
 
     @TestConfiguration
     static class Config {
+
+        @Bean
+        FormBusinessEffectExecutor obsoleteFormExecutor() {
+            var executor = mock(FormBusinessEffectExecutor.class);
+            when(executor.getExecutorCode()).thenReturn("DCC_OBSOLETE");
+            return executor;
+        }
 
         @Bean
         BusinessApprovalEffectExecutorRegistry businessApprovalEffectExecutorRegistry() {

@@ -29,7 +29,7 @@
         {{ detailData.action }}
       </el-descriptions-item>
       <el-descriptions-item v-if="detailData.extra" label="操作拓展参数">
-        {{ detailData.extra }}
+        <ReadableData :source="detailData.extra" title="操作扩展明细" />
       </el-descriptions-item>
       <el-descriptions-item label="请求 URL">
         {{ detailData.requestMethod }} {{ detailData.requestUrl }}
@@ -44,6 +44,7 @@
   </Dialog>
 </template>
 <script lang="ts" setup>
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import { formatDate } from '@/utils/formatTime'
 import * as OperateLogApi from '@/api/system/operatelog'
 

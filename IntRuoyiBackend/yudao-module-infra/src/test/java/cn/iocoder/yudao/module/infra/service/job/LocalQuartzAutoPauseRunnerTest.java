@@ -7,6 +7,11 @@ import cn.iocoder.yudao.module.infra.enums.job.JobStatusEnum;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Properties;
+import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
+import org.springframework.core.io.FileSystemResource;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -16,14 +21,26 @@ import static org.mockito.Mockito.when;
 class LocalQuartzAutoPauseRunnerTest {
 
     @Test
+    void localConfiguration_allowsCertificateLifecycleWithoutDisablingContainment() {
+        YamlPropertiesFactoryBean yaml = new YamlPropertiesFactoryBean();
+        yaml.setResources(new FileSystemResource("../yudao-server/src/main/resources/application-local.yaml"));
+        Properties properties = yaml.getObject();
+        assertEquals("true", properties.getProperty("yudao.local-job-control.enabled"));
+        assertTrue(properties.entrySet().stream().anyMatch(entry ->
+                entry.getKey().toString().startsWith("yudao.local-job-control.quartz-auto-run-handler-whitelist[")
+                        && "registrationCertificateReminderDailyJob".equals(entry.getValue())));
+    }
+
+    @Test
     void run_pausesNormalQuartzJobsOutsideAllowlist() throws Exception {
         JobMapper jobMapper = mock(JobMapper.class);
         SchedulerManager schedulerManager = mock(SchedulerManager.class);
         LocalJobControlProperties properties = new LocalJobControlProperties();
-        properties.setQuartzAutoRunHandlerWhitelist(List.of("kingdeeProductionOrderSyncJob"));
+        properties.setQuartzAutoRunHandlerWhitelist(List.of("kingdeeProductionOrderSyncJob", "registrationCertificateReminderDailyJob"));
         when(schedulerManager.isEnabled()).thenReturn(true);
         when(jobMapper.selectList()).thenReturn(List.of(
                 job(5600L, "kingdeeProductionOrderSyncJob", JobStatusEnum.NORMAL.getStatus(), "0 0 2 * * ?"),
+                job(5620L, "registrationCertificateReminderDailyJob", JobStatusEnum.NORMAL.getStatus(), "0 * * * * ?"),
                 job(5616L, "mesProNightlyReplanJob", JobStatusEnum.NORMAL.getStatus(), "0 0 2 * * ?"),
                 job(5611L, "runtimeNightlyReleaseJob", JobStatusEnum.STOP.getStatus(), "0 0 2 * * ?")
         ));
@@ -33,6 +50,7 @@ class LocalQuartzAutoPauseRunnerTest {
 
         verify(schedulerManager).pauseJob("mesProNightlyReplanJob");
         verify(schedulerManager, never()).pauseJob("kingdeeProductionOrderSyncJob");
+        verify(schedulerManager, never()).pauseJob("registrationCertificateReminderDailyJob");
         verify(schedulerManager, never()).pauseJob("runtimeNightlyReleaseJob");
     }
 
