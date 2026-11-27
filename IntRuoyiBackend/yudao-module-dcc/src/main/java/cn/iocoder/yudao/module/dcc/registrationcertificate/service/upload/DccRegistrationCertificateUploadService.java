@@ -190,18 +190,6 @@ public class DccRegistrationCertificateUploadService {
     public java.util.Map<String,Object> candidateBinding(Long tenantId, Long projectId, Long excludedCertificateId) {
         var rows = projectProductMapper.selectBindings(tenantId, projectId);
         var result = new java.util.LinkedHashMap<String,Object>();
-        var projectOccupied = productBindings.projectOccupancy(tenantId,projectId);
-        if(projectOccupied!=null && !Objects.equals(projectOccupied.certificateId(),excludedCertificateId)) {
-            result.put("disabled",true);result.put("bindingMessage",cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService.conflictMessage("该项目关联产品",projectOccupied));return result;
-        }
-        for (var row : rows) {
-            var occupied = productBindings.occupancy(tenantId, row.productCatalogId());
-            if (occupied != null && !Objects.equals(occupied.certificateId(), excludedCertificateId)) {
-                result.put("disabled", true);
-                result.put("bindingMessage", cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService.conflictMessage(row.productName(),occupied));
-                return result;
-            }
-        }
         if (rows.isEmpty()) { result.put("disabled",true);result.put("bindingMessage","尚未绑定有效DCC产品"); }
         return result;
     }

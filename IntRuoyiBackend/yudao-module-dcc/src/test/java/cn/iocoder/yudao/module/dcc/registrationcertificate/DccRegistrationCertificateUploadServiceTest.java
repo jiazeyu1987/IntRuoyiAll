@@ -105,6 +105,9 @@ class DccRegistrationCertificateUploadServiceTest {
 
     private DccRegistrationCertificateUploadService uploadService;
 
+    @Mock private cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateProjectProductMapper projectProductMapper;
+    @Mock private cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProductBindingService productBindings;
+
     @Mock
     private DccRegistrationCertificateProjectProductService projectProductService;
     @Mock
@@ -121,6 +124,8 @@ class DccRegistrationCertificateUploadServiceTest {
                 projectCodeFileAssociationService, fileService, projectCodeService, enterpriseApi, businessClock,
                 businessEventNotifier);
         org.springframework.test.util.ReflectionTestUtils.setField(uploadService, "registrationHandlingTasks", registrationHandlingTasks);
+        org.springframework.test.util.ReflectionTestUtils.setField(uploadService, "projectProductMapper", projectProductMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(uploadService, "productBindings", productBindings);
         var validator = new DccRegistrationCertificatePrerequisiteValidator(
                 companyScopeApi, enterpriseApi, productApi, projectCodeService, businessClock);
         org.springframework.test.util.ReflectionTestUtils.setField(validator, "projectProductService", projectProductService);
@@ -134,6 +139,19 @@ class DccRegistrationCertificateUploadServiceTest {
     @AfterEach
     void clearTenant() {
         TenantContextHolder.clear();
+    }
+
+    @Test void validProductCandidateIsAvailableWithoutCheckingOtherCertificates() {
+        when(projectProductMapper.selectBindings(TENANT_ID,100L)).thenReturn(List.of(
+            new cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateProjectProductMapper.Row(
+                TENANT_ID,100L,10L,"P10","产品十","CONFIRMED",1L)));
+        assertEquals(Map.of(),uploadService.candidateBinding(TENANT_ID,100L,null));
+        org.mockito.Mockito.verifyNoInteractions(productBindings);
+    }
+
+    @Test void projectWithoutProductIdentityRemainsDisabled() {
+        when(projectProductMapper.selectBindings(TENANT_ID,100L)).thenReturn(List.of());
+        assertEquals(true,uploadService.candidateBinding(TENANT_ID,100L,null).get("disabled"));
     }
 
     @ParameterizedTest

@@ -6,7 +6,7 @@
       <el-table-column prop="productName" label="产品名称"/>
     </el-table>
     <el-dialog v-model="visible" title="为现有注册证追加产品" width="680px" append-to-body :close-on-click-modal="!saving" :show-close="!saving">
-      <el-alert title="一个产品只能绑定一张注册证；已关联或审批占用的产品不可重复选择。" type="info" :closable="false" class="mb-16px"/>
+      <el-alert title="同一产品可关联多张注册证；本注册证内不能重复关联同一产品。" type="info" :closable="false" class="mb-16px"/>
       <el-select v-model="selected" multiple filterable remote :remote-method="search" :loading="loading" placeholder="选择系统项目代码" class="w-full">
         <el-option v-for="item in candidates" :key="item.id" :value="item.id" :label="[item.projectCode,item.projectName].filter(Boolean).join(' - ')" :disabled="item.disabled">
           {{ [item.projectCode,item.projectName].filter(Boolean).join(' - ') }} {{ item.bindingMessage }}

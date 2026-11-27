@@ -27,6 +27,23 @@ class ReleaseSourceRegistrationTest(unittest.TestCase):
         self.assertIn('migrationId=' + admission + ';', check)
         self.assertEqual(1, check.count('TARGET_PREFLIGHT_PASS:' + admission))
 
+    def test_multi_certificate_successor_preserves_and_supersedes_both_old_rules(self):
+        root = Path(__file__).resolve().parents[2] / 'IntRuoyiBackend/sql/mysql'
+        mid = '20261127_dcc_registration_certificate_multi_products'
+        catalog = json.loads((root / 'release-sources.json').read_text('utf-8'))
+        self.assertIn(mid + '.sql', catalog['migrations'])
+        text = (root / (mid + '.sql')).read_text('utf-8')
+        header = text.splitlines()[0]
+        self.assertIn('supersedes=20261125_dcc_registration_certificate_products,20261127_dcc_registration_certificate_products_admission;', header)
+        self.assertIn('requiresTargetPreflight=true', header)
+        self.assertIn('PRIMARY KEY(tenant_id,certificate_id,product_catalog_id)', text)
+        check = (root / 'target-preflight' / (mid + '.preflight.sql')).read_text('utf-8')
+        self.assertEqual(1,check.count('TARGET_PREFLIGHT_PASS:' + mid))
+        self.assertIn('UNRESOLVED_PRODUCT',check)
+        self.assertIn('SNAPSHOT_PRODUCT_MISMATCH',check)
+        self.assertNotIn('MULTIPLE_CERTIFICATES',check)
+        self.assertNotIn('RELATION_CERTIFICATE_MISMATCH',check)
+
     def test_every_forward_sql_has_one_explicit_disposition(self):
         root = Path(__file__).resolve().parents[2] / 'IntRuoyiBackend/sql/mysql'
         catalog = json.loads((root / 'release-sources.json').read_text(encoding='utf-8'))

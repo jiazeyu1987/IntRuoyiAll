@@ -75,7 +75,7 @@ class DccRegistrationCertificateProductMaintenanceServiceTest extends BaseMockit
         assertThrows(ServiceException.class,()->service.addProducts(1L,99L,1L,3,List.of(200L)));verifyNoInteractions(bindings);verify(snapshots,never()).insert(any(DccRegistrationCertificateSnapshotDO.class));
     }
     @Test void occupiedProductStopsBeforeCreatingSnapshot(){
-        resolveSecond();doThrow(new ServiceException(400,"产品已绑定其他注册证")).when(bindings).confirm(1L,1L,List.of(first,second),99L);
+        resolveSecond();doThrow(new ServiceException(400,"本注册证内项目与产品关联不一致")).when(bindings).confirm(1L,1L,List.of(first,second),99L);
         assertThrows(ServiceException.class,()->service.addProducts(1L,99L,1L,3,List.of(200L)));verify(snapshots,never()).insert(any(DccRegistrationCertificateSnapshotDO.class));
     }
 }

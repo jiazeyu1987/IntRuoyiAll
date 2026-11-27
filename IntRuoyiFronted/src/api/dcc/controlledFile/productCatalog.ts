@@ -37,6 +37,7 @@ export interface DccProductCatalogRespVO {
   projectCode?: string | null
   projectCodeId?: number | string | null
   registrationCertificateId?: number | string | null
+  registrationCertificates?: Array<{ certificateId: number | string; certificateName: string; certificateNumber: string | null }>
   batchRecordTotalRecognitionJson?: string | null
   registrationCertificateName?: string | null
   registrationCertificateNumber?: string | null

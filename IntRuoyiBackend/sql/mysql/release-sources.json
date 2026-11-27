@@ -1254,7 +1254,8 @@
     "20261125_dcc_registration_certificate_products.sql",
     "20261126_dcc_registration_certificate_remove_ce_materials.sql",
     "20261126_dcc_registration_fda_change_no_approval_date.sql",
-    "20261127_dcc_registration_certificate_products_admission.sql"
+    "20261127_dcc_registration_certificate_products_admission.sql",
+    "20261127_dcc_registration_certificate_multi_products.sql"
   ],
   "migrationScopes": [
     {

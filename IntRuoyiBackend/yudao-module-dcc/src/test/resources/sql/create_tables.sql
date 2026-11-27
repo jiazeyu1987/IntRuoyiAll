@@ -3337,5 +3337,5 @@ CREATE TABLE IF NOT EXISTS dcc_registration_certificate_product (
  tenant_id BIGINT NOT NULL, product_catalog_id BIGINT NOT NULL, certificate_id BIGINT NOT NULL,
  project_code_id BIGINT NOT NULL, product_code VARCHAR(128) NOT NULL, product_name VARCHAR(255) NOT NULL,
  state VARCHAR(16) NOT NULL, created_by BIGINT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
- PRIMARY KEY(tenant_id,product_catalog_id), UNIQUE(tenant_id,project_code_id)
+ PRIMARY KEY(tenant_id,certificate_id,product_catalog_id), UNIQUE(tenant_id,certificate_id,project_code_id)
 );

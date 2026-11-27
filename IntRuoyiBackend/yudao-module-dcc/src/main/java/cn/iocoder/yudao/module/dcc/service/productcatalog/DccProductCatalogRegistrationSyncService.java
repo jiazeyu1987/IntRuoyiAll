@@ -49,15 +49,21 @@ public class DccProductCatalogRegistrationSyncService {
     public void enrichCurrentCertificate(cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogRespVO row) {
         if (row.getProjectCodeId() == null) return;
         Long certificateId = row.getRegistrationCertificateId();
-        var occupied=productBindings.occupancy(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(),row.getId());
-        if (certificateId==null) {
-            if(occupied==null || !"BOUND".equals(occupied.state())) return;
-            certificateId=occupied.certificateId();
+        Long tenantId = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        var summaries = new java.util.ArrayList<cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogRespVO.RegistrationCertificateSummary>();
+        for (var id : productBindings.currentCertificateIds(tenantId, row.getId())) {
+            var current = loadProjection(id);
+            var currentFacts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(current.snapshot().getFactsJson());
+            summaries.add(new cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogRespVO.RegistrationCertificateSummary(
+                    id, current.snapshot().getProductName(), certificateNumber(currentFacts)));
         }
-        if(occupied==null || !"BOUND".equals(occupied.state()) || !Objects.equals(certificateId,occupied.certificateId())) throw exception(DCC_DATA_RELATION_TARGET_INVALID);
+        row.setRegistrationCertificates(List.copyOf(summaries));
+        if (certificateId == null) {
+            if (summaries.size() != 1) return;
+            certificateId = summaries.get(0).certificateId();
+        }
+        if (!productBindings.containsProduct(tenantId, certificateId, row.getId())) throw exception(DCC_DATA_RELATION_TARGET_INVALID);
         var certificate = certificateMapper.selectById(certificateId);
-        // Expired certificates retain their product claim but are absent from the current-certificate projection.
-        if(row.getRegistrationCertificateId()==null && certificate!=null && !CERTIFICATE_STATUS_ACTIVE.equals(certificate.getStatus())) return;
         var projection = loadProjection(certificate);
         var snapshot = projection.snapshot();
         var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshot.getFactsJson());
