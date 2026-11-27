@@ -4,6 +4,10 @@
     {
       "id": "mes-pqc-rule-key",
       "file": "mes-pqc-rule-key.sql"
+    },
+    {
+      "id": "dcc-certificate-retained-delete",
+      "file": "dcc-certificate-retained-delete.sql"
     }
   ]
 }

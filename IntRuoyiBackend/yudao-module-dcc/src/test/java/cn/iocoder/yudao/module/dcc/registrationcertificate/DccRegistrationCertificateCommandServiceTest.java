@@ -1181,6 +1181,8 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
         assertEquals("BOUND", dbFileMapper.selectById(fixture.fileId()).getStatus());
         assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_snapshot_entrusted WHERE snapshot_id=?", fixture.snapshotId()));
         assertEquals("CERTIFICATE_DELETE_SUCCEEDED", dbAuditMapper.selectByTenantIdAndEventKey(1L, "formal-delete").getEventType());
+        assertEquals(1, JsonUtils.parseObject(dbAuditMapper.selectByTenantIdAndEventKey(1L, "formal-delete")
+                .getDetailJson(), com.fasterxml.jackson.databind.JsonNode.class).get("expectedRowVersion").asInt());
     }
 
     @Test

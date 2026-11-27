@@ -28,12 +28,23 @@ public class DccRegistrationCertificateTerminalAuditService {
     public void recordSuccess(DccRegistrationCertificateCommandMetadata metadata,
                               DccRegistrationCertificateCommandContext context,
                               Long versionId, Long snapshotId, Long businessFileId) {
+        recordSuccess(metadata, context, versionId, snapshotId, businessFileId, null);
+    }
+
+    public void recordSuccess(DccRegistrationCertificateCommandMetadata metadata,
+                              DccRegistrationCertificateCommandContext context,
+                              Long versionId, Long snapshotId, Long businessFileId,
+                              Integer expectedRowVersion) {
         if (context.ownerCompanyId() == null || context.certificateId() == null) {
             throw new IllegalStateException("注册证成功审计必须包含可信业务身份");
         }
         DccRegistrationCertificateAuditDetail detail = new DccRegistrationCertificateAuditDetail(
                 metadata.commandKind(), metadata.actorId(), metadata.payloadHash(), context.certificateId(),
                 versionId, snapshotId, businessFileId, null, null);
+        var detailJson = JsonUtils.parseObject(JsonUtils.toJsonString(detail), java.util.Map.class);
+        if (expectedRowVersion != null) {
+            detailJson.put("expectedRowVersion", expectedRowVersion);
+        }
         insert(DccRegistrationCertificateAuditDO.builder()
                 .tenantId(metadata.tenantId())
                 .ownerCompanyId(context.ownerCompanyId())
@@ -49,7 +60,7 @@ public class DccRegistrationCertificateTerminalAuditService {
                 .result("SUCCESS")
                 .resultCode("OK")
                 .requestTraceId(metadata.requestTraceId())
-                .detailJson(JsonUtils.toJsonString(detail))
+                .detailJson(JsonUtils.toJsonString(detailJson))
                 .occurredAt(businessClock.now())
                 .creator(String.valueOf(metadata.actorId()))
                 .build());

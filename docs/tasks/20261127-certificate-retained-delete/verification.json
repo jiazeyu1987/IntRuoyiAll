@@ -1,0 +1,40 @@
+{
+  "passed": true,
+  "database": "local isolated MySQL 8.0.39",
+  "containerNetwork": "none",
+  "publishedPorts": [],
+  "remoteWrites": false,
+  "checks": [
+    "prod: original formal-delete rejection reproduced; read-only plan and schema checks pass",
+    "prod: normal UI command audit accepted by actual MySQL; wrong revision and simultaneous pointer change rejected; all trial transactions rolled back",
+    "prod: missing audit, formal identity mutation and late transaction failure all reject; full rollback confirmed",
+    "prod: actual exact 161 disposal committed; four pending versions retained; all outside masters, versions, snapshots, files, infra_file, old audit and ledger unchanged; repeated verification does not replay",
+    "prod: corrected forward migration and repeat succeed after disposal; deleted-certificate snapshots remain identical; undelete, later mutation and physical deletion blocked",
+    "prod: verifier rejects wrong database, master revision and snapshot evidence changes",
+    "test: original formal-delete rejection reproduced; read-only plan and schema checks pass",
+    "test: normal UI command audit accepted by actual MySQL; wrong revision and simultaneous pointer change rejected; all trial transactions rolled back",
+    "test: missing audit, formal identity mutation and late transaction failure all reject; full rollback confirmed",
+    "test: actual exact 165 disposal committed; four pending versions retained; all outside masters, versions, snapshots, files, infra_file, old audit and ledger unchanged; repeated verification does not replay",
+    "test: corrected forward migration and repeat succeed after disposal; deleted-certificate snapshots remain identical; undelete, later mutation and physical deletion blocked",
+    "test: verifier rejects wrong database, master revision and snapshot evidence changes",
+    "Actual CLI plan/apply/verify/repeated apply passed on local MySQL; session identity durably recorded before writes; repeat produced no extra audits or SQL replay"
+  ],
+  "maven": {
+    "testClass": "DccRegistrationCertificateCommandServiceTest",
+    "tests": 45,
+    "failures": 0,
+    "errors": 0
+  },
+  "remoteReadOnlyPlan": {
+    "prod": {
+      "state": "ORIGINAL",
+      "count": 161
+    },
+    "test": {
+      "state": "ORIGINAL",
+      "count": 165
+    }
+  },
+  "remoteCertificateWrites": false,
+  "privateManifestSha256": "6b48ce2e95b7e4c5d1170055925615bbfdc9025868c6cbc4fe9101d1a3b69f73"
+}
