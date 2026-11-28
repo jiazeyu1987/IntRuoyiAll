@@ -9,10 +9,11 @@
       v-loading="formLoading"
     >
       <el-form-item label="所属项目" prop="projectId">
-        <el-select v-model="formData.projectId" filterable clearable placeholder="工序、工艺流程规则请选择项目" :disabled="formType === 'update'">
+        <el-select v-model="formData.projectId" no-match-text="没有匹配的项目，请调整搜索条件" filterable clearable placeholder="工序、工艺流程规则请选择项目" :disabled="formType === 'update'">
           <el-option v-for="p in projects" :key="p.id" :value="p.id" :label="p.projectCode + ' / ' + p.projectName" />
         </el-select>
       </el-form-item>
+      <el-alert v-if="formType === 'create' && projectsLoaded && !projects.length" title="工序、工艺流程编号规则暂无可选择的启用项目，请联系项目管理员确认项目已启用，并为您授予项目权限" type="warning" :closable="false" />
       <el-row :gutter="20">
         <el-col :span="24">
           <el-form-item label="规则编码" prop="code">
@@ -116,6 +117,7 @@ defineOptions({ name: 'AutoCodeRuleForm' })
 const { t } = useI18n() // 国际化
 const message = useMessage() // 消息弹窗
 
+const projectsLoaded = ref(false)
 const dialogVisible = ref(false) // 弹窗的是否展示
 const dialogTitle = ref('') // 弹窗的标题
 const formLoading = ref(false) // 表单的加载中：1）修改时的数据加载；2）提交的按钮禁用
@@ -153,7 +155,10 @@ const open = async (type: string, id?: number) => {
   formType.value = type
   activeTab.value = 'parts'
   resetForm()
+  projects.value = []
+  projectsLoaded.value = false
   projects.value = await getRouteProjectOptions()
+  projectsLoaded.value = true
   if (id) {
     formLoading.value = true
     try {

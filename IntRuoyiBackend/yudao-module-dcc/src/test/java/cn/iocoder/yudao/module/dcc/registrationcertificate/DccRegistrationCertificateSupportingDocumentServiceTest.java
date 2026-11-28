@@ -76,7 +76,7 @@ class DccRegistrationCertificateSupportingDocumentServiceTest extends BaseDbUnit
             return affected;
         }).when(jdbcTemplate).update(org.mockito.ArgumentMatchers.any(org.springframework.jdbc.core.PreparedStatementCreator.class),
                 org.mockito.ArgumentMatchers.any(org.springframework.jdbc.support.KeyHolder.class));
-        byte[] content = "real-support-material".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] content = RegistrationCertificateMaterialFixtures.pdf("support-material");
         org.mockito.Mockito.when(fileService.createFileAndReturnId(org.mockito.ArgumentMatchers.any(byte[].class),
                 org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString())).thenReturn(9201L);
         var file = new org.springframework.mock.web.MockMultipartFile("file", "receipt.pdf", "application/pdf", content);

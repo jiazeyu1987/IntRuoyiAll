@@ -68,6 +68,7 @@ public class KingdeeProductionMaterialListSyncJob implements JobHandler, ErpKing
         syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
                 .syncType(ErpKingdeeSyncTypeEnum.PRODUCTION_MATERIAL_LIST)
                 .triggerType(ErpKingdeeSyncTriggerTypeEnum.FULL)
+                .pageTransactions(true)
                 .forceInitialWindowStart(windowStart != null)
                 .initialWindowStart(windowStart)
                 .windowEnd(windowEnd)

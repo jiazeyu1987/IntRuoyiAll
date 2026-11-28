@@ -1421,7 +1421,12 @@
                 align="right"
                 v-bind="sortColumnAttrs('plannedQuantity')"
               >
-                <template #default="{ row }">{{ formatQuantity(row.plannedQuantity) }}</template>
+                <template #default="{ row }">
+                  <div>{{ formatQuantity(row.plannedQuantity) }}</div>
+                  <div v-if="wholePieceScheduleHint(row.remainingQuantity)" class="text-xs text-secondary">
+                    {{ wholePieceScheduleHint(row.remainingQuantity) }}
+                  </div>
+                </template>
               </el-table-column>
               <el-table-column
                 v-if="isProcessRouteColumnVisible('effectiveCompletedQuantity')"
@@ -2101,6 +2106,7 @@ import {
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import BaseScheduleOrderMainList from './components/ScheduleOrderMainList.vue'
 import ScheduleOrderProcessDetail from './components/ScheduleOrderProcessDetail.vue'
+import { formatQuantity, wholePieceScheduleHint } from './scheduleQuantity'
 import ScheduleOrderReplanDrawer from './components/ScheduleOrderReplanDrawer.vue'
 import { resolveControlledActionProjection } from '@/api/form-center/actionProjection'
 
@@ -4607,11 +4613,6 @@ const normalizePercent = (value?: number) => {
 }
 
 const formatPercent = (value?: number) => normalizePercent(value).toFixed(2)
-
-const formatQuantity = (value?: number) => {
-  const quantity = Number(value || 0)
-  return Number.isFinite(quantity) ? String(Math.round(quantity)) : '0'
-}
 
 const formatCapacityIntegerNumber = (value?: number) => {
   const capacity = Number(value || 0)

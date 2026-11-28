@@ -14,7 +14,6 @@
     </el-button>
     <!-- 列表 -->
     <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true" border>
-      <el-table-column label="用户编号" align="center" prop="userId" width="100" />
       <el-table-column label="用户昵称" align="center" prop="nickname" min-width="120" />
       <el-table-column label="手机号" align="center" prop="telephone" min-width="120" />
       <el-table-column label="备注" align="center" prop="remark" min-width="150" />

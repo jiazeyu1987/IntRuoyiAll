@@ -65,7 +65,7 @@
           >
             <template #default="{ row }">
               <div class="signature-governance-records__main">
-                {{ String(row.businessRecordCode || '').trim() === '0' ? '业务记录关联异常' : (row.businessRecordCode || '未记录业务编号') }}
+                {{ formatBusinessRecordCode(row) }}
               </div>
               <div class="signature-governance-records__meta">
                 {{ String(row.businessRecordCode || '').trim() === '0' ? '原记录关联编号为 0，请核查来源记录' : formatBusinessRecordName(row) }}
@@ -80,7 +80,7 @@
             v-bind="sortColumnAttrs('signerName')"
           >
             <template #default="{ row }">
-              <div>{{ row.signerName || row.actorNicknameSnapshot || `用户#${row.signerUserId || '-'}` }}</div>
+              <div>{{ formatSignerName(row) }}</div>
               <div class="signature-governance-records__meta">
                 {{ row.actorUsernameSnapshot || '-' }}
               </div>
@@ -137,6 +137,8 @@
                   <p v-if="row.comment">原始说明：{{ row.comment }}</p>
                   <p>来源：{{ formatSourceTableLabel(row.sourceTable) }}</p>
                   <p>记录标识：{{ row.globalId }}</p>
+                  <p>签署人内部标识：{{ row.signerUserId || '未记录' }}</p>
+                  <p v-if="isLegacyApprovalSubject(row)">原始主题标识：{{ row.businessRecordCode }}</p>
                   <p>动作编码：{{ row.actionCode || '未记录' }}</p>
                   <p>含义编码：{{ row.meaningCode || '未记录' }}</p>
                   <p v-if="row.actionLabel">原始动作说明：{{ row.actionLabel }}</p>
@@ -521,7 +523,24 @@ const formatSourceTableLabel = (sourceTable?: string) => {
   return sourceTableLabels[text] || `未识别来源表：${text}`
 }
 
+// 仅识别BPM_APPROVAL_TASK旧投影；不对任意业务编号做Base64猜测或解码。
+const isLegacyApprovalSubject = (row: SignatureGovernanceRecordRespVO) =>
+  row.sourceTable === 'system_electronic_signature' && row.sourceCode === 'BPM'
+  && row.businessRecordName === 'BPM_APPROVAL_TASK'
+
+const formatBusinessRecordCode = (row: SignatureGovernanceRecordRespVO) => {
+  if (isLegacyApprovalSubject(row)) return '审批任务（未提供业务名称）'
+  if (String(row.businessRecordCode || '').trim() === '0') return '业务记录关联异常'
+  return row.businessRecordCode || row.businessRecordName || '未记录业务编号'
+}
+
+const formatSignerName = (row: SignatureGovernanceRecordRespVO) =>
+  row.signerName?.trim() || row.actorNicknameSnapshot?.trim() || '签署时姓名未记录'
+
 const formatBusinessRecordName = (row: SignatureGovernanceRecordRespVO) => {
+  if (isLegacyApprovalSubject(row)) return '历史签名未提供可读业务信息，请在详情核对关联记录'
+
+  if (!row.businessRecordCode) return '未记录业务编号'
   const text = row.businessRecordName?.trim()
   if (!text) {
     return formatSourceTableLabel(row.sourceTable)

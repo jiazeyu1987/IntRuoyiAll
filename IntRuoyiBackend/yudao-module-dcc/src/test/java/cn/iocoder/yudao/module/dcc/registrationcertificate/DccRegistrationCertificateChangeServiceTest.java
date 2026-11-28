@@ -587,7 +587,7 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
 
     private MockMultipartFile changeFile(String key) {
         return new MockMultipartFile("file", key + ".pdf", "application/pdf",
-                ("change approval " + key).getBytes(StandardCharsets.UTF_8));
+                RegistrationCertificateMaterialFixtures.pdf("change approval " + key));
     }
 
     private void seedCurrentCertificate() {

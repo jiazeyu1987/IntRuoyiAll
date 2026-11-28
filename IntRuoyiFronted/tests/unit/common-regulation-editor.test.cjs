@@ -58,6 +58,17 @@ test('resuming a draft preserves its version and concurrency revision', () => {
   assert.equal(draft.expectedDraftRevision, 5)
 })
 
+test('viewing a retired version preserves the selected number despite newer releases', () => {
+  const historical = version('RETIRED')
+  historical.versionNo = 'A/4'
+  const versions = [{ versionNo: 'A/4' }, { versionNo: 'A/5' }]
+  const draft = createCommonEditorDraft(historical, versions)
+  assert.equal(draft.versionNo, 'A/4')
+  assert.equal(draft.expectedDraftRevision, 0)
+  const published = { ...historical, lifecycleStatus: 'PUBLISHED', versionNo: 'A/5' }
+  assert.equal(createCommonEditorDraft(published, versions).versionNo, 'A/6')
+})
+
 test('common editor preserves patrol matrix sampling and keeps AQL when patrol is removed', () => {
   const original = version()
   const item = original.processes[0].items[0]

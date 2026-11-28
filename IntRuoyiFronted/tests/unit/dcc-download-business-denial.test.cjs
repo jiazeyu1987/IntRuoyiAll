@@ -1,10 +1,10 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),crypto={getRandomValues:bytes=>require('node:crypto').webcrypto.getRandomValues(bytes)}
 const src=fs.readFileSync('src/api/dcc/controlledFile/workflow.ts','utf8'),ast=ts.createSourceFile('workflow.ts',src,ts.ScriptTarget.Latest,true)
-const names=['DccControlledFileContractError','DCC_DOWNLOAD_REQUIRED_RESPONSE_HEADERS','getAxiosHeader','buildControlledFileDownloadEndpoint','decodeContentDispositionFileName','assertControlledFileDownloadHeaders','assertNoClientProvidedDownloadName','createControlledFileDownloadRequestId','createControlledFileUploadSessionId','assertControlledFileDownloadBusinessResult','downloadControlledFileWithName']
+const names=['DccControlledFileContractError','DCC_DOWNLOAD_REQUIRED_RESPONSE_HEADERS','getAxiosHeader','buildControlledFileDownloadEndpoint','decodeContentDispositionFileName','assertControlledFileDownloadHeaders','assertNoClientProvidedDownloadName','createControlledFileDownloadRequestId','createControlledFileUploadSessionId','assertControlledFileDownloadBusinessResult','downloadControlledFileWithName','buildControlledFileVariantDownloadEndpoint','downloadControlledFileVariantWithName']
 const selected=ast.statements.filter(s=>names.includes(s.name?.text)||(s.declarationList?.declarations.some(d=>names.includes(d.name?.text))))
 function host(makeResponse, randomSource=crypto){
  const c={Blob,Response,Error,Number,String,JSON,Array,Uint8Array,crypto:randomSource,...require('../helpers/load-secure-uuid.cjs')(randomSource),axiosConfig:{base_url:'/admin-api',request_timeout:30000},buildControlledFileBinaryHeaders:()=>({}),calls:[],axios:{get:async(url,options)=>{c.calls.push({url,options});return makeResponse(options.params.downloadRequestId)}}}
- const code=selected.map(s=>s.getText(ast).replace(/^export /,'')).join('\n')+'\nthis.download=downloadControlledFileWithName;this.headers=DCC_DOWNLOAD_REQUIRED_RESPONSE_HEADERS;this.uploadSessionId=createControlledFileUploadSessionId;this.ContractError=DccControlledFileContractError'
+ const code=selected.map(s=>s.getText(ast).replace(/^export /,'')).join('\n')+'\nthis.download=downloadControlledFileWithName;this.variant=downloadControlledFileVariantWithName;this.headers=DCC_DOWNLOAD_REQUIRED_RESPONSE_HEADERS;this.uploadSessionId=createControlledFileUploadSessionId;this.ContractError=DccControlledFileContractError'
  vm.runInNewContext(ts.transpileModule(code,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c);return c
 }
 function evidence(h,id){const x={};for(const item of h.headers)x[item.name.toLowerCase()]=item.target==='downloadRequestId'?id:'actual-evidence';x['content-disposition']="attachment; filename*=UTF-8''file.pdf";return x}
@@ -46,4 +46,16 @@ test('missing or failing random source prevents download and upload session crea
   assert.throws(()=>h.uploadSessionId(),expected)
   assert.equal(h.calls.length,0)
  }
+})
+
+test('original download retains exact endpoint, filename, bytes and audit evidence without variant substitution',async()=>{
+ const blob=new Blob(['original scan bytes'],{type:'application/pdf'});let h
+ h=host(id=>({data:blob,headers:{...evidence(h,id),'content-type':'application/pdf'}}))
+ const result=await h.variant('9223372036854775000','original')
+ assert.equal(h.calls[0].url,'/admin-api/dcc/controlled-files/9223372036854775000/download/original')
+ assert.equal(h.calls.length,1);assert.equal(result.blob,blob);assert.equal(result.fileName,'file.pdf')
+ assert.equal(result.evidence.downloadRequestId,h.calls[0].options.params.downloadRequestId)
+ const denied=host(()=>({data:new Blob([JSON.stringify({code:400,msg:'该受控版本未保存原件，无法下载原件'})],{type:'application/json'}),headers:{'content-type':'application/json'}}))
+ await assert.rejects(denied.variant('42','original'),/该受控版本未保存原件/)
+ assert.equal(denied.calls.length,1)
 })

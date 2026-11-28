@@ -3,7 +3,7 @@
     <div class="showroom-version-history-list__header">
       <div>
         <h3 class="showroom-version-history-list__title">历史版本</h3>
-        <p class="showroom-version-history-list__tip">只显示具备版本中心读取条件的已发布 bundle。</p>
+        <p class="showroom-version-history-list__tip">已发布历史版本。</p>
       </div>
       <el-tag type="info">共 {{ items.length }} 条</el-tag>
     </div>

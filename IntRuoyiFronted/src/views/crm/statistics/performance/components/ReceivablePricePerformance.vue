@@ -173,7 +173,7 @@ const loadData = async () => {
     echartsOption.series[3]['data'] = performanceList.map((s: StatisticsPerformanceRespVO) =>
       s.lastMonthCount !== 0
         ? (((s.currentMonthCount - s.lastMonthCount) / s.lastMonthCount) * 100).toFixed(2)
-        : 'NULL'
+        : null
     )
   }
   if (echartsOption.series && echartsOption.series[2] && echartsOption.series[1]['data']) {
@@ -183,7 +183,7 @@ const loadData = async () => {
     echartsOption.series[4]['data'] = performanceList.map((s: StatisticsPerformanceRespVO) =>
       s.lastYearCount !== 0
         ? (((s.currentMonthCount - s.lastYearCount) / s.lastYearCount) * 100).toFixed(2)
-        : 'NULL'
+        : null
     )
   }
 
@@ -218,11 +218,11 @@ const convertListData = () => {
     tableData[3]['prop' + index] =
       item.lastMonthCount !== 0
         ? (((item.currentMonthCount - item.lastMonthCount) / item.lastMonthCount) * 100).toFixed(2)
-        : 'NULL'
+        : '无可比数据（基期为0）'
     tableData[4]['prop' + index] =
       item.lastYearCount !== 0
         ? (((item.currentMonthCount - item.lastYearCount) / item.lastYearCount) * 100).toFixed(2)
-        : 'NULL'
+        : '无可比数据（基期为0）'
   })
 }
 

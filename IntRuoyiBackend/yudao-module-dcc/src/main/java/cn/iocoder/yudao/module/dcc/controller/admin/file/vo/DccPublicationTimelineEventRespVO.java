@@ -14,6 +14,7 @@ public class DccPublicationTimelineEventRespVO {
     private String actionLabel;
     private LocalDateTime occurredAt;
     private String actorId;
+    private String actorName;
     private String objectId;
     private String objectLabel;
     private String statusBeforeLabel;
@@ -25,7 +26,9 @@ public class DccPublicationTimelineEventRespVO {
     private String systemMessageId;
     private Integer attemptCount;
     private String assigneeBefore;
+    private String assigneeBeforeName;
     private String assigneeAfter;
+    private String assigneeAfterName;
     private String linkedRevisionControlledFileId;
     private String linkedRevisionVersion;
 }

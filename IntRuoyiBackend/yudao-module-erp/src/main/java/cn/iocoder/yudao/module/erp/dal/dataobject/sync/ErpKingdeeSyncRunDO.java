@@ -23,6 +23,7 @@ public class ErpKingdeeSyncRunDO extends BaseDO {
 
     private String syncType;
     private String triggerType;
+    private String targetCode;
     private Integer status;
     private LocalDateTime windowStartTime;
     private LocalDateTime windowEndTime;

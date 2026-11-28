@@ -267,7 +267,7 @@
                   </el-tag>
                   <span>首个任务执行状态</span>
                 </div>
-                <div class="detail-summary-grid">
+                <div v-if="isPreviewCalendarOverlayActive || dayDetail" class="detail-summary-grid">
                   <div class="detail-total-quantity-card" aria-label="当天当日工序量">
                     <label>当日工序量</label>
                     <strong>{{ buildQuantityLabel(selectedDayDailyProcessQuantity) }}</strong>
@@ -365,7 +365,7 @@
                     <strong>{{ selectedDayLockedCount }}</strong>
                   </button>
                 </div>
-                <div class="process-capacity-section">
+                <div v-if="isPreviewCalendarOverlayActive || dayDetail" class="process-capacity-section">
                   <div class="section-head process-capacity-head">
                     <span>工序产能利用</span>
                     <span class="section-tip">按当天实际排产任务汇总</span>
@@ -1273,6 +1273,9 @@ const previewTaskRows = computed<DaySummaryTaskDetailRow[]>(() => {
         processName: task.process,
         itemName: resolvePreviewParentProductName(parentTask),
         shiftCode: inferPreviewShiftCode(task.startDate),
+        workOrderQuantity: requireWorkOrderQuantity(
+          previewWorkOrderAnalysisMap.value.get(workOrderId)?.quantity, workOrderId
+        ),
         quantity: task.quantity,
         dailyQuantity: task.dailyQuantity,
         startTime: normalizeDateTimeText(task.startDate),
@@ -1649,7 +1652,7 @@ const selectedDayWorkOrderRows = computed<DaySummaryWorkOrderDetailRow[]>(() => 
         dayShiftTaskCount: 0,
         nightShiftTaskCount: 0,
         lockedTaskCount: 0,
-        totalQuantity: totalTaskQuantity,
+        totalQuantity: requireWorkOrderQuantity(task.workOrderQuantity, task.workOrderId),
         dailyProcessQuantity: 0,
         processTaskQuantity: 0,
         workshopNames: '',
@@ -1669,7 +1672,9 @@ const selectedDayWorkOrderRows = computed<DaySummaryWorkOrderDetailRow[]>(() => 
     }
     current.dailyProcessQuantity += dailyQuantity
     current.processTaskQuantity += totalTaskQuantity
-    current.totalQuantity = Math.max(current.totalQuantity, totalTaskQuantity)
+    if (current.totalQuantity !== requireWorkOrderQuantity(task.workOrderQuantity, task.workOrderId)) {
+      throw new Error(`工单 ${task.workOrderId} 的计划量不一致`)
+    }
 
     const workshopNames = new Set(current.workshopNames ? current.workshopNames.split(' / ') : [])
     const lineNames = new Set(current.lineNames ? current.lineNames.split(' / ') : [])
@@ -1738,10 +1743,9 @@ const daySummaryTaskWorkOrderGroups = computed<DaySummaryTaskWorkOrderGroup[]>((
       group.taskCount += 1
       group.dailyProcessQuantity += dailyQuantity
       group.processTaskQuantity += totalTaskQuantity
-      group.workOrderPlanQuantity = Math.max(
-        group.workOrderPlanQuantity,
-        totalTaskQuantity
-      )
+      if (group.workOrderPlanQuantity !== requireWorkOrderQuantity(task.workOrderQuantity, task.workOrderId)) {
+        throw new Error(`工单 ${task.workOrderId} 的计划量不一致`)
+      }
       if (task.shiftCode === 'DAY') {
         group.dayShiftTaskCount += 1
       }
@@ -1768,7 +1772,7 @@ const daySummaryTaskWorkOrderGroups = computed<DaySummaryTaskWorkOrderGroup[]>((
       dayShiftTaskCount: task.shiftCode === 'DAY' ? 1 : 0,
       nightShiftTaskCount: task.shiftCode === 'NIGHT' ? 1 : 0,
       lockedTaskCount: task.locked ? 1 : 0,
-      workOrderPlanQuantity: totalTaskQuantity,
+      workOrderPlanQuantity: requireWorkOrderQuantity(task.workOrderQuantity, task.workOrderId),
       dailyProcessQuantity: dailyQuantity,
       processTaskQuantity: totalTaskQuantity,
       rows: [task]
@@ -2012,6 +2016,7 @@ async function loadDayDetail(date: string) {
   try {
     const data = await ProScheduleCalendarApi.getDayDetail({ date })
     if (serial !== detailRequestSerial) return
+    validateDayDetailWorkOrderQuantities(data)
     dayDetail.value = {
       ...data,
       date: normalizeDate(data.date),
@@ -2556,6 +2561,28 @@ function selectDaySummaryWorkOrder(key: string) {
 
 function resetSelectedDaySummaryWorkOrder() {
   selectedDaySummaryWorkOrderKey.value = daySummaryTaskWorkOrderGroups.value[0]?.key || ''
+}
+
+function validateDayDetailWorkOrderQuantities(data: ProScheduleCalendarDayDetailRespVO) {
+  const quantities = new Map<number, number>()
+  for (const workshop of data.workshops) {
+    for (const line of workshop.lines) {
+      for (const task of line.tasks) {
+        const quantity = requireWorkOrderQuantity(task.workOrderQuantity, task.workOrderId)
+        if (quantities.has(task.workOrderId) && quantities.get(task.workOrderId) !== quantity) {
+          throw new Error(`工单 ${task.workOrderId} 的计划量不一致`)
+        }
+        quantities.set(task.workOrderId, quantity)
+      }
+    }
+  }
+}
+
+function requireWorkOrderQuantity(quantity: unknown, workOrderId: number): number {
+  if (quantity === undefined || quantity === null || quantity === '' || !Number.isFinite(Number(quantity)) || Number(quantity) < 0) {
+    throw new Error(`工单 ${workOrderId} 的原始计划量缺失或无效`)
+  }
+  return Number(quantity)
 }
 
 function resolveTaskDailyQuantity(task: ProScheduleCalendarTaskVO) {

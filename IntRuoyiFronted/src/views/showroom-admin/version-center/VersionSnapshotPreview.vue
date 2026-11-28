@@ -4,7 +4,7 @@
       <div>
         <h3 class="showroom-version-snapshot-preview__title">版本预览</h3>
         <p class="showroom-version-snapshot-preview__tip">
-          文字、内容图片、公开 preview asset 与双语语音都以 detail 合同为准。
+          查看所选版本的文字、图片和双语讲解内容。
         </p>
       </div>
       <div v-if="selectedVersion" class="showroom-version-snapshot-preview__meta">
@@ -24,15 +24,26 @@
           <strong>{{ selectedVersion.title }}</strong>
           <span v-if="selectedVersion.titleEn">{{ selectedVersion.titleEn }}</span>
         </div>
-        <div v-if="selectedVersion.companyType" class="showroom-version-snapshot-preview__company-type">
-          {{ selectedVersion.companyType }}
+        <div
+          v-if="selectedVersion.companyType"
+          class="showroom-version-snapshot-preview__company-type"
+        >
+          {{
+            selectedVersion.companyType === 'MAIN'
+              ? '主体公司'
+              : selectedVersion.companyType === 'SUBSIDIARY'
+                ? '子公司'
+                : '公司类型未识别'
+          }}
         </div>
       </section>
 
       <section class="showroom-version-snapshot-preview__surface">
         <div class="showroom-version-snapshot-preview__section-head">
           <h4>内容图片</h4>
-          <span>{{ selectedVersion.image.contentImage.source }}</span>
+          <details
+            ><summary>图片来源详情</summary>{{ selectedVersion.image.contentImage.source }}</details
+          >
         </div>
         <img
           v-if="selectedVersion.image.contentImage.url"
@@ -45,14 +56,15 @@
 
       <section class="showroom-version-snapshot-preview__surface">
         <div class="showroom-version-snapshot-preview__section-head">
-          <h4>公开 preview asset 摘要</h4>
-          <span>
+          <h4>线上展示图片</h4>
+          <details
+            ><summary>图片来源详情</summary>
             {{
               selectedVersion.image.releasePreviewAsset
                 ? selectedVersion.image.releasePreviewAsset.source
                 : '未绑定'
             }}
-          </span>
+          </details>
         </div>
         <template v-if="selectedVersion.image.releasePreviewAsset">
           <img
@@ -64,16 +76,21 @@
             class="showroom-version-snapshot-preview__image"
           />
           <div v-else class="showroom-version-snapshot-preview__image-empty">未记录公开预览图</div>
-          <div class="showroom-version-snapshot-preview__asset-meta">
-            <span>资产版本 #{{ selectedVersion.image.releasePreviewAsset.versionId ?? '未记录' }}</span>
+          <details class="showroom-version-snapshot-preview__asset-meta"
+            ><summary>图片版本追溯</summary>
+            <span
+              >资产版本 #{{ selectedVersion.image.releasePreviewAsset.versionId ?? '未记录' }}</span
+            >
             <span>文件 #{{ selectedVersion.image.releasePreviewAsset.fileId ?? '未记录' }}</span>
             <span>
-              来源 revision #{{ selectedVersion.image.releasePreviewAsset.sourceRevisionId ?? '未记录' }}
+              来源修订编号 #{{
+                selectedVersion.image.releasePreviewAsset.sourceRevisionId ?? '未记录'
+              }}
             </span>
-          </div>
+          </details>
         </template>
         <div v-else class="showroom-version-snapshot-preview__image-empty">
-          当前 detail 合同没有返回公开 preview asset。
+          当前版本未记录线上展示图片。
         </div>
       </section>
 
@@ -107,8 +124,12 @@
             class="showroom-version-snapshot-preview__narration-card"
           >
             <h5>{{ resolveVersionCenterNarrationLabel(narration.language) }}</h5>
-            <p>语音版本：{{ narration.versionId ?? '未记录' }}</p>
-            <p>Voice：{{ narration.voice || '未记录' }}</p>
+            <details
+              ><summary>语音版本追溯</summary>{{ narration.versionId ?? '未记录' }}；音色标识：{{
+                narration.voice
+              }}</details
+            >
+            <p>音色：{{ voiceLabel(narration.voice) }}</p>
             <p class="showroom-version-snapshot-preview__script">
               {{ narration.scriptText || '当前没有讲解稿内容' }}
             </p>
@@ -127,6 +148,13 @@
 </template>
 
 <script setup lang="ts">
+import { ALIYUN_NLS_VOICE_OPTIONS } from '@/api/ai/tts'
+const voiceLabel = (voice?: string) =>
+  voice
+    ? ALIYUN_NLS_VOICE_OPTIONS.find((item) => item.value === voice)?.label ||
+      '音色未识别（见追溯详情）'
+    : '未记录'
+
 import { resolveVersionCenterNarrationLabel, type VersionCenterSnapshotVO } from './contracts'
 
 defineOptions({ name: 'VersionSnapshotPreview' })

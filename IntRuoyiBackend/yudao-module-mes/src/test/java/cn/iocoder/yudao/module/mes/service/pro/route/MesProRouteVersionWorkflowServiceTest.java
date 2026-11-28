@@ -39,6 +39,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
@@ -586,7 +587,7 @@ class MesProRouteVersionWorkflowServiceTest {
         MesProRouteVersionDO active = activeVersion();
         when(routeVersionMapper.selectByIdForUpdate(active.getId())).thenReturn(active);
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.cancelCandidate(active.getId()));
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.cancelCandidate(active.getId(), false));
 
         assertEquals(ErrorCodeConstants.PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE.getCode(), ex.getCode());
     }
@@ -598,13 +599,50 @@ class MesProRouteVersionWorkflowServiceTest {
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(507L);
-            service.cancelCandidate(candidate.getId());
+            service.cancelCandidate(candidate.getId(), false);
         }
 
         ArgumentCaptor<MesProRouteVersionDO> captor = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
         verify(routeVersionMapper).updateById(captor.capture());
         assertEquals(candidate.getId(), captor.getValue().getId());
         assertEquals(MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED, captor.getValue().getLifecycleStatus());
+        verify(platformAdapter).recordCancelled(candidate, 507L);
+    }
+
+    @Test
+    void discardUnsavedCandidate_shouldPreserveDraftSavedByAnotherPage() {
+        MesProRouteVersionDO candidate = draftCandidate(activeVersion());
+        candidate.setLastSavedBy(9908100850L);
+        when(routeVersionMapper.selectByIdForUpdate(candidate.getId())).thenReturn(candidate);
+
+        MesProRouteVersionDO result = service.cancelCandidate(candidate.getId(), true);
+
+        assertEquals(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT, result.getLifecycleStatus());
+        assertEquals(9908100850L, result.getLastSavedBy());
+        verify(routeVersionMapper, never()).updateById(any(MesProRouteVersionDO.class));
+        verifyNoInteractions(platformAdapter);
+    }
+
+    @Test
+    void discardUnsavedCandidate_shouldPreserveConcurrentlyPublishedVersion() {
+        MesProRouteVersionDO active = activeVersion();
+        when(routeVersionMapper.selectByIdForUpdate(active.getId())).thenReturn(active);
+
+        assertEquals(MesProRouteVersionLifecycleServiceImpl.STATUS_ACTIVE,
+                service.cancelCandidate(active.getId(), true).getLifecycleStatus());
+        verify(routeVersionMapper, never()).updateById(any(MesProRouteVersionDO.class));
+        verifyNoInteractions(platformAdapter);
+    }
+
+    @Test
+    void discardUnsavedCandidate_shouldCancelNeverSavedDraft() {
+        MesProRouteVersionDO candidate = draftCandidate(activeVersion());
+        when(routeVersionMapper.selectByIdForUpdate(candidate.getId())).thenReturn(candidate);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(507L);
+            assertEquals(MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED,
+                    service.cancelCandidate(candidate.getId(), true).getLifecycleStatus());
+        }
         verify(platformAdapter).recordCancelled(candidate, 507L);
     }
 
@@ -622,7 +660,7 @@ class MesProRouteVersionWorkflowServiceTest {
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(508L);
-            service.cancelCandidate(candidate.getId());
+            service.cancelCandidate(candidate.getId(), false);
         }
         MesProRouteVersionCreateReqVO reqVO = new MesProRouteVersionCreateReqVO();
         reqVO.setRouteId(active.getRouteId());

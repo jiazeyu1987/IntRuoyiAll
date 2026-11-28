@@ -26,7 +26,9 @@
           <div>编号：{{ selectedItem.code }}</div>
           <div>客户：{{ selectedItem.clientName || '-' }}</div>
           <div>销售订单：{{ selectedItem.salesOrderCode || '-' }}</div>
-          <div>状态：{{ selectedItem.status }}</div>
+          <div>
+            状态：<dict-tag :type="DICT_TYPE.MES_WM_PACKAGE_STATUS" :value="selectedItem.status" />
+          </div>
         </div>
       </template>
       <el-input
@@ -51,6 +53,7 @@
 
 <script setup lang="ts">
 import { WmPackageApi, WmPackageVO } from '@/api/mes/wm/packages'
+import { DICT_TYPE } from '@/utils/dict'
 import { Search, CircleClose } from '@element-plus/icons-vue'
 import WmPackageSelectDialog from './WmPackageSelectDialog.vue'
 

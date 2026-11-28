@@ -25,19 +25,20 @@
         <span class="showroom-version-center-header__summary-label">当前线上版本</span>
         <strong>{{ currentPublicVersion ? `V${currentPublicVersion.revisionNo}` : '未上线' }}</strong>
         <span class="showroom-version-center-header__summary-meta">
-          {{ currentPublicVersion?.title || '当前没有进入 live release 的版本' }}
+          {{ currentPublicVersion?.title || '当前没有线上展示版本' }}
         </span>
       </article>
       <article class="showroom-version-center-header__summary-card">
-        <span class="showroom-version-center-header__summary-label">当前 release</span>
-        <strong>{{ currentRelease ? currentRelease.releaseId : '未发布' }}</strong>
+        <span class="showroom-version-center-header__summary-label">当前发布</span>
+        <strong>{{ currentRelease ? '已发布' : '未发布' }}</strong>
         <span class="showroom-version-center-header__summary-meta">
-          {{
-            currentRelease
-              ? `${currentRelease.manifestHash} · ${formatDateTimeValue(currentRelease.publishedAt)}`
-              : '当前没有 active showroom release'
-          }}
+          {{ currentRelease ? formatDateTimeValue(currentRelease.publishedAt) : '当前没有展厅发布记录' }}
         </span>
+        <details v-if="currentRelease">
+          <summary>发布技术追溯详情</summary>
+          <p>发布标识：{{ currentRelease.releaseId }}</p>
+          <p>清单校验码：{{ currentRelease.manifestHash }}</p>
+        </details>
       </article>
     </div>
   </section>

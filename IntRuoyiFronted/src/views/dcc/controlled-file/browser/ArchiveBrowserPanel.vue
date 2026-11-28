@@ -11,7 +11,7 @@
         <el-table-column prop="projectName" label="原项目" /><el-table-column prop="directoryPath" label="原目录" />
         <el-table-column prop="projectFolderName" label="文件夹" /><el-table-column prop="versionNo" label="版本" />
         <el-table-column label="作废时间" min-width="170"><template #default="{ row }">{{ formatDateTimeValue(row.obsoletedTime, '未记录') }}</template></el-table-column><el-table-column prop="obsoleteReason" label="原因" min-width="180" />
-        <el-table-column prop="supersededByFileId" label="替换新版ID" />
+        <el-table-column label="替换版本"><template #default="{ row }"><el-button v-if="row.supersededByFileId" link @click="detail({ ...row, id: row.supersededByFileId })">查看替换版本</el-button><span v-else>未关联替换版本</span></template></el-table-column>
         <el-table-column label="操作" width="180"><template #default="{ row }">
           <el-button link @click="detail(row)">只读详情</el-button><el-button link @click="download(row.id)">下载原件</el-button>
         </template></el-table-column>

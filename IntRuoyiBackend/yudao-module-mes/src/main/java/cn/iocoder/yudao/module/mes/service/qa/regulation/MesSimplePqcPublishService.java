@@ -75,7 +75,11 @@ public class MesSimplePqcPublishService {
             }
             bindings.put(entry.getKey(), first);
         }
-        var published = regulations.publish(request);
+        // Equipment configuration requires persisted draft items. Freeze the version only
+        // after its new item codes have their bindings, within this transaction.
+        var draft = regulations.saveDraft(request);
+        request.setRegulationId(draft.getRegulationId());
+        request.setExpectedDraftRevision(draft.getDraftRevision());
         for (var entry : groups.entrySet()) {
             var config = new MesPqcItemEquipmentBatchConfigSaveReqVO();
             config.setDccProjectCodeId(request.getDccProjectCodeId());
@@ -85,7 +89,7 @@ public class MesSimplePqcPublishService {
             config.setEquipmentGroups(bindings.get(entry.getKey()));
             equipment.replaceItemConfigs(config);
         }
-        return published;
+        return regulations.publish(request);
     }
 
     private boolean isLegacyUnbound(MesQaInspectionRegulationPublishedVersionRespVO legacy, Long projectId,

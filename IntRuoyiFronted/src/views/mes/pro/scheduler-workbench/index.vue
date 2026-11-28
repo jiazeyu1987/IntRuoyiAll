@@ -324,11 +324,16 @@
                 class="scheduler-workbench__runtime-detail"
                 :class="{ 'is-danger': isAutoScheduleLatestFailure(autoScheduleJobStatus) }"
               >
-                处理器 mesProNightlyReplanJob；下次触发
+                下次自动排产
                 {{ formatDateTimeValue(autoScheduleJobStatus?.nextTriggerTime, '未计算') }}；最近日志
                 {{ formatAutoScheduleLatestLogText(autoScheduleJobStatus) }}；执行结果
                 {{ formatAutoScheduleLatestResultText(autoScheduleJobStatus) }}
               </small>
+              <details class="scheduler-workbench__runtime-detail">
+                <summary>技术任务详情</summary>
+                <p>处理器：mesProNightlyReplanJob</p>
+                <p>定时表达式：{{ autoScheduleJobStatus?.cronExpression || '未配置' }}</p>
+              </details>
             </div>
           </div>
           <el-alert type="info" :closable="false" title="导入全部数据包时，每条工艺流程必须包含独占的项目关联；缺少项目代码或项目已被其他流程占用时，整包导入失败。" />
@@ -414,6 +419,7 @@
                 </el-button>
               </template>
               <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+                <p class="mb-8px text-sm text-secondary">计划开始、计划完工来自已应用的正式工序计划；开排日期是人工设置的最早开排限制，可不设置。修改产能后，请重新排程更新计划日期。</p>
                 <el-table
                   v-if="pagedProcessWipStatistics.length"
                   data-user-table-column-explicit
@@ -617,7 +623,7 @@
                   </el-table-column>
                   <el-table-column
                     v-if="isProcessWipColumnVisible('estimatedStartTime')"
-                    label="预计开始"
+                    label="计划开始"
                     prop="estimatedStartTime"
                     :width="getProcessWipColumnLayoutWidthString('estimatedStartTime', 168)"
                     :min-width="getProcessWipColumnMinWidthString('estimatedStartTime', 156)"
@@ -630,7 +636,7 @@
                   </el-table-column>
                   <el-table-column
                     v-if="isProcessWipColumnVisible('estimatedCompletionTime')"
-                    label="预计完工"
+                    label="计划完工"
                     prop="estimatedCompletionTime"
                     :width="getProcessWipColumnLayoutWidthString('estimatedCompletionTime', 168)"
                     :min-width="getProcessWipColumnMinWidthString('estimatedCompletionTime', 156)"
@@ -1325,8 +1331,8 @@ const schedulerWorkbenchProcessWipDefaultColumns: UserTableColumnDefinition[] = 
   { key: 'nightShiftEnabled', label: '夜班', width: 116, minWidth: 108, sortable: true },
   { key: 'plannedStartDate', label: '开排日期', width: 164, minWidth: 150, sortable: true },
   { key: 'unfinishedDemandQuantity', label: '未完需求', width: 140, minWidth: 128, sortable: true },
-  { key: 'estimatedStartTime', label: '预计开始', width: 168, minWidth: 156, sortable: true },
-  { key: 'estimatedCompletionTime', label: '预计完工', width: 168, minWidth: 156, sortable: true },
+  { key: 'estimatedStartTime', label: '计划开始', width: 168, minWidth: 156, sortable: true },
+  { key: 'estimatedCompletionTime', label: '计划完工', width: 168, minWidth: 156, sortable: true },
   { key: 'todayFeedbackQuantity', label: '今日报工', width: 148, minWidth: 132, sortable: true }
 ]
 const {
@@ -1540,8 +1546,8 @@ const schedulerWorkbenchProcessWipQuickFilterDefinitions: TableQuickFilterDefini
     ]
   },
   { key: 'plannedStartDate', label: '开排日期', type: 'dateRange' },
-  { key: 'estimatedStartTime', label: '预计开始', type: 'dateRange' },
-  { key: 'estimatedCompletionTime', label: '预计完工', type: 'dateRange' }
+  { key: 'estimatedStartTime', label: '计划开始', type: 'dateRange' },
+  { key: 'estimatedCompletionTime', label: '计划完工', type: 'dateRange' }
 ]
 const shiftHoursForm = reactive({
   shiftHours: DEFAULT_SHIFT_HOURS
@@ -1680,7 +1686,7 @@ const autoScheduleJobStatusText = computed(() => {
   const status = autoScheduleJobStatus.value
   if (!status?.configured) return '自动排产任务未注册'
   const enabledText = status.enabled ? '已注册并启用' : '已注册但未启用'
-  return `${enabledText}，cron ${status.cronExpression || '未配置'}`
+  return enabledText
 })
 
 const nightShiftCapacityTagType = computed(() =>
@@ -2322,7 +2328,7 @@ const formatProcessWipShiftCapacity = (value?: number) => {
 }
 
 const formatEstimatedTime = (value?: string | number | Date) => {
-  return formatDateTimeValue(value, '无法估算')
+  return formatDateTimeValue(value, '尚无完整工序计划')
 }
 
 const formatExplanationNumber = (value?: number) => {

@@ -1,5 +1,7 @@
 # 统一审批平台新模块 Adapter 模板
 
+> 2026-11-26：下文 SRM 示例仅供历史参考，自研 SRM 已移除，不得按该示例恢复模块或注册 provider。见 [SRM 下线说明](../srm/README.md)。
+
 ## 1. 任务文档清单
 
 在 `doc/tasks/<task-id>/task.md` 中先写：

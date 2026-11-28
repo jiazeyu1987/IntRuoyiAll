@@ -5,7 +5,6 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectAccessRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectAccessRuleMapper;
-import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductActorSupport;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
@@ -29,20 +28,18 @@ class DccW01ProjectAccessIdentityTest {
     DeptApi departments;
     DccProjectAccessRuleMapper rules;
     DccProjectCodeMapper projects;
-    DccProjectCodeAssignmentMapper assignments;
 
     @BeforeEach void setup() {
         TenantContextHolder.setTenantId(1L); TenantContextHolder.setIgnore(false);
         service = new DccProjectAccessServiceImpl();
         users = mock(AdminUserApi.class); permissions = mock(PermissionApi.class);
         departments = mock(DeptApi.class); rules = mock(DccProjectAccessRuleMapper.class);
-        projects = mock(DccProjectCodeMapper.class); assignments = mock(DccProjectCodeAssignmentMapper.class);
+        projects = mock(DccProjectCodeMapper.class);
         ReflectionTestUtils.setField(service, "adminUserApi", users);
         ReflectionTestUtils.setField(service, "permissionApi", permissions);
         ReflectionTestUtils.setField(service, "deptApi", departments);
         ReflectionTestUtils.setField(service, "accessRuleMapper", rules);
         ReflectionTestUtils.setField(service, "projectCodeMapper", projects);
-        ReflectionTestUtils.setField(service, "assignmentMapper", assignments);
         var project = DccProjectCodeDO.builder().id(100L).status("ENABLE").build(); project.setTenantId(1L);
         when(projects.selectById(100L)).thenReturn(project);
     }
@@ -69,7 +66,6 @@ class DccW01ProjectAccessIdentityTest {
         assertThrows(ServiceException.class, () -> service.assertProjectViewerOrAbove(99L, 104L));
         assertFalse(service.hasProjectOwner(99L, 100L));
         assertFalse(service.hasProjectEditorOrOwner(99L, 100L));
-        verifyNoInteractions(assignments);
     }
 
     @Test void projectCodeAdministratorStillRequiresEnabledTenantAccount() {
@@ -97,14 +93,14 @@ class DccW01ProjectAccessIdentityTest {
     }
     void rejectAccount(AdminUserRespDTO account, String type) {
         grant(type, 1L); when(users.getUser(99L)).thenReturn(account);
-        clearInvocations(permissions, departments, rules, assignments);
+        clearInvocations(permissions, departments, rules);
         assertFalse(service.hasProjectOwner(99L, 100L), type + " must reject OWNER");
         assertFalse(service.hasProjectEditorOrOwner(99L, 100L), type + " must reject EDIT");
         assertThrows(ServiceException.class, () -> service.assertProjectOwner(99L, 100L));
         assertThrows(ServiceException.class, () -> service.assertProjectEditorOrOwner(99L, 100L));
         assertThrows(ServiceException.class, () -> service.assertProjectViewerOrAbove(99L, 100L));
         assertThrows(ServiceException.class, () -> service.listReadableProjectIds(99L));
-        verifyNoInteractions(permissions, departments, rules, assignments);
+        verifyNoInteractions(permissions, departments, rules);
     }
     @Test void foreignReturnedIdCannotBorrowAnySubjectOrReaderScope() {
         for (String type : List.of("USER", "DEPT", "ROLE", "POSITION")) rejectAccount(user().setId(98L), type);
@@ -140,12 +136,11 @@ class DccW01ProjectAccessIdentityTest {
             assertEquals(List.of(100L), service.listReadableProjectIds(99L), type);
         }
     }
-    @Test void exactIdentityDoesNotRemoveExistingAssignedProjectHardScope() {
+    @Test void formalProjectAccessDoesNotRequireCorrectionAssignment() {
         when(users.getUser(99L)).thenReturn(user()); grant("USER", 1L);
         when(permissions.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
-        when(assignments.selectActiveProjectCodeIdsByAssigneeUserId(eq(1L), eq(99L), any())).thenReturn(List.of(101L));
-        assertTrue(service.listReadableProjectIds(99L).isEmpty());
-        assertThrows(ServiceException.class, () -> service.assertProjectViewerOrAbove(99L, 100L));
+        assertEquals(List.of(100L), service.listReadableProjectIds(99L));
+        assertDoesNotThrow(() -> service.assertProjectViewerOrAbove(99L, 100L));
     }
     @Test void existingProjectProductActorHelperAlreadyRejectsForeignAndDisabledAccounts() {
         var actor = new DccProjectProductActorSupport();
@@ -177,7 +172,7 @@ class DccW01ProjectAccessIdentityTest {
             assertDoesNotThrow(() -> service.assertProjectViewerOrAbove(99L, projectId));
         }
         assertEquals(List.of(100L, 101L), service.listReadableProjectIds(99L));
-        verifyNoInteractions(rules, assignments);
+        verifyNoInteractions(rules);
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -212,7 +207,7 @@ class DccW01ProjectAccessIdentityTest {
             assertThrows(ServiceException.class, () -> service.assertProjectViewerOrAbove(99L, 100L));
             assertThrows(ServiceException.class, () -> service.listReadableProjectIds(99L));
         }
-        verifyNoInteractions(permissions, rules, assignments);
+        verifyNoInteractions(permissions, rules);
     }
 
     private void grantAdministratorRole(String roleCode) {

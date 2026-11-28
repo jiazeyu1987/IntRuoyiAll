@@ -754,7 +754,6 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
       </el-descriptions>
 
       <el-descriptions v-if="selectedProjectCode" :column="2" border class="mt-12px">
-        <el-descriptions-item label="项目负责人账号ID">{{ selectedProjectCode.projectLeaderUserId || '历史未记录' }}</el-descriptions-item>
         <el-descriptions-item label="项目负责人">{{ selectedProjectCode.projectLeader || '历史未记录' }}</el-descriptions-item>
       </el-descriptions>
       <el-alert v-if="projectDefaultAttributeResult.error" :title="projectDefaultAttributeResult.error" type="error" :closable="false" />
@@ -990,7 +989,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
                 </el-table-column>
                 <el-table-column label="文件编号" prop="fileNumber" min-width="280" />
                 <el-table-column label="版本" prop="versionNo" width="90" />
-                <el-table-column label="状态" prop="status" width="120" />
+                <el-table-column label="状态" prop="status" width="120"><template #default="{ row }">{{ getDccControlledFileStatusLabel(row.status) }}</template></el-table-column>
                 <el-table-column label="发布时间" prop="publishedTime" width="180">
                   <template #default="{ row }">
                     {{ formatControlledFileDateTime(row.publishedTime) }}
@@ -1012,7 +1011,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
           <el-table-column label="文件名称" prop="fileName" min-width="360" />
           <el-table-column label="文件编号" prop="fileNumber" min-width="280" />
           <el-table-column label="版本" prop="versionNo" width="90" />
-          <el-table-column label="状态" prop="status" width="120" />
+          <el-table-column label="状态" prop="status" width="120"><template #default="{ row }">{{ getDccControlledFileStatusLabel(row.status) }}</template></el-table-column>
           <el-table-column label="发布时间" prop="publishedTime" width="180" />
         </el-table>
       </div>
@@ -1365,6 +1364,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
 </template>
 
 <script lang="ts" setup>
+import { getDccControlledFileStatusLabel } from '../../shared/lifecycle'
 import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
@@ -1553,6 +1553,22 @@ const submitProjectAccessRules = async () => {
 }
 
 const projectCodeQuickFilterDefinitions: TableQuickFilterDefinition[] = [
+  {
+    key: 'productCode',
+    label: '产品编码',
+    type: 'text',
+    queryParamKey: 'productCode',
+    operators: ['contains', 'eq'],
+    placeholder: '请输入产品编码'
+  },
+  {
+    key: 'projectLeader',
+    label: '负责人',
+    type: 'text',
+    queryParamKey: 'projectLeader',
+    operators: ['contains', 'eq'],
+    placeholder: '请输入负责人姓名'
+  },
   {
     key: 'docControlNo',
     label: '文控',

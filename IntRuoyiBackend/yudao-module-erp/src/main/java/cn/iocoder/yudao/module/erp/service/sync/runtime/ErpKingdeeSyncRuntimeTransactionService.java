@@ -37,13 +37,7 @@ public class ErpKingdeeSyncRuntimeTransactionService {
     public ErpKingdeeSyncRunResult execute(ErpKingdeeSyncExecution execution,
                                           ErpKingdeeSyncTask task,
                                           ErpKingdeeSyncCancellation cancellation) {
-        ErpKingdeeSyncRunResult result;
-        ErpKingdeeOrderSyncContext.setRunId(execution.getRunId());
-        try {
-            result = task.run(execution.getContext());
-        } finally {
-            ErpKingdeeOrderSyncContext.clear();
-        }
+        ErpKingdeeSyncRunResult result = execution.run(task);
         cancellation.check(execution.getRunId());
         complete(execution, result);
         return result;
@@ -55,12 +49,16 @@ public class ErpKingdeeSyncRuntimeTransactionService {
             throw new IllegalStateException("Kingdee sync task already running: " + command.getSyncType().name());
         }
         LocalDateTime now = LocalDateTime.now();
-        ErpKingdeeSyncWatermarkDO watermark = watermarkMapper.selectBySyncType(command.getSyncType().getType());
-        boolean initialSync = watermark == null || command.isForceInitialWindowStart();
-        LocalDateTime windowStart = initialSync ? resolveInitialWindowStart(command) : watermark.getLastSuccessTime();
+        boolean targeted = command.getTargetCode() != null;
+        ErpKingdeeSyncWatermarkDO watermark = targeted ? null
+                : watermarkMapper.selectBySyncType(command.getSyncType().getType());
+        boolean initialSync = !targeted && (watermark == null || command.isForceInitialWindowStart());
+        LocalDateTime windowStart = targeted ? null
+                : initialSync ? resolveInitialWindowStart(command) : watermark.getLastSuccessTime();
         ErpKingdeeSyncRunDO run = ErpKingdeeSyncRunDO.builder()
                 .syncType(command.getSyncType().getType())
                 .triggerType(command.getTriggerType().getTriggerType())
+                .targetCode(command.getTargetCode())
                 .status(ErpKingdeeSyncRunStatusEnum.RUNNING.getStatus())
                 .windowStartTime(windowStart)
                 .windowEndTime(command.getWindowEnd())
@@ -75,6 +73,7 @@ public class ErpKingdeeSyncRuntimeTransactionService {
                 .runId(run.getId())
                 .syncType(command.getSyncType())
                 .triggerType(command.getTriggerType())
+                .targetCode(command.getTargetCode())
                 .initialSync(initialSync)
                 .windowStart(windowStart)
                 .windowEnd(command.getWindowEnd())
@@ -83,6 +82,9 @@ public class ErpKingdeeSyncRuntimeTransactionService {
 
     @Transactional(rollbackFor = Exception.class)
     public void complete(ErpKingdeeSyncExecution execution, ErpKingdeeSyncRunResult result) {
+        if (execution.getContext().getTargetCode() != null && result.getWatermarkTime() != null) {
+            throw new IllegalStateException("按编号同步不得推进增量同步水位");
+        }
         if (result.getFailedCount() > 0) {
             throw new IllegalStateException("同步结果包含失败记录，禁止推进水位");
         }
@@ -105,7 +107,8 @@ public class ErpKingdeeSyncRuntimeTransactionService {
 
     @Transactional(rollbackFor = Exception.class)
     public void fail(ErpKingdeeSyncExecution execution, RuntimeException failure) {
-        ErpKingdeeSyncRunResult result = null;
+        ErpKingdeeSyncRunResult result = execution.getContext().getTargetCode() == null ? null
+                : ErpKingdeeSyncRunResult.builder().failedCount(1).build();
         if (failure instanceof ErpKingdeeOrderBatchSyncFailure batch) {
             ErpKingdeeSyncRunDO update = new ErpKingdeeSyncRunDO();
             update.setId(execution.getRunId());

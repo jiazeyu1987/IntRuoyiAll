@@ -5,6 +5,7 @@ export interface MdWorkstationVO {
   id: number // 工作站编号
   code: string // 工作站编码
   name: string // 工作站名称
+  displayName?: string // 根据真实路线工序关联确认的显示名称，仅列表响应使用
   address: string // 工作站地点
   workshopId: number // 所在车间 ID
   workshopName: string // 所在车间名称

@@ -33,7 +33,7 @@
    </section>
    <section class="certificate-section">
     <div class="certificate-section-heading"><h3>{{ facts.certificateType === 'FDA' ? 'FDA 审批与登记' : '证件核心信息' }}</h3></div>
-    <FactsFields v-model="facts" creation creation-section="certificate" :locked-fields="lockedFields" hide-ce-models/>
+    <FactsFields v-model="facts" creation change creation-section="certificate" :locked-fields="lockedFields" hide-ce-models/>
    </section>
    <section class="certificate-section">
     <div class="certificate-section-heading"><h3>补充信息</h3><span>新建时填写的信息</span></div>

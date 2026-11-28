@@ -147,6 +147,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_TICKET_INVALID;
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertList;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CONTENT_READ_FAILED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ALREADY_CHECKED_OUT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CHECKIN_NOT_OWNER;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_CHECKED_OUT;
@@ -2861,6 +2862,23 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         return readDownloadFile(userId, id, nonControlledWarningConfirmed, downloadRequestId, auditContext, true);
     }
 
+    @Override
+    public DccDownloadFileBinary readOriginalDownloadFile(Long userId, Long id, Boolean confirmed,
+            String requestId, DccRequestAuditContext auditContext) {
+        String normalized = requireDownloadRequestId(requestId);
+        var audit = requireAuditContext(auditContext).withRequestId(normalized);
+        requireDownloadRequestUnused(normalized);
+        var file = controlledFileMapper.selectById(id);
+        if (file == null) throw exception(CONTROLLED_FILE_NOT_EXISTS);
+        if (!permissionSupport.isLibrary(file.getDccProjectCodeId())
+                || !Objects.equals(file.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || Boolean.TRUE.equals(file.getDeleted())
+                || !DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
+                || !permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.DOWNLOAD))
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        return readDownloadBinary(userId, id, confirmed, normalized, audit, false, true);
+    }
+
     private DccDownloadFileBinary readDownloadFile(Long userId, Long id, Boolean nonControlledWarningConfirmed,
                                                    String downloadRequestId, DccRequestAuditContext auditContext,
                                                    boolean editable) {
@@ -3303,7 +3321,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             recordPreviewAccess(file, userId, accessEvent, watermarkTrace, false,
                     StrUtil.blankToDefault(ex.getMessage(), "READ_FAILED"),
                     auditContext.withRequestId(auditContext.requestIdOr(accessEventCode)));
-            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+            var failure = exception(CONTROLLED_FILE_CONTENT_READ_FAILED);
+            failure.initCause(ex);
+            throw failure;
         }
         recordDistributionBodyOpenedIfScoped(userId, file);
         String fileName = source == null ? binaryFile.getName() : source.name();
@@ -3324,6 +3344,11 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                                                      String downloadRequestId,
                                                      DccRequestAuditContext auditContext,
                                                      boolean editable) {
+        return readDownloadBinary(userId, id, nonControlledWarningConfirmed, downloadRequestId, auditContext, editable, false);
+    }
+
+    private DccDownloadFileBinary readDownloadBinary(Long userId, Long id, Boolean nonControlledWarningConfirmed,
+            String downloadRequestId, DccRequestAuditContext auditContext, boolean editable, boolean original) {
         DccControlledFileDO file = controlledFileMapper.selectById(id);
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
@@ -3333,7 +3358,12 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                     "WARNING_UNCONFIRMED", auditContext);
             throw exception(CONTROLLED_FILE_DOWNLOAD_WARNING_UNCONFIRMED);
         }
-        Long sourceFileId = isCheckoutDownload(userId, file) ? file.getSourceFileId() : resolveDownloadFileId(file, editable);
+        Long sourceFileId = original ? file.getOriginalFileId()
+                : isCheckoutDownload(userId, file) ? file.getSourceFileId() : resolveDownloadFileId(file, editable);
+        if (sourceFileId == null) throw new ServiceException(
+                cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST.getCode(), original
+                ? "该受控版本未保存原件，无法下载原件" : editable
+                ? "该受控版本未保存可编辑文件，无法下载可编辑版" : "该受控版本未保存可下载正文");
         requireBusinessFileAccess(BusinessFileAccessOperation.DOWNLOAD, userId, sourceFileId,
                 TenantContextHolder.getRequiredTenantId(), null, auditContext, null);
         DccDownloadPolicyDecision policyDecision = decideDownloadBinary(userId, file, sourceFileId);

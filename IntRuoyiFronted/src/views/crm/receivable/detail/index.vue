@@ -84,7 +84,7 @@ onMounted(async () => {
   }
   const id = Number(Array.isArray(rawId) ? rawId[0] : rawId)
   if (Number.isNaN(id)) {
-    message.warning('鍙傛暟閿欒锛屽洖娆句笉鑳戒负绌猴紒')
+    message.warning('回款编号无效，请从回款列表重新打开。')
     close()
     return
   }

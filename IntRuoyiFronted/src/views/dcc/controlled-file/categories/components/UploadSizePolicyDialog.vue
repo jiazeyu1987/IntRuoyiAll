@@ -1,6 +1,12 @@
 <template>
   <Dialog v-model="dialogVisible" title="上传大小策略" width="1080px">
     <div v-loading="loading">
+      <el-alert
+        class="mb-16px"
+        type="info"
+        :closable="false"
+        title="建议基线：正文及附件每文件 100MB。全局策略适用于当前租户；类别或用途专属策略优先，超过限制会拒绝上传。策略须保存并启用后才生效。"
+      />
       <div class="mb-16px flex items-center justify-between gap-12px">
         <el-button
           type="primary"
@@ -214,10 +220,10 @@ const categoryOptions = ref<ControlledFileCategoryVO[]>([])
 const editingPolicyId = ref<number>()
 const formData = reactive<PolicyFormData>({
   policyCode: '',
-  scopeType: 'CATEGORY_PURPOSE',
+  scopeType: 'GLOBAL',
   categoryId: undefined,
   purpose: 'SOURCE',
-  maxBytes: 20_000,
+  maxBytes: 100 * 1024 * 1024,
   enabled: true,
   policyVersion: '',
   effectiveFrom: undefined,
@@ -290,10 +296,10 @@ const loadPolicies = async () => {
 const startCreate = () => {
   editingPolicyId.value = undefined
   formData.policyCode = ''
-  formData.scopeType = 'CATEGORY_PURPOSE'
+  formData.scopeType = 'GLOBAL'
   formData.categoryId = undefined
   formData.purpose = 'SOURCE'
-  formData.maxBytes = 20_000
+  formData.maxBytes = 100 * 1024 * 1024
   formData.enabled = true
   formData.policyVersion = ''
   formData.effectiveFrom = undefined

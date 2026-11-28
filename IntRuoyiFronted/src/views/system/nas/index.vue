@@ -282,6 +282,9 @@
             :remote-method="loadTransferProjectCodeOptions"
             placeholder="请选择 DCC 项目"
           >
+            <template #empty>
+              <div class="p-12px text-12px">{{ transferProjectOptionsStatus }}</div>
+            </template>
             <el-option
               v-for="item in transferDialog.projectCodeOptions"
               :key="item.id"
@@ -289,6 +292,13 @@
               :value="item.id as number"
             />
           </el-select>
+          <div
+            v-if="transferProjectOptionsNotice"
+            class="w-full mt-4px text-12px text-[var(--el-color-warning)]"
+            role="status"
+          >
+            {{ transferProjectOptionsNotice }}
+          </div>
         </el-form-item>
         <el-form-item label="产品编号">
           <ProductCodeLink :code="selectedTransferProjectCode?.projectCode" />
@@ -1364,22 +1374,53 @@ const loadTransferCategoryOptions = async () => {
   transferDialog.form.templateCategoryId = otherCategory.id
 }
 
+let transferProjectOptionsRequestId = 0
+const transferProjectOptionsLoaded = ref(false)
+const transferProjectOptionsKeyword = ref('')
+const transferProjectOptionsError = ref('')
+const transferProjectOptionsNotice = computed(() => {
+  if (transferDialog.projectCodeOptionsLoading) return ''
+  if (transferProjectOptionsError.value) return transferProjectOptionsError.value
+  if (!transferProjectOptionsLoaded.value || transferDialog.projectCodeOptions.length) return ''
+  return transferProjectOptionsKeyword.value
+    ? '没有匹配的项目，请调整搜索条件'
+    : '暂无可选择的启用项目，请联系项目管理员确认项目已启用，并为您授予项目权限'
+})
+const transferProjectOptionsStatus = computed(() =>
+  transferDialog.projectCodeOptionsLoading
+    ? '正在加载项目…'
+    : transferProjectOptionsNotice.value || '请搜索或选择项目'
+)
+
 const loadTransferProjectCodeOptions = async (keyword = '') => {
+  const requestId = ++transferProjectOptionsRequestId
+  transferProjectOptionsKeyword.value = keyword.trim()
+  transferProjectOptionsLoaded.value = false
+  transferProjectOptionsError.value = ''
   transferDialog.projectCodeOptionsLoading = true
   try {
     const data = await getProjectCodeOptions({
       status: DCC_PROJECT_CODE_STATUS_ENABLE,
       keyword: keyword.trim() || undefined
     })
+    if (requestId !== transferProjectOptionsRequestId) return
     transferDialog.projectCodeOptions = data
+    transferProjectOptionsLoaded.value = true
     if (
       transferDialog.form.dccProjectCodeId &&
       !transferDialog.projectCodeOptions.some((item) => item.id === transferDialog.form.dccProjectCodeId)
     ) {
       transferDialog.form.dccProjectCodeId = undefined
     }
+  } catch (error: any) {
+    if (requestId === transferProjectOptionsRequestId) {
+      transferProjectOptionsError.value = error?.message || 'DCC 项目加载失败，请重试'
+    }
+    throw error
   } finally {
-    transferDialog.projectCodeOptionsLoading = false
+    if (requestId === transferProjectOptionsRequestId) {
+      transferDialog.projectCodeOptionsLoading = false
+    }
   }
 }
 

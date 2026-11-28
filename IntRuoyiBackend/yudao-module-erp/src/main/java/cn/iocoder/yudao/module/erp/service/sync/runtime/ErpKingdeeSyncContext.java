@@ -14,6 +14,7 @@ public class ErpKingdeeSyncContext {
     Long runId;
     ErpKingdeeSyncTypeEnum syncType;
     ErpKingdeeSyncTriggerTypeEnum triggerType;
+    String targetCode;
     boolean initialSync;
     LocalDateTime windowStart;
     LocalDateTime windowEnd;

@@ -337,7 +337,7 @@ const handleRepublish = async () => {
       }
     })
     message.success(
-      `已复制为新版本 V${result.newRevisionNo}，并刷新当前 release ${result.releaseId}`
+      `已复制为新版本 V${result.newRevisionNo}，并更新当前发布`
     )
   } catch (error) {
     const resolved = error instanceof Error ? error : new Error(String(error))

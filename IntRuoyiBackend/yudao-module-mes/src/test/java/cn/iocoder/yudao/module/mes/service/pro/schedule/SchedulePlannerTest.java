@@ -270,7 +270,7 @@ class SchedulePlannerTest {
                         ? MesProScheduleCalendarRuleSupport.DATE_SHIFT_REST
                         : MesProScheduleCalendarRuleSupport.DATE_SHIFT_DAY);
         SchedulePlanner.DailyProcessCapacityLedger ledger = new SchedulePlanner.DailyProcessCapacityLedger();
-        ledger.reserve(null, 922919L, LocalDate.of(2026, 7, 23),
+        ledger.reserve(922919L, LocalDate.of(2026, 7, 23),
                 scheduleOrderProcess, new BigDecimal("112"));
 
         List<SchedulePlanner.PlannedTask> plans = planner.allocateFiniteProcessPlans(
@@ -507,21 +507,21 @@ class SchedulePlannerTest {
     }
 
     @Test
-    void allocateFiniteProcessPlans_shouldRespectExistingDailyCapacityReservation() {
+    void allocateFiniteProcessPlans_shouldShareDailyCapacityAcrossProductionLines() {
         SchedulePlanner planner = new SchedulePlanner();
         MesProScheduleOrderProcessDO scheduleProcess = scheduleProcess(30L, false, "100");
         SchedulePlanner.DailyProcessCapacityLedger ledger = new SchedulePlanner.DailyProcessCapacityLedger();
-        ledger.reserve(60L, 300L, LocalDate.of(2026, 5, 15), scheduleProcess, new BigDecimal("80"));
+        ledger.reserve(300L, LocalDate.of(2026, 5, 15), scheduleProcess, new BigDecimal("80"));
 
         List<SchedulePlanner.PlannedTask> plans = planner.allocateFiniteProcessPlans(
                 LocalDateTime.of(2026, 5, 15, 8, 0), 300,
                 List.of(
-                        window(60L, 70L, "DAY", LocalDateTime.of(2026, 5, 15, 8, 0),
+                        window(61L, 70L, "DAY", LocalDateTime.of(2026, 5, 15, 8, 0),
                                 LocalDateTime.of(2026, 5, 15, 16, 0)),
-                        window(60L, 71L, "DAY", LocalDateTime.of(2026, 5, 16, 8, 0),
+                        window(61L, 71L, "DAY", LocalDateTime.of(2026, 5, 16, 8, 0),
                                 LocalDateTime.of(2026, 5, 16, 16, 0))),
                 planningWorkOrder(), routeProduct(), routeProcess(200L), planningPool(),
-                60L, "一号线", scheduleProcess, new BigDecimal("50"), ledger);
+                61L, "二号线", scheduleProcess, new BigDecimal("50"), ledger);
 
         assertEquals(2, plans.size());
         assertEquals(LocalDateTime.of(2026, 5, 15, 8, 0), plans.get(0).startTime);
@@ -537,8 +537,8 @@ class SchedulePlannerTest {
         SchedulePlanner planner = new SchedulePlanner();
         MesProScheduleOrderProcessDO scheduleProcess = scheduleProcess(30L, false, "100");
         SchedulePlanner.DailyProcessCapacityLedger ledger = new SchedulePlanner.DailyProcessCapacityLedger();
-        ledger.reserve(60L, 300L, LocalDate.of(2026, 5, 15), scheduleProcess, new BigDecimal("100"));
-        ledger.reserve(60L, 300L, LocalDate.of(2026, 5, 16), scheduleProcess, new BigDecimal("100"));
+        ledger.reserve(300L, LocalDate.of(2026, 5, 15), scheduleProcess, new BigDecimal("100"));
+        ledger.reserve(300L, LocalDate.of(2026, 5, 16), scheduleProcess, new BigDecimal("100"));
 
         List<SchedulePlanner.PlannedTask> plans = planner.allocateFiniteProcessPlans(
                 LocalDateTime.of(2026, 5, 15, 8, 0), 60,

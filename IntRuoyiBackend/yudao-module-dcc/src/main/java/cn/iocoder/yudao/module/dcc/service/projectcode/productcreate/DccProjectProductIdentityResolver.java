@@ -26,12 +26,13 @@ public final class DccProjectProductIdentityResolver {
         Long tenant=TenantContextHolder.getRequiredTenantId();
         if (TenantContextHolder.isIgnore() || !Objects.equals(tenant,project.getTenantId())) throw invalid();
         if (project.getProductMasterId()!=null) {
-            var product=mdm.getEnabledDccProduct(project.getProductMasterId());
+            // The MDM id identifies the bound product; its DCC number is optional for document control.
+            var product=mdm.getProduct(project.getProductMasterId());
             if (product==null || !Objects.equals(product.getId(),project.getProductMasterId())
-                    || StrUtil.isBlank(product.getDccProductCode()) || StrUtil.isBlank(product.getNameCn()))
+                    || !"ENABLE".equals(product.getStatus()) || StrUtil.isBlank(product.getNameCn()))
                 throw invalid();
             return new Product(MDM_MASTER,product.getId(),null,null,null,
-                    product.getDccProductCode().trim(),product.getNameCn().trim());
+                    StrUtil.trimToNull(product.getDccProductCode()),product.getNameCn().trim());
         }
         var rows=approved.selectApprovedProduct(tenant,project.getId());
         if (rows.size()==1) {

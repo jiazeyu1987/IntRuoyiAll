@@ -4,7 +4,7 @@
       <el-table-column prop="name" label="模板名称" />
       <el-table-column label="状态"><template #default="{ row }">{{ row.active ? '启用' : '停用' }}</template></el-table-column>
       <el-table-column label="历史使用"><template #default="{ row }">{{ row.everUsed ? '已使用' : '未使用' }}</template></el-table-column>
-      <el-table-column prop="editedByUserId" label="修改人账号ID" />
+      <el-table-column label="修改人"><template #default="{ row }">{{ row.editedByName || '修改人姓名未记录' }}</template></el-table-column>
     </el-table>
     <el-button v-hasPermi="['dcc:project-code:update']" class="my-8px" :disabled="loading || writing || !ready" @click="reset">新增模板</el-button>
     <el-form v-if="selectionValid" label-width="100px" v-loading="loading" :disabled="loading || writing || !ready">

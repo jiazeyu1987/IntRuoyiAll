@@ -1491,7 +1491,15 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         if (processes.isEmpty()) {
             return processes;
         }
-        // 入池快照不包含后续排程时间；详情只读取正式关联任务的当前计划。
+        projectFormalTaskTimes(processes);
+        return processes;
+    }
+
+    private void projectFormalTaskTimes(List<MesProScheduleOrderProcessDO> processes) {
+        if (processes.isEmpty()) {
+            return;
+        }
+        // 入池快照不包含后续排程时间；详情和工作台统一读取正式关联任务的当前计划。
         Map<Long, MesProScheduleOrderProcessDO> processMap = processes.stream()
                 .collect(Collectors.toMap(MesProScheduleOrderProcessDO::getId, process -> process));
         processes.forEach(process -> process.setPlannedStartTime(null).setPlannedEndTime(null));
@@ -1500,7 +1508,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         List<Long> taskIds = relations.stream().map(MesProTaskScheduleExtDO::getTaskId)
                 .filter(Objects::nonNull).distinct().toList();
         if (taskIds.isEmpty()) {
-            return processes;
+            return;
         }
         Map<Long, MesProTaskDO> taskMap = taskMapper.selectListByIds(taskIds).stream()
                 .collect(Collectors.toMap(MesProTaskDO::getId, task -> task));
@@ -1523,7 +1531,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                 process.setPlannedEndTime(end);
             }
         }
-        return processes;
+        return;
     }
 
     @Override
@@ -1664,6 +1672,13 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         if (CollUtil.isEmpty(readableWipProcesses)) {
             return Collections.emptyList();
         }
+        // 单独投影查询结果，保留 processRows 中用户设置的排程起始约束。
+        List<MesProScheduleOrderProcessDO> formalProcesses = readableWipProcesses.stream()
+                .map(process -> new MesProScheduleOrderProcessDO().setId(process.getId()))
+                .toList();
+        projectFormalTaskTimes(formalProcesses);
+        Map<Long, MesProScheduleOrderProcessDO> formalProcessMap = formalProcesses.stream()
+                .collect(Collectors.toMap(MesProScheduleOrderProcessDO::getId, process -> process));
         Map<Long, RouteProcessIdentity> keyByScheduleOrderProcessId = new LinkedHashMap<>();
         Map<RouteProcessIdentity, List<MesProScheduleOrderProcessDO>> wipProcessesByRouteProcess =
                 new LinkedHashMap<>();
@@ -1715,13 +1730,13 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                             currentRouteProcess, currentResourceContext, false);
                     capacitySnapshot = resolveWorkbenchManualCapacitySnapshot(processRows, routeConfig, capacitySnapshot);
                     BigDecimal shiftCapacityTotal = normalizeQuantity(capacitySnapshot.shiftCapacityTotal());
-                    BigDecimal estimateShiftCapacity = resolveProcessWipEstimateCapacity(shiftCapacityTotal,
-                            currentResourceContext.maxShiftCapacityByProcessId().get(currentProcess.getId()));
                     String capacitySource = resolveCurrentRouteProcessCapacitySource(routeConfig, capacitySnapshot);
                     String capacityMode = resolveCurrentRouteProcessCapacityMode(routeConfig, capacitySnapshot);
                     BigDecimal unfinishedDemandQuantity = sumProcessQuantity(processRows,
                             MesProScheduleOrderProcessDO::getRemainingQuantity);
-                    LocalDateTime estimatedStartTime = estimateStartTime(processRows);
+                    List<MesProScheduleOrderProcessDO> formalRows = processRows.stream()
+                            .map(process -> formalProcessMap.get(process.getId())).toList();
+                    LocalDateTime estimatedStartTime = estimateStartTime(formalRows);
                     boolean nightShiftEnabled = Boolean.TRUE.equals(routeConfig.getNightShiftEnabled());
                     List<Long> scheduleOrderIds = processRows.stream()
                             .map(MesProScheduleOrderProcessDO::getScheduleOrderId)
@@ -1752,8 +1767,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                             .plannedStartDateMixed(resolveProcessPlannedStartDateMixed(processRows))
                             .unfinishedDemandQuantity(unfinishedDemandQuantity)
                             .estimatedStartTime(estimatedStartTime)
-                            .estimatedCompletionTime(estimateCompletionTime(
-                                    estimatedStartTime, unfinishedDemandQuantity, estimateShiftCapacity))
+                            .estimatedCompletionTime(estimateCompletionTime(formalRows))
                             .todayFeedbackQuantity(todayFeedbackQuantityByRouteProcess
                                     .getOrDefault(key, BigDecimal.ZERO).setScale(6))
                             .scheduleOrderIds(scheduleOrderIds)
@@ -2356,13 +2370,6 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                 .setScale(6);
     }
 
-    private BigDecimal resolveProcessWipEstimateCapacity(BigDecimal shiftCapacityTotal,
-                                                         BigDecimal processMaxShiftCapacity) {
-        BigDecimal currentCapacity = normalizeQuantity(shiftCapacityTotal);
-        BigDecimal maxCapacity = normalizeQuantity(processMaxShiftCapacity);
-        return currentCapacity.max(maxCapacity);
-    }
-
     private LocalDate resolveProcessPlannedStartDate(List<MesProScheduleOrderProcessDO> processes) {
         if (resolveProcessPlannedStartDateMixed(processes)) {
             return null;
@@ -2397,32 +2404,24 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
     }
 
     private LocalDateTime estimateStartTime(List<MesProScheduleOrderProcessDO> processes) {
-        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
-        if (CollUtil.isEmpty(processes)) {
-            return todayStart;
-        }
-        LocalDateTime latestPlannedStartTime = processes.stream()
-                .map(MesProScheduleOrderProcessDO::getPlannedStartTime)
-                .filter(Objects::nonNull)
-                .max(LocalDateTime::compareTo)
-                .orElse(null);
-        return latestPlannedStartTime != null && latestPlannedStartTime.isAfter(todayStart)
-                ? latestPlannedStartTime : todayStart;
-    }
-
-    private LocalDateTime estimateCompletionTime(LocalDateTime estimatedStartTime,
-                                                 BigDecimal unfinishedDemandQuantity,
-                                                 BigDecimal shiftCapacityTotal) {
-        BigDecimal demand = normalizeQuantity(unfinishedDemandQuantity);
-        BigDecimal capacity = normalizeQuantity(shiftCapacityTotal);
-        if (demand.compareTo(BigDecimal.ZERO) <= 0) {
-            return estimatedStartTime;
-        }
-        if (capacity.compareTo(BigDecimal.ZERO) <= 0) {
+        if (CollUtil.isEmpty(processes) || processes.stream().anyMatch(p -> p.getPlannedStartTime() == null)) {
             return null;
         }
-        long remainingShifts = demand.divide(capacity, 0, RoundingMode.CEILING).longValue();
-        return estimatedStartTime.plusDays(remainingShifts);
+        // 展示正式工序计划范围；不再用当天零点和整天产能另算一套日期。
+        return processes.stream()
+                .map(MesProScheduleOrderProcessDO::getPlannedStartTime)
+                .min(LocalDateTime::compareTo)
+                .orElse(null);
+    }
+
+    private LocalDateTime estimateCompletionTime(List<MesProScheduleOrderProcessDO> processes) {
+        if (CollUtil.isEmpty(processes) || processes.stream().anyMatch(p -> p.getPlannedEndTime() == null)) {
+            return null;
+        }
+        return processes.stream()
+                .map(MesProScheduleOrderProcessDO::getPlannedEndTime)
+                .max(LocalDateTime::compareTo)
+                .orElse(null);
     }
 
     private boolean isProcessWip(MesProScheduleOrderProcessDO process) {

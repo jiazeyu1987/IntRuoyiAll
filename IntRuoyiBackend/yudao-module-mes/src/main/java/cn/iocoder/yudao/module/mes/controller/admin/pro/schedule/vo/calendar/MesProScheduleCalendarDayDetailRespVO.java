@@ -69,6 +69,8 @@ public class MesProScheduleCalendarDayDetailRespVO {
         private String itemCode;
         private String itemName;
         private String shiftCode;
+        /** 正式工单原始计划量，不是每日任务切片数量。 */
+        private BigDecimal workOrderQuantity;
         private BigDecimal quantity;
         private BigDecimal dailyQuantity;
         private BigDecimal reportedQuantity;

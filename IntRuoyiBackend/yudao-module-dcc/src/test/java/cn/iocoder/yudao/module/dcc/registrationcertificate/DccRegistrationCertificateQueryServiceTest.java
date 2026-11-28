@@ -222,6 +222,7 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
             var oldPage = queryService.getOldIndexPage(1L, 99L, query, context("TYPE-OLD-" + type));
             assertEquals(1L, oldPage.getTotal());
             assertEquals(List.of(oldIds.get(type)), oldPage.getList().stream().map(DccRegistrationCertificateOldIndexItem::getVersionId).toList());
+            assertEquals(type, oldPage.getList().get(0).getCertificateType());
             assertEquals(List.of(currentIds.get(type)), queryService.getExportRows(1L, 99L, query, null, 10)
                     .stream().map(DccRegistrationCertificatePageItem::getVersionId).toList());
         }
@@ -844,6 +845,35 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void oldIndexReadsTypeFromOldVersionSnapshotEvenWhenCurrentPointerDiffers() {
+        FormalFixture current = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CURRENT-TYPE", true, null);
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_version SET version_no=2 WHERE id=?", current.versionId());
+        var oldVersion = versionMapper.selectById(current.versionId());
+        oldVersion.setId(null);
+        oldVersion.setVersionNo(1);
+        oldVersion.setStatus("OLD");
+        assertEquals(1, versionMapper.insert(oldVersion));
+        var oldSnapshot = snapshotMapper.selectById(current.snapshotId());
+        oldSnapshot.setId(null);
+        oldSnapshot.setVersionId(oldVersion.getId());
+        var oldFacts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts
+                .parse(oldSnapshot.getFactsJson());
+        oldFacts.setCertificateType("FDA");
+        oldSnapshot.setFactsJson(oldFacts.toJson());
+        assertEquals(1, snapshotMapper.insert(oldSnapshot));
+        seedFdaFacts(new FormalFixture(current.certificateId(), oldVersion.getId(), oldSnapshot.getId(), null),
+                "Historical holder", LocalDate.of(2025, 1, 1), false);
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+        var page = queryService.getOldIndexPage(1L, 99L,
+                DccRegistrationCertificatePageQuery.builder().build(), context("OLD-SNAPSHOT-TYPE"));
+        var item = page.getList().stream().filter(row -> row.getVersionId().equals(oldVersion.getId())).findFirst().orElseThrow();
+        assertEquals("FDA", item.getCertificateType());
+        assertThrows(ServiceException.class, () -> queryService.getDetail(1L, 99L,
+                current.certificateId(), oldVersion.getId(), context("OLD-TYPE-NO-GRANT")));
+    }
+
+    @Test
     void oldIndexUsesOnlyD004WhitelistAndNeverContainsDetailOrFileFields() {
         FormalFixture old = seedFormal(1L, 10L, "EXPIRED_UNRENEWED", "OLD", "CERT-OLD", true, null);
         when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
@@ -862,6 +892,7 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         assertEquals("Product CERT-OLD", item.getProductName());
         assertEquals("II", item.getClassification());
         assertEquals("CERT-OLD", item.getCertificateNo());
+        assertEquals("DOMESTIC", item.getCertificateType());
         assertEquals(LocalDate.of(2031, 9, 1), item.getExpiryDate());
 
         Set<String> fields = Arrays.stream(DccRegistrationCertificateOldIndexItem.class.getDeclaredFields())
@@ -870,7 +901,8 @@ public class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 .collect(Collectors.toSet());
         assertEquals(Set.of("certificateId", "versionId", "ownerCompanyId", "ownerCompanyName",
                 "productMasterId", "productName", "projectCodeId", "projectCode",
-                "classification", "certificateNo", "versionNo", "expiryDate", "status"), fields);
+                "classification", "certificateNo", "certificateType", "versionNo", "expiryDate", "status"), fields);
+        assertFalse(fields.contains("factsJson"));
         assertFalse(fields.contains("registrantName"));
         assertFalse(fields.contains("productionAddress"));
         assertFalse(fields.contains("fileId"));

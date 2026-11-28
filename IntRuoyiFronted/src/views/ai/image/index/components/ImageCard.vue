@@ -51,7 +51,8 @@
         preview-teleported
       />
       <div v-if="detail?.status === AiImageStatusEnum.FAIL">
-        {{ detail?.errorMessage }}
+        <p>{{ imageFailure.reason }}</p>
+        <p>失败类型：{{ imageFailure.category }}；绘画记录编号：{{ imageFailure.recordId }}</p>
       </div>
     </div>
     <!-- Midjourney 专属操作 -->
@@ -72,11 +73,13 @@
 import { Delete, Download, More, RefreshRight } from '@element-plus/icons-vue'
 import { ImageVO, ImageMidjourneyButtonsVO } from '@/api/ai/image'
 import { ElLoading, LoadingOptionsResolved } from 'element-plus'
+import { presentImageFailure } from '@/views/ai/utils/failurePresentation'
 import { AiImageStatusEnum } from '@/views/ai/utils/constants'
 
 const message = useMessage() // 消息
 
 const props = defineProps<{ detail: ImageVO }>()
+const imageFailure = computed(() => presentImageFailure(props.detail.id))
 
 const cardImageRef = ref<any>() // 卡片 image ref
 const cardImageLoadingInstance = ref<any>() // 卡片 image ref

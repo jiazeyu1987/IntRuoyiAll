@@ -29,7 +29,6 @@ class DccReferenceUsagePageDatabaseTest extends BaseDbUnitTest {
     @Resource DccControlledFileMasterMapper masters;
     @Resource DccProjectCodeMapper projectRows;
     @Resource DccProjectAccessRuleMapper ruleRows;
-    @Resource DccProjectCodeAssignmentMapper assignments;
     @Resource org.springframework.transaction.PlatformTransactionManager transactions;
     JdbcTemplate jdbc;DccProjectReferenceService service;DccRelationAccessPolicy access;DccProjectAccessService projects;
     cn.iocoder.yudao.module.system.api.permission.PermissionApi permissionApi;
@@ -49,7 +48,7 @@ class DccReferenceUsagePageDatabaseTest extends BaseDbUnitTest {
         for(var field:projectService.getClass().getDeclaredFields())if(field.getAnnotation(Resource.class)!=null)ReflectionTestUtils.setField(projectService,field.getName(),mock(field.getType()));
         var users=mock(cn.iocoder.yudao.module.system.api.user.AdminUserApi.class);when(users.getUser(99L)).thenReturn(new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO().setId(99L).setTenantId(1L).setStatus(0).setPostIds(Set.of()));
         permissionApi=mock(cn.iocoder.yudao.module.system.api.permission.PermissionApi.class);when(permissionApi.getUserRoleIdListByUserId(99L)).thenReturn(Set.of());
-        ReflectionTestUtils.setField(projectService,"projectCodeMapper",projectRows);ReflectionTestUtils.setField(projectService,"accessRuleMapper",ruleRows);ReflectionTestUtils.setField(projectService,"assignmentMapper",assignments);ReflectionTestUtils.setField(projectService,"adminUserApi",users);ReflectionTestUtils.setField(projectService,"permissionApi",permissionApi);projects=projectService;
+        ReflectionTestUtils.setField(projectService,"projectCodeMapper",projectRows);ReflectionTestUtils.setField(projectService,"accessRuleMapper",ruleRows);ReflectionTestUtils.setField(projectService,"adminUserApi",users);ReflectionTestUtils.setField(projectService,"permissionApi",permissionApi);projects=projectService;
         jdbc.update("INSERT INTO dcc_project_access_rule(tenant_id,dcc_project_code_id,subject_type,subject_id,access_level,active,change_reason) VALUES(1,2,'USER',99,'VIEW',1,'正式测试目的项目读取规则')");
         query=new DccControlledFileQueryServiceImpl();for(var field:query.getClass().getDeclaredFields())if(field.getAnnotation(Resource.class)!=null)ReflectionTestUtils.setField(query,field.getName(),mock(field.getType()));
         ReflectionTestUtils.setField(query,"controlledFileMapper",files);ReflectionTestUtils.setField(query,"controlledFileMasterMapper",masters);ReflectionTestUtils.setField(query,"projectCodeMapper",projectRows);ReflectionTestUtils.setField(query,"projectAccessService",projects);
@@ -101,12 +100,17 @@ class DccReferenceUsagePageDatabaseTest extends BaseDbUnitTest {
         jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=NULL WHERE id=10");all=page(1,20);rows=ReflectionTestUtils.invokeMethod(all,"list");assertEquals("A/1",ReflectionTestUtils.invokeMethod(rows.get(0),"versionNo"));
         assertEquals("A/1",ReflectionTestUtils.invokeMethod(rows.get(1),"versionNo"));
     }
-    @Test void formalProjectAssignmentHardScopeRestrictsOnlyDestinationDetails() {
+    @Test void correctionExecutionDoesNotHideFormallyReadableDestinationDetails() {
         when(permissionApi.hasAnyPermissions(99L,"dcc:project-code-assignment:execute")).thenReturn(true);
-        var assignment=mock(DccProjectCodeAssignmentMapper.class);when(assignment.selectActiveProjectCodeIdsByAssigneeUserId(eq(1L),eq(99L),any())).thenReturn(List.of(3L));ReflectionTestUtils.setField(projects,"assignmentMapper",assignment);
-        Object none=page(1,20);assertEquals(0L,(Object)ReflectionTestUtils.invokeMethod(none,"total"));assertEquals(2L,(Object)ReflectionTestUtils.invokeMethod(none,"referenceProjectCount"));
-        jdbc.update("INSERT INTO dcc_project_access_rule(tenant_id,dcc_project_code_id,subject_type,subject_id,access_level,active,change_reason) VALUES(1,3,'USER',99,'VIEW',1,'正式目的项目授权与分配交集')");
-        Object one=page(1,20);assertEquals(1L,(Object)ReflectionTestUtils.invokeMethod(one,"visibleReferenceProjectCount"));assertEquals(1L,(Object)ReflectionTestUtils.invokeMethod(one,"total"));List<?> rows=ReflectionTestUtils.invokeMethod(one,"list");assertEquals(3L,(Object)ReflectionTestUtils.invokeMethod(rows.get(0),"projectId"));
+        // Use the readable active source version to isolate destination-project visibility.
+        jdbc.update("UPDATE dcc_project_file_reference SET selected_controlled_file_id=101");
+        Object initial=service.getUsagePage(99L,101L,1,20);
+        assertEquals(2L,(Object)ReflectionTestUtils.invokeMethod(initial,"total"));
+        assertEquals(1L,(Object)ReflectionTestUtils.invokeMethod(initial,"visibleReferenceProjectCount"));
+        jdbc.update("INSERT INTO dcc_project_access_rule(tenant_id,dcc_project_code_id,subject_type,subject_id,access_level,active,change_reason) VALUES(1,3,'USER',99,'VIEW',1,'正式目的项目查看授权')");
+        Object all=service.getUsagePage(99L,101L,1,20);
+        assertEquals(2L,(Object)ReflectionTestUtils.invokeMethod(all,"visibleReferenceProjectCount"));
+        assertEquals(3L,(Object)ReflectionTestUtils.invokeMethod(all,"total"));
     }
     @Test void bodyPermissionIsIndependentAndNeverRequiresManagementDetail() {
         // A readable destination does not grant body scope on the source project.

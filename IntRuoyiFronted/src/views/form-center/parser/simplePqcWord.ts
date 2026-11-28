@@ -134,7 +134,16 @@ export function readPqcWord(
   projectId: number | undefined,
   ownerModule: 'MES_QA' | 'MES_QA_COMMON' = 'MES_QA'
 ): PqcWordSnapshot | null {
-  const zip = new PizZip(bytes)
+  let zip: PizZip
+  try {
+    zip = new PizZip(bytes)
+  } catch (cause) {
+    console.error('Word 文件结构解析失败', cause)
+    throw new Error(
+      '无法读取此 DOCX 文件，文件可能已损坏或并非有效的 Word 文档。请用 Word 打开并另存为 DOCX 后重新导入。',
+      { cause }
+    )
+  }
   if (!zip.file('word/document.xml')) throw new Error('文件缺少 Word 正文')
   const part = zip.file(payloadPath)
   if (!part) {

@@ -42,7 +42,7 @@ public class MesSharedChangeController {
         return success(service.parameterOptions(processId));
     }
     @PostMapping("/submit")
-    @PreAuthorize(EDIT + " && @ss.hasPermission('mes:pro-route:version-create') && @ss.hasPermission('mes:pro-route:version-update') && @ss.hasPermission('mes:pro-route:version-submit')")
+    @PreAuthorize(EDIT)
     public CommonResult<MesProCraftChangeDO> submit(@PathVariable String subjectType, @Valid @RequestBody MesSharedChangeReqVO request) {
         if (!subjectType.equals(request.getSubjectType())) throw invalid("变更对象类型不一致");
         return success(service.submit(request));

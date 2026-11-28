@@ -476,14 +476,20 @@
       <el-table-column type="expand">
         <template #default="{ row }">
           <el-descriptions :column="2" border>
-            <el-descriptions-item label="项目负责人">{{ row.projectLeader }}（账号 {{ row.projectLeaderUserId || '历史未记录' }}）</el-descriptions-item>
-            <el-descriptions-item label="目录模板ID">{{ row.folderTemplateId || '历史未记录' }}</el-descriptions-item>
+            <el-descriptions-item label="项目负责人">{{ row.projectLeader || '历史未记录' }}</el-descriptions-item>
+            <el-descriptions-item label="目录模板">{{ row.folderTemplateId ? (folderTemplates.find(item => String(item.id) === String(row.folderTemplateId))?.name || '模板名称未能读取') : '历史未记录' }}</el-descriptions-item>
             <el-descriptions-item label="驳回原因">{{ row.rejectReason || '-' }}</el-descriptions-item>
             <el-descriptions-item label="审批方式"><span v-if="row.reviewContract === 'DIRECT_CREATE_V1'">直接创建，无需审核</span><span v-else-if="row.reviewContract === 'ROLE_SINGLE_REVIEW_V1'">项目审核员：任一合格成员审批</span><span v-else>{{ row.configuredReviewerNickname || '历史未记录' }}<span v-if="row.configuredReviewerUsername">（{{ row.configuredReviewerUsername }}）</span>；原审核、批准两环节</span></el-descriptions-item>
             <el-descriptions-item label="新建原因">{{ row.creationReason || '历史未记录' }}</el-descriptions-item>
             <el-descriptions-item label="本次写入原因">{{ row.writeReason || '尚未写入' }}</el-descriptions-item>
-            <el-descriptions-item label="申请链">{{ row.previousRequestId ? '由申请 ' + row.previousRequestId + ' 重提' : '首次申请' }}{{ row.resubmittedRequestId ? '；已重提为 ' + row.resubmittedRequestId : '' }}</el-descriptions-item>
+            <el-descriptions-item label="申请链">{{ row.previousRequestId ? '由此前申请重新提交' : '首次申请' }}{{ row.resubmittedRequestId ? '；已重新提交后续申请' : '' }}</el-descriptions-item>
           </el-descriptions>
+          <details class="mt-8px">
+            <summary>申请关联技术详情</summary>
+            <p>目录模板身份：{{ row.folderTemplateId || '历史未记录' }}</p>
+            <p>此前申请身份：{{ row.previousRequestId || '首次申请' }}</p>
+            <p>后续申请身份：{{ row.resubmittedRequestId || '尚未重新提交' }}</p>
+          </details>
           <el-alert v-if="requestAttributeResult(row).error" :title="requestAttributeResult(row).error" type="error" :closable="false" />
           <el-form v-else label-width="140px" class="mt-12px">
             <ProjectAttributesFields :model-value="requestAttributeResult(row).attributes || emptyAttributes()" readonly :historical-missing="!row.defaultAttributesJson" />
@@ -1147,8 +1153,12 @@ const loadProjectProductRequests = async () => {
   projectProductError.value = ''
   try {
     if (!projectRequestAccess().query) throw new Error('当前账号没有项目申请查询权限')
-    const rows = requestId ? [await getDccProjectProductRequest(requestId)] : await getDccProjectProductRequests()
+    const [rows, templates] = await Promise.all([
+      requestId ? getDccProjectProductRequest(requestId).then(row => [row]) : getDccProjectProductRequests(),
+      getFolderTemplates()
+    ])
     if (!current()) return
+    folderTemplates.value = templates
     projectProductRequests.value = rows
     projectProductExpandedRequestIds.value = requestId ? [requestId] : []
   } catch (cause) {

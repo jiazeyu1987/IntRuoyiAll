@@ -403,7 +403,13 @@ const discardListEditCandidateDraft = async (notify = true) => {
   try {
     const latestVersion = await ProRouteApi.getRouteVersion(context.routeVersionId)
     if (latestVersion.lifecycleStatus !== 'CANCELLED') {
-      await ProRouteApi.cancelRouteCandidateVersion(context.routeVersionId)
+      const result = await ProRouteApi.cancelRouteCandidateVersion(context.routeVersionId, true)
+      if (result.lifecycleStatus !== 'CANCELLED') {
+        listEditCandidateDraftSaved.value = true
+        contentRef.value?.discardRouteCandidateDraftChanges?.()
+        message.info('候选版本已被保存或状态已变更，已保留该版本，仅放弃本页未保存修改')
+        return true
+      }
     }
     contentRef.value?.discardRouteCandidateDraftChanges?.()
     listEditCandidateDraftDiscarded.value = true
@@ -433,6 +439,9 @@ const confirmUnsavedCandidateDraftBeforeExit = async () => {
         contentRef.value?.discardRouteCandidateDraftChanges?.()
         listEditCandidateDraftDiscarded.value = true
         return true
+      }
+      if (latestVersion.lastSavedBy != null || latestVersion.lifecycleStatus !== 'DRAFT') {
+        listEditCandidateDraftSaved.value = true
       }
     } catch (error) {
       message.error(resolveRouteOperationErrorMessage(error, '读取候选版本状态失败，请查看后端返回错误'))

@@ -5,7 +5,7 @@
         <div>
           <div class="csv-evidence-entrypoints__title">审批证据导出入口</div>
           <div class="csv-evidence-entrypoints__hint">
-            CSV 页签统一收口导出按钮；查看类证据仍可跳转正式页面核对明细。
+            在此导出审批证据，或前往对应页面查看明细。
           </div>
         </div>
       </div>
@@ -19,7 +19,7 @@
           <div class="csv-evidence-entrypoints__item-desc">{{ entrypoint.description }}</div>
           <div class="csv-evidence-entrypoints__item-meta">
             <span>来源：{{ entrypoint.sourcePage }}</span>
-            <span>权限：{{ entrypoint.permission }}</span>
+            <details><summary>所需权限（技术详情）</summary>{{ entrypoint.permission }}</details>
           </div>
           <el-button
             link
@@ -99,11 +99,12 @@
           <el-table-column v-if="isColumnVisible('source')" label="来源" prop="source" :min-width="getColumnMinWidthString('source', 190)" v-bind="sortColumnAttrs('source')" />
           <el-table-column v-if="isColumnVisible('status')" label="状态" prop="status" :width="getColumnWidthString('status', 130)" v-bind="sortColumnAttrs('status')">
             <template #default="{ row }">
-              <el-tag :type="row.statusType" size="small">{{ row.status }}</el-tag>
+              <el-tag :type="row.statusType" size="small">{{ governanceStatusLabel(row.status) }}</el-tag>
+              <details v-if="/^[A-Z][A-Z0-9_]*$/.test(row.status)" class="governance-technical-details"><summary>状态技术详情</summary>{{ row.status }}</details>
             </template>
           </el-table-column>
           <el-table-column v-if="isColumnVisible('keyFields')" label="关键字段" prop="keyFields" :min-width="getColumnMinWidthString('keyFields', 300)" v-bind="sortColumnAttrs('keyFields')" />
-          <el-table-column v-if="isColumnVisible('evidence')" label="证据" prop="evidence" :min-width="getColumnMinWidthString('evidence', 240)" v-bind="sortColumnAttrs('evidence')" />
+          <el-table-column v-if="isColumnVisible('evidence')" label="证据" prop="evidence" :min-width="getColumnMinWidthString('evidence', 240)" v-bind="sortColumnAttrs('evidence')" ><template #default="{ row }"><details v-if="/^[a-fA-F0-9]{64}$/.test(row.evidence)"><summary>已记录校验码，展开技术详情</summary>{{ row.evidence }}</details><span v-else>{{ row.evidence }}</span></template></el-table-column>
           <el-table-column v-if="isColumnVisible('blockerImpact')" label="阻断影响" prop="blockerImpact" :min-width="getColumnMinWidthString('blockerImpact', 260)" v-bind="sortColumnAttrs('blockerImpact')" />
           <el-table-column v-if="isColumnVisible('operation')" label="操作" fixed="right" :width="getColumnWidthString('operation', 140)">
             <template #default="{ row }">
@@ -129,6 +130,7 @@
 </template>
 
 <script lang="ts" setup>
+import { governanceLabel, governanceStatusLabel, csvChangeStatusLabel } from './governancePresentation'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
@@ -225,7 +227,7 @@ const approvalEvidenceEntrypoints: ApprovalEvidenceEntrypoint[] = [
   {
     id: 'dcc-signature-evidence',
     label: 'DCC签名证据PDF',
-    description: '导出 DCC 受控文件审批/签名记录证据 PDF，包含签名人、时间、含义和证据 hash。',
+    description: '导出 DCC 受控文件审批/签名记录证据 PDF，包含签名人、时间、含义和证据校验码。',
     sourcePage: '电子签名记录',
     routePath: '/signature-governance/signature-records',
     permission: 'dcc:controlled-file:signature:manage',
@@ -261,7 +263,7 @@ const approvalEvidenceEntrypoints: ApprovalEvidenceEntrypoint[] = [
   {
     id: 'edhr-signature-records',
     label: 'eDHR签名记录',
-    description: '查看 eDHR 正式签名记录，用于核对签名人、签名时间、认证方式、内容 hash 和签名含义。',
+    description: '查看 eDHR 正式签名记录，用于核对签名人、签名时间、认证方式、内容校验码和签名含义。',
     sourcePage: 'eDHR签名记录',
     routePath: '/mes/pro/feedback/edhr-signatures',
     permission: 'mes:pro-batch-record-execution:signature-query',
@@ -696,10 +698,14 @@ const loadCsvTrainingCandidate = async () => {
   return ''
 }
 
+const changeSourceStatus = ref('')
+
 const loadCsvChangeCandidate = async () => {
+  changeSourceStatus.value = ''
   const page = await getEdhrRecordChangePage({ pageNo: 1, pageSize: 1 })
   const change = (page.list || [])[0]
   if (!change) return '当前没有可用于自动回填的真实变更记录'
+  changeSourceStatus.value = change.changeStatus || ''
   csvForm.changeControls[0].changeControlId = change.changeCode || String(change.id)
   csvForm.changeControls[0].status = change.changeStatus === 'EFFECTIVE' ? 'APPROVED' : csvForm.changeControls[0].status
   csvForm.changeControls[0].evidenceRef = change.newArchiveHash || change.previousArchiveHash || change.newHeadHash || change.previousHeadHash || ''
@@ -840,9 +846,9 @@ const buildClearBlockerRow = (): GovernanceRow => ({
   id: 'blocker-clear',
   item: '阻断项',
   source: '检查结果',
-  status: 'CLEAR',
+  status: csvResult.value ? 'CLEAR' : '尚未评估',
   statusType: 'success',
-  keyFields: '暂无阻断',
+  keyFields: csvResult.value ? '本次评估未发现阻断' : '评估后显示阻断检查结果',
   evidence: '—',
   blockerImpact: '—',
   actions: []
@@ -857,7 +863,7 @@ const rows = computed<GovernanceRow[]>(() => {
       source: displayValue(csvForm.releaseId),
       status: csvResult.value?.status || '未执行',
       statusType: statusTagType(csvResult.value?.status),
-      keyFields: `质量负责人 ${displayValue(csvForm.qualityOwner)}；工程验证 ${csvForm.engineeringVerificationPassed ? 'PASS' : 'BLOCKED'}`,
+      keyFields: `质量负责人 ${displayValue(csvForm.qualityOwner)}；工程验证 ${csvForm.engineeringVerificationPassed ? '已通过' : '未通过'}`,
       evidence: displayValue(csvForm.recoveryEvidenceRef || csvForm.qaApproval.signatureEvidenceRef),
       blockerImpact: csvError.value || csvResult.value?.blockers?.[0]?.impact || '—',
       actions: [{ label: '评估', loading: csvLoading.value, handler: evaluateCsvGate }]
@@ -868,7 +874,7 @@ const rows = computed<GovernanceRow[]>(() => {
       source: displayValue(csvForm.materials[0].documentId),
       status: csvForm.materials[0].sourceEvidence && csvForm.traceRelations[0].testRef ? 'READY' : '等待来源',
       statusType: csvForm.materials[0].sourceEvidence && csvForm.traceRelations[0].testRef ? 'success' : 'warning',
-      keyFields: `类型 ${displayValue(csvForm.materials[0].type)}；版本 ${displayValue(csvForm.materials[0].version)}；测试 ${displayValue(csvForm.traceRelations[0].testRef)}`,
+      keyFields: `类型 ${governanceLabel(csvForm.materials[0].type)}；版本 ${displayValue(csvForm.materials[0].version)}；测试 ${displayValue(csvForm.traceRelations[0].testRef)}`,
       evidence: displayValue(csvForm.materials[0].sourceEvidence || csvForm.traceRelations[0].evidenceRef),
       blockerImpact: '—',
       actions: [{ label: '来源', loading: csvSourceLoading.value, handler: loadCsvSourceCandidates }]
@@ -879,7 +885,7 @@ const rows = computed<GovernanceRow[]>(() => {
       source: `培训 ${displayValue(csvForm.trainingRecords[0].trainingId)} / 变更 ${displayValue(csvForm.changeControls[0].changeControlId)}`,
       status: csvForm.trainingRecords[0].evidenceRef && csvForm.changeControls[0].evidenceRef ? 'READY' : '等待来源',
       statusType: csvForm.trainingRecords[0].evidenceRef && csvForm.changeControls[0].evidenceRef ? 'success' : 'warning',
-      keyFields: `SOP ${displayValue(csvForm.trainingRecords[0].sopDocumentId)}；变更状态 ${displayValue(csvForm.changeControls[0].status)}`,
+      keyFields: `SOP ${displayValue(csvForm.trainingRecords[0].sopDocumentId)}；变更状态 ${csvChangeStatusLabel(csvForm.changeControls[0].status, changeSourceStatus.value, !!csvResult.value)}`,
       evidence: displayValue(csvForm.trainingRecords[0].evidenceRef || csvForm.changeControls[0].evidenceRef),
       blockerImpact: '—',
       actions: [{ label: '来源', loading: csvSourceLoading.value, handler: loadCsvSourceCandidates }]
@@ -888,7 +894,7 @@ const rows = computed<GovernanceRow[]>(() => {
       id: 'qa-approval',
       item: 'QA批准',
       source: displayValue(csvForm.qaApproval.approvalRef),
-      status: csvResult.value?.qaApproved ? 'APPROVED' : displayValue(csvForm.qaApproval.status),
+      status: csvResult.value ? (csvResult.value.qaApproved ? 'APPROVED' : '未通过') : '批准证据待核验',
       statusType: statusTagType(csvResult.value?.qaApproved ? 'APPROVED' : csvForm.qaApproval.status),
       keyFields: `批准人 ${displayValue(csvForm.qaApproval.approver)}`,
       evidence: displayValue(csvForm.qaApproval.signatureEvidenceRef),

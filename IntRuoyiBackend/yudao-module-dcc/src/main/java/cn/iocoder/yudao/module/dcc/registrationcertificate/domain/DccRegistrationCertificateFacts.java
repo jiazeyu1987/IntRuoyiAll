@@ -67,11 +67,18 @@ public class DccRegistrationCertificateFacts {
 
     public void validateCreation() {
         if (changeDescription != null) throw invalidParamException("新建注册证不支持变更描述字段");
-        if (!"FDA".equals(certificateType) && approvalDate != null)
-            throw invalidParamException("国内和CE新建注册证不支持批准日期字段");
         if ("CE".equals(certificateType) && (firstObtainedDate != null || modelSpecifications != null))
             throw invalidParamException("CE新建注册证不支持首次获证日期和型号规格字段");
         validate();
+        if ("DOMESTIC".equals(certificateType) && Boolean.FALSE.equals(ownProduct) && blank(projectCode))
+            throw invalidParamException("请填写实际项目代码");
+        if (!"FDA".equals(certificateType)) {
+            if (approvalDate == null) throw invalidParamException("请填写批准日期");
+            if ("DOMESTIC".equals(certificateType) && effectiveDate != null && approvalDate.isAfter(effectiveDate))
+                throw invalidParamException("批准日期不能晚于生效日期");
+            if ("CE".equals(certificateType) && expiryDate != null && !approvalDate.isBefore(expiryDate))
+                throw invalidParamException("批准日期必须早于有效期至");
+        }
     }
 
     public void validateChangeFrom(DccRegistrationCertificateFacts before) {

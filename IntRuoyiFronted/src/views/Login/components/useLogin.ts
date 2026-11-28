@@ -15,13 +15,13 @@ export const resolveLoginErrorMessage = (error: unknown, context?: 'tenant' | 'a
   const code = Number(errorLike?.code || errorLike?.response?.data?.code || 0)
 
   if (context === 'tenant' || message.includes('TENANT_NOT_FOUND')) {
-    return '租户识别失败：请检查租户名称、本机后端服务和租户配置。'
+    return '无法识别租户，请核对租户名称；仍无法登录时请联系管理员。'
   }
   if (message === 'Network Error' || message.includes('Network Error') || message.includes('ECONNREFUSED')) {
-    return '后端服务不可达：请确认本机后端 48081 已启动，或联系管理员检查服务状态。'
+    return '暂时无法连接服务，请稍后重试；仍无法登录时请联系管理员。'
   }
   if (message.includes('timeout')) {
-    return '后端服务响应超时：请检查本机后端、数据库和网络连接后重试。'
+    return '服务响应超时，请稍后重试；仍无法登录时请联系管理员。'
   }
   if (
     status === 401 ||
@@ -33,9 +33,9 @@ export const resolveLoginErrorMessage = (error: unknown, context?: 'tenant' | 'a
     return '账号或密码错误：请核对当前租户、账号和密码后重试。'
   }
   if (context === 'permission' || status === 403 || code === 403 || message.includes('无权限')) {
-    return '权限不足：登录成功但缺少目标页面权限，请联系管理员检查角色菜单和按钮权限。'
+    return '您暂时没有访问此页面的权限，请联系管理员。'
   }
-  return message || '登录失败：请检查租户、账号、密码、权限和后端服务状态。'
+  return message || '登录失败，请核对租户和账号信息；仍无法登录时请联系管理员。'
 }
 
 export enum LoginStateEnum {

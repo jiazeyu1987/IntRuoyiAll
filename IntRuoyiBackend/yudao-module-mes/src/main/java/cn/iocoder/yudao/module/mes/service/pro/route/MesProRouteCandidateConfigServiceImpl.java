@@ -199,12 +199,16 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
     }
 
     private void persistDraftSnapshot(MesProRouteVersionDO candidate, JSONObject snapshot) {
+        String snapshotJson = MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(snapshot);
+        if (!new MesProRouteSnapshotCanonicalizer().validateExistingSopBindings(snapshotJson).ready()) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidate.getId());
+        }
         MesProRouteVersionDO update = new MesProRouteVersionDO();
         update.setId(candidate.getId());
         update.setActive(Boolean.FALSE);
         update.setLifecycleStatus(candidate.getLifecycleStatus());
         update.setLastSavedBy(getLoginUserId());
-        MesProRouteVersionSnapshotIdentityWriter.apply(update, MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(snapshot));
+        MesProRouteVersionSnapshotIdentityWriter.apply(update, snapshotJson);
         LambdaUpdateWrapper<MesProRouteVersionDO> updateWrapper = new LambdaUpdateWrapper<MesProRouteVersionDO>()
                 .eq(MesProRouteVersionDO::getId, candidate.getId())
                 .eq(MesProRouteVersionDO::getLifecycleStatus,
@@ -341,7 +345,7 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
             throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
         }
         if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_TEXT_STANDARD.equals(valueType)) {
-            requireNoNumericContract(routeVersionId, lowerLimit, upperLimit, defaultValue, decimalScale, optionValues);
+            requireNoNumericContract(rule, lowerLimit, upperLimit, defaultValue, decimalScale, optionValues);
             return;
         }
         if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_SELECT.equals(valueType)) {
@@ -352,7 +356,7 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
                 throw invalidParameter(rule, "默认值", "必须选择下拉选项中的值");
             }
             if (lowerLimit != null || upperLimit != null || defaultValue != null || decimalScale != null) {
-                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+                throw invalidParameter(rule, "类型配置", "下拉类型不能填写数值上下限、数值默认值或小数位数");
             }
             return;
         }
@@ -360,9 +364,12 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
             boolean validDefault = defaultValue != null
                     && (defaultValue.compareTo(BigDecimal.ZERO) == 0
                     || defaultValue.compareTo(BigDecimal.ONE) == 0);
-            if (!validDefault || lowerLimit != null || upperLimit != null || decimalScale != null
+            if (!validDefault) {
+                throw invalidParameter(rule, "默认值", "是否类型必须选择“是”或“否”");
+            }
+            if (lowerLimit != null || upperLimit != null || decimalScale != null
                     || !optionValues.isEmpty() || StrUtil.isNotBlank(defaultText)) {
-                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+                throw invalidParameter(rule, "类型配置", "是否类型不能填写数值上下限、小数位数、下拉选项或文本默认值");
             }
             return;
         }
@@ -375,12 +382,18 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
         if (defaultValue != null && upperLimit != null && defaultValue.compareTo(upperLimit) > 0) {
             throw invalidParameter(rule, "目标值（默认值）", "不能大于上限");
         }
-        if (!NUMERIC_PARAMETER_VALUE_TYPES.contains(valueType)
-                || !optionValues.isEmpty() || StrUtil.isNotBlank(defaultText)
-                || decimalScale != null && (decimalScale < 0 || decimalScale > 6)
-                || MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER.equals(valueType)
+        if (!NUMERIC_PARAMETER_VALUE_TYPES.contains(valueType)) {
+            throw invalidParameter(rule, "类型", "不支持的参数类型");
+        }
+        if (!optionValues.isEmpty() || StrUtil.isNotBlank(defaultText)) {
+            throw invalidParameter(rule, "类型配置", "数值类型不能填写下拉选项或文本默认值");
+        }
+        if (decimalScale != null && (decimalScale < 0 || decimalScale > 6)) {
+            throw invalidParameter(rule, "小数位数", "必须在0到6之间");
+        }
+        if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER.equals(valueType)
                 && decimalScale != null && decimalScale != 0) {
-            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+            throw invalidParameter(rule, "小数位数", "整数类型只能为0");
         }
     }
 
@@ -391,12 +404,12 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
                         + "）的" + field + "：" + reason);
     }
 
-    private static void requireNoNumericContract(Long routeVersionId, BigDecimal lowerLimit,
+    private static void requireNoNumericContract(JSONObject rule, BigDecimal lowerLimit,
                                                  BigDecimal upperLimit, BigDecimal defaultValue,
                                                  Integer decimalScale, List<String> optionValues) {
         if (lowerLimit != null || upperLimit != null || defaultValue != null || decimalScale != null
                 || !optionValues.isEmpty()) {
-            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+            throw invalidParameter(rule, "类型配置", "文本标准类型不能填写数值上下限、数值默认值、小数位数或下拉选项");
         }
     }
 

@@ -123,6 +123,87 @@ class ErpKingdeeProductionMaterialListClientImplTest {
         server.verify();
     }
 
+    private static final String SESSION_LOST = """
+            [[{"Result":{"ResponseStatus":{"IsSuccess":false,"ErrorCode":500,"Errors":[{"Message":"会话信息已丢失，请重新登录"}]}}}]]
+            """;
+
+    private void expectLogin(MockRestServiceServer server, String cookie) {
+        server.expect(requestTo(containsString("ValidateUser")))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.SET_COOKIE, cookie));
+    }
+
+    private void expectPage(MockRestServiceServer server, int offset, String cookie, String response) {
+        server.expect(requestTo(containsString("ExecuteBillQuery")))
+                .andExpect(header(HttpHeaders.COOKIE, cookie))
+                .andExpect(content().string(containsString("%22StartRow%22%3A" + offset + "%2C")))
+                .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+    }
+
+    @Test
+    void renewsExpiredSessionOnSamePageAndReusesCookieOnNextPage() {
+        RestTemplate template = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(template).build();
+        ErpKingdeeProperties properties = buildProperties();
+        properties.getProductionOrder().setQueryLimit(1);
+        String row = "[[1001,\"B001\",\"P001\",\"MO001\",1,\"C\",\"M001\",\"物料\",\"\",\"\",1,1,\"支\",\"\",1,\"\",\"\",\"\"]]";
+        expectLogin(server, "session=old");
+        expectPage(server, 0, "session=old", row);
+        expectPage(server, 1, "session=old", SESSION_LOST);
+        expectLogin(server, "session=new");
+        expectPage(server, 1, "session=new", row.replace("1001", "1002"));
+        expectPage(server, 2, "session=new", "[]");
+        java.util.ArrayList<String> delivered = new java.util.ArrayList<>();
+        new ErpKingdeeProductionMaterialListClientImpl(template).forEachProductionMaterialListPage(
+                properties, page -> delivered.add(page.get(0).getEntryId()));
+        assertEquals(List.of("1001", "1002"), delivered);
+        server.verify();
+    }
+
+    @Test
+    void repeatedSessionLossStopsAfterSingleRenewal() {
+        RestTemplate template = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(template).build();
+        expectLogin(server, "session=old");
+        expectPage(server, 0, "session=old", SESSION_LOST);
+        expectLogin(server, "session=new");
+        expectPage(server, 0, "session=new", SESSION_LOST);
+        ServiceException error = assertThrows(ServiceException.class, () ->
+                new ErpKingdeeProductionMaterialListClientImpl(template).forEachProductionMaterialListPage(
+                        buildProperties(), page -> org.junit.jupiter.api.Assertions.fail()));
+        assertTrue(error.getMessage().contains("会话信息已丢失"));
+        server.verify();
+    }
+
+    @Test
+    void failedRenewalDoesNotQueryAgainOrExposeLoginResponse() {
+        RestTemplate template = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(template).build();
+        expectLogin(server, "session=old");
+        expectPage(server, 0, "session=old", SESSION_LOST);
+        server.expect(requestTo(containsString("ValidateUser"))).andRespond(withSuccess(
+                "{\"LoginResultType\":0,\"Message\":\"private-marker\"}", MediaType.APPLICATION_JSON));
+        ServiceException error = assertThrows(ServiceException.class, () ->
+                new ErpKingdeeProductionMaterialListClientImpl(template).forEachProductionMaterialListPage(
+                        buildProperties(), page -> org.junit.jupiter.api.Assertions.fail()));
+        assertTrue(error.getMessage().contains("authentication failed"));
+        org.junit.jupiter.api.Assertions.assertFalse(error.getMessage().contains("private-marker"));
+        server.verify();
+    }
+
+    @Test
+    void unrelatedError500DoesNotRenewSession() {
+        RestTemplate template = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(template).build();
+        expectLogin(server, "session=old");
+        expectPage(server, 0, "session=old", SESSION_LOST.replace("会话信息已丢失，请重新登录", "字段不可用"));
+        ServiceException error = assertThrows(ServiceException.class, () ->
+                new ErpKingdeeProductionMaterialListClientImpl(template).forEachProductionMaterialListPage(
+                        buildProperties(), page -> org.junit.jupiter.api.Assertions.fail()));
+        assertTrue(error.getMessage().contains("字段不可用"));
+        server.verify();
+    }
+
     private static String deadlockResponse() {
         return "[[{\"Result\":{\"ResponseStatus\":{\"IsSuccess\":false,\"ErrorCode\":\"500\","
                 + "\"Errors\":[{\"Message\":\"事务(进程 ID 349)与另一个进程被死锁在锁资源上，并且已被选作死锁牺牲品。请重新运行该事务。\"}]}}}]]";

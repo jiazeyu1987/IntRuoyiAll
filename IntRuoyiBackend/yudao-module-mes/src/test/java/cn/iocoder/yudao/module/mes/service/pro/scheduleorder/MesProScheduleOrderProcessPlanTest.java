@@ -82,6 +82,32 @@ class MesProScheduleOrderProcessPlanTest {
         assertTrue(error.getMessage().contains("taskId=11"));
     }
 
+    @Test
+    void batchProjectionKeepsMissingAndCanceledProcessesUnscheduled() {
+        MesProScheduleOrderProcessDO scheduled = new MesProScheduleOrderProcessDO().setId(1L);
+        MesProScheduleOrderProcessDO missing = new MesProScheduleOrderProcessDO().setId(2L)
+                .setPlannedStartTime(start.minusDays(3)).setPlannedEndTime(start);
+        MesProScheduleOrderProcessDO canceled = new MesProScheduleOrderProcessDO().setId(3L);
+        when(taskScheduleExtMapper.selectListByScheduleOrderProcessIds(Set.of(1L, 2L, 3L)))
+                .thenReturn(List.of(relation(11L, 1L), relation(12L, 2L), relation(13L, 3L)));
+        when(taskMapper.selectListByIds(List.of(11L, 12L, 13L))).thenReturn(List.of(
+                task(11L, start, start.plusHours(8)),
+                task(13L, start, start.plusHours(10)).setStatus(MesProTaskStatusEnum.CANCELED.getStatus())));
+
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderId(237L))
+                .thenReturn(List.of(scheduled, missing, canceled));
+        service.getScheduleOrderProcessList(237L);
+
+        assertEquals(start, scheduled.getPlannedStartTime());
+        assertEquals(start.plusHours(8), scheduled.getPlannedEndTime());
+        assertNull(missing.getPlannedStartTime());
+        assertNull(missing.getPlannedEndTime());
+        assertNull(canceled.getPlannedStartTime());
+        assertNull(canceled.getPlannedEndTime());
+        verify(taskScheduleExtMapper, times(1)).selectListByScheduleOrderProcessIds(Set.of(1L, 2L, 3L));
+        verify(taskMapper, times(1)).selectListByIds(List.of(11L, 12L, 13L));
+    }
+
     private MesProTaskScheduleExtDO relation(long taskId, long processId) {
         return new MesProTaskScheduleExtDO().setTaskId(taskId).setScheduleOrderId(237L)
                 .setScheduleOrderProcessId(processId);

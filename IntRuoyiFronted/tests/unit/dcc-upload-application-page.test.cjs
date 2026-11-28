@@ -96,6 +96,8 @@ const setup = overrides => {
       throw 'cancel'
     }
   } }
+  state.isRequiredProjectCodeBound = require('vue').computed(() => Boolean(state.projectProduct.value
+    && state.projectProduct.value.source !== 'UNBOUND'))
   return { state, calls }
 }
 const evaluate = (state, source, exported) => {
@@ -227,6 +229,18 @@ test('formally unbound product cannot submit a product-required category', async
   assert.equal(calls.confirmed, 0)
   assert.equal(calls.submitted.length, 0)
   assert.ok(calls.errors.length > 0)
+})
+test('bound MDM product with no DCC number can submit a product-required category', async () => {
+  const { state, calls } = setup({
+    projectProduct: ref({ projectCodeId: '5', source: 'MDM_MASTER', productMasterId: '50',
+      productCatalogId: null, productRelationId: null, productCreateRequestId: null, productCode: null, productName: '造影导管' }),
+    isProductRequiredForSelectedCategory: ref(true),
+    validateDccProjectProductCode: submitterModel.exports.validateDccProjectProductCode
+  })
+  state.formData.productCode = ''
+  await submit(state)
+  assert.equal(calls.confirmed, 1)
+  assert.equal(calls.submitted.length, 1)
 })
 test('formal product provenance changes during confirmation reject the exact pending upload', async () => {
   const { state, calls } = setup()

@@ -17,7 +17,7 @@ export function createCommonEditorDraft(
     regulationCode: copy.regulationCode,
     regulationName: copy.regulationName,
     versionNo:
-      copy.lifecycleStatus === 'DRAFT'
+      copy.lifecycleStatus !== 'PUBLISHED'
         ? copy.versionNo
         : nextVersion(
             copy.versionNo,

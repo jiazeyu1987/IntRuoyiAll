@@ -24,6 +24,12 @@ public class DccProjectCodePageReqVO extends PageParam {
     @Schema(description = "项目代码")
     private String projectCode;
 
+    @Schema(description = "正式关联产品目录的产品编码")
+    private String productCode;
+
+    @Schema(description = "项目负责人姓名")
+    private String projectLeader;
+
     @Schema(description = "类别")
     private String category;
 

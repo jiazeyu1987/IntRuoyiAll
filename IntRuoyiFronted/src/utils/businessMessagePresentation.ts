@@ -64,11 +64,56 @@ const workTaskTitles: Record<string, string> = {
   MES_EDHR_WORK_TASK_OVERDUE: '批记录任务已超期，请及时处理'
 }
 
+// 来源：注册证正式提醒阈值（月）与两种站内信模板；不替换用户自由文本。
+const registrationThresholdLabels: Record<string, string> = {
+  T_30: '到期前30个月', T_8: '到期前8个月', T_2: '到期前2个月', T_1: '到期前1个月',
+  CE_T_18: 'CE到期前18个月', CE_T_12: 'CE到期前12个月', CE_T_3: 'CE到期前3个月'
+}
+export const registrationThresholdLabel = (value: unknown): string =>
+  registrationThresholdLabels[String(value)] || '提醒级别未识别，请联系管理员'
+
+export const registrationDeadlineLabel = (value: unknown): string => {
+  // LocalDateTime没有时区；只格式化固定日期结构，不做浏览器时区换算。
+  const text = String(value ?? '')
+  const match = text.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})(?:\.\d{1,9})?$/)
+  return match ? `${match[1]} ${match[2]}` : text || '未提供办理期限'
+}
+
+const describeRegistrationMessage = (message: {
+  templateCode?: string; templateContent?: string; templateParams?: Record<string, unknown> | null
+}): BusinessMessagePresentation | undefined => {
+  const params = message.templateParams
+  if (message.templateCode === 'DCC_REGISTRATION_CERTIFICATE_THRESHOLD_REMINDER') {
+    if (!params || ['certificateId', 'thresholdLevel', 'dueDate', 'businessDate'].some(key => params[key] == null)) {
+      return { title: '注册证到期提醒信息不完整，请联系管理员', body: '', fields: [] }
+    }
+    const original = `注册证${params.certificateId}已进入${params.thresholdLevel}提醒窗口，到期日：${params.dueDate}，业务日期：${params.businessDate}。请及时处理。`
+    if (message.templateContent !== original) return undefined
+    return { title: '注册证到期提醒', body: '请及时处理相关注册证。', fields: [
+      { label: '注册证记录', value: String(params.certificateId) },
+      { label: '提醒窗口', value: registrationThresholdLabel(params.thresholdLevel) },
+      { label: '到期日', value: String(params.dueDate) }, { label: '业务日期', value: String(params.businessDate) }
+    ] }
+  }
+  if (message.templateCode === 'DCC_REGISTRATION_HANDLING_TASK') {
+    if (!params || typeof params.title !== 'string' || params.dueAt == null) {
+      return { title: '注册证办理任务信息不完整，请联系管理员', body: '', fields: [] }
+    }
+    const original = `请办理《${params.title}》，办理期限：${params.dueAt}。请在消息详情查看任务并上传证件或授权办理。`
+    if (message.templateContent !== original) return undefined
+    return { title: `请办理《${params.title}》`, body: '请在消息详情查看任务并上传证件或授权办理。', fields: [
+      { label: '办理期限', value: registrationDeadlineLabel(params.dueAt) }
+    ] }
+  }
+}
+
 export const describeNotifyMessage = (message: {
   templateCode?: string
   templateContent?: string
   templateParams?: Record<string, unknown> | null
 }): BusinessMessagePresentation => {
+  const registrationMessage = describeRegistrationMessage(message)
+  if (registrationMessage) return registrationMessage
   const workTaskTitle = message.templateCode && workTaskTitles[message.templateCode]
   if (workTaskTitle) {
     const params = message.templateParams
@@ -126,7 +171,7 @@ export const describeNotifyMessage = (message: {
 }
 
 export const notifyMessageTooltip = (message: Parameters<typeof describeNotifyMessage>[0]): string => {
-  if (!message.templateCode?.startsWith('MES_EDHR_DEVIATION_')) return message.templateContent || '-'
+  if (!message.templateCode?.startsWith('MES_EDHR_DEVIATION_') && !['DCC_REGISTRATION_CERTIFICATE_THRESHOLD_REMINDER', 'DCC_REGISTRATION_HANDLING_TASK'].includes(message.templateCode || '')) return message.templateContent || '-'
   const description = describeNotifyMessage(message)
-  return [description.title, description.body].filter(Boolean).join('\n')
+  return [description.title, description.body, ...description.fields.map(field => `${field.label}：${field.value}`)].filter(Boolean).join('\n')
 }

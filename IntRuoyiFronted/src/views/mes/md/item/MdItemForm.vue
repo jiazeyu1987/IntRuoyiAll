@@ -131,10 +131,6 @@
           :formType="formType"
         />
       </el-tab-pane>
-      <!-- TODO @芋艿：【对齐】替代品，目前没这个，可忽略 -->
-      <el-tab-pane label="替代品" name="substitute" lazy>
-        <el-empty description="替代品（待实现）" />
-      </el-tab-pane>
       <el-tab-pane label="SIP" name="sip" lazy>
         <MdProductSipForm :itemId="formData.id!" :formType="formType" />
       </el-tab-pane>

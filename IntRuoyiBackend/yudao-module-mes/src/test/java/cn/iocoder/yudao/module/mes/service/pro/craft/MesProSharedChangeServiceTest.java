@@ -26,7 +26,10 @@ class MesProSharedChangeServiceTest {
     private final cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessContentService contents =
             mock(cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessContentService.class);
     private final MesProProcessDO source = MesProProcessDO.builder().id(10L).name("热合").code("GX-10").status(0).build();
+    private final cn.iocoder.yudao.framework.security.core.service.SecurityFrameworkService security = mock(cn.iocoder.yudao.framework.security.core.service.SecurityFrameworkService.class);
     @BeforeEach void setup() {
+        ReflectionTestUtils.setField(service,"security",security);
+        when(security.hasPermission(anyString())).thenReturn(true);
         ReflectionTestUtils.setField(service,"crafts",crafts); ReflectionTestUtils.setField(service,"changeMapper",changes);
         ReflectionTestUtils.setField(service,"processMapper",processes); ReflectionTestUtils.setField(service,"versionMapper",versions);
         ReflectionTestUtils.setField(service,"processContents",contents);
@@ -55,6 +58,77 @@ class MesProSharedChangeServiceTest {
         root.getJSONObject("configSnapshots").getJSONArray("productionProcessConfigs").add(config);
         version.setRouteSnapshotJson(root.toJSONString()); version.setRouteSnapshotSha256(new MesProRouteSnapshotCanonicalizer().sha256(root.toJSONString()));
         return version;
+    }
+    private MesSharedChangeReqVO deviceRequest() {
+        var mapper = mock(cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryMapper.class);
+        var devices = mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper.class);
+        ReflectionTestUtils.setField(service, "machineryMapper", mapper);
+        ReflectionTestUtils.setField(service, "deviceMapper", devices);
+        var device = new cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryDO();
+        device.setId(10L); device.setCode("DEVICE-10");
+        when(mapper.selectById(10L)).thenReturn(device);
+        var req = new MesSharedChangeReqVO(); req.setSubjectType("DEVICE"); req.setAction("UPDATE"); req.setSourceId(10L);
+        req.setExpectedFingerprint((String) service.source("DEVICE",10L).get("fingerprint"));
+        req.setRequestId(UUID.randomUUID().toString()); req.setReason("remark update");
+        var update = new cn.iocoder.yudao.module.mes.controller.admin.dv.machinery.vo.MesDvMachinerySaveReqVO();
+        update.setId(10L); update.setCode("DEVICE-10"); update.setRemark("updated"); req.setDevice(update);
+        return req;
+    }
+    @Test void unreferencedDeviceSubmitKeepsSharedApprovalPath() {
+        var req = deviceRequest();
+        when(security.hasPermission(anyString())).thenReturn(false);
+        req.setImpactToken((String) service.preview(req).get("impactToken"));
+        service.submit(req);
+        verify(crafts).submitShared(anyString(), any(), anyString(), eq(List.of()), any());
+        verifyNoInteractions(security);
+    }
+    @Test void retryChecksStoredRouteImpact() {
+        var req = deviceRequest();
+        var batch = new MesProCraftChangeDO(); batch.setId(99L); batch.setChangeType("SHARED");
+        JSONObject content = (JSONObject) JSON.toJSON(req); content.remove("impactToken");
+        JSONObject metadata = new JSONObject(true); metadata.put("requestId", req.getRequestId());
+        metadata.put("requestHash", new MesProRouteSnapshotCanonicalizer().sha256(content.toJSONString()));
+        metadata.put("routes", new JSONArray()); batch.setAfterJson(metadata.toJSONString());
+        when(changes.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(batch));
+        when(security.hasPermission(anyString())).thenReturn(false);
+        assertSame(batch, service.submit(req));
+        metadata.getJSONArray("routes").add(new JSONObject()); batch.setAfterJson(metadata.toJSONString());
+        assertThrows(org.springframework.security.access.AccessDeniedException.class, () -> service.submit(req));
+    }
+    @Test void onlyDeviceUpdateWithoutReferencesAvoidsVersionPermissions() {
+        when(security.hasPermission(anyString())).thenReturn(false);
+        var req = new MesSharedChangeReqVO(); req.setSubjectType("DEVICE"); req.setAction("UPDATE");
+        assertDoesNotThrow(() -> service.requireSubmitPermissions(req, false));
+        for (String permission : List.of("mes:pro-route:version-create", "mes:pro-route:version-update", "mes:pro-route:version-submit")) {
+            when(security.hasPermission(anyString())).thenReturn(true);
+            when(security.hasPermission(permission)).thenReturn(false);
+            assertThrows(org.springframework.security.access.AccessDeniedException.class, () -> service.requireSubmitPermissions(req, true));
+        }
+        when(security.hasPermission(anyString())).thenReturn(true);
+        assertDoesNotThrow(() -> service.requireSubmitPermissions(req, true));
+        when(security.hasPermission(anyString())).thenReturn(false);
+        req.setAction("REPLACE");
+        assertThrows(org.springframework.security.access.AccessDeniedException.class, () -> service.requireSubmitPermissions(req, false));
+        req.setSubjectType("PROCESS"); req.setAction("UPDATE");
+        assertThrows(org.springframework.security.access.AccessDeniedException.class, () -> service.requireSubmitPermissions(req, false));
+    }
+    @Test void newlyReferencedDeviceRequiresPermissionsEvenAfterZeroImpactPreview() {
+        var req = deviceRequest();
+        req.setImpactToken((String) service.preview(req).get("impactToken"));
+        var devices = (cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper)
+                ReflectionTestUtils.getField(service, "deviceMapper");
+        var execution = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO();
+        execution.setId(77L);
+        when(devices.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(execution));
+        var active = version(1,10);
+        var snapshot = JSON.parseObject(active.getRouteSnapshotJson());
+        snapshot.getJSONObject("configSnapshots").getJSONArray("productionProcessConfigs").getJSONObject(0)
+                .getJSONArray("deviceSelectionGroups").add(JSON.parseObject("{\"deviceIds\":[77]}"));
+        active.setRouteSnapshotJson(snapshot.toJSONString());
+        when(versions.selectActiveListWithExistingRoutes()).thenReturn(List.of(active));
+        when(security.hasPermission("mes:pro-route:version-submit")).thenReturn(false);
+        assertThrows(org.springframework.security.access.AccessDeniedException.class, () -> service.submit(req));
+        verify(crafts,never()).submitShared(anyString(),any(),anyString(),anyList(),any());
     }
     @Test void fiveThousandRoutesYieldExactlyOneThousandReferencesWithoutWrites() {
         var all = IntStream.rangeClosed(1,5000).mapToObj(i->version(i,i<=1000?10L:20L)).toList();
@@ -96,6 +170,7 @@ class MesProSharedChangeServiceTest {
         var batch=new MesProCraftChangeDO();batch.setId(99L);batch.setChangeType("SHARED");batch.setStatus("PENDING");
         JSONObject content=(JSONObject)JSON.toJSON(req);content.remove("impactToken");
         JSONObject proposal=new JSONObject(true);proposal.put("requestId",req.getRequestId());
+        proposal.put("routes", new JSONArray());
         proposal.put("requestHash",new MesProRouteSnapshotCanonicalizer().sha256(content.toJSONString()));
         batch.setAfterJson(proposal.toJSONString());
         when(changes.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(batch));

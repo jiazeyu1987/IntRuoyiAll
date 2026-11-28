@@ -1,5 +1,7 @@
 # 统一审批平台 Phase7 治理报告
 
+> 2026-11-26：自研 SRM 已下线，下文 SRM 接入结论是历史记录，当前审批平台不再要求 SRM provider。见 [SRM 下线说明](../srm/README.md)。
+
 ## 结论
 
 统一审批平台已经具备组织级唯一正式标准的基础：`BPM`、`DCC`、`EDHR`、`SHOWROOM`、`SRM`、`MES_FEEDBACK` 均已进入 `ApprovalModuleCode`、`ApprovalModuleIntegrationDeclarations` 和 provider 启动期门禁。`/approval-center` 是跨模块审批任务列表的唯一正式入口，业务模块保留正式处理页和领域动作。

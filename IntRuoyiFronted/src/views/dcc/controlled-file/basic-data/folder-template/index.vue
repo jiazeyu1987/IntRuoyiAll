@@ -16,7 +16,7 @@
       <el-table-column label="历史使用" width="110">
         <template #default="{ row }">{{ row.everUsed ? '已使用' : '未使用' }}</template>
       </el-table-column>
-      <el-table-column prop="editedByUserId" label="修改人账号ID" width="150" />
+      <el-table-column label="修改人" width="150"><template #default="{ row }">{{ row.editedByName || '修改人姓名未记录' }}</template></el-table-column>
       <el-table-column label="操作" width="120" fixed="right">
         <template #default="{ row }">
           <el-button v-hasPermi="['dcc:project-code:update']" link type="primary" @click="editor?.open(row.id)">编辑</el-button>

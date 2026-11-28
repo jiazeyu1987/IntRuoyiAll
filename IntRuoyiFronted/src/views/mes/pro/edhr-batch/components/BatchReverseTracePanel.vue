@@ -206,7 +206,10 @@
             :closable="false"
             show-icon
           />
-          <el-descriptions v-if="evidenceResponse.chainContext" :column="2" border size="small">
+          <p v-if="evidenceResponse.chainContext">来源状态：{{ resolveReverseSourceStatus(evidenceResponse.chainContext.sourceStatus) }}</p>
+          <details v-if="evidenceResponse.chainContext">
+            <summary>技术关联详情</summary>
+          <el-descriptions :column="2" border size="small">
             <el-descriptions-item label="活跃订单">{{ evidenceResponse.chainContext.activeOrderId || '--' }}</el-descriptions-item>
             <el-descriptions-item label="工单">{{ evidenceResponse.chainContext.workOrderId || '--' }}</el-descriptions-item>
             <el-descriptions-item label="完工回执">{{ evidenceResponse.chainContext.completionReceiptId || '--' }}</el-descriptions-item>
@@ -214,20 +217,26 @@
             <el-descriptions-item label="上市放行事务">{{ evidenceResponse.chainContext.releaseTransactionId || '--' }}</el-descriptions-item>
             <el-descriptions-item label="来源状态">{{ evidenceResponse.chainContext.sourceStatus || '--' }}</el-descriptions-item>
           </el-descriptions>
+          </details>
           <el-table v-if="evidenceResponse.items?.length" :data="evidenceResponse.items" border>
             <el-table-column prop="conditionId" label="条件" width="80" />
-            <el-table-column prop="sourceStage" label="来源环节" width="110" />
             <el-table-column prop="sourceAction" label="来源动作" width="150">
               <template #default="{ row }">{{ formatReverseTraceAction(row.sourceAction) }}</template>
             </el-table-column>
             <el-table-column prop="sourceIdentity" label="来源身份" min-width="150" show-overflow-tooltip />
-            <el-table-column prop="sourceRef" label="来源引用" min-width="180" show-overflow-tooltip />
+            <el-table-column label="技术详情" min-width="150">
+              <template #default="{ row }"><details><summary>查看技术详情</summary>
+                <p>来源引用：{{ row.sourceRef || '未记录' }}</p>
+                <p>来源环节编码：{{ row.sourceStage || '未记录' }}</p>
+                <p>记录状态编码：{{ row.recordStatus || '未记录' }}</p>
+              </details></template>
+            </el-table-column>
             <el-table-column label="记录上下文" min-width="220" show-overflow-tooltip>
               <template #default="{ row }">{{ formatEvidenceContext(row.sourceContext) || '--' }}</template>
             </el-table-column>
             <el-table-column prop="actualValue" label="实际值" min-width="120" />
             <el-table-column prop="recordedStandard" label="当时标准" min-width="150" show-overflow-tooltip />
-            <el-table-column prop="recordStatus" label="记录状态" width="100" />
+            <el-table-column label="记录状态" width="140"><template #default="{ row }">{{ row.recordStatus === 'RECORDED' ? '已记录' : row.recordStatus ? '状态未识别，请查看技术详情' : '未记录状态' }}</template></el-table-column>
             <el-table-column prop="occurredAt" label="发生时间" width="170">
               <template #default="{ row }">{{ formatDateTimeValue(row.occurredAt) }}</template>
             </el-table-column>
@@ -882,6 +891,10 @@ watch(releaseApprovedTime, () => {
 }, { deep: true, flush: 'sync' })
 
 onBeforeUnmount(invalidate)
+
+const resolveReverseSourceStatus = (status?: string) => status === 'RELEASED_HISTORY'
+  ? '已放行历史记录' : status ? '来源状态未识别，请查看技术详情' : '未记录来源状态'
+
 </script>
 
 <style scoped>

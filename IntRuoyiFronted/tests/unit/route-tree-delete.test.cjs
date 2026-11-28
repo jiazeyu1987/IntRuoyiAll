@@ -57,7 +57,7 @@ test('delete controls compile and require existing delete permission', () => {
   assert.deepEqual(compileTemplate({ source: descriptor.template.content, filename, id: 'tree-delete' }).errors, [])
   const buttons = [...descriptor.template.content.matchAll(/<el-button\b[^>]*@click="deleteSelectedNode"[^>]*>([^<]+)<\/el-button>/g)]
   assert.deepEqual(buttons.map(button => button[1]), ['删除目录', '删除工艺流程'])
-  for (const [button] of buttons) assert.match(button, /v-hasPermi="\['mes:pro-route:delete'\]"/)
+  for (const [button] of buttons) assert.match(button, /v-if="[^"]*hasPermission\(\['mes:pro-route:delete'\]\)/)
 })
 
 test('confirmed group and flow deletion use their respective APIs and refresh', async () => {

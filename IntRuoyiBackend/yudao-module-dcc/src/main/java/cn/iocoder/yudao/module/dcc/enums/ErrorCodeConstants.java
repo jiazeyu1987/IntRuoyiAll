@@ -6,6 +6,8 @@ import cn.iocoder.yudao.framework.common.exception.ErrorCode;
  * DCC error codes.
  */
 public interface ErrorCodeConstants {
+    ErrorCode CONTROLLED_FILE_CONTENT_READ_FAILED = new ErrorCode(1_080_000_374,
+            "受控文件正文读取失败，请检查文件存储服务及文件是否存在");
 
     ErrorCode CONTROLLED_FILE_HISTORICAL_SOURCE_VERIFICATION_REQUIRED = new ErrorCode(1_080_000_372,
             "历史源文件的归属或原始文件名核验未通过，暂时无法完成重名校验；请联系管理员核对历史文件归属与核验证据后重试");

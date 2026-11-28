@@ -17,7 +17,7 @@ export const approvalResultLabel = (row: Pick<ControlledFileApplicationNodeRecor
 }
 
 export const approvalNodeLabel = (row: Pick<ControlledFileApplicationNodeRecord, 'actionType' | 'stageCode' | 'nodeName'>): string => {
-  if (['ASSIGN', 'ASSIGNED'].includes(row.actionType)) return '部门负责人签名指派'
+  if (row.stageCode === 'MATRIX_REVIEW_ASSIGN' || ['ASSIGN', 'ASSIGNED'].includes(row.actionType)) return '部门负责人签名指派'
   if (row.stageCode === 'MATRIX_REVIEW') return '实际会签人会签'
   if (row.stageCode === 'MATRIX_APPROVAL') return '批准'
   return row.nodeName || '审批环节名称未记录'

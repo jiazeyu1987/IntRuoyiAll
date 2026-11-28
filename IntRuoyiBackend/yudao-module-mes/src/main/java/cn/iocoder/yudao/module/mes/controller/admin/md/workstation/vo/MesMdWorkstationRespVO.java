@@ -25,6 +25,9 @@ public class MesMdWorkstationRespVO {
     @ExcelProperty("工作站名称")
     private String name;
 
+    @Schema(description = "工作站显示名称；有真实路线工序关联且符合自动生成规则时不包含内部路线编号")
+    private String displayName;
+
     @Schema(description = "工作站地点", example = "A区1号线")
     @ExcelProperty("工作站地点")
     private String address;

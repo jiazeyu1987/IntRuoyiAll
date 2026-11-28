@@ -1,5 +1,7 @@
 # 统一审批平台运营化 Runbook
 
+2026-11-26 更新：自研 SRM 已下线，不再注册 provider，也不再执行 SRM 接入或 E2E；历史审计数据保留。下文 SRM 审计说明仅供历史追溯，详见 [SRM 下线说明](../srm/README.md)。
+
 ## 目标
 
 Phase 6 起，统一审批平台不仅是任务聚合入口，也是后续审批模块接入、监控、审计、告警、SLA、超时和催办验证的统一门禁。任何新模块不得绕开 `ApprovalTaskProvider` 自建审批中心，也不得用 mock 成功、默认成功、空列表成功或静默降级掩盖接入缺口。
@@ -27,7 +29,7 @@ Phase 6 起，统一审批平台不仅是任务聚合入口，也是后续审批
 建议验证命令：
 
 ```powershell
-mvn -pl yudao-module-bpm,yudao-module-srm -am "-Dtest=ApprovalModuleIntegrationGuardTest,ApprovalTaskProviderGovernanceTest,SrmSupplierPortalApprovalTaskAdapterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
+mvn -pl yudao-module-bpm -am '-Dtest=ApprovalModuleIntegrationGuardTest,ApprovalTaskProviderGovernanceTest' '-Dsurefire.failIfNoSpecifiedTests=false' test
 ```
 
 ## 审计

@@ -20,6 +20,9 @@ public class ErpKingdeeSyncRunPageReqVO extends PageParam {
     @Schema(description = "同步类型", example = "PRODUCTION_ORDER")
     private String syncType;
 
+    @Schema(description = "按编号同步的目标编号")
+    private String targetCode;
+
     @Schema(description = "运行状态", example = "20")
     private Integer status;
 

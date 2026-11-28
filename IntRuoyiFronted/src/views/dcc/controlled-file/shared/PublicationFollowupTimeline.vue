@@ -11,7 +11,7 @@
         <div class="publication-timeline__meta">
           <span>{{ event.sourceLabel }}</span>
           <span>{{ event.objectLabel }}</span>
-          <span>{{ event.actorId ? `操作人 #${event.actorId}` : '系统' }}</span>
+          <span>{{ event.actorId ? (event.actorName || '操作人姓名未记录') : '系统' }}</span>
         </div>
         <div v-if="event.statusBeforeLabel || event.statusAfterLabel" class="publication-timeline__line">
           状态：{{ event.statusBeforeLabel || '无' }} → {{ event.statusAfterLabel || '无' }}
@@ -27,18 +27,25 @@
           v-if="event.assigneeBefore || event.assigneeAfter"
           class="publication-timeline__line publication-timeline__assignment"
         >
-          <span>原负责人：{{ event.assigneeBefore ? `#${event.assigneeBefore}` : '未记录' }}</span>
-          <span>新负责人：{{ event.assigneeAfter ? `#${event.assigneeAfter}` : '未记录' }}</span>
+          <span>原负责人：{{ event.assigneeBefore ? (event.assigneeBeforeName || '负责人姓名未记录') : '未记录' }}</span>
+          <span>新负责人：{{ event.assigneeAfter ? (event.assigneeAfterName || '负责人姓名未记录') : '未记录' }}</span>
         </div>
         <div v-if="event.linkedRevisionControlledFileId" class="publication-timeline__line">
-          <span>关联版本 ID：{{ event.linkedRevisionControlledFileId }}</span>
-          <span v-if="event.linkedRevisionVersion">；关联版本号：{{ event.linkedRevisionVersion }}</span>
-          <span v-else>；版本号未记录</span>
+          <span v-if="event.linkedRevisionVersion">关联版本：{{ event.linkedRevisionVersion }}</span>
+          <span v-else>关联版本：版本号未记录</span>
         </div>
         <div v-if="event.directionLabels.length" class="publication-timeline__line">
           关系：{{ event.directionLabels.join(' / ') }}
         </div>
         <div v-if="event.reason" class="publication-timeline__line">原因：{{ event.reason }}</div>
+        <details class="publication-timeline__line">
+          <summary>时间线技术详情</summary>
+          <div>事件身份：{{ event.eventId }}</div>
+          <div v-if="event.actorId">操作人账号身份：{{ event.actorId }}</div>
+          <div v-if="event.assigneeBefore">原负责人账号身份：{{ event.assigneeBefore }}</div>
+          <div v-if="event.assigneeAfter">新负责人账号身份：{{ event.assigneeAfter }}</div>
+          <div v-if="event.linkedRevisionControlledFileId">关联版本记录身份：{{ event.linkedRevisionControlledFileId }}</div>
+        </details>
         <div v-if="event.errorSummary" class="publication-timeline__error" role="alert">
           错误摘要：{{ event.errorSummary }}
         </div>

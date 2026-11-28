@@ -6,14 +6,18 @@
     <div v-if="preview" data-testid="dcc-working-type-storage-recovery-facts" class="mt-12px">
       <p>文件编号：{{ preview.fileNumber }}</p>
       <p>已保存类型：{{ preview.currentTypePath }}</p>
-      <p>项目 / 文件夹：{{ preview.projectId }} / {{ preview.projectFolderId }}</p>
-      <p>原证明：{{ preview.originalProofId }}</p>
-      <p>原存储目录：{{ preview.oldDirectoryId }}；目标基础目录：{{ preview.targetBaseDirectoryId }}</p>
-      <p>目标存储目录：{{ preview.targetDirectoryId || '确认时按正式配置创建' }}</p>
-      <p>正文摘要：{{ preview.sourceSha256 }}</p>
-      <p>冻结矩阵摘要：{{ preview.matrixDigest }}</p>
-      <p v-if="preview.recovered" data-testid="dcc-working-type-storage-recovery-receipt">已恢复，恢复记录：{{ preview.recoveryEvidenceId }}</p>
-      <el-form v-else label-width="90px" class="mt-12px">
+      <p v-if="preview.recovered">存储位置已恢复</p>
+      <details class="mt-12px">
+        <summary>存储恢复技术详情</summary>
+        <p>项目 / 文件夹：{{ preview.projectId }} / {{ preview.projectFolderId }}</p>
+        <p>原证明：{{ preview.originalProofId }}</p>
+        <p>原存储目录：{{ preview.oldDirectoryId }}；目标基础目录：{{ preview.targetBaseDirectoryId }}</p>
+        <p>目标存储目录：{{ preview.targetDirectoryId || '确认时按正式配置创建' }}</p>
+        <p>正文摘要：{{ preview.sourceSha256 }}</p>
+        <p>冻结矩阵摘要：{{ preview.matrixDigest }}</p>
+        <p v-if="preview.recovered" data-testid="dcc-working-type-storage-recovery-receipt">已恢复，恢复记录：{{ preview.recoveryEvidenceId }}</p>
+      </details>
+      <el-form v-if="!preview.recovered" label-width="90px" class="mt-12px">
         <el-form-item label="恢复原因" required>
           <el-input v-model="reason" data-testid="dcc-working-type-storage-recovery-reason" type="textarea" maxlength="512" :disabled="busy || !!command" />
         </el-form-item>

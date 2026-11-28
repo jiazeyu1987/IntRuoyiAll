@@ -8,4 +8,12 @@ public class ErpKingdeeSyncExecution {
     Long runId;
     ErpKingdeeSyncContext context;
 
+    public ErpKingdeeSyncRunResult run(ErpKingdeeSyncTask task) {
+        ErpKingdeeOrderSyncContext.setRunId(runId);
+        try {
+            return task.run(context);
+        } finally {
+            ErpKingdeeOrderSyncContext.clear();
+        }
+    }
 }

@@ -49,6 +49,7 @@ import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import type { TreeChange, TreePreview } from '@/api/mes/pro/route/tree'
 import { computed } from 'vue'
 import { buildRouteTreePublishMatrix } from './routeTreePublishMatrix'
+import { resolveUrlPathFileName } from '@/utils/fileName'
 const props = defineProps<{ preview: TreePreview; reason: string; readOnly?: boolean }>()
 defineEmits<{ 'update:reason': [value: string] }>()
 const labels: Record<string, string> = {
@@ -61,7 +62,7 @@ const labels: Record<string, string> = {
   overagePercent: '允许超量比例（%）', productionQuantityFactor: '生产系数',
   parameterRules: '设备参数', deviceSelectionGroups: '设备选择组', lossReasons: '损耗原因',
   processName: '工序名称', processCode: '工序编码', sort: '顺序', lowerLimit: '下限', upperLimit: '上限',
-  keyFlag: '关键工序', checkFlag: '检验工序', routeProcessWorkstationId: '工位',
+  keyFlag: '关键工序', checkFlag: '检验工序', routeProcessWorkstationId: '工位', sopFileUrl: 'SOP附件',
   defaultValue: '默认值', parameterName: '参数名称', parameterCode: '参数编码', unit: '单位',
   deviceGroupName: '设备组名称', deviceGroupKey: '设备组标识', selectionMode: '设备选择方式',
   deviceIds: '设备', formBindings: '表单槽位', formTemplateName: '表单名称', bindingName: '绑定名称',
@@ -70,7 +71,7 @@ const labels: Record<string, string> = {
 }
 const internalFields = new Set(['id', 'routeId', 'routeVersionId', 'routeFlowConfigId', 'routeProcessId', 'clientRouteProcessId',
   'sourceRouteProcessId', 'targetRouteProcessId', 'routeProcessSort', 'sourceSort', 'targetSort',
-  'graphVersion', 'configVersion', 'createTime', 'updateTime', 'creator', 'updater', 'deleted', 'tenantId'])
+  'graphVersion', 'configVersion', 'craftChangeId', 'createTime', 'updateTime', 'creator', 'updater', 'deleted', 'tenantId'])
 // 图编辑器的临时操作和校验结果不属于审核人维护的配置；正式工序、连线仍逐项展示。
 const graphMetadata = new Set(['cyclePaths', 'invalidEdgeIds', 'invalidRouteProcessIds',
   'routeProcessCreates', 'routeProcessDeletes', 'routeProcessUpdates', 'routeProcessIdMap',
@@ -78,6 +79,16 @@ const graphMetadata = new Set(['cyclePaths', 'invalidEdgeIds', 'invalidRouteProc
 const objectValue = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
 const clean = (value: unknown): unknown => Array.isArray(value) ? value.map(clean) : objectValue(value)
   ? Object.fromEntries(Object.keys(value).filter(key => !internalFields.has(key)).sort().map(key => [key, clean(value[key])])) : value
+// 先按原始地址比较，避免同名附件替换被隐藏；展示时仅保留附件名称。
+const displayValue = (value: unknown, field: string): unknown => {
+  if (field.split('.').at(-1) === 'sopFileUrl' && typeof value === 'string' && value) {
+    return resolveUrlPathFileName(value)
+  }
+  if (Array.isArray(value)) return value.map(item => displayValue(item, field))
+  if (objectValue(value)) return Object.fromEntries(Object.entries(value)
+    .map(([key, item]) => [key === 'sopFileUrl' ? labels[key] : key, displayValue(item, key)]))
+  return value
+}
 const processLabels = computed(() => {
   const result = new Map<string, string>()
   const visit = (value: unknown) => {
@@ -123,7 +134,9 @@ const displayChanges = (changes: TreeChange[]): TreeChange[] => changes.flatMap(
     }
     return [{ field, before: clean(before), after: clean(after) }]
   }
-  return compare(change.before, change.after, change.field)
+  return compare(change.before, change.after, change.field).map(item => ({
+    ...item, before: displayValue(item.before, item.field), after: displayValue(item.after, item.field)
+  }))
 })
 const parentChanges = computed(() => displayChanges(props.preview.changes))
 const matrixNodes = computed(() => props.preview.affected

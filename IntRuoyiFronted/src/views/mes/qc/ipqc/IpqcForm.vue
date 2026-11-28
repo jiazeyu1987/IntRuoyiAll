@@ -245,17 +245,17 @@
       <el-row :gutter="16">
         <el-col :span="8">
           <el-form-item label="致命缺陷率">
-            <el-input :model-value="formData.criticalRate + '%'" disabled />
+            <el-input :model-value="formData.criticalRate == null ? '未记录' : formData.criticalRate + '%'" disabled />
           </el-form-item>
         </el-col>
         <el-col :span="8">
           <el-form-item label="严重缺陷率">
-            <el-input :model-value="formData.majorRate + '%'" disabled />
+            <el-input :model-value="formData.majorRate == null ? '未记录' : formData.majorRate + '%'" disabled />
           </el-form-item>
         </el-col>
         <el-col :span="8">
           <el-form-item label="轻微缺陷率">
-            <el-input :model-value="formData.minorRate + '%'" disabled />
+            <el-input :model-value="formData.minorRate == null ? '未记录' : formData.minorRate + '%'" disabled />
           </el-form-item>
         </el-col>
       </el-row>

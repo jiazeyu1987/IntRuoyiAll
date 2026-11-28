@@ -402,8 +402,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         when(projectCodeMapper.selectById(3000L)).thenReturn(DccProjectCodeDO.builder()
                 .id(3000L).projectCode("PROJECT-CODE").projectName("Project")
                 .productMasterId(5000L).status(DccProjectCodeStatusConstants.ENABLE).build());
-        when(mdmProductApi.getEnabledDccProduct(5000L)).thenReturn(MdmProductRespDTO.builder()
-                .id(5000L).dccProductCode("A1234567890123").nameCn("Product").build());
+        when(mdmProductApi.getProduct(5000L)).thenReturn(MdmProductRespDTO.builder()
+                .id(5000L).dccProductCode("A1234567890123").nameCn("Product").status("ENABLE").build());
         projectCodeMapper.selectById(3000L).setTenantId(1L);
         Object result = ReflectionTestUtils.invokeMethod(workflowService, "previewProjectProduct", 99L, 3000L);
         assertEquals("A1234567890123", ReflectionTestUtils.getField(result, "productCode"));
@@ -2067,8 +2067,10 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
     }
 
-    @Test
-    void submitControlledFile_projectCodeWithMdmBindingPersistsMdmProduct() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"   ", "A1234567890123"})
+    void submitControlledFile_projectCodeWithMdmBindingPersistsMdmProduct(String dccProductCode) {
         when(bpmProcessInstanceApi.createProcessInstance(any(Long.class), any())).thenReturn("proc-bound-product");
         DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("A/1");
         mockCommonSubmitDependencies();
@@ -2079,10 +2081,10 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 .projectCode("OLD-PROJECT-CODE")
                 .status(DccProjectCodeStatusConstants.ENABLE)
                 .build());
-        when(mdmProductApi.getEnabledDccProduct(5000L)).thenReturn(MdmProductRespDTO.builder()
+        when(mdmProductApi.getProduct(5000L)).thenReturn(MdmProductRespDTO.builder()
                 .id(5000L)
                 .productCode("P-5000")
-                .dccProductCode("A1234567890123")
+                .dccProductCode(dccProductCode)
                 .nameCn("MDM正式产品")
                 .status("ENABLE")
                 .build());
@@ -2099,8 +2101,9 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
         verify(controlledFileMapper).insert(fileCaptor.capture());
         assertEquals(5000L, fileCaptor.getValue().getProductMasterId());
-        assertEquals("A1234567890123", fileCaptor.getValue().getProductCode());
+        assertEquals(cn.hutool.core.util.StrUtil.trimToNull(dccProductCode), fileCaptor.getValue().getProductCode());
         assertEquals("MDM正式产品", fileCaptor.getValue().getProductName());
+        assertEquals("MDM_MASTER", fileCaptor.getValue().getProductSource());
     }
 
     @Test

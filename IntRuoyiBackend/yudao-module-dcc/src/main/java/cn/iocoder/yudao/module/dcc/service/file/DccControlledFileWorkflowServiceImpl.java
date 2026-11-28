@@ -2815,7 +2815,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         if (product == null || !DccProjectProductIdentityResolver.MDM_MASTER.equals(product.source())) {
             return;
         }
-        if (!isValidProductCode(product.code())) {
+        if (StrUtil.isNotBlank(product.code()) && !isValidProductCode(product.code())) {
             throw exception(CONTROLLED_FILE_PRODUCT_CODE_INVALID);
         }
     }

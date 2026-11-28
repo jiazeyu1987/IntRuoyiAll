@@ -43,10 +43,11 @@
           @sort-change="handleTemplateSortChange"
         >
           <el-table-column v-if="isColumnVisible('item')" label="事项" prop="item" :width="getColumnWidthString('item', 130)" v-bind="sortColumnAttrs('item')" />
-          <el-table-column v-if="isColumnVisible('source')" label="来源" prop="source" :min-width="getColumnMinWidthString('source', 190)" v-bind="sortColumnAttrs('source')" />
+          <el-table-column v-if="isColumnVisible('source')" label="来源" prop="source" :min-width="getColumnMinWidthString('source', 190)" v-bind="sortColumnAttrs('source')" ><template #default="{ row }"><span>{{ row.source }}</span><details v-if="row.technicalDetails"><summary>策略技术详情</summary>{{ row.technicalDetails }}</details></template></el-table-column>
           <el-table-column v-if="isColumnVisible('status')" label="状态" prop="status" :width="getColumnWidthString('status', 130)" v-bind="sortColumnAttrs('status')">
             <template #default="{ row }">
-              <el-tag :type="row.statusType" size="small">{{ row.status }}</el-tag>
+              <el-tag :type="row.statusType" size="small">{{ governanceStatusLabel(row.status) }}</el-tag>
+              <details v-if="/^[A-Z][A-Z0-9_]*$/.test(row.status)" class="governance-technical-details"><summary>状态技术详情</summary>{{ row.status }}</details>
             </template>
           </el-table-column>
           <el-table-column v-if="isColumnVisible('keyFields')" label="关键字段" prop="keyFields" :min-width="getColumnMinWidthString('keyFields', 300)" v-bind="sortColumnAttrs('keyFields')" />
@@ -62,6 +63,7 @@
 </template>
 
 <script lang="ts" setup>
+import { governanceLabel, governanceStatusLabel } from './governancePresentation'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
@@ -82,6 +84,7 @@ import {
 defineOptions({ name: 'PolicyGovernanceListPane' })
 
 type GovernanceRow = {
+  technicalDetails?: string
   id: string
   item: string
   source: string
@@ -176,11 +179,12 @@ const buildModuleRows = () => {
       const status = moduleStatusText(moduleStatus)
       return {
         id: `module-${moduleStatus.moduleCode}`,
-        item: moduleStatus.moduleCode,
-        source: displayValue(moduleStatus.policySourceCode || moduleStatus.adapterCode),
+        item: governanceLabel(moduleStatus.moduleCode),
+        source: moduleStatus.policySourcePresent ? `${governanceLabel(moduleStatus.moduleCode)}签名策略` : '未确认策略来源',
         status,
         statusType: statusTagType(status),
-        keyFields: `策略 ${displayValue(moduleStatus.policyVersion || moduleStatus.adapterVersion)}；Schema ${displayValue(moduleStatus.evidenceSchemaVersion)}`,
+        keyFields: `策略版本 ${displayValue(moduleStatus.policyVersion || moduleStatus.adapterVersion)}；证据结构 ${moduleStatus.evidenceSchemaVersion ? '已记录版本' : '未记录版本'}`,
+        technicalDetails: `策略源：${moduleStatus.policySourceCode || '未记录'}；适配器：${moduleStatus.adapterCode || '未记录'}；证据结构版本：${moduleStatus.evidenceSchemaVersion || '未记录'}`,
         evidence: `策略源 ${boolText(moduleStatus.policySourcePresent)}；适配器 ${boolText(moduleStatus.adapterRegistered)}；权限 ${boolText(moduleStatus.authorityConfirmed)}`,
         blockerImpact: moduleStatus.blockers?.[0]?.impact || '—'
       }
@@ -188,7 +192,7 @@ const buildModuleRows = () => {
   }
   return (policyResult.value?.modules || []).map((moduleCode): GovernanceRow => ({
     id: `module-${moduleCode}`,
-    item: moduleCode,
+    item: governanceLabel(moduleCode),
     source: '等待来源',
     status: policyResult.value?.status || '等待来源',
     statusType: statusTagType(policyResult.value?.status),
@@ -214,9 +218,9 @@ const buildClearBlockerRow = (): GovernanceRow => ({
   id: 'blocker-clear',
   item: '阻断项',
   source: '检查结果',
-  status: 'CLEAR',
+  status: policyResult.value ? 'CLEAR' : '尚未检查',
   statusType: 'success',
-  keyFields: '暂无阻断',
+  keyFields: policyResult.value ? '当前策略检查未发现阻断' : '加载策略后显示检查结果',
   evidence: '—',
   blockerImpact: '—'
 })

@@ -4,9 +4,7 @@
       <div class="showroom-version-diff-panel__section-head">
         <div>
           <h3 class="showroom-version-diff-panel__title">当前内容差异</h3>
-          <p class="showroom-version-diff-panel__tip">
-            比较所选版本与当前内容版本。
-          </p>
+          <p class="showroom-version-diff-panel__tip"> 比较所选版本与当前内容版本。 </p>
         </div>
         <el-tag v-if="currentContentVersion" type="primary">
           当前内容 V{{ currentContentVersion.revisionNo }}
@@ -28,7 +26,9 @@
             {{ fieldDiff.changed ? '已变更' : '一致' }}
           </el-tag>
         </div>
-        <details v-if="fieldDiff.labelEn"><summary>英文字段名称</summary>{{ fieldDiff.labelEn }}</details>
+        <details v-if="fieldDiff.labelEn"
+          ><summary>英文字段名称</summary>{{ fieldDiff.labelEn }}</details
+        >
         <div class="showroom-version-diff-panel__diff-columns">
           <div>
             <span class="showroom-version-diff-panel__column-label">所选版本</span>
@@ -72,10 +72,13 @@
           {{ formatDateTimeValue(currentRelease?.publishedAt, '未发布') }}
         </el-descriptions-item>
       </el-descriptions>
-      <details v-if="currentRelease"><summary>发布标识与校验信息</summary>
-        <p>发布标识：{{ currentRelease.releaseId }}</p><p>清单校验码：{{ currentRelease.manifestHash }}</p>
+      <details v-if="currentRelease"
+        ><summary>发布标识与校验信息</summary> <p>发布标识：{{ currentRelease.releaseId }}</p
+        ><p>清单校验码：{{ currentRelease.manifestHash }}</p>
         <p>公司线上修订编号：{{ currentRelease.companyRevisionId }}</p>
-        <p v-if="currentRelease.productCurrentReleaseRevisionId != null">产品线上修订编号：{{ currentRelease.productCurrentReleaseRevisionId }}</p>
+        <p v-if="currentRelease.productCurrentReleaseRevisionId != null"
+          >产品线上修订编号：{{ currentRelease.productCurrentReleaseRevisionId }}</p
+        >
       </details>
     </section>
 
@@ -89,6 +92,9 @@
         </div>
       </div>
 
+      <details v-if="permissions.republishDisabledReason"
+        ><summary>不可发布原因详情</summary>{{ permissions.republishDisabledReason }}</details
+      >
       <el-alert
         v-if="disabledReason"
         :closable="false"
@@ -106,9 +112,15 @@
       >
         <template #default>
           <ul class="showroom-version-diff-panel__blockers">
-            <li v-for="blocker in republishReadiness.blockers" :key="`${blocker.scope}-${blocker.blockerCode}`">
-              <p>{{ blocker.message }}</p>
-              <details><summary>阻塞项技术详情</summary><p>{{ formatVersionCenterBlocker(blocker) }}</p></details>
+            <li
+              v-for="blocker in republishReadiness.blockers"
+              :key="`${blocker.scope}-${blocker.blockerCode}`"
+            >
+              <p>{{ blockerMessage(blocker) }}</p>
+              <details
+                ><summary>阻塞项技术详情</summary
+                ><p>{{ formatVersionCenterBlocker(blocker) }}</p></details
+              >
             </li>
           </ul>
         </template>
@@ -128,6 +140,7 @@
 
 <script setup lang="ts">
 import type {
+  VersionCenterBlocker,
   VersionCenterFieldDiffVO,
   VersionCenterPermissionVO,
   VersionCenterReleaseSummary,
@@ -154,18 +167,41 @@ const emit = defineEmits<{
   republish: []
 }>()
 
-const showCurrentPublicSummary = computed(
-  () =>
-    Boolean(
-      props.currentPublicVersion &&
-        props.currentContentVersion &&
-        props.currentPublicVersion.revisionId !== props.currentContentVersion.revisionId
-    )
+const showCurrentPublicSummary = computed(() =>
+  Boolean(
+    props.currentPublicVersion &&
+      props.currentContentVersion &&
+      props.currentPublicVersion.revisionId !== props.currentContentVersion.revisionId
+  )
 )
+
+const technicalBlockerLabels: Record<string, string> = {
+  SHOWROOM_TARGET_NOT_FOUND: '未找到所选公司、产品或版本记录，无法发布，请核对版本记录。',
+  SHOWROOM_VERSION_BUNDLE_NOT_FOUND: '所选版本的完整内容记录缺失或与当前对象不一致，无法发布。',
+  SHOWROOM_VERSION_COMPANY_SNAPSHOT_MISSING: '公司版本缺少名称或类型记录，无法发布。',
+  PRODUCT_COVER_MISSING: '所选产品版本缺少封面图片，无法发布。',
+  PRODUCT_NARRATION_AUDIO_MISSING: '所选版本的讲解语音缺失或不可读取，无法发布。',
+  SHOWROOM_VERSION_CENTER_NOT_READY: '版本记录尚未就绪，请核对讲解语音是否存在重复发布记录。'
+}
+
+const blockerMessage = (blocker: VersionCenterBlocker) => {
+  // 已有中文业务原因直接保留，技术错误按服务端明确的错误码说明。
+  if (/[\u3400-\u9fff]/.test(blocker.message)) {
+    return blocker.message
+  }
+  return technicalBlockerLabels[blocker.blockerCode] || blocker.message
+}
 
 const disabledReason = computed(() => {
   if (!props.permissions.canRepublish) {
-    return props.permissions.republishDisabledReason || '当前用户没有发布权限'
+    const reason = props.permissions.republishDisabledReason
+    if (reason && /[\u3400-\u9fff]/.test(reason)) {
+      return reason
+    }
+    const blocker = props.republishReadiness.blockers.find((item) =>
+      Boolean(technicalBlockerLabels[item.blockerCode])
+    )
+    return blocker ? blockerMessage(blocker) : reason || '当前用户没有发布权限'
   }
   if (props.interactionsDisabled) {
     return '版本切换中，当前暂不可执行发布操作'
@@ -178,8 +214,13 @@ const disabledReason = computed(() => {
 </script>
 
 <style scoped>
-.showroom-version-diff-panel details { overflow-wrap: anywhere; }
-.showroom-version-diff-panel summary { cursor: pointer; color: var(--el-text-color-secondary); }
+.showroom-version-diff-panel details {
+  overflow-wrap: anywhere;
+}
+.showroom-version-diff-panel summary {
+  cursor: pointer;
+  color: var(--el-text-color-secondary);
+}
 .showroom-version-diff-panel {
   display: flex;
   flex-direction: column;

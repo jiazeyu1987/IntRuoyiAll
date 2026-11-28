@@ -331,7 +331,7 @@
           <el-alert
             v-else-if="trace.complete === true && !trace.closureEvidence"
             class="mt-8px"
-            title="trace complete=true 但后端未返回 closureEvidence，不能作为 P0 完整闭环证据。"
+            title="追溯结果缺少闭环凭证，当前无法确认业务已完整闭环。请联系管理员核查相关业务记录。"
             type="error"
             :closable="false"
             show-icon

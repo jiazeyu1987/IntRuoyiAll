@@ -120,4 +120,39 @@ class DccAttachmentDownloadTest {
         file.setStatus("ACTIVE");BusinessFileAccessService business=port("businessFileAccessService");when(business.assertAllowed(any())).thenReturn(Optional.empty());
         assertThrows(RuntimeException.class,()->download(true));verifyNoInteractions(storage);
     }
+
+    @Test void libraryOriginalUsesSavedOriginalWithoutEditableOrPublishedSubstitutionAndKeepsAudit() {
+        file.setOriginalFileId(111L); file.setEditableFileId(null);
+        DccControlledFileCategoryPermissionSupport permissions=port("permissionSupport");
+        when(permissions.isLibrary(file.getDccProjectCodeId())).thenReturn(true);
+        var binary=service.readOriginalDownloadFile(99L,20L,true,"original-request",audit);
+        assertEquals("notes.json",binary.fileName());
+        assertEquals("{\"ok\":true}",new String(binary.bytes(),java.nio.charset.StandardCharsets.UTF_8));
+        assertEquals("original-request",binary.downloadRequestId());assertEquals(64,binary.plainSha256().length());
+        verify(files).selectById(111L);verify(files,never()).selectById(44L);
+        DccControlledFileDownloadRecordMapper downloads=port("downloadRecordMapper");
+        verify(downloads).insert(any(DccControlledFileDownloadRecordDO.class));
+    }
+    @Test void libraryOriginalRejectsMissingOriginalInsteadOfDownloadingPublishedOrEditableCopy() {
+        file.setOriginalFileId(null);file.setEditableFileId(111L);
+        DccControlledFileCategoryPermissionSupport permissions=port("permissionSupport");
+        when(permissions.isLibrary(file.getDccProjectCodeId())).thenReturn(true);
+        var error=assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->service.readOriginalDownloadFile(99L,20L,true,"original-request",audit));
+        assertEquals("该受控版本未保存原件，无法下载原件",error.getMessage());verifyNoInteractions(storage);
+    }
+    @Test void libraryOriginalRejectsViewerForeignTenantNonActiveAndProjectFilesBeforeStorage() {
+        file.setOriginalFileId(111L);
+        DccControlledFileCategoryPermissionSupport permissions=port("permissionSupport");
+        when(permissions.isLibrary(file.getDccProjectCodeId())).thenReturn(true);
+        when(permissions.hasFilePermission(file,99L,DccFileCategoryPermissionActionEnum.DOWNLOAD)).thenReturn(false);
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->service.readOriginalDownloadFile(99L,20L,true,"original-request",audit));
+        when(permissions.hasFilePermission(file,99L,DccFileCategoryPermissionActionEnum.DOWNLOAD)).thenReturn(true);
+        file.setTenantId(2L);
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->service.readOriginalDownloadFile(99L,20L,true,"original-request",audit));
+        file.setTenantId(1L);file.setStatus("OBSOLETE");
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->service.readOriginalDownloadFile(99L,20L,true,"original-request",audit));
+        file.setStatus("ACTIVE");when(permissions.isLibrary(file.getDccProjectCodeId())).thenReturn(false);
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->service.readOriginalDownloadFile(99L,20L,true,"original-request",audit));
+        verifyNoInteractions(storage);
+    }
 }

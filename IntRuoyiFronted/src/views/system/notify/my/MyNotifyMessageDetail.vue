@@ -64,6 +64,13 @@
         </div>
       </section>
 
+      <details v-if="technicalTemplateParams.length" class="notify-message-detail__params">
+        <summary>消息技术详情（原始参数）</summary>
+        <dl><template v-for="item in technicalTemplateParams" :key="item.key">
+          <dt>{{ item.key }}</dt><dd><pre>{{ item.value }}</pre></dd>
+        </template></dl>
+      </details>
+
       <section v-if="hasDetailActions" class="notify-message-detail__actions">
         <div class="notify-message-detail__section-title">快捷操作</div>
         <div class="notify-message-detail__action-buttons">
@@ -97,7 +104,7 @@ import { DICT_TYPE } from '@/utils/dict'
 import { formatDate } from '@/utils/formatTime'
 import * as NotifyMessageApi from '@/api/system/notify/message'
 import BusinessMessageContent from '@/components/BusinessMessageContent/BusinessMessageContent.vue'
-import { describeNotifyMessage } from '@/utils/businessMessagePresentation'
+import { describeNotifyMessage, registrationDeadlineLabel, registrationThresholdLabel } from '@/utils/businessMessagePresentation'
 import HandlingTaskPanel from '@/views/dcc/registration-certificate/components/HandlingTaskPanel.vue'
 import ChangeConfirmationsPanel from '@/views/dcc/registration-certificate/components/ChangeConfirmationsPanel.vue'
 import { getControlledFileApplicationRestartContext, prepareControlledFileApplicationRestart,
@@ -209,7 +216,12 @@ const templateParamLabels: Record<string, string> = {
   reasonSummaries: '通知原因',
   sourceControlledFileId: '来源受控文件身份',
   relatedMasterId: '关联文件 Master 身份',
-  dueAt: '整改期限'
+  dueAt: '办理期限',
+  title: '任务标题',
+  certificateId: '注册证记录',
+  thresholdLevel: '提醒窗口',
+  dueDate: '到期日',
+  businessDate: '业务日期'
 }
 
 const formatTemplateParamValue = (value: unknown): string => {
@@ -222,6 +234,9 @@ const formatTemplateParamValue = (value: unknown): string => {
   return String(value)
 }
 
+const isBusinessParamValue = (value: unknown): boolean =>
+  Array.isArray(value) ? value.every(item => item == null || typeof item !== 'object') : typeof value !== 'object'
+
 const templateParamEntries = computed(() => {
   const templateParams = normalizeTemplateParams(detailData.value.templateParams)
   if (!templateParams) {
@@ -233,15 +248,24 @@ const templateParamEntries = computed(() => {
     return messageDescription.value.fields.map(({ label, value }) => ({ key: label, label, value }))
   }
   return Object.entries(templateParams)
-    .filter(([key, value]) => !hiddenTemplateParamKeys.has(key) && value !== undefined && value !== null && value !== ''
+    .filter(([key, value]) => !!templateParamLabels[key] && isBusinessParamValue(value) && !hiddenTemplateParamKeys.has(key) && value !== undefined && value !== null && value !== ''
       && !(detailData.value.templateCode?.startsWith('MES_EDHR_DEVIATION_') && key === 'reason')
       && !(detailData.value.templateCode === 'MES_ACTIVE_ORDER_HANDOFF' && ['reason', 'taskName'].includes(key)))
     .map(([key, value]) => ({
       key,
-      label: templateParamLabels[key] || key,
-      value: formatTemplateParamValue(value)
+      label: templateParamLabels[key],
+      value: key === 'dueAt' && detailData.value.templateCode === 'DCC_REGISTRATION_HANDLING_TASK'
+        ? registrationDeadlineLabel(value)
+        : key === 'thresholdLevel' && detailData.value.templateCode === 'DCC_REGISTRATION_CERTIFICATE_THRESHOLD_REMINDER'
+          ? registrationThresholdLabel(value) : formatTemplateParamValue(value)
     }))
 })
+
+// 新增/结构化参数不伪装为业务字段；保留在明确展开的原始参数中供诊断。
+const technicalTemplateParams = computed(() => Object.entries(normalizeTemplateParams(detailData.value.templateParams) || {})
+  .filter(([key, value]) => !hiddenTemplateParamKeys.has(key) && value != null
+    && (!templateParamLabels[key] || !isBusinessParamValue(value)))
+  .map(([key, value]) => ({ key, value: JSON.stringify(value, null, 2) })))
 
 const hasDetailActions = computed(() => notifyMessageTargets.value.length > 0 || !!applicationRestart.value)
 

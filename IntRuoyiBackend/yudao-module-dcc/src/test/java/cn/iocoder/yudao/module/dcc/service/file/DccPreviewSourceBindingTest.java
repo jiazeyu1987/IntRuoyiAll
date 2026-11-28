@@ -207,6 +207,17 @@ class DccPreviewSourceBindingTest {
     }
 
     @ParameterizedTest @MethodSource("previewCases")
+    void storageFailurePreservesCauseAndIsNotReportedAsPermissionDenial(String intent, String extension, String contentType) throws Exception {
+        var metadata = metadata(intent, extension, contentType);
+        var cause = new IllegalStateException("storage connection refused");
+        when(storage.getFileContent(1L, "r3/F1." + extension)).thenThrow(cause);
+        var failure = org.junit.jupiter.api.Assertions.assertThrows(
+                cn.iocoder.yudao.framework.common.exception.ServiceException.class, () -> read(metadata));
+        assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CONTENT_READ_FAILED.getCode(), failure.getCode());
+        org.junit.jupiter.api.Assertions.assertSame(cause, failure.getCause());
+    }
+
+    @ParameterizedTest @MethodSource("previewCases")
     void sameVersionRepointedArtifactCannotReadF2WithF1Metadata(String intent, String extension, String contentType) throws Exception {
         var metadata = metadata(intent, extension, contentType);
         artifacts.put(F2, artifact(F2, 2L, "r3/F2." + extension, contentType));

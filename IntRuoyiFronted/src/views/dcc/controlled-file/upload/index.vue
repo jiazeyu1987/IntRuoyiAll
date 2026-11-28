@@ -80,6 +80,14 @@
             show-icon
             :title="projectCodeOptionsError"
           />
+          <el-alert
+            v-if="!isExternalReview && !isLibraryUpload && !projectCodeOptionsLoading && !projectCodeOptionsError && projectCodeOptionsEmptyMessage"
+            class="mt-8px !w-560px"
+            type="warning"
+            :closable="false"
+            show-icon
+            :title="projectCodeOptionsEmptyMessage"
+          />
         <el-form-item v-if="!isExternalReview" v-show="!isLibraryUpload" label="申请属性">
           <ProjectApplicationAttributes
             ref="projectAttributesPanel"
@@ -327,7 +335,7 @@
               </div>
               <el-form-item label="产品编号" prop="productCode">
                 <div class="w-full">
-                  <div class="upload-field-value"><ProductCodeLink :code="formData.productCode" empty-text="选择 DCC 项目后读取正式产品编码" /></div>
+                  <div class="upload-field-value"><ProductCodeLink :code="formData.productCode" :empty-text="isRequiredProjectCodeBound ? '未填写（不影响文控流程）' : '选择 DCC 项目后读取正式产品编码'" /></div>
                   <div
                     v-if="isProductRequiredForSelectedCategory && !isRequiredProjectCodeBound"
                     data-testid="dcc-upload-product-code-binding-hint"
@@ -1036,6 +1044,7 @@ const uploadApproverError = computed(() => uploadApprovalProjection.value.error)
 const projectCodeOptionsLoading = ref(false)
 const projectFileTemplateLoading = ref(false)
 const projectCodeOptionsError = ref('')
+const projectCodeOptionsEmptyMessage = ref('')
 const projectFileTemplateError = ref('')
 const categoryOptionsError = ref('')
 let uploadSessionId = createControlledFileUploadSessionId()
@@ -1246,7 +1255,7 @@ const isRequiredProjectCodeBound = computed(() => Boolean(projectProduct.value
   && projectProduct.value.source !== 'UNBOUND' && projectProduct.value.projectCodeId === String(formData.dccProjectCodeId)))
 const productCodeBindingHintText = computed(() => {
   if (isRequiredProjectCodeBound.value) {
-    return `已解析编号：${formData.productCode.trim()}`
+    return formData.productCode.trim() ? `已解析编号：${formData.productCode.trim()}` : '已绑定正式产品，产品编号未填写，不影响文控流程'
   }
   return 'DHF/DMR 类别必须选择已绑定正式产品的 DCC 项目'
 })
@@ -1558,12 +1567,18 @@ const loadProjectCodeOptions = async (keyword = '') => {
   const sequence = ++projectOptionsRequestSequence
   projectCodeOptionsLoading.value = true
   projectCodeOptionsError.value = ''
+  projectCodeOptionsEmptyMessage.value = ''
   try {
     const library = isLibraryUpload.value ? await getControlledImportLibrary(libraryScope.value as 'QMS' | 'GENERAL') : undefined
     const options: DccUploadProjectOption[] = library ? [{ ...library, id: String(library.id), status: 'ENABLE',
       projectLeaderUserId: null, projectLeader: null, associatedFileCount: null, uploadSelectable: true, uploadIssues: [] }] : await getProjectUploadOptions(keyword)
     if (sequence !== projectOptionsRequestSequence) return
     projectCodeOptions.value = options
+    if (!isLibraryUpload.value && !isExternalReview.value && options.length === 0) {
+      projectCodeOptionsEmptyMessage.value = keyword.trim()
+        ? '没有匹配的项目，请调整搜索条件'
+        : '暂无可选择的启用项目，请联系项目管理员确认项目已启用，并为您授予项目权限'
+    }
   } catch (error) {
     if (sequence !== projectOptionsRequestSequence) return
     projectCodeOptions.value = []
@@ -2901,7 +2916,7 @@ const saveUploadDraft = async () => {
       || !formData.categoryId || !formData.fileTypeTaxonomyId) throw new Error('请完成正文上传、编号、初始版本和文件类型后保存草稿')
     if (!isLibraryUpload.value && (projectProductLoading.value || projectProductError.value || projectProductResolvedId.value !== formData.dccProjectCodeId))
       throw new Error(projectProductError.value || '当前项目产品身份尚未读取完成')
-    const product = validateDccProjectProductCode(formData.productCode, isProductRequiredForSelectedCategory.value)
+    const product = validateDccProjectProductCode(formData.productCode, isProductRequiredForSelectedCategory.value, isRequiredProjectCodeBound.value)
     if (!product.valid) throw new Error(product.message)
     const attachments = resolveReadyAttachmentUploads()
     if (!attachments) throw new Error('附件尚未全部上传完成')
@@ -3010,7 +3025,8 @@ const submitForm = async () => {
   }
   const productCodeValidation = validateDccProjectProductCode(
     formData.productCode,
-    isProductRequiredForSelectedCategory.value
+    isProductRequiredForSelectedCategory.value,
+    isRequiredProjectCodeBound.value
   )
   if (!productCodeValidation.valid) {
     message.warning(productCodeValidation.message || '产品编号校验失败')

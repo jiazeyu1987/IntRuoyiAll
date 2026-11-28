@@ -167,7 +167,8 @@
           </div>
         </div>
         <el-tag
-          v-if="graphDirty || hasProductionProcessConfigJsonDraftChanges()"
+          :style="{ visibility: graphDirty || hasProductionProcessConfigJsonDraftChanges() ? 'visible' : 'hidden' }"
+          :aria-hidden="!(graphDirty || hasProductionProcessConfigJsonDraftChanges())"
           class="route-flow-graph-designer__unsaved"
           data-flow-status="unsaved"
           effect="dark"
@@ -1728,8 +1729,9 @@
                       </div>
                     </div>
                     <el-input-number
-                      v-else-if="selectedProcessDetailField.key === 'productionQuantityFactor'"
+                      v-else-if="selectedProcessDetailField.key === 'productionQuantityFactor' && !selectedProcessDetailField.loading"
                       :model-value="selectedProcessAttributes.productionQuantityFactor"
+                      :disabled="selectedProcessAttributesSaving || saving"
                       :min="0.000001"
                       :precision="2"
                       :step="0.01"
@@ -3167,6 +3169,7 @@ const openProcessTargetLink = async () => {
 }
 
 const openLegacyBatchRecordTargetLink = async (report: RouteFlowLegacyBatchRecord) => {
+  if (!canQueryBatchRecordReports.value) return
   const reportId = normalizeNullableText(report.batchRecordReportId)
   if (!reportId) {
     throw new Error(`批记录表单跳转缺少报表编号: routeProcessId=${selectedRouteProcessId.value}`)
@@ -5053,6 +5056,7 @@ const buildBatchRecordFormLinks = (): ProcessDetailLinkItem[] =>
     .map((report, index) => ({
       key: `batch-record-report-${report.batchRecordReportId || index}`,
       label: getLegacyBatchRecordDisplayName(report),
+      permission: 'mes:pro-batch-record-template:query',
       onClick: () => openLegacyBatchRecordTargetLink(report)
     }))
 
@@ -6498,6 +6502,7 @@ const loadSelectedProcessAttributes = async (node: RouteFlowNodeVO, requestId: n
       ...(selectedProcessAttributeDrafts[routeProcessId].inputMaterialIds || []),
       ...(selectedProcessAttributeDrafts[routeProcessId].outputMaterialIds || [])
     ])
+    if (!isSelectedProcessDetailRequestCurrent(requestId, routeProcessId)) return
     applySelectedProcessAttributesDraft(selectedProcessAttributeDrafts[routeProcessId])
   } catch (error) {
     if (!isSelectedProcessDetailRequestCurrent(requestId, node.routeProcessId)) return

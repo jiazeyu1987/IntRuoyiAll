@@ -487,12 +487,13 @@ export const QcTemplateApi = {
     if (options?.publishAfterImport !== undefined) {
       data.set('publishAfterImport', String(options.publishAfterImport))
     }
-    return await request.upload({
+    const result = await request.upload<{ data: QaInspectionRegulationImportRespVO }>({
       url: `/mes/qa/inspection-regulation/import-word-draft`,
       data,
       headersType: 'multipart/form-data',
       ignoreErrorMessage: true
     })
+    return result.data
   },
 
   // 测试阶段重置指定 DCC 项目的正式 QA 检验规程

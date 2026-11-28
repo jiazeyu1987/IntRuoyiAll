@@ -41,6 +41,7 @@ public interface ErpKingdeeSyncRunMapper extends BaseMapperX<ErpKingdeeSyncRunDO
     default PageResult<ErpKingdeeSyncRunDO> selectPage(ErpKingdeeSyncRunPageReqVO reqVO) {
         LambdaQueryWrapperX<ErpKingdeeSyncRunDO> query = new LambdaQueryWrapperX<ErpKingdeeSyncRunDO>()
                 .eqIfPresent(ErpKingdeeSyncRunDO::getSyncType, reqVO.getSyncType())
+                .eqIfPresent(ErpKingdeeSyncRunDO::getTargetCode, reqVO.getTargetCode())
                 .betweenIfPresent(ErpKingdeeSyncRunDO::getStartedAt, reqVO.getStartedAt())
                 .orderByDesc(ErpKingdeeSyncRunDO::getId);
         if (Integer.valueOf(10).equals(reqVO.getStatus())) query.in(ErpKingdeeSyncRunDO::getStatus, 10, 40);
@@ -54,6 +55,7 @@ public interface ErpKingdeeSyncRunMapper extends BaseMapperX<ErpKingdeeSyncRunDO
                 java.util.Map.entry("id", number("erp_kingdee_sync_run.id")),
                 java.util.Map.entry("syncType", text("erp_kingdee_sync_run.sync_type")),
                 java.util.Map.entry("triggerType", text("erp_kingdee_sync_run.trigger_type")),
+                java.util.Map.entry("targetCode", text("erp_kingdee_sync_run.target_code")),
                 java.util.Map.entry("status", number("erp_kingdee_sync_run.status")),
                 java.util.Map.entry("windowStartTime", dateTime("erp_kingdee_sync_run.window_start_time")),
                 java.util.Map.entry("windowEndTime", dateTime("erp_kingdee_sync_run.window_end_time")),

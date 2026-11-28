@@ -4,8 +4,10 @@ export interface ChangeConfirmation {
   id: number | string
   certificateId: number | string
   versionId: number | string
+  versionNo?: number
   eventKey: string
   recipientUserId: number | string
+  recipientName?: string
   notifyMessageId: number | string
   sentAt: number
   confirmedAt?: number

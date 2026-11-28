@@ -199,7 +199,7 @@ class MesProRouteVersionControllerTest {
         when(workflowService.createCandidate(createReqVO)).thenReturn(draft);
         when(workflowService.withdrawCandidate(2002L)).thenReturn(draft);
         when(workflowService.reopenRejectedCandidate(2002L)).thenReturn(draft);
-        when(workflowService.cancelCandidate(2002L)).thenReturn(draft);
+        when(workflowService.cancelCandidate(2002L, false)).thenReturn(draft);
         when(workflowService.getPublishBlockers(2002L)).thenReturn(blockers);
 
         assertEquals(1, controller.listByRouteId(20L).getData().size());
@@ -207,7 +207,7 @@ class MesProRouteVersionControllerTest {
         assertEquals("DRAFT", controller.createCandidate(createReqVO).getData().getLifecycleStatus());
         assertEquals("DRAFT", controller.withdrawCandidate(2002L).getData().getLifecycleStatus());
         assertEquals("DRAFT", controller.reopenRejectedCandidate(2002L).getData().getLifecycleStatus());
-        assertEquals("DRAFT", controller.cancelCandidate(2002L).getData().getLifecycleStatus());
+        assertEquals("DRAFT", controller.cancelCandidate(2002L, false).getData().getLifecycleStatus());
         assertEquals(Boolean.TRUE, controller.getPublishBlockers(2002L).getData().getPublishable());
     }
 
@@ -235,10 +235,20 @@ class MesProRouteVersionControllerTest {
                 MesProRouteVersionController.class.getDeclaredMethod("reopenRejectedCandidate", Long.class)
                         .getAnnotation(PreAuthorize.class).value());
         assertEquals("@ss.hasPermission('mes:pro-route:version-cancel')",
-                MesProRouteVersionController.class.getDeclaredMethod("cancelCandidate", Long.class)
+                MesProRouteVersionController.class.getDeclaredMethod("cancelCandidate", Long.class, boolean.class)
                         .getAnnotation(PreAuthorize.class).value());
         assertEquals("@ss.hasPermission('mes:pro-route:version-submit')",
                 MesProRouteVersionController.class.getDeclaredMethod("submitAndPublishCandidate", Long.class)
                         .getAnnotation(PreAuthorize.class).value());
+    }
+
+    @Test
+    void cancelCandidate_shouldForwardAutomaticUnsavedGuard() {
+        MesProRouteVersionDO draft = MesProRouteVersionDO.builder()
+                .id(2002L).lifecycleStatus("DRAFT").lastSavedBy(507L).build();
+        when(workflowService.cancelCandidate(2002L, true)).thenReturn(draft);
+
+        assertEquals("DRAFT", controller.cancelCandidate(2002L, true).getData().getLifecycleStatus());
+        assertEquals(507L, controller.cancelCandidate(2002L, true).getData().getLastSavedBy());
     }
 }

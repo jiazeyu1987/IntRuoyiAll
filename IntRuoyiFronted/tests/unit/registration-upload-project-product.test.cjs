@@ -111,3 +111,20 @@ test('驳回后重提非瑛泰产品时保留原产品名称', async () => {
   assert.equal(state.hydrating, false)
   app.unmount()
 })
+
+test('驳回重提一次补齐分页外项目真实名称，保留大Long字符串', async () => {
+  const id = '2121453181393523290', calls = []
+  const { state, app, open } = mount({
+    getUploadProjectCodes: async params => { calls.push(params); return params.ids ? [{ id, projectCode: 'REAL-733', projectName: '真实项目' }] : [{ id: '1', projectCode: 'OLD' }] },
+    getMyRegistrationCertificateUpload: async () => ({ request: { detailJson: JSON.stringify({ draft: { productName: '证载名称', ownerCompanyId: '1' }, factsJson: JSON.stringify({ certificateType: 'DOMESTIC', ownProduct: true, projectProducts: [{ projectCodeId: id }] }) }) }, files: [] })
+  }, { requestId: '733' })
+  open(); await flush(); await flush()
+  assert.equal(state.projects[0].projectCode, 'REAL-733')
+  assert.equal(state.projects[0].projectName, '真实项目')
+  assert.equal(state.projectCodeIds[0], id)
+  assert.equal(state.productName, '证载名称')
+  assert.deepEqual(Array.from(calls[1].ids), [id])
+  assert.equal(calls[1].sourceRequestId, '733')
+  assert.equal(calls.length, 2)
+  app.unmount()
+})

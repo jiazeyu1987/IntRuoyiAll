@@ -214,21 +214,21 @@
                     >
                       <div class="edhr-form-trace-batch-trace__attachment-item-head">
                         <div class="edhr-form-trace-batch-trace__attachment-name">
-                          {{ attachment.fileName || attachment.storagePath || '--' }}
+                          {{ attachment.fileName || '未记录文件名' }}
                         </div>
                         <el-tag size="small" type="success">
-                          {{ attachment.attachmentAction || '--' }}
+                          {{ resolveTraceAttachmentAction(attachment.attachmentAction) }}
                         </el-tag>
                       </div>
                       <div class="edhr-form-trace-batch-trace__attachment-meta">
-                        <span>{{ attachment.fieldLabel || attachment.fieldKey || '--' }}</span>
-                        <span>{{ attachment.attachmentType || '--' }}</span>
+                        <span>{{ attachment.fieldLabel || '未记录字段名称' }}</span>
+                        <span>{{ resolveTraceAttachmentType(attachment.attachmentType) }}</span>
                         <span>{{ formatFileSize(attachment.fileSize) }}</span>
                       </div>
                       <dl class="edhr-form-trace-batch-trace__attachment-facts">
                         <div>
                           <dt>上传人</dt>
-                          <dd>{{ attachment.operatorName || attachment.operatorId || '--' }}</dd>
+                          <dd>{{ attachment.operatorName || '未记录姓名' }}</dd>
                         </div>
                         <div>
                           <dt>上传时间</dt>
@@ -485,6 +485,11 @@ const selectRecordExecution = (execution: EdhrBatchExecutionReviewExecutionRespV
 }
 
 const resolveAttachmentTechnicalProofs = (attachment: EdhrBatchExecutionReviewAttachmentSummary) => [
+  { label: '存储路径', value: attachment.storagePath || '未记录' },
+  { label: '附件操作编码', value: attachment.attachmentAction || '未记录' },
+  { label: '附件类型编码', value: attachment.attachmentType || '未记录' },
+  { label: '字段编码', value: attachment.fieldKey || '未记录' },
+  { label: '上传人内部编号', value: attachment.operatorId == null ? '未记录' : String(attachment.operatorId) },
   {
     label: '文件 SHA-256',
     value: attachment.sha256 || '--'
@@ -607,6 +612,16 @@ watch(
 )
 
 watch([executionEntries, recordExecutionReviews], syncSelectedExecutions)
+
+const resolveTraceAttachmentAction = (action?: string) => {
+  const labels: Record<string, string> = { ADD: '新增', VOID: '作废' }
+  return action ? labels[action] || '操作未识别' : '未记录操作'
+}
+const resolveTraceAttachmentType = (type?: string) => {
+  const labels: Record<string, string> = { IMAGE: '图片', FILE: '文件' }
+  return type ? labels[type] || '类型未识别，请查看技术校验' : '未记录类型'
+}
+
 </script>
 
 <style scoped>

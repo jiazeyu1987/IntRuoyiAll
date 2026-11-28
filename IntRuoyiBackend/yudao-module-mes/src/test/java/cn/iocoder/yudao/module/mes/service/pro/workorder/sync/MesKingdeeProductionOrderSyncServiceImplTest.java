@@ -82,6 +82,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
 
     private ErpKingdeeProperties kingdeeProperties;
     private MesKingdeeProductionOrderSyncServiceImpl syncService;
+    @Mock private cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRuntimeService syncRuntimeService;
     @Mock private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
 
     @BeforeEach
@@ -98,6 +99,13 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
                 syncRecordMapper, scheduleOrderMapper, scheduleOrderDiffMapper,
                 itemMapper, itemTypeMapper, unitMeasureMapper, activeOrderMapper, completionReceiptMapper);
         org.springframework.test.util.ReflectionTestUtils.setField(syncService,"gxpAuditService",gxpAuditService);
+        org.springframework.test.util.ReflectionTestUtils.setField(syncService, "syncRuntimeService", syncRuntimeService);
+        org.mockito.Mockito.lenient().when(syncRuntimeService.executeSync(any(), any())).thenAnswer(invocation -> {
+            cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncCommand command = invocation.getArgument(0);
+            cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncTask task = invocation.getArgument(1);
+            return task.run(cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncContext.builder()
+                    .targetCode(command.getTargetCode()).build());
+        });
         com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
                 new org.apache.ibatis.builder.MapperBuilderAssistant(
                         new com.baomidou.mybatisplus.core.MybatisConfiguration(), ""), MesMdItemDO.class);
@@ -136,6 +144,13 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
         when(workOrderService.createWorkOrder(any())).thenReturn(501L);
         assertEquals(1, syncService.syncByCode("881MO091049"));
+        var command = org.mockito.ArgumentCaptor.forClass(
+                cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncCommand.class);
+        verify(syncRuntimeService).executeSync(command.capture(), any());
+        assertEquals("881MO091049", command.getValue().getTargetCode());
+        assertEquals(cn.iocoder.yudao.module.erp.enums.sync.ErpKingdeeSyncTypeEnum.PRODUCTION_ORDER,
+                command.getValue().getSyncType());
+        assertNull(command.getValue().getWindowEnd());
         verify(workOrderService).createWorkOrder(any());
         verify(syncRecordMapper).insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
         org.mockito.Mockito.verifyNoInteractions(activeOrderMapper);

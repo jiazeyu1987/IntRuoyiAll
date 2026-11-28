@@ -334,6 +334,14 @@ class MesProRouteServiceImplTest {
         }).when(routeProcessMapper).insert(any(MesProRouteProcessDO.class));
         org.mockito.Mockito.doAnswer(invocation -> {
             storedVersion[0] = invocation.getArgument(0);
+            JSONObject initialGraph = JSON.parseObject(storedVersion[0].getRouteSnapshotJson())
+                    .getJSONObject("configSnapshots").getJSONObject("flowGraph");
+            assertTrue(initialGraph != null, "V1 must contain the graph before active-version SOP reads");
+            assertEquals(processIds.size(), initialGraph.getJSONArray("nodes").size());
+            for (Object value : initialGraph.getJSONArray("nodes")) {
+                assertTrue(((JSONObject) value).containsKey("sopFileUrl"),
+                        "an explicitly unbound SOP must survive initial V1 serialization");
+            }
             storedVersion[0].setId(700L);
             return 1;
         }).when(routeVersionMapper).insert(any(MesProRouteVersionDO.class));
@@ -754,8 +762,10 @@ class MesProRouteServiceImplTest {
         assertEquals(resolvedTargetName, routeCaptor.getValue().getName());
     }
 
-    @Test
-    void copyRoute_shouldRefreshActiveVersionWithCompleteConfigSnapshotAfterChildConfigsCopied() {
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @ValueSource(strings = {"/sop/copy-process.pdf"})
+    void copyRoute_shouldRefreshActiveVersionWithCompleteConfigSnapshotAfterChildConfigsCopied(String sopFileUrl) {
         Long sourceRouteId = 9006L;
         Long targetRouteId = 9007L;
         Long sourceVersionId = 9206L;
@@ -828,11 +838,17 @@ class MesProRouteServiceImplTest {
                         {"routeId":9006,"configSnapshots":{"batchUseConfigs":[{"routeProcessId":9306,"inputMaterialIds":[7701],"outputMaterialIds":[8801]}],"productionProcessConfigSchemaVersion":1,"productionProcessConfigs":[{"routeProcessId":9306,"processId":9406,"overagePercent":0,"lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]}],"batchRecordAttachmentOwners":[{"attachmentCode":"INCOMING_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"STERILIZATION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_RECORD","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]}]}}
                         """)
                 .build());
+        MesProRouteVersionDO[] storedTargetVersion = new MesProRouteVersionDO[1];
         org.mockito.Mockito.doAnswer(invocation -> {
             MesProRouteVersionDO targetVersion = invocation.getArgument(0);
             targetVersion.setId(targetVersionId);
+            storedTargetVersion[0] = targetVersion;
             return 1;
         }).when(routeVersionMapper).insert(any(MesProRouteVersionDO.class));
+        when(routeVersionMapper.selectActiveByRouteId(targetRouteId)).thenAnswer(call -> storedTargetVersion[0]);
+        when(routeVersionMapper.selectById(sourceVersionId))
+                .thenAnswer(call -> routeVersionMapper.selectActiveByRouteId(sourceRouteId));
+        when(routeVersionMapper.selectById(targetVersionId)).thenAnswer(call -> storedTargetVersion[0]);
         when(routeScheduleConfigMapper.selectListByRouteVersionId(sourceVersionId))
                 .thenReturn(List.of(sourceScheduleConfig));
         when(routeScheduleConfigMapper.selectListByRouteVersionId(targetVersionId))
@@ -846,15 +862,25 @@ class MesProRouteServiceImplTest {
         when(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(
                 targetRouteId, MesProRouteFlowConfigTypeEnum.BATCH.getType()))
                 .thenReturn(List.of());
-        MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
-        graph.setRouteId(targetRouteId);
-        MesProRouteProcessFlowNodeRespVO node = new MesProRouteProcessFlowNodeRespVO();
-        node.setRouteProcessId(9307L);
-        node.setProcessId(9406L);
-        node.setProcessName("工序");
-        node.setSort(1);
-        graph.setNodes(List.of(node));
-        when(routeProcessFlowService.getGraph(targetRouteId)).thenReturn(graph);
+        // 使用真实读取逻辑，覆盖新 V1 回读自身 SOP 快照的初始化时序。
+        MesProRouteProcessFlowServiceImpl graphReader = new MesProRouteProcessFlowServiceImpl();
+        ReflectionTestUtils.setField(graphReader, "routeMapper", routeMapper);
+        ReflectionTestUtils.setField(graphReader, "routeProcessMapper", routeProcessMapper);
+        ReflectionTestUtils.setField(graphReader, "routeVersionMapper", routeVersionMapper);
+        ReflectionTestUtils.setField(graphReader, "flowEdgeMapper", org.mockito.Mockito.mock(MesProRouteProcessFlowEdgeMapper.class));
+        ReflectionTestUtils.setField(graphReader, "boundaryEdgeMapper", org.mockito.Mockito.mock(MesProRouteProcessFlowBoundaryEdgeMapper.class));
+        ReflectionTestUtils.setField(graphReader, "flowLayoutMapper", org.mockito.Mockito.mock(
+                cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessFlowLayoutMapper.class));
+        var processService = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService.class);
+        ReflectionTestUtils.setField(graphReader, "processService", processService);
+        ReflectionTestUtils.setField(graphReader, "workstationService", org.mockito.Mockito.mock(
+                cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationService.class));
+        when(routeMapper.selectById(targetRouteId)).thenReturn(MesProRouteDO.builder().id(targetRouteId).build());
+        when(routeProcessMapper.selectListByRouteId(targetRouteId)).thenReturn(List.of(MesProRouteProcessDO.builder()
+                .id(9307L).routeId(targetRouteId).processId(9406L).sort(1).build()));
+        when(processService.getProcessList(List.of(9406L))).thenReturn(List.of(MesProProcessDO.builder()
+                .id(9406L).code("P-COPY").name("工序").sopFileUrl(sopFileUrl).build()));
+        when(routeProcessFlowService.getGraph(targetRouteId)).thenAnswer(call -> graphReader.getGraph(targetRouteId));
 
         Long copiedRouteId = routeService.copyRoute(sourceRouteId, targetCode, targetName, 10L);
 
@@ -868,6 +894,10 @@ class MesProRouteServiceImplTest {
         assertEquals(targetRouteId, snapshot.getLong("routeId"));
         assertEquals(targetCode, snapshot.getString("routeCode"));
         assertEquals(targetVersionId, snapshot.getLong("routeVersionId"));
+        JSONObject copiedNode = snapshot.getJSONObject("configSnapshots").getJSONObject("flowGraph")
+                .getJSONArray("nodes").getJSONObject(0);
+        assertTrue(copiedNode.containsKey("sopFileUrl"));
+        assertEquals(sopFileUrl, copiedNode.getString("sopFileUrl"));
         JSONObject copiedProductionConfig = snapshot.getJSONObject("configSnapshots")
                 .getJSONArray("productionProcessConfigs").getJSONObject(0);
         assertEquals(9307L, copiedProductionConfig.getLong("routeProcessId"));

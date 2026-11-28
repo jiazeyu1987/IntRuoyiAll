@@ -8,10 +8,8 @@ import cn.iocoder.yudao.framework.apilog.core.annotation.ApiAccessLog;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
-import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.excel.core.util.ExcelUtils;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.MesProReplanExplanationRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.task.vo.GanttDataRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.task.vo.MesProTaskPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.task.vo.MesProTaskLockReqVO;
@@ -24,13 +22,11 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdProduction
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.unitmeasure.MesMdUnitMeasureDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProReplanExplanationSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProTaskScheduleExtDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.task.MesProTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProReplanExplanationSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProTaskScheduleExtMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
@@ -99,8 +95,6 @@ public class MesProTaskController {
     private MesProScheduleOrderProcessMapper scheduleOrderProcessMapper;
     @Resource
     private MesProScheduleOrderMapper scheduleOrderMapper;
-    @Resource
-    private MesProReplanExplanationSnapshotMapper replanExplanationSnapshotMapper;
 
     @PostMapping("/create")
     @Operation(summary = "创建生产任务")
@@ -168,10 +162,7 @@ public class MesProTaskController {
     @PreAuthorize("@ss.hasPermission('mes:pro-task:query')")
     public CommonResult<List<GanttDataRespVO>> listGanttTaskList(@Valid MesProWorkOrderPageReqVO reqVO) {
         // 先限定排产范围，再读取关联任务，避免将整个生产工单池展开为 IN 参数。
-        Set<Long> latestAppliedReplanScheduleOrderIds = resolveLatestAppliedReplanScheduleOrderIds();
-        List<MesProScheduleOrderDO> scopeOrders = CollUtil.isEmpty(latestAppliedReplanScheduleOrderIds)
-                ? scheduleOrderMapper.selectList()
-                : scheduleOrderMapper.selectListByIds(latestAppliedReplanScheduleOrderIds);
+        List<MesProScheduleOrderDO> scopeOrders = scheduleOrderMapper.selectList();
         Map<Long, MesProScheduleOrderDO> activeScheduleOrderMap = convertMap(
                 scopeOrders.stream().filter(this::isCurrentGanttScheduleOrder).toList(),
                 MesProScheduleOrderDO::getId);
@@ -428,21 +419,6 @@ public class MesProTaskController {
         return snapshotProcessName;
     }
 
-    private Set<Long> resolveLatestAppliedReplanScheduleOrderIds() {
-        MesProReplanExplanationSnapshotDO snapshot = replanExplanationSnapshotMapper.selectLatest();
-        if (snapshot == null || StrUtil.isBlank(snapshot.getSnapshotJson())) {
-            return Collections.emptySet();
-        }
-        MesProReplanExplanationRespVO explanation = JsonUtils.parseObject(
-                snapshot.getSnapshotJson(), MesProReplanExplanationRespVO.class);
-        if (explanation == null || CollUtil.isEmpty(explanation.getOrders())) {
-            return Collections.emptySet();
-        }
-        return explanation.getOrders().stream()
-                .map(MesProReplanExplanationRespVO.OrderItem::getScheduleOrderId)
-                .filter(Objects::nonNull)
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-    }
 
     private Long resolveWorkOrderScheduleOrderId(List<MesProTaskDO> woTasks,
                                                  Map<Long, MesProTaskScheduleExtDO> taskExtMap) {

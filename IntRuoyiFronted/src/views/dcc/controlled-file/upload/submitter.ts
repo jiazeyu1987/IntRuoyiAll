@@ -310,12 +310,13 @@ export const buildUploadEffectiveChoice = (mode: unknown, date: string | null | 
 
 export const validateDccProjectProductCode = (
   productCode: string | undefined,
-  productRequired = false
+  productRequired = false,
+  productBound = false
 ): UploadSelectionValidation => {
-  if (productRequired && !trimText(productCode)) {
+  if (productRequired && !productBound && !trimText(productCode)) {
     return {
       valid: false,
-      message: '请选择包含项目代码的 DCC 项目'
+      message: '请选择已绑定正式产品的 DCC 项目'
     }
   }
   return { valid: true }

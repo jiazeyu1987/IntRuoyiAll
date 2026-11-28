@@ -48,7 +48,7 @@ assert.ok(
 
 assert.match(
   component,
-  /fieldKey === 'batchRecordFormNames'[\s\S]*isRouteNodeBatchRecordConfigured\(node\)/,
+  /fieldKey === 'batchRecordFormNames'[\s\S]*isRouteNodeBatchRecordFormConfigured\(node\)/,
   '点击批记录表单字段时必须按正式 batchRecordReports 绑定状态标记节点。'
 )
 

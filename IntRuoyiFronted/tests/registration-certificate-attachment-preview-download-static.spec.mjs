@@ -11,6 +11,7 @@ const paths = {
   commonPreview: 'IntRuoyiFronted/src/api/common/filePreview.ts',
   api: 'IntRuoyiFronted/src/api/dcc/registrationCertificate/index.ts',
   fileController: 'IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/file/DccRegistrationCertificateFilePreviewController.java',
+  fileDelivery: 'IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/service/file/DccRegistrationCertificateFileDeliveryServiceImpl.java',
   accessPolicy: 'IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/service/accesspolicy/DccRegistrationCertificateAccessPolicyService.java'
 }
 
@@ -24,6 +25,7 @@ const commonPreview = read(paths.commonPreview)
 const api = read(paths.api)
 const fileController = read(paths.fileController)
 const accessPolicy = read(paths.accessPolicy)
+const fileDelivery = read(paths.fileDelivery)
 
 assert.match(
   commonPreview,
@@ -82,28 +84,18 @@ assert.match(
 )
 assert.match(
   detail,
-  /const resolveRegistrationCertificateDownloadFileName = \(fileName: string, expired: boolean\) => \{[\s\S]*已失效[\s\S]*lastIndexOf\('\.'\)[\s\S]*return `\$\{baseName\}已失效\.\$\{extension\}`[\s\S]*\}/,
-  'detail download must append 已失效 before the extension for expired old-certificate files'
+  /const result = await downloadRegistrationCertificateFile\(businessFileId\)[\s\S]*const savedFileName = result\.fileName[\s\S]*downloadByData\(result\.blob, savedFileName, result\.blob\.type \|\| 'application\/octet-stream'\)/,
+  'detail must save the authorized download using the server filename, including server-owned expired markers'
 )
 assert.match(
-  detail,
-  /const isOldRegistrationCertificateDetail = computed\(\(\) =>[\s\S]*viewMode\.value === 'old-detail'[\s\S]*detail\.value\?\.status === 'OLD'[\s\S]*\)/,
-  'detail must classify old-certificate detail by old-detail route mode or formal OLD status'
+  api,
+  /const disposition = response\.headers\?\.\['content-disposition'\][\s\S]*if \(!disposition\)\s*\{\s*throw new Error\('下载响应缺少服务端文件名，已拒绝保存文件。'\)/,
+  'download must reject a response without a server filename header'
 )
 assert.match(
-  detail,
-  /const isExpiredRegistrationCertificateDownload = \(businessFileId: number \| string\) =>[\s\S]*isOldRegistrationCertificateDetail\.value[\s\S]*expiredRegistrationCertificateFileIds\.value\.has\(String\(businessFileId\)\)/,
-  'detail download must append the expired filename marker for every old-detail registration-certificate file id'
-)
-assert.match(
-  detail,
-  /const expiredRegistrationCertificateFileIds = computed\(\(\) => \{[\s\S]*detail\.value\?\.registrationFileId[\s\S]*history\.value\.forEach\(\(item\) => \{[\s\S]*item\.fileKind !== 'REGISTRATION_CERTIFICATE'[\s\S]*String\(item\.targetVersionId\) !== String\(detail\.value\?\.versionId\)[\s\S]*ids\.add\(String\(item\.businessFileId\)\)[\s\S]*return ids[\s\S]*\}\)/,
-  'old-detail expired download ids must include same-version registration-certificate files from renewal history'
-)
-assert.match(
-  detail,
-  /const expired = isExpiredRegistrationCertificateDownload\(businessFileId\)[\s\S]*const savedFileName = resolveRegistrationCertificateDownloadFileName\(result\.fileName, expired\)[\s\S]*downloadByData\(result\.blob, savedFileName, result\.blob\.type \|\| 'application\/octet-stream'\)/,
-  'detail download must save old main registration-certificate downloads with the expired filename marker while keeping other files unchanged'
+  api,
+  /const fileName = encodedName \? decodeURIComponent\(encodedName\) : plainName[\s\S]*if \(!fileName \|\| !fileName\.trim\(\)\)\s*\{\s*throw new Error\('下载响应文件名无效，已拒绝保存文件。'\)[\s\S]*return \{ blob: response\.data, fileName: fileName\.trim\(\) \}/,
+  'download must validate the decoded server filename and return it with the response blob'
 )
 assert.match(
   detail,
@@ -112,8 +104,8 @@ assert.match(
 )
 assert.match(
   detail,
-  /const canDirectDownload = \(businessFileId: number \| string\) =>[\s\S]*checkRole\(\['dcc_registration_certificate_approver'\]\)[\s\S]*downloadAuthorizedFileIds\.value\.has\(String\(businessFileId\)\)/,
-  'detail must show direct download for registration managers or files with active download grants'
+  /const canDirectDownload = \(businessFileId: number \| string\) =>[\s\S]*downloadAuthorizedFileIds\.value\.has\(String\(businessFileId\)\)/,
+  'detail must show direct download only for file ids authorized by the backend'
 )
 assert.equal(
   (detail.match(/v-if="canDirectDownload\(/g) || []).length,
@@ -182,8 +174,8 @@ assert.match(
 )
 assert.match(
   accessPolicy,
-  /public boolean canDownloadFile[\s\S]*authorizeRegistrationManagerDownloadIfRole[\s\S]*requireDownloadGrant/,
-  'backend authorization status must honor both registration-manager direct download and approved grants'
+  /public boolean canDownloadFile[\s\S]*isExpired\(tenantId, version, at\) && !isRegistrationDepartment\(tenantId, actorId\)\) return false[\s\S]*requireDownloadGrant\(tenantId, actorId, businessFileId, at\)[\s\S]*consumptionMapper\.countSuccess\(tenantId, grant\.getId\(\), businessFileId\) == 0/,
+  'backend authorization status must enforce expired-file department restrictions, a valid grant, and no previous successful consumption'
 )
 assert.match(
   actionPanel,
@@ -201,4 +193,16 @@ assert.match(
   'download request preselection must normalize route string ids to the formal option id type'
 )
 
+
+
+assert.match(
+  detail,
+  /const statuses = await getRegistrationCertificateFileDownloadGrantStatuses\(businessFileIds\)[\s\S]*downloadAuthorizedFileIds\.value = new Set\([\s\S]*\.filter\(\(status\) => status\.canDownload\)[\s\S]*\.map\(\(status\) => String\(status\.businessFileId\)\)/,
+  'frontend must populate authorized file ids only from backend canDownload results'
+)
+assert.match(
+  fileDelivery,
+  /public DccRegistrationCertificateFileDownloadResult download\([\s\S]*accessPolicyService\.assertDownloadAllowed\(tenantId, userId, businessFileId, now\)[\s\S]*accessPolicyService\.requireDownloadGrant\(tenantId, userId, businessFileId, now\)[\s\S]*buildFileName\(/,
+  'actual file delivery must enforce download authorization and a grant before returning file content'
+)
 console.log('registration certificate attachment preview/download static contract passed')

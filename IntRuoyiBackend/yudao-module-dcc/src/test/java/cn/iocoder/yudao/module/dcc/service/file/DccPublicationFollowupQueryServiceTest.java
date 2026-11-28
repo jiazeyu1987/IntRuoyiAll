@@ -35,6 +35,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import java.time.LocalDateTime;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
@@ -65,6 +69,7 @@ class DccPublicationFollowupQueryServiceTest extends BaseMockitoUnitTest {
     @Mock private DccPublicationImpactAuditMapper impactAuditMapper;
     @Mock private DccControlledFileMapper controlledFileMapper;
     @Mock private PermissionApi permissionApi;
+    @Mock private AdminUserApi userApi;
     @InjectMocks private DccPublicationFollowupQueryServiceImpl service;
 
     @BeforeEach
@@ -209,7 +214,7 @@ class DccPublicationFollowupQueryServiceTest extends BaseMockitoUnitTest {
         assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
                 () -> service.getFileFollowup(98L, 70L));
 
-        verifyNoInteractions(notificationAuditMapper, impactAuditMapper);
+        verifyNoInteractions(notificationAuditMapper, impactAuditMapper, userApi);
     }
 
     @Test
@@ -238,8 +243,16 @@ class DccPublicationFollowupQueryServiceTest extends BaseMockitoUnitTest {
         when(controlledFileMapper.selectBatchIds(List.of(500L))).thenReturn(List.of(
                 DccControlledFileDO.builder().id(500L).versionNo("C/1").build()));
 
+        var operator = new AdminUserRespDTO();
+        operator.setId(99L); operator.setNickname("文控操作员");
+        when(userApi.getUserMap(Set.of(99L))).thenReturn(Map.of(99L, operator));
+
         var result = service.getFileFollowup(99L, 70L);
 
+        verify(userApi).getUserMap(Set.of(99L));
+        assertEquals("文控操作员", result.getTimeline().get(1).getActorName());
+        assertEquals("99", result.getTimeline().get(1).getActorId());
+        assertNull(result.getTimeline().get(0).getActorName());
         assertEquals("500", result.getTimeline().get(1).getLinkedRevisionControlledFileId());
         assertEquals("C/1", result.getTimeline().get(1).getLinkedRevisionVersion());
     }

@@ -44,4 +44,15 @@ class DccWorkflowDatePolicyTest {
     private void require(DccWorkflowDatePolicy dates,String mode,LocalDate date){
         dates.requireEffectiveConfiguration(mode,date);
     }
+
+    @Test void localProfileExplicitlyProvidesShanghaiWorkflowZoneWithoutCodeFallback() {
+        var loader=new org.springframework.beans.factory.config.YamlPropertiesFactoryBean();
+        loader.setResources(new org.springframework.core.io.FileSystemResource("../yudao-server/src/main/resources/application-local.yaml"));
+        var zone=loader.getObject().getProperty("dcc.workflow.zone-id");
+        assertEquals("Asia/Shanghai",zone);
+        var configured=new DccWorkflowDatePolicy();configured.setZoneId(zone);
+        assertNotNull(configured.now());
+        assertDoesNotThrow(()->configured.requireDelayedEffectiveTime(today.atTime(12,0),today.atTime(12,0)));
+        assertThrows(IllegalStateException.class,()->new DccWorkflowDatePolicy().now());
+    }
 }

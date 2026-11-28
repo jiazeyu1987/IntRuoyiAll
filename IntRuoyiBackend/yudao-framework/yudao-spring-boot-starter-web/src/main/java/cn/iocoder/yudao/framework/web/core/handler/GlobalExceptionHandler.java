@@ -142,7 +142,7 @@ public class GlobalExceptionHandler {
             return protectedExceptionHandler(protectedRequest, ex);
         }
         log.warn("[missingServletRequestParameterExceptionHandler]", ex);
-        return CommonResult.error(BAD_REQUEST.getCode(), String.format("请求参数缺失:%s", ex.getParameterName()));
+        return CommonResult.error(BAD_REQUEST.getCode(), "请求资料不完整，请刷新页面后重试；如仍失败，请联系管理员");
     }
 
     /**
@@ -157,7 +157,7 @@ public class GlobalExceptionHandler {
             return protectedExceptionHandler(protectedRequest, ex);
         }
         log.warn("[methodArgumentTypeMismatchExceptionHandler]", ex);
-        return CommonResult.error(BAD_REQUEST.getCode(), String.format("请求参数类型错误:%s", ex.getMessage()));
+        return CommonResult.error(BAD_REQUEST.getCode(), "提交资料的格式不正确，请检查输入后重试");
     }
 
     /**
@@ -218,11 +218,10 @@ public class GlobalExceptionHandler {
         }
         log.warn("[methodArgumentTypeInvalidFormatExceptionHandler]", ex);
         if (ex.getCause() instanceof InvalidFormatException) {
-            InvalidFormatException invalidFormatException = (InvalidFormatException) ex.getCause();
-            return CommonResult.error(BAD_REQUEST.getCode(), String.format("请求参数类型错误:%s", invalidFormatException.getValue()));
+            return CommonResult.error(BAD_REQUEST.getCode(), "提交资料的格式不正确，请检查输入后重试");
         }
         if (StrUtil.startWith(ex.getMessage(), "Required request body is missing")) {
-            return CommonResult.error(BAD_REQUEST.getCode(), "请求参数类型错误: request body 缺失");
+            return CommonResult.error(BAD_REQUEST.getCode(), "未收到提交资料，请刷新页面后重试");
         }
         return defaultExceptionHandler(ServletUtils.getRequest(), ex);
     }
@@ -281,7 +280,7 @@ public class GlobalExceptionHandler {
             return protectedExceptionHandler(protectedRequest, ex);
         }
         log.warn("[noHandlerFoundExceptionHandler]", ex);
-        return CommonResult.error(NOT_FOUND.getCode(), String.format("请求地址不存在:%s", ex.getRequestURL()));
+        return CommonResult.error(NOT_FOUND.getCode(), "请求的功能不存在，请刷新页面或联系管理员");
     }
 
     /**
@@ -293,7 +292,7 @@ public class GlobalExceptionHandler {
             return protectedExceptionHandler(req, ex);
         }
         log.warn("[noResourceFoundExceptionHandler]", ex);
-        return CommonResult.error(NOT_FOUND.getCode(), String.format("请求地址不存在:%s", ex.getResourcePath()));
+        return CommonResult.error(NOT_FOUND.getCode(), "请求的资料不存在，请刷新页面或联系管理员");
     }
 
     /**
@@ -308,7 +307,7 @@ public class GlobalExceptionHandler {
             return protectedExceptionHandler(protectedRequest, ex);
         }
         log.warn("[httpRequestMethodNotSupportedExceptionHandler]", ex);
-        return CommonResult.error(METHOD_NOT_ALLOWED.getCode(), String.format("请求方法不正确:%s", ex.getMessage()));
+        return CommonResult.error(METHOD_NOT_ALLOWED.getCode(), "当前操作的请求方式不受支持，请刷新页面后重试；如仍失败，请联系管理员");
     }
 
     /**
@@ -323,7 +322,7 @@ public class GlobalExceptionHandler {
             return protectedExceptionHandler(protectedRequest, ex);
         }
         log.warn("[httpMediaTypeNotSupportedExceptionHandler]", ex);
-        return CommonResult.error(BAD_REQUEST.getCode(), String.format("请求类型不正确:%s", ex.getMessage()));
+        return CommonResult.error(BAD_REQUEST.getCode(), "提交资料的类型不受支持，请刷新页面后重试；如仍失败，请联系管理员");
     }
 
     /**

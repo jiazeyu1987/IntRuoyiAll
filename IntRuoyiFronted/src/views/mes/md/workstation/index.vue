@@ -98,7 +98,8 @@
             v-bind="sortColumnAttrs('name')"
           >
             <template #default="scope">
-              <div>{{ scope.row.name }}</div>
+              <div v-if="scope.row.displayName != null">{{ scope.row.displayName }}</div>
+              <el-text v-else type="danger">名称资料未返回</el-text>
               <el-tag v-if="isWorkstationShiftHoursMissing(scope.row)" type="warning" size="small">
                 班次小时未配置
               </el-tag>

@@ -44,6 +44,7 @@ module.exports = function loadFixedVersionPreview() {
       }
     },
     parseControlledFilePreviewMetadata: (value) => value,
+    assertControlledFileDownloadBusinessResult: async () => {},
     assertDistributionPreviewRequest() {},
     assertDistributionPreviewMetadata() {},
     buildControlledFileBinaryHeaders: (value) => ({ Authorization: 'test-only', ...value }),

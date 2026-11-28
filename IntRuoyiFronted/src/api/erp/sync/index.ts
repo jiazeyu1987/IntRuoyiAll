@@ -4,6 +4,7 @@ export interface ErpKingdeeSyncRunVO {
   id: number
   syncType: string
   triggerType: string
+  targetCode?: string
   status: number
   windowStartTime?: string
   windowEndTime?: string

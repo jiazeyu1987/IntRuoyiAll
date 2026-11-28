@@ -2,8 +2,8 @@
   <el-card shadow="never" class="mt-16px" header="变更生效通知与确认" v-loading="loading">
     <el-alert v-if="error" type="error" :closable="false" :title="error" />
     <el-table v-else :data="records" empty-text="暂无变更通知记录">
-      <el-table-column prop="versionId" label="版本记录" />
-      <el-table-column prop="recipientUserId" label="接收人账号ID" />
+      <el-table-column label="版本"><template #default="{ row }">{{ row.versionNo == null ? '版本号未记录' : '第 ' + row.versionNo + ' 版' }}</template></el-table-column>
+      <el-table-column label="接收人"><template #default="{ row }">{{ row.recipientName || '接收人姓名未记录' }}</template></el-table-column>
       <el-table-column prop="sentAt" label="发送时间（北京时间）" :formatter="registrationCertificateDateTimeFormatter" />
       <el-table-column label="确认记录（北京时间）">
         <template #default="{ row }">

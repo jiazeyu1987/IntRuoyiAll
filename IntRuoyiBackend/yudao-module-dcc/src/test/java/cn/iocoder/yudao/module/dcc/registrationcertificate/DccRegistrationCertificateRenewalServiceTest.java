@@ -128,6 +128,27 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void rejectedRenewalLeavesUnboundFileForCleanupAndCurrentVersionUnchanged() {
+        CurrentFixture current = seedCurrentCertificate();
+        when(fileService.createFileAndReturnId(any(byte[].class), eq("renewal.pdf"), anyString(), eq("application/pdf")))
+                .thenReturn(9001L);
+        var submitted = service.submitRenewalForApproval(new DccRegistrationCertificateRenewalSubmitCommand(
+                1L, 99L, "reject-renewal", "trace-reject-renewal", current.certificateId(), 1,
+                current.currentVersionId(), LocalDate.of(2026, 8, 1), LocalDate.of(2026, 9, 1),
+                LocalDate.of(2031, 9, 1), false, null, null, renewalApprovalFile()));
+        Long fileId = jdbcTemplate.queryForObject("SELECT business_file_id FROM dcc_registration_certificate_access_request_file WHERE request_id = ?", Long.class, submitted.requestId());
+        service.rejectRenewalRequest(1L, 100L, submitted.requestId(), "资料不合格");
+        var file = fileMapper.selectById(fileId);
+        assertEquals("CLEANUP_REQUIRED", file.getStatus());
+        assertNull(file.getBoundAt());
+        assertNull(file.getBoundBy());
+        assertEquals("REJECTED", jdbcTemplate.queryForObject("SELECT status FROM dcc_registration_certificate_access_request_file WHERE request_id = ?", String.class, submitted.requestId()));
+        assertEquals(current.currentVersionId(), certificateMapper.selectById(current.certificateId()).getCurrentVersionId());
+        assertNull(certificateMapper.selectById(current.certificateId()).getPendingVersionId());
+        assertThrows(ServiceException.class, () -> service.rejectRenewalRequest(1L, 100L, submitted.requestId(), "再次驳回"));
+        verify(registrationHandlingTasks).recordDecision(1L, 100L, submitted.requestId(), false, "资料不合格");
+    }
+    @Test
     void fdaRejectsExpiryRenewalBeforeCreatingApproval() {
         CurrentFixture current = seedCurrentCertificate();
         var facts = new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts();
@@ -824,7 +845,7 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
     private MockMultipartFile renewalApprovalFile() {
         return new MockMultipartFile(
                 "file", "renewal.pdf", "application/pdf",
-                "renewal-content".getBytes(StandardCharsets.UTF_8));
+                RegistrationCertificateMaterialFixtures.pdf("renewal"));
     }
 
     private CurrentFixture seedCurrentCertificate() {

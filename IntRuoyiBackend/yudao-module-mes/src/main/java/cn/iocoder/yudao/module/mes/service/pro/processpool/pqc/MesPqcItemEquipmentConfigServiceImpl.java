@@ -189,6 +189,24 @@ public class MesPqcItemEquipmentConfigServiceImpl implements MesPqcItemEquipment
         return getItemConfig(reqVO.getDccProjectCodeId(), itemCodes);
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteUnusedItemConfigs(Collection<String> itemCodes) {
+        if (CollUtil.isEmpty(itemCodes)) return;
+        Set<String> candidates = itemCodes.stream().map(this::normalizeItemCode)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<String> referencedCodes = regulationItemMapper.selectList(
+                        new LambdaQueryWrapperX<MesQaInspectionRegulationItemDO>()
+                                .in(MesQaInspectionRegulationItemDO::getItemCode, candidates))
+                .stream().map(MesQaInspectionRegulationItemDO::getItemCode).collect(Collectors.toSet());
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        for (String itemCode : candidates) {
+            if (referencedCodes.contains(itemCode)) continue;
+            numberConfigMapper.physicalDeleteByTenantIdAndItemCode(tenantId, itemCode);
+            configMapper.physicalDeleteByTenantIdAndItemCode(tenantId, itemCode);
+        }
+    }
+
     private void replaceSingleItemConfig(String itemCode, ConfigurableItem item, String itemNameSnapshot,
                                          List<MesPqcItemEquipmentConfigSaveReqVO.EquipmentGroup> groups) {
 

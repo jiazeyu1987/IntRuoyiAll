@@ -68,6 +68,17 @@ test('projection validator preserves exact source identities and rejects mixed o
   }
   assert.throws(() => h.readProjectProductIdentity({ ...product('UNBOUND'), productCode: 'GUESSED' }, PROJECT))
 })
+test('MDM product without a DCC number retains its formal identity and never substitutes another code', async () => {
+  const value = { ...product('MDM_MASTER'), productCode: null }
+  const s = state(async () => value)
+  await s.load()
+  assert.equal(s.context.projectProductError.value, '')
+  assert.equal(s.context.projectProductResolvedId.value, PROJECT)
+  assert.equal(s.context.formData.productCode, '')
+  assert.equal(s.context.projectProduct.value.productMasterId, CATALOG)
+  assert.equal(s.context.projectProduct.value.productName, value.productName)
+  assert.throws(() => helpers().readProjectProductIdentity({ ...value, productMasterId: null }, PROJECT))
+})
 test('late product or error cannot replace the selected new project', async () => {
   let finishA, finishB
   const s = state(id => new Promise(resolve => { if (id === PROJECT) finishA = resolve; else finishB = resolve }))
@@ -143,6 +154,7 @@ test('actual product form shows server name and source provenance', () => {
   }
   const node = walk(descriptor.template.ast)
   const values = { formData: { productCode: 'APPROVED-PRODUCT-CODE' }, isProductRequiredForSelectedCategory: false,
+    isRequiredProjectCodeBound: true,
     productCodeBindingHintClass: '', productCodeBindingHintText: '', selectedProjectCode: { projectName: '甲项目', projectCode: 'OTHER' },
     projectProductLoading: false, projectProductError: '', projectProduct: product(), formatProjectProductSource: () => '已批准项目产品目录' }
   const compiled = compileScript(parse(`<template>${node.loc.source}</template><script setup>const values=__values;${Object.keys(values).map(k => `const ${k}=values.${k}`).join('\n')}</script>`).descriptor, { id: 'actual-product-form', inlineTemplate: true })

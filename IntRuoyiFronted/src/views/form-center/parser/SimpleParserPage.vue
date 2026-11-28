@@ -10,6 +10,7 @@
       import-accept=".doc,.docx"
       :projects="projects"
       :project-loading="projectLoading"
+      :project-hint="projectHint"
       :busy="busy"
       :has-content="!!recognition"
       :published="!!published"
@@ -628,17 +629,22 @@ const projectId = ref<number>()
 const workshopId = ref<number>()
 const projects = ref<(SimpleParserProject & { occupied?: boolean })[]>([])
 const projectLoading = ref(false)
+const projectHint = ref('')
 const selectedProject = computed(() => projects.value.find((p) => p.id === projectId.value))
 let projectQuery = 0
 async function searchProjects(keyword = '') {
   const query = ++projectQuery
   projectLoading.value = true
+  projectHint.value = ''
   try {
     const list = (await getSimpleParserProjects(keyword)).map((project) => ({
       ...project,
       occupied: project.routeOccupied
     }))
     if (query !== projectQuery) return
+    projectHint.value = list.length ? '' : keyword.trim()
+      ? '没有匹配的项目，请调整搜索条件'
+      : '当前租户暂无启用项目，请联系项目管理员创建或启用项目'
     const selected = selectedProject.value
     projects.value =
       selected && !list.some((p) => p.id === selected.id) ? [selected, ...list] : list

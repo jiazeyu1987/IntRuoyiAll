@@ -9,6 +9,11 @@ import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeProductionOrd
 import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeProductionOrderClient;
 import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeProperties;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncContext;
+import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncCommand;
+import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult;
+import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRuntimeService;
+import cn.iocoder.yudao.module.erp.enums.sync.ErpKingdeeSyncTriggerTypeEnum;
+import cn.iocoder.yudao.module.erp.enums.sync.ErpKingdeeSyncTypeEnum;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemTypeDO;
@@ -77,6 +82,8 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
     private final MesProcessPoolActiveOrderCompletionReceiptMapper completionReceiptMapper;
     @Resource
     private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
+    @Resource
+    private ErpKingdeeSyncRuntimeService syncRuntimeService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -780,7 +787,7 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
 
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     public int syncByCode(String code) {
         code = StrUtil.trimToEmpty(code);
         if (code.isEmpty() || code.length() > 100 || code.contains("'")
@@ -788,6 +795,18 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
             throw ServiceExceptionUtil.exception0(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID.getCode(),
                     "请输入有效的完整生产订单号");
         }
+        String targetCode = code;
+        // 先独立提交运行记录，再由统一运行器将业务写入和成功结果一起提交。
+        // 外层接口事务必须挂起，否则失败回滚会把运行记录一并抹掉。
+        ErpKingdeeSyncRunResult result = syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
+                .syncType(ErpKingdeeSyncTypeEnum.PRODUCTION_ORDER)
+                .triggerType(ErpKingdeeSyncTriggerTypeEnum.MANUAL)
+                .targetCode(targetCode)
+                .build(), context -> syncProductionOrderByCode(targetCode));
+        return result.getCreatedCount() + result.getUpdatedCount();
+    }
+
+    private ErpKingdeeSyncRunResult syncProductionOrderByCode(String code) {
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         properties.validateBaseConfig();
         List<ErpKingdeeProductionOrder> orders;
@@ -809,7 +828,8 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
             throw ServiceExceptionUtil.exception0(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID.getCode(),
                     "ERP生产订单 " + code + " 不可同步，请检查订单是否已作废");
         }
-        return result.getCreatedCount() + result.getUpdatedCount();
+        return ErpKingdeeSyncRunResult.success(null, result.getCreatedCount(), result.getUpdatedCount(),
+                result.getSkippedCount(), 0);
     }
 
 }

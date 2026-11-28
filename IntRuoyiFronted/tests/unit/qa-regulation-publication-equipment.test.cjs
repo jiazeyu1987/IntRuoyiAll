@@ -64,6 +64,16 @@ test('discard restores equipment baseline without sending a save request', () =>
   assert.equal(h.calls.length, 0)
 })
 
+test('saved equipment number uses a positive order accepted by publication', async () => {
+  const h = equipmentHarness()
+  h.addQaItemEquipment(h.row)
+  h.handleQaItemEquipmentChange(h.row, 0, 1)
+  await h.saveQaItemEquipment(h.row)
+  assert.equal(h.calls.length, 1)
+  assert.equal(h.calls[0].equipmentGroups[0].sort, 1)
+  assert.equal(h.calls[0].equipmentGroups[0].equipmentNumbers[0].sort, 1)
+})
+
 
 test('production-ready status alone requests the formal version', async () => {
   const h = publishedHarness({ lifecycleStatus: 'DRAFT', productionReady: true })

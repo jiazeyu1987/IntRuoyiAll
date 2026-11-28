@@ -55,7 +55,22 @@ public final class DccApplicationNodeRecordProjection {
                     && round.equals(file.getEffectiveProcessInstanceId()) && Objects.equals(file.getEffectiveSignatureId(),signed.getId())
                     && Objects.equals(file.getEffectiveTime(),signed.getSignedAt()))
                 fields.add(new DccApplicationNodeRecord.ConfirmedField("effectiveTime","标准化签名生效时间",signed.getSignedAt().toString()));
-            rows.add(new DccApplicationNodeRecord("SIGNATURE:"+signed.getId(),file.getId(),round,task.getId(),task.getTaskDefinitionKey(),task.getName(),
+            String stage=task.getTaskDefinitionKey(), nodeName=task.getName();
+            if("MATRIX_REVIEW".equals(stage)) {
+                var assignmentSignatures=signatures.stream().filter(a->task.getId().equals(a.getTaskId())
+                        && round.equals(a.getProcessInstanceId()) && "ASSIGN".equals(a.getActionType())).toList();
+                if(assignmentSignatures.size()>1)throw new IllegalStateException("会签任务存在重复指派签名");
+                boolean assignment="ASSIGN".equals(signed.getActionType());
+                if("REJECT".equals(signed.getActionType())) {
+                    assignment=assignmentSignatures.isEmpty();
+                    if(!assignment && (assignmentSignatures.get(0).getSignedAt()==null
+                            || signed.getSignedAt().isBefore(assignmentSignatures.get(0).getSignedAt())))
+                        throw new IllegalStateException("会签驳回时间早于正式指派签名");
+                }
+                if(assignment){stage="MATRIX_REVIEW_ASSIGN";nodeName="部门负责人签名指派";}
+                else nodeName="实际会签人会签";
+            }
+            rows.add(new DccApplicationNodeRecord("SIGNATURE:"+signed.getId(),file.getId(),round,task.getId(),stage,nodeName,
                     signed.getActionType(),actionResult(signed.getActionType()),signed.getActorId(),signed.getActorUsernameSnapshot(),
                     signed.getActorNicknameSnapshot(),signed.getActorDeptNameSnapshot(),signed.getComment(),signed.getSignedAt(),
                     signed.getId(),signed.getEvidenceStatus(),target,fields));

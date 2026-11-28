@@ -696,9 +696,10 @@ export const ProRouteApi = {
   },
 
   // 取消工艺路线候选版本
-  cancelRouteCandidateVersion: async (id: MesRouteId) => {
+  cancelRouteCandidateVersion: async (id: MesRouteId, discardUnsavedOnly = false) => {
     return await request.post<ProRouteVersionVO>({
-      url: `${PRO_ROUTE_VERSION_BASE_URL}/cancel?id=${id}`
+      url: `${PRO_ROUTE_VERSION_BASE_URL}/cancel?id=${id}`,
+      params: { discardUnsavedOnly }
     })
   },
 

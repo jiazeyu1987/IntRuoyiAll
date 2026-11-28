@@ -510,25 +510,30 @@
     <ContentWrap class="dcc-detail-surface" v-if="fileDetail && !isApprovalUploadHandlingPage" data-testid="dcc-detail-formal-version-facts">
       <el-descriptions :column="2" border>
         <el-descriptions-item label="实际变更类型">{{ revisionChangeLabel(fileDetail.revisionChangeType) }}</el-descriptions-item>
-        <el-descriptions-item label="文件记录身份">#{{ fileDetail.id }}</el-descriptions-item>
         <el-descriptions-item label="升版申请尝试">{{ fileDetail.revisionAttemptNo ?? '未记录' }}</el-descriptions-item>
-        <el-descriptions-item label="返工前驱文件">{{ fileDetail.reworkPredecessorControlledFileId ? `#${fileDetail.reworkPredecessorControlledFileId}` : '未记录' }}</el-descriptions-item>
-        <el-descriptions-item label="本版本 BPM">{{ fileDetail.processInstanceId || '未绑定' }}</el-descriptions-item>
-        <el-descriptions-item label="文件编制人">{{ fileDetail.fileOwnerNicknameSnapshot ? `${fileDetail.fileOwnerNicknameSnapshot}（${fileDetail.fileOwnerUsernameSnapshot}，账号 #${fileDetail.fileOwnerUserId}）` : '未记录' }}</el-descriptions-item>
-        <el-descriptions-item label="编制人批准签名">{{ fileDetail.fileOwnerSignatureId ? `#${fileDetail.fileOwnerSignatureId} · BPM ${fileDetail.fileOwnerProcessInstanceId}` : '未记录' }}</el-descriptions-item>
+        <el-descriptions-item label="文件编制人">{{ fileDetail.fileOwnerNicknameSnapshot ? `${fileDetail.fileOwnerNicknameSnapshot}（${fileDetail.fileOwnerUsernameSnapshot}）` : '未记录' }}</el-descriptions-item>
         <el-descriptions-item label="来源受控版本">{{ getDccVersionDisplayText(fileDetail.revisionSourceVersionNo) }}</el-descriptions-item>
         <el-descriptions-item label="选用正文小版本">{{ getDccVersionDisplayText(fileDetail.selectedIterationVersionNo) }}</el-descriptions-item>
         <el-descriptions-item label="变更说明">{{ fileDetail.changeDescription || '未记录' }}</el-descriptions-item>
         <el-descriptions-item label="受控日期">{{ fileDetail.controlledTime || '尚未受控' }}</el-descriptions-item>
         <el-descriptions-item v-if="fileDetail.effectiveMode === 'DELAYED'" label="延迟生效时间">{{ formatDelayedEffectiveFact(fileDetail.delayedEffectiveTime) || '尚未确认' }}</el-descriptions-item>
         <el-descriptions-item v-if="fileDetail.effectiveMode === 'DELAYED'" label="延迟确认签名时间">{{ formatDelayedEffectiveFact(fileDetail.delayedEffectiveConfirmedAt) || '尚未签名确认' }}</el-descriptions-item>
-        <el-descriptions-item v-if="fileDetail.effectiveMode === 'DELAYED'" label="延迟确认签名">{{ fileDetail.delayedEffectiveSignatureId ? `#${fileDetail.delayedEffectiveSignatureId}` : '未记录' }}</el-descriptions-item>
-        <el-descriptions-item v-if="fileDetail.effectiveMode === 'DELAYED'" label="延迟确认轮次">{{ fileDetail.delayedEffectiveProcessInstanceId || '未记录' }}</el-descriptions-item>
         <el-descriptions-item v-if="fileDetail.effectiveMode !== 'DELAYED'" label="预设生效日期">{{ fileDetail.effectiveDate || '未记录' }}</el-descriptions-item>
         <el-descriptions-item :label="effectiveFacts(fileDetail).effectiveLabel">{{ effectiveFacts(fileDetail).effectiveText }}</el-descriptions-item>
         <el-descriptions-item label="日常启用时间">{{ fileDetail.activatedTime || '尚未启用' }}</el-descriptions-item>
         <el-descriptions-item label="下发时间">{{ fileDetail.distributedTime || '尚未下发' }}</el-descriptions-item>
       </el-descriptions>
+      <details class="mt-12px">
+        <summary>技术追溯信息</summary>
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="文件记录身份">#{{ fileDetail.id }}</el-descriptions-item>
+          <el-descriptions-item label="返工前驱文件">{{ fileDetail.reworkPredecessorControlledFileId ? `#${fileDetail.reworkPredecessorControlledFileId}` : '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="本版本 BPM">{{ fileDetail.processInstanceId || '未绑定' }}</el-descriptions-item>
+          <el-descriptions-item label="编制人批准签名">{{ fileDetail.fileOwnerSignatureId ? `#${fileDetail.fileOwnerSignatureId} · BPM ${fileDetail.fileOwnerProcessInstanceId}` : '未记录' }}</el-descriptions-item>
+          <el-descriptions-item v-if="fileDetail.effectiveMode === 'DELAYED'" label="延迟确认签名">{{ fileDetail.delayedEffectiveSignatureId ? `#${fileDetail.delayedEffectiveSignatureId}` : '未记录' }}</el-descriptions-item>
+          <el-descriptions-item v-if="fileDetail.effectiveMode === 'DELAYED'" label="延迟确认轮次">{{ fileDetail.delayedEffectiveProcessInstanceId || '未记录' }}</el-descriptions-item>
+        </el-descriptions>
+      </details>
       <el-alert
         v-if="fileDetail.status === 'CONTROLLED_PENDING_EFFECTIVE'" class="mt-12px" type="warning" :closable="false"
         :title="`${fileDetail.effectiveDate || '生效日期未记录'} 生效，生效前不得执行；旧版保持当前执行版。`" />
@@ -7577,6 +7582,9 @@ const returnToCompletedTaskInbox = async (): Promise<boolean> => {
   return true
 }
 const handleSignoffAssignmentSaved = async () => {
+  // 指派已改变任务办理人，返回待办或重读前不能用旧任务触发实际会签校验。
+  approvalTodoTask.value = null
+  signoffAssignmentState.value = undefined
   message.success('指派签名已保存，实际会签人仍需独立签名')
   if (!await returnToCompletedTaskInbox()) await reloadAll()
 }

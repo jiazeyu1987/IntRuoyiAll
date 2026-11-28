@@ -44,20 +44,20 @@
         </el-scrollbar>
         </div>
         <div class="route-tree__sidebar-actions" aria-label="目录操作">
-          <el-button v-hasPermi="['mes:pro-route:create']" plain type="primary" @click="openGroup()">新增顶级目录</el-button>
+          <el-button v-if="hasPermission(['mes:pro-route:create'])" plain type="primary" @click="openGroup()">新增顶级目录</el-button>
           <template v-if="selected?.nodeType === 'GROUP'">
-            <el-button v-hasPermi="['mes:pro-route:create']" plain type="primary" @click="openGroup(selected)">新增下级目录</el-button>
-            <el-button v-hasPermi="['mes:pro-route:update']" plain type="primary" @click="renameGroup">重命名目录</el-button>
-            <el-button v-hasPermi="['mes:pro-route:update']" plain @click="openMove()">移动</el-button>
-            <el-button v-hasPermi="['mes:pro-route:delete']" plain type="danger"
+            <el-button v-if="hasPermission(['mes:pro-route:create'])" plain type="primary" @click="openGroup(selected)">新增下级目录</el-button>
+            <el-button v-if="hasPermission(['mes:pro-route:update'])" plain type="primary" @click="renameGroup">重命名目录</el-button>
+            <el-button v-if="hasPermission(['mes:pro-route:update'])" plain @click="openMove()">移动</el-button>
+            <el-button v-if="hasPermission(['mes:pro-route:delete'])" plain type="danger"
               :disabled="loading || saving || publishing || productBusy || quickConfigBusy" :loading="deleting"
               :title="selected.children?.length ? '请先移出或删除下级目录及流程' : '删除当前目录'"
               @click="deleteSelectedNode">删除目录</el-button>
           </template>
-          <el-button v-if="selected?.nodeType === 'FLOW'" v-hasPermi="['mes:pro-route:delete']" plain type="danger"
+          <el-button v-if="selected?.nodeType === 'FLOW' && hasPermission(['mes:pro-route:delete'])" plain type="danger"
             :disabled="loading || saving || publishing || productBusy || quickConfigBusy" :loading="deleting"
             @click="deleteSelectedNode">删除工艺流程</el-button>
-          <el-button v-if="selected && selected.nodeType !== 'GROUP'" v-hasPermi="['mes:pro-route:update']" plain @click="openMove()"><Icon icon="ep:rank" />移动</el-button>
+          <el-button v-if="selected && selected.nodeType !== 'GROUP' && hasPermission(['mes:pro-route:update'])" plain @click="openMove()"><Icon icon="ep:rank" />移动</el-button>
           <el-button v-if="selected?.different" plain @click="openDifference">差异分析</el-button>
         </div>
       </aside>
@@ -70,15 +70,15 @@
           <el-tag v-if="selected.pendingStatus" type="warning">{{ statusLabel(selected.pendingStatus) }}</el-tag>
         </div>
         <div class="route-tree__actions">
-          <el-button v-if="publishableDraft" type="success" :loading="publishing" :disabled="productBusy || deleting || quickConfigBusy"
-            v-hasPermi="['mes:pro-route:version-submit']" @click="publishDraft"><Icon icon="ep:upload" />发布</el-button>
+          <el-button v-if="publishableDraft && hasPermission(['mes:pro-route:version-submit'])" type="success" :loading="publishing" :disabled="productBusy || deleting || quickConfigBusy"
+            @click="publishDraft"><Icon icon="ep:upload" />发布</el-button>
           <template v-if="selected.activeRouteVersionId">
-          <el-button type="primary" v-hasPermi="['mes:pro-route:version-create']" @click="emit('edit', selected)"><Icon icon="ep:edit" />修改</el-button>
+          <el-button type="primary" v-if="hasPermission(['mes:pro-route:version-create'])" @click="emit('edit', selected)"><Icon icon="ep:edit" />修改</el-button>
           <el-button @click="emit('view', selected.id)"><Icon icon="ep:view" />查看</el-button>
-          <el-button v-hasPermi="['mes:pro-route:version-query']" @click="emit('versions', selected)"><Icon icon="ep:collection" />版本</el-button>
+          <el-button v-if="hasPermission(['mes:pro-route:version-query'])" @click="emit('versions', selected)"><Icon icon="ep:collection" />版本</el-button>
           </template>
           <template v-if="selected.nodeType === 'GROUP'">
-            <el-button v-if="selected.activeRouteVersionId" v-hasPermi="['mes:pro-route:create']" @click="openInherited">新增继承流程</el-button>
+            <el-button v-if="selected.activeRouteVersionId && hasPermission(['mes:pro-route:create'])" @click="openInherited">新增继承流程</el-button>
           </template>
         </div>
         </div>
@@ -433,11 +433,20 @@ watch([filter, tree, searchType, orderSearchResult, orderSearchLoading, orderSea
   () => treeRef.value?.filter(filter.value), { flush: 'post' })
 const statusLabels: Record<string, string> = { DRAFT: '有草稿', PENDING_APPROVAL: '审核中', READY_TO_PUBLISH: '待发布' }
 const statusLabel = (value: string) => statusLabels[value] || value
+let treeLoadSequence = 0
 const load = async () => {
+  const sequence = ++treeLoadSequence
   loading.value = true; error.value = ''
-  try { rows.value = await RouteTreeApi.list() }
-  catch (failure) { error.value = resolveRouteOperationErrorMessage(failure, '加载工艺树失败') }
-  finally { loading.value = false }
+  try {
+    const result = await RouteTreeApi.list()
+    if (sequence !== treeLoadSequence) return
+    rows.value = result
+  } catch (failure) {
+    if (sequence !== treeLoadSequence) return
+    error.value = resolveRouteOperationErrorMessage(failure, '加载工艺树失败')
+  } finally {
+    if (sequence === treeLoadSequence) loading.value = false
+  }
 }
 const groupVisible = ref(false), inheritVisible = ref(false), moveVisible = ref(false)
 const groupError = ref('')

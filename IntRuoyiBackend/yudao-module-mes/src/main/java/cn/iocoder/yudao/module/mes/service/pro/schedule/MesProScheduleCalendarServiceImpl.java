@@ -8,7 +8,6 @@ import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.MesProReplanExplanationRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.calendar.*;
 import cn.iocoder.yudao.module.mes.dal.dataobject.cal.holiday.MesCalHolidayDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.cal.plan.MesCalPlanDO;
@@ -23,7 +22,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProScheduleCalendarRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProScheduleCalendarSimulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProCapacityPlanDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProReplanExplanationSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProScheduleIssueDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProTaskScheduleExtDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
@@ -36,7 +34,6 @@ import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationMapp
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdProductionLineMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.cal.plan.MesCalPlanShiftMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProCapacityPlanMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProReplanExplanationSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProScheduleCalendarRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProScheduleCalendarSimulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProScheduleIssueMapper;
@@ -116,8 +113,6 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
     private MesProFeedbackMapper feedbackMapper;
     @Resource
     private MesProTaskScheduleExtMapper taskScheduleExtMapper;
-    @Resource
-    private MesProReplanExplanationSnapshotMapper replanExplanationSnapshotMapper;
     @Resource
     private MesProScheduleIssueMapper scheduleIssueMapper;
     @Resource
@@ -439,6 +434,9 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
                                 .itemCode(row.itemCode)
                                 .itemName(row.itemName)
                                 .shiftCode(row.shiftCode)
+                                .workOrderQuantity(java.util.Objects.requireNonNull(
+                                        context.workOrderMap.get(row.workOrderId).getQuantity(),
+                                        "工单计划量缺失: " + row.workOrderId))
                                 .quantity(row.quantity)
                                 .dailyQuantity(calculateDailyQuantity(row, selectedDate))
                                 .reportedQuantity(row.reportedQuantity)
@@ -527,9 +525,12 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
         if (CollUtil.isEmpty(rows)) {
             return emptyProcessCapacitySummary();
         }
-        Map<String, ProcessCapacityAccumulator> accumulatorMap = new LinkedHashMap<>();
+        Map<Long, ProcessCapacityAccumulator> accumulatorMap = new LinkedHashMap<>();
         for (TaskCalendarRow row : rows) {
-            String processKey = buildProcessCapacityProcessKey(row);
+            if (row.processId == null) {
+                throw new IllegalStateException("排产任务缺少工序 ID，无法计算工序负荷，taskId=" + row.taskId);
+            }
+            Long processKey = row.processId;
             ProcessCapacityAccumulator accumulator = accumulatorMap.computeIfAbsent(processKey,
                     ignored -> new ProcessCapacityAccumulator(row.processId, buildProcessCapacityProcessName(row)));
             accumulator.taskCount++;
@@ -539,15 +540,13 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
             BigDecimal dailyQuantity = ObjUtil.defaultIfNull(calculateDailyQuantity(row, selectedDate), BigDecimal.ZERO);
             accumulator.scheduledQuantity = accumulator.scheduledQuantity.add(dailyQuantity);
             if (hasPositive(row.shiftCapacityTotal)) {
-                accumulator.maxCapacityByLine.merge(row.resourceLineId, row.shiftCapacityTotal,
-                        (left, right) -> left.compareTo(right) >= 0 ? left : right);
+                accumulator.maxCapacity = accumulator.maxCapacity.max(row.shiftCapacityTotal);
             }
         }
 
         List<MesProScheduleCalendarDayDetailRespVO.ProcessCapacityItem> items = accumulatorMap.values().stream()
                 .map(accumulator -> {
-                    BigDecimal maxCapacity = accumulator.maxCapacityByLine.values().stream()
-                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    BigDecimal maxCapacity = accumulator.maxCapacity;
                     BigDecimal remainingCapacity = maxCapacity.subtract(accumulator.scheduledQuantity);
                     if (remainingCapacity.compareTo(BigDecimal.ZERO) < 0) {
                         remainingCapacity = BigDecimal.ZERO;
@@ -597,13 +596,6 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
                 .totalRemainingCapacity(BigDecimal.ZERO)
                 .items(Collections.emptyList())
                 .build();
-    }
-
-    private String buildProcessCapacityProcessKey(TaskCalendarRow row) {
-        if (row.processId != null) {
-            return "PROCESS:" + row.processId;
-        }
-        return "NAME:" + StrUtil.blankToDefault(row.processName, "未绑定工序");
     }
 
     private String buildProcessCapacityProcessName(TaskCalendarRow row) {
@@ -962,31 +954,15 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
                 .filter(item -> !ObjUtil.equal(item.getStatus(), cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum.FINISHED.getStatus()))
                 .filter(item -> !ObjUtil.equal(item.getStatus(), cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum.CANCELED.getStatus()))
                 .toList();
-        Set<Long> latestReplanScheduleOrderIds = resolveLatestAppliedReplanScheduleOrderIds();
-        if (CollUtil.isNotEmpty(latestReplanScheduleOrderIds)) {
-            activeScheduleOrders = activeScheduleOrders.stream()
-                    .filter(item -> latestReplanScheduleOrderIds.contains(item.getId()))
-                    .toList();
-        }
         Map<Long, MesProScheduleOrderDO> scheduleOrderMapByWorkOrderId = activeScheduleOrders.stream()
                 .filter(item -> item.getWorkOrderId() != null)
                 .collect(Collectors.toMap(MesProScheduleOrderDO::getWorkOrderId, Function.identity(), (first, ignored) -> first, LinkedHashMap::new));
-        Set<Long> activeScheduleOrderIds = activeScheduleOrders.stream()
-                .map(MesProScheduleOrderDO::getId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
         Set<Long> activeWorkOrderIds = activeScheduleOrders.stream()
                 .map(item -> item.getWorkOrderId())
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        Map<Long, MesProTaskScheduleExtDO> taskExtMapBeforeEnd = CollUtil.isEmpty(latestReplanScheduleOrderIds)
-                ? Collections.emptyMap()
-                : taskScheduleExtMapper.selectListByTaskIds(tasksBeforeEnd.stream().map(MesProTaskDO::getId).toList()).stream()
-                .collect(Collectors.toMap(MesProTaskScheduleExtDO::getTaskId, item -> item, (first, ignored) -> first));
         List<MesProTaskDO> activeTasksBeforeEnd = tasksBeforeEnd.stream()
                 .filter(task -> task.getWorkOrderId() != null && activeWorkOrderIds.contains(task.getWorkOrderId()))
-                .filter(task -> CollUtil.isEmpty(latestReplanScheduleOrderIds)
-                        || taskBelongsToScheduleOrderScope(task, taskExtMapBeforeEnd, activeScheduleOrderIds))
                 .toList();
         if (activeTasksBeforeEnd.isEmpty()) {
             return buildEmptyCalendarContext(rule, simulation, ruleMap, holidayDateSet);
@@ -1141,30 +1117,7 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
                 0, null, false);
     }
 
-    private Set<Long> resolveLatestAppliedReplanScheduleOrderIds() {
-        MesProReplanExplanationSnapshotDO snapshot = replanExplanationSnapshotMapper.selectLatest();
-        if (snapshot == null || StrUtil.isBlank(snapshot.getSnapshotJson())) {
-            return Collections.emptySet();
-        }
-        MesProReplanExplanationRespVO explanation = JsonUtils.parseObject(
-                snapshot.getSnapshotJson(), MesProReplanExplanationRespVO.class);
-        if (explanation == null || CollUtil.isEmpty(explanation.getOrders())) {
-            return Collections.emptySet();
-        }
-        return explanation.getOrders().stream()
-                .map(MesProReplanExplanationRespVO.OrderItem::getScheduleOrderId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-    }
 
-    private boolean taskBelongsToScheduleOrderScope(MesProTaskDO task,
-                                                    Map<Long, MesProTaskScheduleExtDO> taskExtMap,
-                                                    Set<Long> activeScheduleOrderIds) {
-        MesProTaskScheduleExtDO ext = taskExtMap.get(task.getId());
-        return ext != null
-                && ext.getScheduleOrderId() != null
-                && activeScheduleOrderIds.contains(ext.getScheduleOrderId());
-    }
 
     private Map<Long, LocalDate> buildFirstStartDateByWorkOrder(List<MesProTaskDO> tasksBeforeEnd) {
         Map<Long, LocalDate> firstStartDateByWorkOrder = new LinkedHashMap<>();
@@ -2063,7 +2016,7 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
         private int taskCount;
         private BigDecimal scheduledQuantity = BigDecimal.ZERO;
         private final Set<Long> workOrderIds = new LinkedHashSet<>();
-        private final Map<Long, BigDecimal> maxCapacityByLine = new LinkedHashMap<>();
+        private BigDecimal maxCapacity = BigDecimal.ZERO;
 
         private ProcessCapacityAccumulator(Long processId, String processName) {
             this.processId = processId;

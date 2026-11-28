@@ -259,6 +259,29 @@
             :width="getRunColumnWidthString('triggerType', 100)"
           />
           <el-table-column
+            v-if="isRunColumnVisible('targetCode')"
+            column-key="targetCode"
+            label="同步目标编号"
+            prop="targetCode"
+            :width="getRunColumnWidthString('targetCode', 180)"
+          />
+          <el-table-column
+            v-if="isRunColumnVisible('startedAt')"
+            column-key="startedAt"
+            label="开始时间"
+            :width="getRunColumnWidthString('startedAt', 170)"
+          >
+            <template #default="{ row }">{{ formatDate(row.startedAt) || '-' }}</template>
+          </el-table-column>
+          <el-table-column
+            v-if="isRunColumnVisible('endedAt')"
+            column-key="endedAt"
+            label="结束时间"
+            :width="getRunColumnWidthString('endedAt', 170)"
+          >
+            <template #default="{ row }">{{ formatDate(row.endedAt) || '-' }}</template>
+          </el-table-column>
+          <el-table-column
             v-if="isRunColumnVisible('status')"
             column-key="status"
             label="状态"
@@ -436,6 +459,7 @@ const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
   syncType: undefined,
+  targetCode: undefined,
   status: undefined
 })
 const productionOrderForm = reactive<ErpKingdeeProductionOrderCreateReqVO>({
@@ -559,10 +583,14 @@ const openJobPage = (handlerName: string) => {
 }
 
 const runFilters: TableQuickFilterDefinition[] = [
+  { key: 'targetCode', label: '同步目标编号', type: 'text', operators: ['eq'], queryParamKey: 'targetCode' },
   { key: 'syncType', label: '同步类型', type: 'select', queryParamKey: 'syncType', options: syncTypes.map(item => ({label:item.label,value:item.type})) },
   { key: 'status', label: '运行状态', type: 'select', queryParamKey: 'status', options: [{label:'运行中',value:10},{label:'成功',value:20},{label:'失败',value:30}] }
 ]
 const runDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'targetCode', label: '同步目标编号', width: 180, sortable: false },
+  { key: 'startedAt', label: '开始时间', width: 170, sortable: false },
+  { key: 'endedAt', label: '结束时间', width: 170, sortable: false },
   {
     "key": "id",
     "label": "编号",

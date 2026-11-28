@@ -1093,6 +1093,7 @@ public class DccRegistrationCertificateChangeService {
             catch(Exception ex){throw new IllegalStateException("读取原驳回申请文件失败: "+id,ex);}
             if(content==null || content.length==0 || !sha256(content).equals(row.get("sha256")))
                 throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+            cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.DccRegistrationCertificateMaterialValidator.validate(String.valueOf(row.get("name")), content);
             result.add(new RetainedMaterial(kind,new ChangeUploadFile(String.valueOf(row.get("name")),String.valueOf(row.get("mime")),content.length,content,sha256(content))));
         }
         return result;
@@ -1132,6 +1133,7 @@ public class DccRegistrationCertificateChangeService {
         if (content.length == 0 || content.length != file.getSize()) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
         }
+        cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.DccRegistrationCertificateMaterialValidator.validate(originalName, content);
         return new ChangeUploadFile(originalName, mimeType, file.getSize(), content, sha256(content));
     }
 

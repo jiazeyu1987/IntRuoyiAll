@@ -486,10 +486,16 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public MesProRouteVersionDO cancelCandidate(Long id) {
+    public MesProRouteVersionDO cancelCandidate(Long id, boolean discardUnsavedOnly) {
         craftService.lockCatalog();
         MesProRouteVersionDO candidate = getVersionForUpdate(id);
         craftService.assertEditable(candidate);
+        // 自动清理只作用于从未保存的草稿；与保存共用目录锁，并在版本行锁内检查，避免跨页面误取消。
+        if (discardUnsavedOnly && (candidate.getLastSavedBy() != null
+                || !MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(candidate.getLifecycleStatus())
+                || Boolean.TRUE.equals(candidate.getActive()))) {
+            return candidate;
+        }
         if (Boolean.TRUE.equals(candidate.getActive())
                 || !(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(candidate.getLifecycleStatus())
                 || MesProRouteVersionLifecycleServiceImpl.STATUS_READY_TO_PUBLISH.equals(candidate.getLifecycleStatus())

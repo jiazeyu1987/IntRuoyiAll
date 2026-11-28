@@ -438,3 +438,8 @@ justauth:
     type: REDIS
     prefix: 'social_auth_state:' # 缓存前缀，目前只对 Redis 缓存生效，默认 JUSTAUTH::STATE::
     timeout: 24h # 超时时长，目前只对 Redis 缓存生效，默认 3 分钟
+
+# 本地文控审批与延迟生效统一按北京时间计算；缺失配置仍由服务明确报错。
+dcc:
+  workflow:
+    zone-id: Asia/Shanghai

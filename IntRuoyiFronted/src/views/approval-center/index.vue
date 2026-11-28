@@ -1,6 +1,9 @@
 <template>
   <ContentWrap>
-    <div class="approval-center" :class="{ 'approval-center--dcc': queryParams.moduleCode === 'DCC' }">
+    <div
+      class="approval-center"
+      :class="{ 'approval-center--dcc': queryParams.moduleCode === 'DCC' }"
+    >
       <UnifiedListTemplate
         :table-key="approvalCenterTableKey"
         :query-model="queryParams"
@@ -24,7 +27,9 @@
         :server-filter-query="getList"
         :column-filter-definitions="listColumnFilterDefinitions0"
       >
-        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template
+          #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }"
+        >
           <div class="approval-center__table-scope" data-user-table-column-explicit-scope>
             <el-alert
               v-if="loadError"
@@ -59,7 +64,11 @@
                 <template #default="{ row }">
                   <el-tag size="small" type="info">{{ resolveModuleName(row.moduleCode) }}</el-tag>
                   <div class="approval-center__muted">{{ resolveSourceTaskTypeLabel(row) }}</div>
-                  <div v-if="row.moduleCode === 'BPM' && row.sourceTaskType !== 'BPM_TASK_HISTORY'" class="approval-center__muted">由业务提交生成的流程任务</div>
+                  <div
+                    v-if="row.moduleCode === 'BPM' && row.sourceTaskType !== 'BPM_TASK_HISTORY'"
+                    class="approval-center__muted"
+                    >由业务提交生成的流程任务</div
+                  >
                 </template>
               </el-table-column>
               <el-table-column
@@ -71,24 +80,49 @@
               >
                 <template #default="{ row }">
                   <div class="approval-center__primary-row">
-                    <span class="approval-center__primary">{{ resolveBusinessTitleLabel(row) }}</span>
-                    <el-tag v-if="row.businessDeleted" size="small" type="danger" effect="plain">已删除</el-tag>
+                    <span class="approval-center__primary">{{
+                      resolveBusinessTitleLabel(row)
+                    }}</span>
+                    <el-tag v-if="row.businessDeleted" size="small" type="danger" effect="plain"
+                      >已删除</el-tag
+                    >
                   </div>
-                  <div
-                    v-if="!row.businessIdentifierHidden"
-                    class="approval-center__muted"
-                  >
+                  <div v-if="!row.businessIdentifierHidden" class="approval-center__muted">
                     {{ resolveBusinessIdentifierLabel(row) }}
                   </div>
                   <div v-if="row.moduleCode === 'EDHR'" class="approval-center__muted">
-                    <div>任务：{{ edhrReadDisplay(row).taskLabel }}（{{ edhrReadDisplay(row).sourceStatus }}）</div>
-                    <div>业务状态：{{ edhrReadDisplay(row).businessStatus }}</div>
-                    <div v-if="queryParams.viewType !== 'DONE'">审批决定：{{ edhrReadDisplay(row).decisionLabel }}</div>
-                    <template v-if="queryParams.viewType !== 'DONE'">
+                    <div>任务：{{ edhrReadDisplay(row).taskLabel }}</div>
+                    <div
+                      >业务状态：{{
+                        resolveMappedApprovalText(
+                          row.businessStatus,
+                          APPROVAL_STATUS_LABELS,
+                          '业务状态未识别'
+                        )
+                      }}</div
+                    >
+                    <details>
+                      <summary>审批技术追溯详情</summary>
+                      <div>任务原码：{{ edhrReadDisplay(row).sourceStatus }}</div>
+                      <div>业务状态原码：{{ edhrReadDisplay(row).businessStatus }}</div>
                       <div>决定原码：{{ edhrReadDisplay(row).decisionSourceStatus }}</div>
-                      <div class="approval-center__stored-text">审批意见：{{ edhrReadDisplay(row).opinion }}</div>
-                      <div v-if="row.sourceRemark" class="approval-center__stored-text">原始记录/来源说明：{{ row.sourceRemark }}</div>
-                      <div v-if="row.terminationReason" class="approval-center__stored-text">终止原因：{{ row.terminationReason }}</div>
+                      <div>证据类型：{{ edhrReadDisplay(row).evidenceType }}</div>
+                      <div>证据 ID：{{ edhrReadDisplay(row).evidenceId }}</div>
+                      <div>领域记录引用：{{ edhrReadDisplay(row).domainReferenceId }}</div>
+                    </details>
+                    <div v-if="queryParams.viewType !== 'DONE'"
+                      >审批决定：{{ edhrReadDisplay(row).decisionLabel }}</div
+                    >
+                    <template v-if="queryParams.viewType !== 'DONE'">
+                      <div class="approval-center__stored-text"
+                        >审批意见：{{ edhrReadDisplay(row).opinion }}</div
+                      >
+                      <div v-if="row.sourceRemark" class="approval-center__stored-text"
+                        >原始记录/来源说明：{{ row.sourceRemark }}</div
+                      >
+                      <div v-if="row.terminationReason" class="approval-center__stored-text"
+                        >终止原因：{{ row.terminationReason }}</div
+                      >
                     </template>
                   </div>
                   <div
@@ -96,10 +130,7 @@
                     class="approval-center__dcc-key-fields"
                     data-testid="approval-center-dcc-key-fields"
                   >
-                    <span
-                      v-for="field in resolveVisibleDccKeyFields(row)"
-                      :key="field.label"
-                    >
+                    <span v-for="field in resolveVisibleDccKeyFields(row)" :key="field.label">
                       {{ field.label }}：{{ field.value }}
                     </span>
                   </div>
@@ -166,8 +197,9 @@
               >
                 <template #default="{ row }">
                   <template v-if="row.moduleCode === 'EDHR'">
-                    <el-tag size="small" :type="edhrReadDisplay(row).decisionType">{{ edhrReadDisplay(row).decisionLabel }}</el-tag>
-                    <div class="approval-center__muted">决定原码：{{ edhrReadDisplay(row).decisionSourceStatus }}</div>
+                    <el-tag size="small" :type="edhrReadDisplay(row).decisionType">{{
+                      edhrReadDisplay(row).decisionLabel
+                    }}</el-tag>
                   </template>
                   <el-tag
                     v-else-if="row.approvalResult"
@@ -188,11 +220,19 @@
               >
                 <template #default="{ row }">
                   <template v-if="row.moduleCode === 'EDHR'">
-                    <div class="approval-center__stored-text">审批意见：{{ edhrReadDisplay(row).opinion }}</div>
-                    <div v-if="row.sourceRemark" class="approval-center__stored-text approval-center__muted">原始记录/来源说明：{{ row.sourceRemark }}</div>
-                    <div v-if="row.terminationReason" class="approval-center__stored-text approval-center__muted">终止原因：{{ row.terminationReason }}</div>
-                    <div class="approval-center__muted">证据类型：{{ edhrReadDisplay(row).evidenceType }}</div>
-                    <div class="approval-center__muted">证据 ID：{{ edhrReadDisplay(row).evidenceId }}</div>
+                    <div class="approval-center__stored-text"
+                      >审批意见：{{ edhrReadDisplay(row).opinion }}</div
+                    >
+                    <div
+                      v-if="row.sourceRemark"
+                      class="approval-center__stored-text approval-center__muted"
+                      >原始记录/来源说明：{{ row.sourceRemark }}</div
+                    >
+                    <div
+                      v-if="row.terminationReason"
+                      class="approval-center__stored-text approval-center__muted"
+                      >终止原因：{{ row.terminationReason }}</div
+                    >
                   </template>
                   <span v-else class="approval-center__remark" :title="resolveApprovalRemark(row)">
                     {{ resolveApprovalRemark(row) }}
@@ -203,17 +243,14 @@
                 v-if="isApprovalColumnVisible('capabilities')"
                 label="能力"
                 prop="capabilities"
-                :width="getApprovalColumnWidthString('capabilities', APPROVAL_CAPABILITIES_DEFAULT_WIDTH)"
+                :width="
+                  getApprovalColumnWidthString('capabilities', APPROVAL_CAPABILITIES_DEFAULT_WIDTH)
+                "
                 v-bind="sortColumnAttrs('capabilities')"
               >
                 <template #default="{ row }">
                   <div class="approval-center__capabilities">
-                    <el-tag
-                      v-if="row.requiresSignature"
-                      size="small"
-                      type="warning"
-                      class="mr-6px"
-                    >
+                    <el-tag v-if="row.requiresSignature" size="small" type="warning" class="mr-6px">
                       签名
                     </el-tag>
                     <el-tag
@@ -224,11 +261,28 @@
                     >
                       {{ resolveCapabilityLabel(capability) }}
                     </el-tag>
-                    <el-popover v-if="compactApprovalCapabilities(row).overflow.length" trigger="click" placement="bottom" :width="240">
-                      <template #reference><el-button link type="primary" aria-label="查看全部审批能力">更多</el-button></template>
+                    <el-popover
+                      v-if="compactApprovalCapabilities(row).overflow.length"
+                      trigger="click"
+                      placement="bottom"
+                      :width="240"
+                    >
+                      <template #reference
+                        ><el-button link type="primary" aria-label="查看全部审批能力"
+                          >更多</el-button
+                        ></template
+                      >
                       <div>全部能力</div>
-                      <el-tag v-if="row.requiresSignature" size="small" class="mr-6px mb-4px">签名</el-tag>
-                      <el-tag v-for="capability in row.capabilities || []" :key="capability" size="small" class="mr-6px mb-4px">{{ resolveCapabilityLabel(capability) }}</el-tag>
+                      <el-tag v-if="row.requiresSignature" size="small" class="mr-6px mb-4px"
+                        >签名</el-tag
+                      >
+                      <el-tag
+                        v-for="capability in row.capabilities || []"
+                        :key="capability"
+                        size="small"
+                        class="mr-6px mb-4px"
+                        >{{ resolveCapabilityLabel(capability) }}</el-tag
+                      >
                     </el-popover>
                   </div>
                 </template>
@@ -243,13 +297,21 @@
                 <template #default="{ row }">
                   <template v-if="row.moduleCode === 'EDHR'">
                     <div>任务创建：{{ formatEdhrTime(row.taskCreatedAt) }}</div>
-                    <div class="approval-center__muted">任务完成：{{ formatEdhrTime(row.taskCompletedAt) }}</div>
-                    <div v-if="row.taskCompletedAt" class="approval-center__muted">完成者：姓名未记录；{{ edhrReadDisplay(row).completionActorIdentity }}</div>
-                    <div class="approval-center__muted">正式决定：{{ formatEdhrTime(row.decisionAt) }}</div>
+                    <div class="approval-center__muted"
+                      >任务完成：{{ formatEdhrTime(row.taskCompletedAt) }}</div
+                    >
+                    <div v-if="row.taskCompletedAt" class="approval-center__muted"
+                      >完成者：姓名未记录；{{ edhrReadDisplay(row).completionActorIdentity }}</div
+                    >
+                    <div class="approval-center__muted"
+                      >正式决定：{{ formatEdhrTime(row.decisionAt) }}</div
+                    >
                   </template>
                   <template v-else>
                     <div>{{ formatApprovalTime(row.taskCreatedAt || row.initiatedAt) }}</div>
-                    <div v-if="row.taskCompletedAt" class="approval-center__muted">{{ formatApprovalTime(row.taskCompletedAt) }}</div>
+                    <div v-if="row.taskCompletedAt" class="approval-center__muted">{{
+                      formatApprovalTime(row.taskCompletedAt)
+                    }}</div>
                   </template>
                 </template>
               </el-table-column>
@@ -326,7 +388,9 @@
     >
       <div v-if="timelineTask" class="approval-center__timeline-summary">
         <el-tag size="small" type="info">{{ resolveModuleName(timelineTask.moduleCode) }}</el-tag>
-        <span class="approval-center__timeline-title">{{ resolveBusinessTitleLabel(timelineTask) }}</span>
+        <span class="approval-center__timeline-title">{{
+          resolveBusinessTitleLabel(timelineTask)
+        }}</span>
       </div>
 
       <el-alert
@@ -348,45 +412,91 @@
             v-for="entry in timelineRows"
             :key="entry.id"
             :timestamp="entry.moduleCode === 'EDHR' ? undefined : formatTimelineTime(entry.actedAt)"
-            :type="entry.moduleCode === 'EDHR' ? edhrReadDisplay(entry).decisionType : resolveTimelineType(entry.status)"
+            :type="
+              entry.moduleCode === 'EDHR'
+                ? edhrReadDisplay(entry).decisionType
+                : resolveTimelineType(entry.status)
+            "
             placement="top"
           >
             <div class="approval-center__timeline-item">
               <div class="approval-center__timeline-node">
                 <span>{{ entry.nodeName || entry.nodeCode || '--' }}</span>
-                <el-tag size="small" effect="plain">{{ entry.moduleCode === 'EDHR' ? edhrReadDisplay(entry).taskLabel : entry.actionLabel || entry.status || '--' }}</el-tag>
+                <el-tag size="small" effect="plain">{{
+                  entry.moduleCode === 'EDHR'
+                    ? edhrReadDisplay(entry).taskLabel
+                    : entry.actionLabel || entry.status || '--'
+                }}</el-tag>
               </div>
               <template v-if="entry.moduleCode === 'EDHR'">
                 <div>审批决定：{{ edhrReadDisplay(entry).decisionLabel }}</div>
-                <div class="approval-center__muted">任务原码：{{ edhrReadDisplay(entry).sourceStatus }}；业务状态：{{ edhrReadDisplay(entry).businessStatus }}</div>
-                <div class="approval-center__muted">决定原码：{{ edhrReadDisplay(entry).decisionSourceStatus }}</div>
-                <div class="approval-center__muted">决定人：{{ edhrReadDisplay(entry).actorName }}；{{ edhrReadDisplay(entry).actorIdentity }}</div>
-                <div v-if="entry.taskOutcome === 'CREATED'" class="approval-center__muted">创建人：姓名未记录；{{ edhrReadDisplay(entry).creationActorIdentity }}</div>
-                <div v-if="entry.taskCompletedAt" class="approval-center__muted">完成者：姓名未记录；{{ edhrReadDisplay(entry).completionActorIdentity }}</div>
-                <div class="approval-center__stored-text">审批意见：{{ edhrReadDisplay(entry).opinion }}</div>
-                <div v-if="entry.sourceRemark" class="approval-center__stored-text approval-center__muted">原始记录/来源说明：{{ entry.sourceRemark }}</div>
-                <div v-if="entry.terminationReason" class="approval-center__stored-text approval-center__muted">终止原因：{{ entry.terminationReason }}</div>
-                <div class="approval-center__muted">任务创建：{{ formatEdhrTime(entry.taskCreatedAt) }}</div>
-                <div class="approval-center__muted">任务完成：{{ formatEdhrTime(entry.taskCompletedAt) }}</div>
-                <div class="approval-center__muted">正式决定：{{ formatEdhrTime(entry.decisionAt) }}</div>
-                <div class="approval-center__muted">证据类型：{{ edhrReadDisplay(entry).evidenceType }}</div>
-                <div class="approval-center__muted">证据 ID：{{ edhrReadDisplay(entry).evidenceId }}</div>
-                <div class="approval-center__muted">领域记录引用：{{ edhrReadDisplay(entry).domainReferenceId }}</div>
+                <div
+                  >业务状态：{{
+                    resolveMappedApprovalText(
+                      entry.businessStatus,
+                      APPROVAL_STATUS_LABELS,
+                      '业务状态未识别'
+                    )
+                  }}</div
+                >
+                <details>
+                  <summary>审批技术追溯详情</summary>
+                  <div>任务原码：{{ edhrReadDisplay(entry).sourceStatus }}</div>
+                  <div>业务状态原码：{{ edhrReadDisplay(entry).businessStatus }}</div>
+                  <div>决定原码：{{ edhrReadDisplay(entry).decisionSourceStatus }}</div>
+                  <div>证据类型：{{ edhrReadDisplay(entry).evidenceType }}</div>
+                  <div>证据 ID：{{ edhrReadDisplay(entry).evidenceId }}</div>
+                  <div>领域记录引用：{{ edhrReadDisplay(entry).domainReferenceId }}</div>
+                </details>
+                <div class="approval-center__muted"
+                  >决定人：{{ edhrReadDisplay(entry).actorName }}；{{
+                    edhrReadDisplay(entry).actorIdentity
+                  }}</div
+                >
+                <div v-if="entry.taskOutcome === 'CREATED'" class="approval-center__muted"
+                  >创建人：姓名未记录；{{ edhrReadDisplay(entry).creationActorIdentity }}</div
+                >
+                <div v-if="entry.taskCompletedAt" class="approval-center__muted"
+                  >完成者：姓名未记录；{{ edhrReadDisplay(entry).completionActorIdentity }}</div
+                >
+                <div class="approval-center__stored-text"
+                  >审批意见：{{ edhrReadDisplay(entry).opinion }}</div
+                >
+                <div
+                  v-if="entry.sourceRemark"
+                  class="approval-center__stored-text approval-center__muted"
+                  >原始记录/来源说明：{{ entry.sourceRemark }}</div
+                >
+                <div
+                  v-if="entry.terminationReason"
+                  class="approval-center__stored-text approval-center__muted"
+                  >终止原因：{{ entry.terminationReason }}</div
+                >
+                <div class="approval-center__muted"
+                  >任务创建：{{ formatEdhrTime(entry.taskCreatedAt) }}</div
+                >
+                <div class="approval-center__muted"
+                  >任务完成：{{ formatEdhrTime(entry.taskCompletedAt) }}</div
+                >
+                <div class="approval-center__muted"
+                  >正式决定：{{ formatEdhrTime(entry.decisionAt) }}</div
+                >
               </template>
               <template v-else>
-              <div class="approval-center__muted">
-                处理人：{{ entry.actorUserId || '--' }}
-              </div>
-              <div
-                v-if="entry.comment && !(entry.moduleCode === 'DCC' && entry.nodeCode === 'MATRIX_REVIEW_ASSIGN')"
-                class="approval-center__timeline-comment"
-              >
-                {{ entry.comment }}
-              </div>
-              <div class="approval-center__muted">
-                {{ entry.evidenceType || '未标识证据类型' }}
-                <span v-if="entry.domainReferenceId"> / {{ entry.domainReferenceId }}</span>
-              </div>
+                <div class="approval-center__muted"> 处理人：{{ entry.actorUserId || '--' }} </div>
+                <div
+                  v-if="
+                    entry.comment &&
+                    !(entry.moduleCode === 'DCC' && entry.nodeCode === 'MATRIX_REVIEW_ASSIGN')
+                  "
+                  class="approval-center__timeline-comment"
+                >
+                  {{ entry.comment }}
+                </div>
+                <div class="approval-center__muted">
+                  {{ entry.evidenceType || '未标识证据类型' }}
+                  <span v-if="entry.domainReferenceId"> / {{ entry.domainReferenceId }}</span>
+                </div>
               </template>
             </div>
           </el-timeline-item>
@@ -408,18 +518,36 @@
           <span>{{ resolveBusinessTitleLabel(reviewTask) }}</span>
         </div>
         <div class="approval-center__review-summary-hint">
-          {{ reviewForm.result === 'APPROVE' ? '审核通过需完成电子签名确认，审批意见选填。' : '审核不通过需填写原因并完成电子签名确认。' }}
+          {{
+            reviewForm.result === 'APPROVE'
+              ? '审核通过需完成电子签名确认，审批意见选填。'
+              : '审核不通过需填写原因并完成电子签名确认。'
+          }}
         </div>
       </div>
       <section v-if="reviewTask?.moduleCode === 'EDHR'" v-loading="reviewPreviewLoading">
-        <el-alert v-if="reviewPreviewError" :title="reviewPreviewError" type="error" :closable="false" />
+        <el-alert
+          v-if="reviewPreviewError"
+          :title="reviewPreviewError"
+          type="error"
+          :closable="false"
+        />
         <template v-if="reviewPreview">
           <p>{{ reviewPreview.content.scopeText }}。签署本次展示的审批内容。</p>
-          <ReadableData title="本次审批资料" :source="reviewPreview.content.canonicalBusinessContentJson" :checksum="reviewPreview.content.contentHash" />
+          <ReadableData
+            title="本次审批资料"
+            :source="reviewPreview.content.canonicalBusinessContentJson"
+            :checksum="reviewPreview.content.contentHash"
+          />
           <div v-for="file in reviewPreview.content.attachments" :key="file.fileId">
-            <a :href="file.readUrl" target="_blank" rel="noopener noreferrer">{{ file.fileName }}</a>
+            <a :href="file.readUrl" target="_blank" rel="noopener noreferrer">{{
+              file.fileName
+            }}</a>
             · 版本 {{ file.version }} · {{ file.fileSize }} 字节
-            <details><summary>附件校验信息</summary><span style="overflow-wrap: anywhere">内容校验码：{{ file.sha256 }}</span></details>
+            <details
+              ><summary>附件校验信息</summary
+              ><span style="overflow-wrap: anywhere">内容校验码：{{ file.sha256 }}</span></details
+            >
           </div>
         </template>
         <el-button :disabled="reviewSubmitting" @click="loadReviewPreview">重新预览</el-button>
@@ -427,8 +555,14 @@
       <el-form label-width="96px" class="approval-center__review-form">
         <el-form-item label="审核结果" required>
           <el-radio-group v-model="reviewForm.result">
-            <el-radio-button v-if="reviewTask?.availableActions?.includes('APPROVE')" label="APPROVE">审核通过</el-radio-button>
-            <el-radio-button v-if="reviewTask?.availableActions?.includes('REJECT')" label="REJECT">审核不通过</el-radio-button>
+            <el-radio-button
+              v-if="reviewTask?.availableActions?.includes('APPROVE')"
+              label="APPROVE"
+              >审核通过</el-radio-button
+            >
+            <el-radio-button v-if="reviewTask?.availableActions?.includes('REJECT')" label="REJECT"
+              >审核不通过</el-radio-button
+            >
           </el-radio-group>
         </el-form-item>
         <el-form-item
@@ -441,7 +575,9 @@
             :rows="3"
             maxlength="4000"
             show-word-limit
-            :placeholder="reviewForm.result === 'REJECT' ? '请输入审核不通过原因' : '可填写审批意见（选填）'"
+            :placeholder="
+              reviewForm.result === 'REJECT' ? '请输入审核不通过原因' : '可填写审批意见（选填）'
+            "
           />
         </el-form-item>
         <el-form-item label="电子签名" required>
@@ -453,7 +589,12 @@
       </el-form>
       <template #footer>
         <el-button @click="reviewDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="reviewSubmitting" :disabled="reviewTask?.moduleCode === 'EDHR' && (!reviewPreview || reviewPreviewLoading)" @click="submitReview">
+        <el-button
+          type="primary"
+          :loading="reviewSubmitting"
+          :disabled="reviewTask?.moduleCode === 'EDHR' && (!reviewPreview || reviewPreviewLoading)"
+          @click="submitReview"
+        >
           确认审核
         </el-button>
       </template>
@@ -469,7 +610,14 @@ import { readBusinessEvidence } from '@/views/mes/pro/processpool/components/bus
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { ElMessage } from 'element-plus'
-import { edhrReadDisplay, bpmMissingPermissionReason, canProcessBpmInModule, bpmModuleDecisionLocation, compactApprovalCapabilities, APPROVAL_CAPABILITIES_DEFAULT_WIDTH } from './approvalReadDisplay'
+import {
+  edhrReadDisplay,
+  bpmMissingPermissionReason,
+  canProcessBpmInModule,
+  bpmModuleDecisionLocation,
+  compactApprovalCapabilities,
+  APPROVAL_CAPABILITIES_DEFAULT_WIDTH
+} from './approvalReadDisplay'
 import { formatBusinessDateTime } from '@/utils/businessTime'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
@@ -499,8 +647,15 @@ import {
 } from '@/api/approval-center'
 import { useApprovalTodoBadgeStore } from '@/store/modules/approvalTodoBadge'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
-import { createApprovalListLoader, completeApprovalWrite, approvalTaskIdentityKey } from '@/store/modules/approvalCenterInvalidationState'
-import { DCC_OFFLINE_TRAINING_RECORD, resolveOfflineTrainingRecordLocation } from '@/utils/dccOfflineTrainingRecord'
+import {
+  createApprovalListLoader,
+  completeApprovalWrite,
+  approvalTaskIdentityKey
+} from '@/store/modules/approvalCenterInvalidationState'
+import {
+  DCC_OFFLINE_TRAINING_RECORD,
+  resolveOfflineTrainingRecordLocation
+} from '@/utils/dccOfflineTrainingRecord'
 
 defineOptions({ name: 'ApprovalCenterWorkbench' })
 
@@ -510,7 +665,10 @@ const approvalCenterRouteInstanceName = String(route.name || '')
 
 type ApprovalCenterListViewType = ApprovalTaskViewType
 
-type ApprovalCenterQueryParams = Omit<ApprovalTaskPageReqVO, 'pageNo' | 'pageSize' | 'viewType' | 'keyword'> & {
+type ApprovalCenterQueryParams = Omit<
+  ApprovalTaskPageReqVO,
+  'pageNo' | 'pageSize' | 'viewType' | 'keyword'
+> & {
   pageNo: number
   pageSize: number
   viewType: ApprovalCenterListViewType
@@ -554,7 +712,13 @@ const viewTypeToRouteTab: Record<ApprovalCenterListViewType, ApprovalTabName> = 
 }
 
 const supportedViewTypes: ApprovalCenterListViewType[] = viewTabs.map((item) => item.value)
-const supportedModuleCodes: ApprovalModuleCode[] = ['BPM', 'DCC', 'EDHR', 'SHOWROOM', 'MES_FEEDBACK']
+const supportedModuleCodes: ApprovalModuleCode[] = [
+  'BPM',
+  'DCC',
+  'EDHR',
+  'SHOWROOM',
+  'MES_FEEDBACK'
+]
 const EMPTY_APPROVAL_DISPLAY = '--'
 
 const APPROVAL_MODULE_LABELS: Record<ApprovalModuleCode, string> = {
@@ -719,7 +883,8 @@ const activeApprovalColumnControl = computed(() => approvalColumnControls[queryP
 const approvalCenterTableKey = computed(() => approvalCenterTableKeys[queryParams.viewType])
 const approvalColumns = computed(() => activeApprovalColumnControl.value.columns.value)
 const approvalColumnSaving = computed(() => activeApprovalColumnControl.value.saving.value)
-const isApprovalColumnVisible = (key: string) => activeApprovalColumnControl.value.isColumnVisible(key)
+const isApprovalColumnVisible = (key: string) =>
+  activeApprovalColumnControl.value.isColumnVisible(key)
 const getApprovalColumnWidthString = (key: string, fallback?: number) =>
   activeApprovalColumnControl.value.getColumnWidthString(key, fallback)
 const getApprovalColumnMinWidthString = (key: string, fallback?: number) =>
@@ -755,17 +920,23 @@ const approvalQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(()
   }
 ])
 
-
 const isUnfilteredTodoQuery = () =>
-  queryParams.viewType === 'TODO' && !queryParams.moduleCode && !queryParams.keyword.trim() && !queryParams.listFilters
+  queryParams.viewType === 'TODO' &&
+  !queryParams.moduleCode &&
+  !queryParams.keyword.trim() &&
+  !queryParams.listFilters
 
 const loadModules = async () => {
   const sessionKey = approvalInvalidation.syncSession().key
   const routeKey = buildApprovalCenterRouteStateKey()
-  const isCurrent = () => approvalInvalidation.isCurrent(sessionKey) && routeKey === buildApprovalCenterRouteStateKey()
+  const isCurrent = () =>
+    approvalInvalidation.isCurrent(sessionKey) && routeKey === buildApprovalCenterRouteStateKey()
   approvalModulesLoaded = false
   try {
-    const data = await getApprovalCenterModules({ ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    const data = await getApprovalCenterModules({
+      ignoreErrorMessage: true,
+      isRequestContextCurrent: isCurrent
+    })
     if (!isCurrent()) return false
     modules.value = data
     approvalModulesLoaded = true
@@ -793,12 +964,17 @@ const syncApprovalQuickFilterStateFromQuery = async () => {
     quickFilter.updateState({ operator: 'contains', value: queryParams.keyword.trim() })
     return
   }
-  quickFilter.updateState({ fieldKey: approvalQuickFilterDefinitions.value[0]?.key || 'moduleCode' })
+  quickFilter.updateState({
+    fieldKey: approvalQuickFilterDefinitions.value[0]?.key || 'moduleCode'
+  })
   await nextTick()
   quickFilter.updateState({ operator: 'eq', value: undefined })
 }
 
-const approvalListLoader = createApprovalListLoader<ApprovalCenterQueryParams, ApprovalTaskSummaryVO>({
+const approvalListLoader = createApprovalListLoader<
+  ApprovalCenterQueryParams,
+  ApprovalTaskSummaryVO
+>({
   context: () => ({
     sessionKey: approvalInvalidation.syncSession().key,
     routeKey: buildApprovalCenterRouteStateKey() || '',
@@ -821,7 +997,10 @@ const getList = async (refreshBadge = false) => {
   if (!requestRouteStateKey) return false
   const sessionKey = approvalInvalidation.syncSession().key
   const generation = ++listUiGeneration
-  const isCurrent = () => generation === listUiGeneration && approvalInvalidation.isCurrent(sessionKey) && requestRouteStateKey === buildApprovalCenterRouteStateKey()
+  const isCurrent = () =>
+    generation === listUiGeneration &&
+    approvalInvalidation.isCurrent(sessionKey) &&
+    requestRouteStateKey === buildApprovalCenterRouteStateKey()
   loading.value = true
   loadError.value = ''
   try {
@@ -932,7 +1111,9 @@ const buildApprovalCenterQuery = () => ({
 const syncRouteToCanonicalPath = (viewType: ApprovalCenterListViewType) => {
   const targetPath = buildApprovalCenterPath(viewType)
   const currentPath = route.path.replace(/\/+$/, '')
-  const normalizedModuleCode = resolveRouteModuleCode(normalizeRouteQueryValue(route.query.moduleCode))
+  const normalizedModuleCode = resolveRouteModuleCode(
+    normalizeRouteQueryValue(route.query.moduleCode)
+  )
   const normalizedKeyword = normalizeRouteQueryValue(route.query.keyword) || ''
   const currentQuery = {
     ...(normalizedModuleCode ? { moduleCode: normalizedModuleCode } : {}),
@@ -978,11 +1159,13 @@ const loadRouteQuery = async () => {
   if (shouldKeepApprovalCenterLoadedStateOnRouteReturn(targetRouteStateKey)) {
     return
   }
-  const isCurrent = () => approvalInvalidation.isCurrent(sessionKey) && targetRouteStateKey === buildApprovalCenterRouteStateKey()
+  const isCurrent = () =>
+    approvalInvalidation.isCurrent(sessionKey) &&
+    targetRouteStateKey === buildApprovalCenterRouteStateKey()
   try {
     applyRouteQuery()
     syncRouteToCanonicalPath(queryParams.viewType)
-    if (!approvalModulesLoaded && !await loadModules()) return
+    if (!approvalModulesLoaded && !(await loadModules())) return
     if (!isCurrent()) return
     await syncApprovalQuickFilterStateFromQuery()
     if (!isCurrent()) return
@@ -1003,12 +1186,14 @@ const applyRouteQueryAndLoad = (): Promise<void> => {
   if (routeLoadPromise && routeLoadKey === key) return routeLoadPromise
   routeLoadKey = key
   const promise = loadRouteQuery().finally(() => {
-    if (routeLoadPromise === promise) { routeLoadPromise = undefined; routeLoadKey = undefined }
+    if (routeLoadPromise === promise) {
+      routeLoadPromise = undefined
+      routeLoadKey = undefined
+    }
   })
   routeLoadPromise = promise
   return promise
 }
-
 
 const handleQuery = () => {
   queryParams.pageNo = 1
@@ -1019,20 +1204,37 @@ const handleQuery = () => {
 }
 
 const approvalQuickFilterControls = {
-  TODO: useTableQuickFilter(approvalCenterTableKeys.TODO, approvalQuickFilterDefinitions, queryParams, handleQuery),
-  DONE: useTableQuickFilter(approvalCenterTableKeys.DONE, approvalQuickFilterDefinitions, queryParams, handleQuery),
+  TODO: useTableQuickFilter(
+    approvalCenterTableKeys.TODO,
+    approvalQuickFilterDefinitions,
+    queryParams,
+    handleQuery
+  ),
+  DONE: useTableQuickFilter(
+    approvalCenterTableKeys.DONE,
+    approvalQuickFilterDefinitions,
+    queryParams,
+    handleQuery
+  ),
   MY_INITIATED: useTableQuickFilter(
     approvalCenterTableKeys.MY_INITIATED,
     approvalQuickFilterDefinitions,
     queryParams,
     handleQuery
   ),
-  CC: useTableQuickFilter(approvalCenterTableKeys.CC, approvalQuickFilterDefinitions, queryParams, handleQuery)
+  CC: useTableQuickFilter(
+    approvalCenterTableKeys.CC,
+    approvalQuickFilterDefinitions,
+    queryParams,
+    handleQuery
+  )
 }
 
 const approvalQuickFilter = computed(() => approvalQuickFilterControls[queryParams.viewType])
 const approvalQuickFilterState = computed(() => approvalQuickFilter.value.state)
-const approvalSelectedFilterDefinition = computed(() => approvalQuickFilter.value.selectedDefinition.value)
+const approvalSelectedFilterDefinition = computed(
+  () => approvalQuickFilter.value.selectedDefinition.value
+)
 const approvalOperatorOptions = computed(() => approvalQuickFilter.value.operatorOptions.value)
 const updateApprovalQuickFilterState = (state: Partial<typeof approvalQuickFilter.value.state>) => {
   approvalQuickFilter.value.updateState(state)
@@ -1051,10 +1253,12 @@ const isBpmProcessDetailOnly = (row: ApprovalTaskSummaryVO) => {
 
 const isDccModuleHandlingAction = (row: ApprovalTaskSummaryVO) => {
   const actions = row.availableActions || []
-  return queryParams.viewType === 'TODO'
-    && row.moduleCode === 'DCC'
-    && !row.businessDeleted
-    && actions.includes('PROCESS_IN_MODULE')
+  return (
+    queryParams.viewType === 'TODO' &&
+    row.moduleCode === 'DCC' &&
+    !row.businessDeleted &&
+    actions.includes('PROCESS_IN_MODULE')
+  )
 }
 
 const resolveDccApprovalDetailLocation = (
@@ -1064,9 +1268,13 @@ const resolveDccApprovalDetailLocation = (
 ) => {
   const normalizedPath = String(path || '').trim()
   const nextQuery = { ...query }
-  if (row.sourceTaskType === DCC_OFFLINE_TRAINING_RECORD) return resolveOfflineTrainingRecordLocation(row, normalizedPath, nextQuery)
+  if (row.sourceTaskType === DCC_OFFLINE_TRAINING_RECORD)
+    return resolveOfflineTrainingRecordLocation(row, normalizedPath, nextQuery)
   const isDccModuleHandling = isDccModuleHandlingAction(row)
-  if (row.moduleCode === 'DCC' && normalizedPath.startsWith(DCC_CONTROLLED_FILE_DETAIL_ROUTE_PREFIX)) {
+  if (
+    row.moduleCode === 'DCC' &&
+    normalizedPath.startsWith(DCC_CONTROLLED_FILE_DETAIL_ROUTE_PREFIX)
+  ) {
     if (isDccModuleHandling) {
       return {
         path: normalizedPath,
@@ -1109,7 +1317,11 @@ const resolveDecisionDetailQuery = (row: ApprovalTaskSummaryVO) => {
 }
 
 const canOpenView = (row: ApprovalTaskSummaryVO) => {
-  return !row.businessDeleted && !bpmMissingPermissionReason(row) && Boolean(resolveDecisionDetailRoute(row))
+  return (
+    !row.businessDeleted &&
+    !bpmMissingPermissionReason(row) &&
+    Boolean(resolveDecisionDetailRoute(row))
+  )
 }
 
 const resolveViewDisabledReason = (row: ApprovalTaskSummaryVO) => {
@@ -1185,18 +1397,25 @@ const openTimeline = async (row: ApprovalTaskSummaryVO) => {
   const generation = ++timelineGeneration
   const sessionKey = approvalInvalidation.syncSession().key
   const requestRouteKey = buildApprovalCenterRouteStateKey()
-  const isCurrent = () => generation === timelineGeneration && approvalInvalidation.isCurrent(sessionKey) && requestRouteKey === buildApprovalCenterRouteStateKey() && timelineDrawerVisible.value
+  const isCurrent = () =>
+    generation === timelineGeneration &&
+    approvalInvalidation.isCurrent(sessionKey) &&
+    requestRouteKey === buildApprovalCenterRouteStateKey() &&
+    timelineDrawerVisible.value
   try {
-    const data = await getApprovalTaskTimeline({
-      moduleCode: row.moduleCode,
-      sourceTaskType: row.sourceTaskType,
-      sourceTaskId: row.sourceTaskId,
-      businessKey: row.businessKey,
-      ...(row.processInstanceId?.trim() ? { processInstanceId: row.processInstanceId } : {})
-    }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    const data = await getApprovalTaskTimeline(
+      {
+        moduleCode: row.moduleCode,
+        sourceTaskType: row.sourceTaskType,
+        sourceTaskId: row.sourceTaskId,
+        businessKey: row.businessKey,
+        ...(row.processInstanceId?.trim() ? { processInstanceId: row.processInstanceId } : {})
+      },
+      { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent }
+    )
     if (!isCurrent()) return
     if (!data || data.length === 0) {
-    const message = '审批流程记录为空，请检查模块适配器流程实现'
+      const message = '审批流程记录为空，请检查模块适配器流程实现'
       timelineError.value = message
       ElMessage.error(message)
       return
@@ -1214,24 +1433,35 @@ const openTimeline = async (row: ApprovalTaskSummaryVO) => {
 
 const canReview = (row: ApprovalTaskSummaryVO) => {
   const actions = row.availableActions || []
-  return queryParams.viewType === 'TODO'
-    && !row.businessDeleted
-    && !bpmMissingPermissionReason(row)
-    && actions.includes('APPROVE')
-    && (row.moduleCode === 'EDHR' || actions.includes('REJECT'))
+  return (
+    queryParams.viewType === 'TODO' &&
+    !row.businessDeleted &&
+    !bpmMissingPermissionReason(row) &&
+    actions.includes('APPROVE') &&
+    (row.moduleCode === 'EDHR' || actions.includes('REJECT'))
+  )
 }
 
 const canReviewInModule = (row: ApprovalTaskSummaryVO) => {
   const actions = row.availableActions || []
-  return queryParams.viewType === 'TODO'
-    && !row.businessDeleted
-    && !bpmMissingPermissionReason(row)
-    && (actions.includes('REVIEW_IN_MODULE') || actions.includes('APPROVE_IN_MODULE')
-      || (row.moduleCode === 'DCC' && ['DCC_PROJECT_PRODUCT_REVIEW', 'DCC_PROJECT_PRODUCT_APPROVAL'].includes(row.sourceTaskType)
-        && actions.includes('PROCESS_IN_MODULE') && canOpenView(row))
-      || (row.moduleCode === 'EDHR' && row.sourceTaskType === 'ACTIVE_ORDER_HANDOFF'
-        && actions.includes('PROCESS_IN_MODULE') && canOpenView(row))
-      || canProcessBpmInModule(row, queryParams.viewType))
+  return (
+    queryParams.viewType === 'TODO' &&
+    !row.businessDeleted &&
+    !bpmMissingPermissionReason(row) &&
+    (actions.includes('REVIEW_IN_MODULE') ||
+      actions.includes('APPROVE_IN_MODULE') ||
+      (row.moduleCode === 'DCC' &&
+        ['DCC_PROJECT_PRODUCT_REVIEW', 'DCC_PROJECT_PRODUCT_APPROVAL'].includes(
+          row.sourceTaskType
+        ) &&
+        actions.includes('PROCESS_IN_MODULE') &&
+        canOpenView(row)) ||
+      (row.moduleCode === 'EDHR' &&
+        row.sourceTaskType === 'ACTIVE_ORDER_HANDOFF' &&
+        actions.includes('PROCESS_IN_MODULE') &&
+        canOpenView(row)) ||
+      canProcessBpmInModule(row, queryParams.viewType))
+  )
 }
 
 const canReviewAction = (row: ApprovalTaskSummaryVO) => {
@@ -1275,9 +1505,13 @@ const resetReviewRequestContext = () => {
   reviewForm.passwordFocused = false
 }
 
-watch(reviewDialogVisible, (visible) => {
-  if (!visible) resetReviewRequestContext()
-}, { flush: 'sync' })
+watch(
+  reviewDialogVisible,
+  (visible) => {
+    if (!visible) resetReviewRequestContext()
+  },
+  { flush: 'sync' }
+)
 
 const openReviewDialog = (row: ApprovalTaskSummaryVO) => {
   if (!canReview(row)) {
@@ -1306,9 +1540,19 @@ const loadReviewPreview = async () => {
   reviewForm.passwordFocused = false
   reviewPreviewLoading.value = true
   try {
-    const preview = await getApprovalReviewPreview({ moduleCode: task.moduleCode, sourceTaskType: task.sourceTaskType, sourceTaskId: task.sourceTaskId, processInstanceId: task.processInstanceId })
+    const preview = await getApprovalReviewPreview({
+      moduleCode: task.moduleCode,
+      sourceTaskType: task.sourceTaskType,
+      sourceTaskId: task.sourceTaskId,
+      processInstanceId: task.processInstanceId
+    })
     if (generation !== reviewGeneration || !reviewDialogVisible.value) return
-    if (!preview.prepareId || !preview.content.canonicalBusinessContentJson || !preview.content.allowedActions.includes('APPROVE')) throw new Error('审批正文响应不完整')
+    if (
+      !preview.prepareId ||
+      !preview.content.canonicalBusinessContentJson ||
+      !preview.content.allowedActions.includes('APPROVE')
+    )
+      throw new Error('审批正文响应不完整')
     const presentation = readBusinessEvidence(preview.content.canonicalBusinessContentJson)
     if (presentation.error) throw new Error(presentation.error)
     reviewPreview.value = preview
@@ -1326,7 +1570,10 @@ const submitReview = async () => {
     ElMessage.error('审批任务上下文缺失')
     return
   }
-  if (!canReview(reviewTask.value) || !reviewTask.value.availableActions?.includes(reviewForm.result)) {
+  if (
+    !canReview(reviewTask.value) ||
+    !reviewTask.value.availableActions?.includes(reviewForm.result)
+  ) {
     ElMessage.error('该审批任务不支持所选审核动作，请刷新任务')
     return
   }
@@ -1344,7 +1591,11 @@ const submitReview = async () => {
     return
   }
   const task = Object.freeze({ ...reviewTask.value, sourceTaskId })
-  if (task.moduleCode === 'EDHR' && (!reviewPreview.value || !reviewPreview.value.content.allowedActions.includes(reviewForm.result))) {
+  if (
+    task.moduleCode === 'EDHR' &&
+    (!reviewPreview.value ||
+      !reviewPreview.value.content.allowedActions.includes(reviewForm.result))
+  ) {
     ElMessage.error('请先读取完整审批正文并核对可办理动作')
     return
   }
@@ -1357,32 +1608,62 @@ const submitReview = async () => {
     result: reviewForm.result,
     reason: reviewForm.reason.trim(),
     signaturePassword: reviewForm.signaturePassword.trim(),
-    ...(task.moduleCode === 'EDHR' && reviewPreview.value ? {
-      prepareId: reviewPreview.value.prepareId,
-      idempotencyKey: reviewIdempotencyKey.value,
-      expectedSubjectVersion: reviewPreview.value.content.subjectVersion,
-      expectedContentHash: reviewPreview.value.content.contentHash,
-      contentPolicyVersion: reviewPreview.value.content.contentPolicyVersion
-    } : {})
+    ...(task.moduleCode === 'EDHR' && reviewPreview.value
+      ? {
+          prepareId: reviewPreview.value.prepareId,
+          idempotencyKey: reviewIdempotencyKey.value,
+          expectedSubjectVersion: reviewPreview.value.content.subjectVersion,
+          expectedContentHash: reviewPreview.value.content.contentHash,
+          contentPolicyVersion: reviewPreview.value.content.contentPolicyVersion
+        }
+      : {})
   }
   const sessionKey = approvalInvalidation.syncSession().key
-  const event = task.moduleCode === 'EDHR' ? approvalInvalidation.captureEdhrSuccess(task) : undefined
+  const event =
+    task.moduleCode === 'EDHR' ? approvalInvalidation.captureEdhrSuccess(task) : undefined
   const requestRouteKey = buildApprovalCenterRouteStateKey()
   const generation = reviewGeneration
   const taskIdentity = approvalTaskIdentityKey(task)
-  const isPageCurrent = () => approvalInvalidation.isCurrent(sessionKey) && requestRouteKey === buildApprovalCenterRouteStateKey()
-  const isCurrent = () => generation === reviewGeneration && isPageCurrent() && Boolean(reviewTask.value && reviewTask.value.sourceTaskId === task.sourceTaskId && approvalTaskIdentityKey({ ...reviewTask.value, sourceTaskId: task.sourceTaskId }) === taskIdentity)
+  const isPageCurrent = () =>
+    approvalInvalidation.isCurrent(sessionKey) &&
+    requestRouteKey === buildApprovalCenterRouteStateKey()
+  const isCurrent = () =>
+    generation === reviewGeneration &&
+    isPageCurrent() &&
+    Boolean(
+      reviewTask.value &&
+        reviewTask.value.sourceTaskId === task.sourceTaskId &&
+        approvalTaskIdentityKey({ ...reviewTask.value, sourceTaskId: task.sourceTaskId }) ===
+          taskIdentity
+    )
   reviewSubmitting.value = true
   try {
     await completeApprovalWrite({
       write: async () => {
-        const result = await reviewApprovalTask(payload, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
+        const result = await reviewApprovalTask(payload, {
+          ignoreErrorMessage: true,
+          isRequestContextCurrent: isCurrent,
+          isSuccessReceiptContextCurrent: (() => {
+            const receiptSessionKey = approvalInvalidation.syncSession().key
+            return () => approvalInvalidation.isCurrent(receiptSessionKey)
+          })()
+        })
         if (task.moduleCode === 'EDHR') {
-          if (!result || typeof result !== 'object' || result.idempotencyKey !== payload.idempotencyKey || result.prepareId !== payload.prepareId || !result.receiptId || !result.signatureId) throw new Error('审批回执未确认办理成功，请保留当前请求并核对正式结果')
+          if (
+            !result ||
+            typeof result !== 'object' ||
+            result.idempotencyKey !== payload.idempotencyKey ||
+            result.prepareId !== payload.prepareId ||
+            !result.receiptId ||
+            !result.signatureId
+          )
+            throw new Error('审批回执未确认办理成功，请保留当前请求并核对正式结果')
         } else if (result !== true) throw new Error('审批接口未确认办理成功，请核对正式结果')
         return result
       },
-      publish: () => { if (event) approvalInvalidation.publishEdhrSuccess(event) },
+      publish: () => {
+        if (event) approvalInvalidation.publishEdhrSuccess(event)
+      },
       success: () => {
         if (!isCurrent()) return
         reviewForm.signaturePassword = ''
@@ -1392,25 +1673,34 @@ const submitReview = async () => {
       },
       refresh: async () => {
         if (!isPageCurrent()) return
-        if (!await getList(true)) throw new Error(loadError.value || '当前页面已切换，请返回审批中心刷新')
+        if (!(await getList(true)))
+          throw new Error(loadError.value || '当前页面已切换，请返回审批中心刷新')
       },
-      refreshFailed: (error) => { if (isPageCurrent()) ElMessage.warning(`办理已成功，刷新失败：${resolveErrorMessage(error)}`) }
+      refreshFailed: (error) => {
+        if (isPageCurrent())
+          ElMessage.warning(`办理已成功，刷新失败：${resolveErrorMessage(error)}`)
+      }
     })
   } catch (error) {
     if (isCurrent()) {
       const message = resolveErrorMessage(error)
-      if (error && typeof error === 'object' && 'code' in error
-        && ['ECONNABORTED', 'ETIMEDOUT'].includes(String(error.code))) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        ['ECONNABORTED', 'ETIMEDOUT'].includes(String(error.code))
+      ) {
         reviewForm.signaturePassword = ''
         reviewForm.passwordFocused = false
         reviewDialogVisible.value = false
         ElMessage.warning('办理结果待确认，请刷新核对审批结果后再操作')
         try {
-          if (!await getList(true) && isPageCurrent()) {
+          if (!(await getList(true)) && isPageCurrent()) {
             ElMessage.error(`审批列表刷新失败：${loadError.value || '请返回审批中心重新刷新'}`)
           }
         } catch (refreshError) {
-          if (isPageCurrent()) ElMessage.error(`审批列表刷新失败：${resolveErrorMessage(refreshError)}`)
+          if (isPageCurrent())
+            ElMessage.error(`审批列表刷新失败：${resolveErrorMessage(refreshError)}`)
         }
         return
       }
@@ -1471,7 +1761,11 @@ const resolveModuleName = (moduleCode: ApprovalModuleCode) => {
 }
 
 const resolveSourceTaskTypeLabel = (row: ApprovalTaskSummaryVO) => {
-  return resolveMappedApprovalText(row.sourceTaskType, APPROVAL_SOURCE_TASK_TYPE_LABELS, '未配置中文任务来源')
+  return resolveMappedApprovalText(
+    row.sourceTaskType,
+    APPROVAL_SOURCE_TASK_TYPE_LABELS,
+    '未配置中文任务来源'
+  )
 }
 
 const resolveBusinessTitleLabel = (row: ApprovalTaskSummaryVO | undefined) => {
@@ -1505,7 +1799,9 @@ const resolveBusinessIdentifierValueLabel = (row: ApprovalTaskSummaryVO) => {
     return containsEnglishLetters(businessKey) ? '业务键已配置' : businessKey
   }
   const sourceTaskId = normalizeApprovalDisplayText(row.sourceTaskId)
-  return containsEnglishLetters(sourceTaskId) ? '任务编号已配置' : sourceTaskId || EMPTY_APPROVAL_DISPLAY
+  return containsEnglishLetters(sourceTaskId)
+    ? '任务编号已配置'
+    : sourceTaskId || EMPTY_APPROVAL_DISPLAY
 }
 
 const resolveBusinessIdentifierLabel = (row: ApprovalTaskSummaryVO) => {
@@ -1532,13 +1828,15 @@ const resolveReviewerLabel = (row: ApprovalTaskSummaryVO) =>
   row.moduleCode === 'EDHR' && queryParams.viewType !== 'TODO'
     ? `${edhrReadDisplay(row).actorName}；${edhrReadDisplay(row).actorIdentity}`
     : row.assigneeRoleName
-    ? `审批角色：${row.assigneeRoleName}`
-    : row.assigneeUserName || (row.assigneeUserId ? `用户 #${row.assigneeUserId}` : EMPTY_APPROVAL_DISPLAY)
+      ? `审批角色：${row.assigneeRoleName}`
+      : row.assigneeUserName ||
+        (row.assigneeUserId ? `用户 #${row.assigneeUserId}` : EMPTY_APPROVAL_DISPLAY)
 
 const resolveApplicantLabel = (row: ApprovalTaskSummaryVO) =>
   row.moduleCode === 'EDHR' && queryParams.viewType !== 'TODO'
     ? '姓名未记录'
-    : row.initiatorUserName || (row.initiatorUserId ? `用户 #${row.initiatorUserId}` : EMPTY_APPROVAL_DISPLAY)
+    : row.initiatorUserName ||
+      (row.initiatorUserId ? `用户 #${row.initiatorUserId}` : EMPTY_APPROVAL_DISPLAY)
 
 const resolveBusinessContextValueLabel = (value: string, missingLabel: string) => {
   const text = normalizeApprovalDisplayText(value)
@@ -1550,7 +1848,10 @@ const resolveBusinessContextValueLabel = (value: string, missingLabel: string) =
     return normalizedVersion[1]
   }
   if (/^[A-Z]\/[1-9]\d*(?:-[1-9]\d*)?$/.test(text)) return text
-  const mappedStatus = APPROVAL_STATUS_LABELS[text] || APPROVAL_NODE_LABELS[text] || APPROVAL_BUSINESS_TITLE_LABELS[text]
+  const mappedStatus =
+    APPROVAL_STATUS_LABELS[text] ||
+    APPROVAL_NODE_LABELS[text] ||
+    APPROVAL_BUSINESS_TITLE_LABELS[text]
   if (mappedStatus) {
     return mappedStatus
   }
@@ -1558,9 +1859,9 @@ const resolveBusinessContextValueLabel = (value: string, missingLabel: string) =
     (result, [englishTitle, chineseTitle]) => result.replaceAll(englishTitle, chineseTitle),
     text
   )
-  return containsEnglishLetters(replacedText)
-    && !containsChineseCharacters(replacedText)
-    && !isBusinessContextCode(replacedText)
+  return containsEnglishLetters(replacedText) &&
+    !containsChineseCharacters(replacedText) &&
+    !isBusinessContextCode(replacedText)
     ? missingLabel
     : replacedText
 }
@@ -1603,9 +1904,18 @@ const findDccContextTagValue = (row: ApprovalTaskSummaryVO, patterns: RegExp[]) 
 }
 
 const resolveDccKeyFields = (row: ApprovalTaskSummaryVO) => {
-  if (['DCC_PROJECT_PRODUCT_REQUEST', 'DCC_PROJECT_PRODUCT_REVIEW', 'DCC_PROJECT_PRODUCT_APPROVAL'].includes(row.sourceTaskType)) {
+  if (
+    [
+      'DCC_PROJECT_PRODUCT_REQUEST',
+      'DCC_PROJECT_PRODUCT_REVIEW',
+      'DCC_PROJECT_PRODUCT_APPROVAL'
+    ].includes(row.sourceTaskType)
+  ) {
     return [
-      { label: '项目代码', value: normalizeApprovalDisplayText(row.businessCode) || EMPTY_APPROVAL_DISPLAY },
+      {
+        label: '项目代码',
+        value: normalizeApprovalDisplayText(row.businessCode) || EMPTY_APPROVAL_DISPLAY
+      },
       { label: '当前审批节点', value: resolveNodeNameLabel(row) }
     ]
   }
@@ -1691,7 +2001,7 @@ const formatApprovalTime = (value?: string | number | Date | null) => {
   return formatBusinessDateTime(value)
 }
 
-const formatEdhrTime = (value?: string) => value ? formatApprovalTime(value) : '未记录'
+const formatEdhrTime = (value?: string) => (value ? formatApprovalTime(value) : '未记录')
 
 const formatTimelineTime = (value?: string) => {
   return value ? formatApprovalTime(value) : ''
@@ -1707,8 +2017,12 @@ const resolveErrorMessage = (error: unknown) => {
   return '审批中心请求失败'
 }
 
-onMounted(() => { void applyRouteQueryAndLoad() })
-onActivated(() => { void applyRouteQueryAndLoad() })
+onMounted(() => {
+  void applyRouteQueryAndLoad()
+})
+onActivated(() => {
+  void applyRouteQueryAndLoad()
+})
 onDeactivated(() => {
   listUiGeneration++
   approvalListLoader.invalidate()
@@ -1722,27 +2036,35 @@ onDeactivated(() => {
   routeLoadKey = undefined
   loading.value = false
 })
-onBeforeUnmount(() => { listUiGeneration++; timelineGeneration++; approvalListLoader.invalidate() })
-watch(() => approvalInvalidation.contextKey, () => {
+onBeforeUnmount(() => {
   listUiGeneration++
-  approvalListLoader.reset()
   timelineGeneration++
-  timelineDrawerVisible.value = false
-  timelineRows.value = []
-  timelineTask.value = undefined
-  timelineLoading.value = false
-  approvalLastLoadedRouteStateKey = undefined
-  approvalModulesLoaded = false
-  modules.value = []
-  list.value = []
-  total.value = 0
-  loading.value = false
-  loadError.value = ''
-  reviewDialogVisible.value = false
-  resetReviewRequestContext()
-  routeLoadPromise = undefined
-  routeLoadKey = undefined
-}, { flush: 'sync' })
+  approvalListLoader.invalidate()
+})
+watch(
+  () => approvalInvalidation.contextKey,
+  () => {
+    listUiGeneration++
+    approvalListLoader.reset()
+    timelineGeneration++
+    timelineDrawerVisible.value = false
+    timelineRows.value = []
+    timelineTask.value = undefined
+    timelineLoading.value = false
+    approvalLastLoadedRouteStateKey = undefined
+    approvalModulesLoaded = false
+    modules.value = []
+    list.value = []
+    total.value = 0
+    loading.value = false
+    loadError.value = ''
+    reviewDialogVisible.value = false
+    resetReviewRequestContext()
+    routeLoadPromise = undefined
+    routeLoadKey = undefined
+  },
+  { flush: 'sync' }
+)
 
 watch(
   () => [route.path, route.query],
@@ -1755,7 +2077,12 @@ watch(
 )
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
-  { key: 'capabilities', label: '能力', type: 'text', getValue: (row) => [...(row.capabilities || [])].sort() },
+  {
+    key: 'capabilities',
+    label: '能力',
+    type: 'text',
+    getValue: (row) => [...(row.capabilities || [])].sort()
+  },
   {
     key: 'source',
     label: '审批来源',

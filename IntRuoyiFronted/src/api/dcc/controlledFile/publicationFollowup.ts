@@ -80,6 +80,7 @@ export interface DccPublicationTimelineEventVO {
   actionLabel: string
   occurredAt: string
   actorId?: DccBusinessId
+  actorName?: string
   objectId: DccBusinessId
   objectLabel: string
   statusBeforeLabel?: string
@@ -91,7 +92,9 @@ export interface DccPublicationTimelineEventVO {
   systemMessageId?: DccBusinessId
   attemptCount?: number
   assigneeBefore?: DccBusinessId
+  assigneeBeforeName?: string
   assigneeAfter?: DccBusinessId
+  assigneeAfterName?: string
   linkedRevisionControlledFileId?: DccBusinessId
   linkedRevisionVersion?: string
 }

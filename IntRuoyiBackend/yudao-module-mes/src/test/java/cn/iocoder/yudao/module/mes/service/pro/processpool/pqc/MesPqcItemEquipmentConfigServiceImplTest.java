@@ -33,6 +33,29 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MesPqcItemEquipmentConfigServiceImplTest {
 
+    @Test
+    void resetDeletesOnlyUnusedEquipmentInCurrentTenantAndPreservesSharedItemCodes() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(186L);
+        try {
+            when(regulationItemMapper.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
+                    .thenReturn(List.of(item(99L, "SHARED", "其他规程仍在用")));
+            service.deleteUnusedItemConfigs(List.of("OWNED", "SHARED", "OWNED"));
+            var order = org.mockito.Mockito.inOrder(numberConfigMapper, configMapper);
+            order.verify(numberConfigMapper).physicalDeleteByTenantIdAndItemCode(186L, "OWNED");
+            order.verify(configMapper).physicalDeleteByTenantIdAndItemCode(186L, "OWNED");
+            verify(numberConfigMapper, never()).physicalDeleteByTenantIdAndItemCode(186L, "SHARED");
+            verify(configMapper, never()).physicalDeleteByTenantIdAndItemCode(186L, "SHARED");
+        } finally {
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+        }
+    }
+
+    @Test
+    void emptyResetDoesNotDeleteAnyEquipment() {
+        service.deleteUnusedItemConfigs(List.of());
+        org.mockito.Mockito.verifyNoInteractions(regulationItemMapper, configMapper, numberConfigMapper);
+    }
+
     @Mock
     private MesPqcItemEquipmentConfigMapper configMapper;
     @Mock

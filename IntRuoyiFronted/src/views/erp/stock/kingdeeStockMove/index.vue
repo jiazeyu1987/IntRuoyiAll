@@ -80,7 +80,11 @@
             prop="documentStatus"
             align="center"
             :width="getStockMoveColumnWidthString('documentStatus', 120)"
-          />
+          >
+            <template #default="{ row }">
+              <KingdeeValueLabel :value="row.documentStatus" field="documentStatus" />
+            </template>
+          </el-table-column>
           <el-table-column
             v-if="isStockMoveColumnVisible('billDate')"
             label="单据日期"
@@ -96,7 +100,11 @@
             prop="transferDirect"
             align="center"
             :width="getStockMoveColumnWidthString('transferDirect', 130)"
-          />
+          >
+            <template #default="{ row }">
+              <KingdeeValueLabel :value="row.transferDirect" field="transferDirect" />
+            </template>
+          </el-table-column>
           <el-table-column
             v-if="isStockMoveColumnVisible('materialNames')"
             label="物料"
@@ -145,6 +153,7 @@
 </template>
 
 <script setup lang="ts">
+import KingdeeValueLabel from '@/views/erp/components/KingdeeValueLabel.vue'
 import ProductCodeLink from '@/components/ProductCodeLink.vue'
 import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'

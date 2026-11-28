@@ -39,7 +39,7 @@ test('draft SAVE retries its own upload session but blocks another session and a
       uploadSessionId: 'page-session', uploadSessionBinding: ref({ clientSessionId: scenario === 'another-session' ? 'foreign-session' : 'page-session', scopedSessionId: 'source-session' }),
       previewUpload: ref({ sessionId: 'source-session', uploadTicket: 'source-ticket' }), isFileNumberChainConflictMessage: helpers.exports.conflict,
       submitLoading: ref(false), uploadSubmitted: ref(false), projectAttributesLoading: ref(false), uploadPreviewLoading: ref(false), hasUnreadyAttachmentUploads: ref(false),
-      projectProductLoading: ref(false), projectProductError: ref(''), projectProductResolvedId: ref('5'), isVersionNoFormatValid: ref(true), isProductRequiredForSelectedCategory: ref(false),
+      projectProductLoading: ref(false), projectProductError: ref(''), projectProductResolvedId: ref('5'), isVersionNoFormatValid: ref(true), isProductRequiredForSelectedCategory: ref(false), isRequiredProjectCodeBound: ref(false),
       validateDccProjectProductCode: () => ({ valid: true }), resolveReadyAttachmentUploads: () => [], captureUploadSubmissionContext: () => 'same-context',
       refreshRouteReadiness: async () => {}, routeReadinessError: ref(''), approvalMatrixState: ref({ after: {} }), isCustomApprovalSource: ref(false),
       confirmUploadMatrixChange: async () => true, freezeUploadApplicationDraft: () => ({}), uploadSubmitterService: { saveDraft: async () => { saved++; return '20' } },

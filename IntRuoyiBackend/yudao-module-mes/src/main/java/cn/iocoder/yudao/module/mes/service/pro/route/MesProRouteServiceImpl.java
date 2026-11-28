@@ -250,6 +250,9 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         routeProcessFlowService.saveGraph(buildInitialSequentialGraph(route.getId(), routeProcesses));
         // 初始构建不调用逐工序变更入口，避免生成空 V1 或额外候选版本。
         JSONObject initialConfigs = new JSONObject(true);
+        // Freeze the initial graph before V1 becomes active: subsequent reads use its SOP bindings.
+        initialConfigs.put(FLOW_GRAPH_KEY, JSON.parseObject(MesProRouteVersionSnapshotIdentityWriter
+                .toSnapshotJson(routeProcessFlowService.getGraph(route.getId()))));
         JSONArray productionConfigs = new JSONArray();
         for (MesProRouteProcessDO routeProcess : routeProcesses) {
             MesProProcessDO process = processDefinitions.get(routeProcess.getProcessId());
@@ -416,8 +419,15 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         if (sourceVersion == null && !copiedRouteProcessIds.isEmpty()) {
             throw exception(PRO_ROUTE_VERSION_ACTIVE_NOT_EXISTS, sourceRouteId);
         }
+        copyRouteFlowConfigs(sourceRouteId, targetRoute.getId(), copiedRouteProcessIds);
+        routeProcessFlowService.copyGraph(sourceRouteId, targetRoute.getId(), copiedRouteProcessIds);
+        // 先冻结副本流程图；V1 生效后的读取会从该快照取得 SOP 绑定。
+        JSONObject initialConfigs = new JSONObject(true);
+        initialConfigs.put(FLOW_GRAPH_KEY, JSON.parseObject(MesProRouteVersionSnapshotIdentityWriter
+                .toSnapshotJson(routeProcessFlowService.getGraph(targetRoute.getId()))));
         MesProRouteVersionDO targetVersion = createRouteVersion(targetRoute, "V1",
-                sourceVersion == null ? null : sourceVersion.getId());
+                sourceVersion == null ? null : sourceVersion.getId(),
+                Boolean.TRUE, ROUTE_VERSION_STATUS_ACTIVE, initialConfigs);
         JSONObject inheritedRouteLevelConfigSnapshots = extractReusableRouteLevelConfigSnapshots(sourceVersion);
         if (inheritedRouteLevelConfigSnapshots == null && sourceVersion != null) {
             inheritedRouteLevelConfigSnapshots = new JSONObject(true);
@@ -429,8 +439,6 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         if (sourceVersion != null) {
             copyScheduleConfigs(sourceRouteId, sourceVersion.getId(), targetVersion.getId(), copiedRouteProcessIds);
         }
-        copyRouteFlowConfigs(sourceRouteId, targetRoute.getId(), copiedRouteProcessIds);
-        routeProcessFlowService.copyGraph(sourceRouteId, targetRoute.getId(), copiedRouteProcessIds);
         refreshRouteVersionSnapshot(targetRoute, targetVersion.getId(), inheritedRouteLevelConfigSnapshots);
         deviceIdentitySnapshots.captureCreated(routeVersionMapper.selectById(targetVersion.getId()));
         registerActiveVersionRef(targetVersion);

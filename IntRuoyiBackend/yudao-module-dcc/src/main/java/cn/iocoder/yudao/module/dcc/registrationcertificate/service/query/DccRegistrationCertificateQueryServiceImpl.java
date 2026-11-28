@@ -359,6 +359,11 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
 
     private static DccRegistrationCertificateOldIndexItem oldIndexItem(
             DccRegistrationCertificateQueryRecord row, String ownerCompanyName) {
+        String certificateType = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts
+                .parse(row.getFactsJson()).getCertificateType();
+        if (certificateType == null || !Set.of("DOMESTIC", "CE", "FDA").contains(certificateType)) {
+            throw new IllegalArgumentException("旧注册证快照的证件类型缺失或无效");
+        }
         return DccRegistrationCertificateOldIndexItem.builder()
                 .certificateId(row.getCertificateId())
                 .versionId(row.getVersionId())
@@ -369,6 +374,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .projectCodeId(row.getProjectCodeId())
                 .projectCode(row.getProjectCode())
                 .certificateNo(row.getCertificateNo())
+                .certificateType(certificateType)
                 .versionNo(row.getVersionNo())
                 .classification(row.getClassification())
                 .expiryDate(row.getExpiryDate())

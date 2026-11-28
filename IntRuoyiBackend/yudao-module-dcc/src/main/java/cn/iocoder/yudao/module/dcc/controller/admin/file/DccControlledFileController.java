@@ -1165,6 +1165,18 @@ public class DccControlledFileController {
         return downloadVariant(id, confirmed, requestId, request, false);
     }
 
+    @GetMapping("/{id:\\d+}/download/original")
+    @Operation(summary = "下载 QMS 或通用文件当前生效版本的实际保存原件")
+    @PreAuthorize("@dccControlledFileQueryServiceImpl.canDownloadLibraryOriginal(#id)")
+    public ResponseEntity<byte[]> downloadOriginalControlledFile(@PathVariable("id") Long id,
+            @RequestParam("nonControlledWarningConfirmed") Boolean confirmed,
+            @RequestParam("downloadRequestId") String requestId, HttpServletRequest request) {
+        if (StrUtil.isBlank(requestId)) throw exception(DCC_DOWNLOAD_REQUEST_ID_REQUIRED);
+        String normalized = StrUtil.trim(requestId);
+        return downloadResponse(queryService.readOriginalDownloadFile(getLoginUserId(), id, confirmed,
+                normalized, auditContext(request, normalized)));
+    }
+
     @GetMapping("/{id:\\d+}/download/editable")
     @Operation(summary = "Download the editable controlled file version")
     @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:download-editable') or @dccControlledFileQueryServiceImpl.canDownloadLibraryOriginal(#id)")
@@ -1186,6 +1198,10 @@ public class DccControlledFileController {
                 auditContext(request, normalizedRequestId))
                 : queryService.readReadOnlyDownloadFile(getLoginUserId(), id, confirmed, normalizedRequestId,
                 auditContext(request, normalizedRequestId));
+        return downloadResponse(binary);
+    }
+
+    private ResponseEntity<byte[]> downloadResponse(cn.iocoder.yudao.module.dcc.service.download.DccDownloadFileBinary binary) {
         return ResponseEntity.ok()
                 .contentType(org.springframework.http.MediaType.parseMediaType(binary.contentType()))
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,

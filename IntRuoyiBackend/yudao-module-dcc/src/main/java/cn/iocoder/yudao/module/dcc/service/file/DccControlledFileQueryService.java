@@ -128,6 +128,9 @@ public interface DccControlledFileQueryService {
     DccDownloadFileBinary readReadOnlyDownloadFile(Long userId, Long id, Boolean nonControlledWarningConfirmed,
                                                    String downloadRequestId, DccRequestAuditContext auditContext);
 
+    DccDownloadFileBinary readOriginalDownloadFile(Long userId, Long id, Boolean nonControlledWarningConfirmed,
+            String downloadRequestId, DccRequestAuditContext auditContext);
+
     DccDownloadFileBinary readEditableDownloadFile(Long userId, Long id, Boolean nonControlledWarningConfirmed,
                                                    String downloadRequestId, DccRequestAuditContext auditContext);
     DccDownloadFileBinary readAttachmentDownloadFile(Long userId, Long id, Long attachmentId,

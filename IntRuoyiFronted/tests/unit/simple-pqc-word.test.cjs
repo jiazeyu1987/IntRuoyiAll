@@ -4,7 +4,9 @@ const vm = require('node:vm')
 const ts = require('typescript')
 const PizZip = require('pizzip')
 const { test } = require('node:test')
-const context = { exports: {}, require, TextEncoder, TextDecoder, Uint8Array, btoa, atob }
+const loggedErrors = []
+const context = { exports: {}, require, TextEncoder, TextDecoder, Uint8Array, btoa, atob,
+  console: { error: (...args) => loggedErrors.push(args) } }
 vm.runInNewContext(
   ts.transpileModule(fs.readFileSync('src/views/form-center/parser/simplePqcWord.ts', 'utf8'), {
     compilerOptions: {
@@ -16,6 +18,16 @@ vm.runInNewContext(
   context
 )
 const { createPqcWord, readPqcWord } = context.exports
+test('invalid DOCX is rejected with Chinese guidance and retains the ZIP error', () => {
+  const bytes = new TextEncoder().encode('not a valid Word document')
+  assert.throws(() => readPqcWord(bytes, '1', undefined, 'MES_QA_COMMON'), error => {
+    assert.match(error.message, /并非有效的 Word 文档/)
+    assert.match(error.message, /另存为 DOCX 后重新导入/)
+    assert.match(error.cause.message, /central directory/)
+    assert.equal(loggedErrors.at(-1)[1], error.cause)
+    return true
+  })
+})
 const draftContext = { exports: {} }
 vm.runInNewContext(
   ts.transpileModule(fs.readFileSync('src/views/form-center/parser/simplePqc.ts', 'utf8'), {
@@ -265,7 +277,7 @@ test('common Word uses the correct page and preserves the entire common draft', 
   const legacy = createPqcWord({ ...commonDraft, dccProjectCodeId: 129 }, '7', [])
   assert.equal(readPqcWord(legacy, '7', undefined, 'MES_QA_COMMON').draft.dccProjectCodeId, undefined)
   assert.throws(() => readPqcWord(commonBytes, '8', 129, 'MES_QA_COMMON'), /其他租户/)
-  assert.match(new PizZip(commonBytes).file('word/document.xml').asText(), /简易通用解析/)
+  assert.match(new PizZip(commonBytes).file('word/document.xml').asText(), /通用编制/)
 })
 
 function loadEditing(vue) {

@@ -53,8 +53,6 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
     private RoleApi roleApi;
     @Resource
     private PostApi postApi;
-    @Resource
-    private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentMapper assignmentMapper;
 
     @Override
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY,
@@ -156,11 +154,9 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
         var project = projectCodeId == null || projectCodeId <= 0 ? null : projectCodeMapper.selectById(projectCodeId);
         if (project == null || !java.util.Objects.equals(project.getTenantId(), tenant)
                 || !"ENABLE".equals(project.getStatus())
-                || !hasProjectAccess(userId, projectCodeId, Set.of("VIEW", "EDIT", "OWNER"), tenant)
-                || (!isProjectAdministrator(userId)
-                    && !project.isLibrary() && !isProjectCodeAdministrator(userId)
-                    && !withinAssignedProjectScope(userId, projectCodeId, tenant))) {
-            throw exception(DCC_PROJECT_ACCESS_DENIED);
+                || !hasProjectAccess(userId, projectCodeId, Set.of("VIEW", "EDIT", "OWNER"), tenant)) {
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(
+                    DCC_PROJECT_ACCESS_DENIED.getCode(), "缺少该项目查看权限，请联系项目管理员");
         }
     }
 
@@ -186,19 +182,18 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
         }
         Set<Long> roleIds = permissionApi.getUserRoleIdListByUserId(userId);
         Set<Long> deptIds = collectDeptIds(user.getDeptId());
+        // Viewing is authorized by formal ACLs; correction assignments constrain correction tasks only.
         Set<Long> allowed = accessRuleMapper.selectActiveReaderRules(tenant, LocalDateTime.now()).stream()
                 .filter(rule -> java.util.Objects.equals(rule.getTenantId(), tenant))
                 .filter(rule -> matches(rule, userId, user, roleIds, deptIds))
                 .map(DccProjectAccessRuleDO::getDccProjectCodeId)
                 .filter(java.util.Objects::nonNull)
                 .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
-        List<Long> hardScope = assignedProjectScope(userId, tenant);
         var libraries = projectCodeMapper.selectList(new LambdaQueryWrapperX<DccProjectCodeDO>()
                 .eq(DccProjectCodeDO::getTenantId, tenant)
                 .in(DccProjectCodeDO::getLibraryScope, List.of("QMS", "GENERAL")));
         // Retired library ACLs must never keep access after a role is revoked.
         libraries.stream().map(DccProjectCodeDO::getId).forEach(allowed::remove);
-        if (hardScope != null) allowed.removeIf(id -> !hardScope.contains(id));
         libraries.stream().filter(project -> java.util.Objects.equals(project.getTenantId(), tenant)
                         && "ENABLE".equals(project.getStatus())
                         && hasLibraryPermission(userId, project, Set.of("VIEW", "EDIT")))
@@ -222,23 +217,25 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
         return new EditorScope(false,ids,permissionApi.hasAnyPermissions(userId,"dcc:library:qms:edit"),permissionApi.hasAnyPermissions(userId,"dcc:library:general:edit"));
     }
 
-    private boolean withinAssignedProjectScope(Long userId, Long projectId, Long tenant) {
-        List<Long> hardScope = assignedProjectScope(userId, tenant);
-        return hardScope == null || hardScope.contains(projectId);
-    }
-
-    private List<Long> assignedProjectScope(Long userId, Long tenant) {
-        // scope:all removes only the pre-existing assignment restriction, never the formal project rule.
-        if (permissionApi.hasAnyPermissions(userId, "dcc:project-code:scope:all")
-                || !permissionApi.hasAnyPermissions(userId, "dcc:project-code-assignment:execute")) return null;
-        return java.util.Objects.requireNonNull(assignmentMapper.selectActiveProjectCodeIdsByAssigneeUserId(tenant, userId, LocalDateTime.now()),
-                "active assigned project scope");
-    }
-
     private void assertProjectAccess(Long userId, Long projectCodeId, Set<String> allowedAccessLevels) {
         if (!hasProjectAccess(userId, projectCodeId, allowedAccessLevels)) {
-            throw exception(DCC_PROJECT_ACCESS_DENIED);
+            throw projectAccessDenied(userId, projectCodeId, allowedAccessLevels);
         }
+    }
+
+    private cn.iocoder.yudao.framework.common.exception.ServiceException projectAccessDenied(
+            Long userId, Long projectCodeId, Set<String> requiredLevels) {
+        Long tenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        var project = projectCodeId == null || projectCodeId <= 0 ? null : projectCodeMapper.selectById(projectCodeId);
+        // Formal project viewing permission determines whether the project's identity can be disclosed.
+        boolean visible = project != null && java.util.Objects.equals(project.getTenantId(), tenant)
+                && "ENABLE".equals(project.getStatus())
+                && hasProjectAccess(userId, projectCodeId, Set.of("VIEW", "EDIT", "OWNER"), tenant);
+        String level = requiredLevels.contains("VIEW") ? "查看"
+                : requiredLevels.contains("EDIT") ? "编辑" : "所有者";
+        String target = visible ? "项目【" + project.getProjectCode() + " / " + project.getProjectName() + "】" : "该项目";
+        return new cn.iocoder.yudao.framework.common.exception.ServiceException(
+                DCC_PROJECT_ACCESS_DENIED.getCode(), "缺少" + target + level + "权限，请联系项目管理员");
     }
 
     private boolean hasProjectAccess(Long userId, Long projectCodeId, Set<String> allowedAccessLevels) {

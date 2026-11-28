@@ -42,7 +42,10 @@ test('real preview metadata parser preserves both receipt states and rejects inv
     assert.equal(parse({ ...base, receiptAcknowledged }).receiptAcknowledged, receiptAcknowledged)
   }
   assert.equal(parse(base).receiptAcknowledged, undefined)
-  assert.throws(() => parse({ ...base, receiptAcknowledged: 'false' }), /receiptAcknowledged/)
+  assert.equal(parse({ ...base, receiptAcknowledged: null }).receiptAcknowledged, undefined)
+  for (const receiptAcknowledged of ['false', 'true', 0, 1, {}, []]) {
+    assert.throws(() => parse({ ...base, receiptAcknowledged }), /receiptAcknowledged/)
+  }
 })
 test('receipt signed in workbench stays readable and has no signature form in notification', async () => {
   const p = panel(metadata(true)); await p.load()

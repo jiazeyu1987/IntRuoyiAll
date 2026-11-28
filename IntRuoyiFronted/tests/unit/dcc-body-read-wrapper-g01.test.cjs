@@ -10,7 +10,7 @@ function load(fail = false) {
   const c = { exports: {}, ...h.exports, Error, axiosConfig: { base_url: '/admin-api', request_timeout: 1000 },
     request: { get: async req => { calls.metadata.push(req); if (fail) throw new Error('真实metadata失败'); return { viewerToken: 'token', viewerTokenId: 'id', viewerTokenNonce: 'nonce', accessEventCode: 'event', watermarkTraceCode: 'trace' } } },
     axios: { get: async (url, config) => { calls.binary.push({ url, config }); return { data: 'blob', headers: {} } } },
-    parseControlledFilePreviewMetadata: x => x, assertDistributionPreviewRequest() {}, assertDistributionPreviewMetadata() {},
+    parseControlledFilePreviewMetadata: x => x, assertDistributionPreviewRequest() {}, assertDistributionPreviewMetadata() {}, assertControlledFileDownloadBusinessResult: async () => {},
     buildControlledFileBinaryHeaders: x => ({ Authorization: 'Bearer credential', ...x }), decodePreviewWatermark: () => 'wm', getAxiosHeader: () => 'wm',
     DCC_VIEWER_TOKEN_HEADER: 'token', DCC_VIEWER_TOKEN_ID_HEADER: 'id', DCC_VIEWER_TOKEN_NONCE_HEADER: 'nonce', DCC_ACCESS_EVENT_CODE_HEADER: 'event', DCC_WATERMARK_TRACE_CODE_HEADER: 'trace',
     CONTROLLED_FILE_PREVIEW_WATERMARK_HEADER: 'wm' }

@@ -3639,7 +3639,7 @@ const saveQaItemEquipment = async (row: QaRegulationItem) => {
               row.itemName + '设备编号'
             ),
             enabled: true,
-            sort: 0
+            sort: 1
           }
         ]
       }))

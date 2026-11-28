@@ -233,8 +233,9 @@ public class MesProRouteVersionController {
     @Operation(summary = "取消工艺路线候选版本")
     @Parameter(name = "id", description = "候选路线版本编号", required = true)
     @PreAuthorize("@ss.hasPermission('mes:pro-route:version-cancel')")
-    public CommonResult<MesProRouteVersionRespVO> cancelCandidate(@RequestParam("id") Long id) {
-        return success(BeanUtils.toBean(workflowService.cancelCandidate(id), MesProRouteVersionRespVO.class));
+    public CommonResult<MesProRouteVersionRespVO> cancelCandidate(@RequestParam("id") Long id,
+            @RequestParam(value = "discardUnsavedOnly", defaultValue = "false") boolean discardUnsavedOnly) {
+        return success(BeanUtils.toBean(workflowService.cancelCandidate(id, discardUnsavedOnly), MesProRouteVersionRespVO.class));
     }
 
     @PostMapping("/submit-publish")

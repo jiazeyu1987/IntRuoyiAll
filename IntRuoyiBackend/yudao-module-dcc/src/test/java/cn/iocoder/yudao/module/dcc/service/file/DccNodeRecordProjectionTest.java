@@ -41,6 +41,19 @@ class DccNodeRecordProjectionTest {
         assertThrows(IllegalStateException.class,()->DccApplicationNodeRecordProjection.project(file(),"bpm",List.of(s),
                 List.of(task("signoff","MATRIX_REVIEW")),"duplicate".equals(invalid)?List.of(a,a):List.of(a)));
     }
+    @Test void rejectedSignoffUsesAssignmentSignatureOfExactTaskAndRound(){
+        var reject=signed(2,"one");reject.setActionType("REJECT");
+        assertEquals("MATRIX_REVIEW_ASSIGN",DccApplicationNodeRecordProjection.project(file(),"bpm",List.of(reject),List.of(task("one","MATRIX_REVIEW")),List.of()).get(0).stageCode());
+        var assign=signed(1,"one");assign.setActionType("ASSIGN");var snapshot=assignment(assign);snapshot.setAssigneeUserId(assign.getActorId());
+        var rows=DccApplicationNodeRecordProjection.project(file(),"bpm",List.of(assign,reject),List.of(task("one","MATRIX_REVIEW")),List.of(snapshot));
+        assertEquals("MATRIX_REVIEW_ASSIGN",rows.get(0).stageCode());assertEquals("MATRIX_REVIEW",rows.get(1).stageCode());
+        assertEquals("ASSIGN",assign.getActionType());assertEquals("REJECT",reject.getActionType());assertEquals(assign.getId(),rows.get(0).signatureId());assertEquals(reject.getTaskId(),rows.get(1).taskId());
+        reject.setTaskId("two");
+        rows=DccApplicationNodeRecordProjection.project(file(),"bpm",List.of(assign,reject),List.of(task("one","MATRIX_REVIEW"),task("two","MATRIX_REVIEW")),List.of(snapshot));
+        assertEquals("MATRIX_REVIEW_ASSIGN",rows.get(1).stageCode());
+        reject.setTaskId("one");reject.setSignedAt(assign.getSignedAt().minusSeconds(1));
+        assertThrows(IllegalStateException.class,()->DccApplicationNodeRecordProjection.project(file(),"bpm",List.of(assign,reject),List.of(task("one","MATRIX_REVIEW")),List.of(snapshot)));
+    }
     @Test void rejectsForeignTenantRoundTaskVersionAndRepeatedSignature(){
         var t=task("one","MATRIX_REVIEW");var s=signed(1,"one");
         when(t.getTenantId()).thenReturn("2");assertThrows(IllegalStateException.class,()->DccApplicationNodeRecordProjection.project(file(),"bpm",List.of(s),List.of(t),List.of()));

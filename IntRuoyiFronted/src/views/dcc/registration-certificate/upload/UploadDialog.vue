@@ -155,6 +155,12 @@ watch(()=>props.modelValue,async visible=>{if(!visible)return;hydrating.value=tr
  const result=await getMyRegistrationCertificateUpload(props.requestId),frozen=JSON.parse(result.request.detailJson),draft=frozen.draft
  if(!draft||!frozen.factsJson)throw new Error('该申请未保留完整提交内容，不能自动回填，请联系注册部核对')
  facts.value=JSON.parse(frozen.factsJson);productName.value=draft.productName;companyId.value=draft.ownerCompanyId;projectCodeIds.value=(facts.value.projectProducts??[]).map(p=>p.projectCodeId)
+ if(projectCodeIds.value.length){
+  const selected=await getUploadProjectCodes({ids:projectCodeIds.value,sourceRequestId:props.requestId})
+  const selectedIds=new Set(selected.map(project=>String(project.id)))
+  if(projectCodeIds.value.some(id=>!selectedIds.has(String(id))))throw new Error('原申请项目资料不完整，请联系注册部核对')
+  projects.value=[...selected,...projects.value.filter(project=>!selectedIds.has(String(project.id)))]
+ }
  if(!companies.value.some(c=>String(c.id)===String(companyId.value)))companies.value.push({id:companyId.value!,name:frozen.ownerCompanyName})
  entrustedProduction.value=draft.entrustedProduction;selfProduction.value=draft.selfProduction;entrustedEnterpriseIds.value=draft.entrustedEnterpriseIds??[]
  if(entrustedProduction.value)await searchEnterprises()

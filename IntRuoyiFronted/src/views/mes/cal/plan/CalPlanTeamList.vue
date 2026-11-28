@@ -24,7 +24,6 @@
           highlight-current-row
           @current-change="handleTeamSelect"
         >
-          <el-table-column label="班组编号" align="center" prop="teamId" width="100" />
           <el-table-column label="班组编码" align="center" prop="teamCode" min-width="100" />
           <el-table-column label="班组名称" align="center" prop="teamName" min-width="100" />
           <el-table-column label="备注" align="center" prop="remark" min-width="120" />

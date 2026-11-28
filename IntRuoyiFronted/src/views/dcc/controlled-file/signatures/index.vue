@@ -88,7 +88,7 @@
                   </span>
                 </div>
                 <div class="signature-record-summary__meta">
-                  目的：{{ formatDccSignatureSnapshotValue(row.signaturePurpose || row.meaningCode) }}
+                  目的：{{ row.signaturePurpose || getDccSignatureMeaningLabel(row.meaningCode) }}
                 </div>
                 <div class="signature-record-summary__meta">时间：{{ formatDateTimeValue(row.signedAt) }}</div>
               </div>
@@ -138,10 +138,10 @@
                   </el-tag>
                 </div>
                 <div class="signature-record-summary__meta">
-                  快照：{{ formatDccSignatureSnapshotValue(row.snapshotStatus) }}
+                  快照：{{ formatSnapshotStatus(row.snapshotStatus) }}
                 </div>
                 <div class="signature-record-summary__meta">
-                  签名图片：{{ formatDccSignatureSnapshotValue(row.signatureImageVerifiedStatus) }}
+                  签名图片：{{ getDccSignatureEvidenceStatusLabel(row.signatureImageVerifiedStatus) }}
                 </div>
                 <details v-if="row.signatureImageSha256 || row.signatureImageSha256Short" class="signature-record-summary__meta">
                   <summary>签名图片校验信息</summary>
@@ -718,6 +718,8 @@ const getAuthorizationUserLabel = (row: DccElectronicSignatureAuthorizationVO) =
   return label === '-' ? `用户#${row.userId}` : label
 }
 
+const formatSnapshotStatus = (value?: string) => value === 'CAPTURED' ? '已留存签名快照' : value ? `未知快照状态（${value}），请核查` : '旧版证据未记录'
+
 const formatDccSignatureSnapshotValue = (value?: string | number | null) => {
   if (value === undefined || value === null) return '旧版证据未记录'
   const text = String(value).trim()
@@ -1004,7 +1006,7 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
       [
         getDccSignatureMeaningLabel(row.meaningCode),
         getDccSignatureTaskActionLabel(row.taskActionResult),
-        formatDccSignatureSnapshotValue(row.signaturePurpose || row.meaningCode),
+        row.signaturePurpose || getDccSignatureMeaningLabel(row.meaningCode),
         formatDateTimeValue(row.signedAt)
       ].join(' ')
   },
@@ -1016,8 +1018,8 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
       [
         getDccControlledCopyHashStatusLabel(row.controlledCopyHashStatus),
         getDccSignatureEvidenceStatusLabel(row.evidenceStatus),
-        formatDccSignatureSnapshotValue(row.snapshotStatus),
-        formatDccSignatureSnapshotValue(row.signatureImageVerifiedStatus),
+        formatSnapshotStatus(row.snapshotStatus),
+        getDccSignatureEvidenceStatusLabel(row.signatureImageVerifiedStatus),
         formatDccHashShort(row.signatureImageSha256Short || row.signatureImageSha256)
       ].join(' ')
   }

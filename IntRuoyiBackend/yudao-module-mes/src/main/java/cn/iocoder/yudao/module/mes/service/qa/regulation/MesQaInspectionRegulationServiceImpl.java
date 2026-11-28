@@ -196,8 +196,12 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         int processCount = toIntCount(processMapper.selectCountByVersionIds(versionIds));
         int itemCount = toIntCount(itemMapper.selectCountByVersionIds(versionIds));
         int itemEquipmentCount = toIntCount(itemEquipmentMapper.selectCountByVersionIds(versionIds));
+        List<String> itemCodes = itemMapper.selectListByVersionIds(versionIds).stream()
+                .map(MesQaInspectionRegulationItemDO::getItemCode)
+                .filter(StrUtil::isNotBlank).distinct().toList();
         itemEquipmentMapper.deleteByVersionIds(versionIds);
         itemMapper.deleteByVersionIds(versionIds);
+        equipmentConfigService.deleteUnusedItemConfigs(itemCodes);
         processMapper.deleteByVersionIds(versionIds);
         versionMapper.deleteByRegulationId(regulation.getId());
         regulationMapper.deleteById(regulation.getId());
@@ -228,14 +232,19 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
             var equipmentByItemCode = equipmentConfigService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
                     dccProjectCode.getId(), context.version().getId(), itemCodes);
             reqVO.getProcesses().forEach(process -> process.getItems().forEach(item -> {
-                item.setEquipmentOptions(equipmentByItemCode.getOrDefault(StrUtil.trim(item.getItemCode()), List.of())
-                        .stream().map(equipment -> new MesQaInspectionRegulationSaveReqVO.EquipmentOption()
+                var equipmentOptions = equipmentByItemCode.getOrDefault(StrUtil.trim(item.getItemCode()), List.of());
+                // Configuration order may start at zero; snapshots use a one-based rank.
+                item.setEquipmentOptions(java.util.stream.IntStream.range(0, equipmentOptions.size())
+                        .mapToObj(index -> {
+                            var equipment = equipmentOptions.get(index);
+                            return new MesQaInspectionRegulationSaveReqVO.EquipmentOption()
                                 .setEquipmentId(equipment.equipmentId())
                                 .setEquipmentCode(equipment.equipmentCode())
                                 .setEquipmentName(equipment.equipmentName())
                                 .setEquipmentNumber(equipment.equipmentNumber())
                                 .setDefaultFlag(equipment.defaultFlag())
-                                .setSort(equipment.sort())).toList());
+                                .setSort(index + 1);
+                        }).toList());
                 if (!item.getEquipmentOptions().isEmpty()) {
                     item.setEquipmentUnboundReason(null);
                 }
@@ -386,7 +395,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                                 .commonRegulationId(regulation.getId())
                                 .commonRegulationVersionId(version.getId())
                                 .commonRegulationCode(regulation.getRegulationCode())
-                                .commonRegulationName(regulation.getRegulationName())
+                                .commonRegulationName(requireSnapshotRegulationName(version))
                                 .versionNo(version.getVersionNo())
                                 .lifecycleStatus(version.getLifecycleStatus())
                                 .effectiveDate(version.getEffectiveDate())
@@ -1180,7 +1189,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                                     .commonRegulationId(common.regulation().getId())
                                     .commonRegulationVersionId(common.version().getId())
                                     .commonRegulationCode(common.regulation().getRegulationCode())
-                                    .commonRegulationName(common.regulation().getRegulationName())
+                                    .commonRegulationName(requireSnapshotRegulationName(common.version()))
                                     .versionNo(common.version().getVersionNo())
                                     .lifecycleStatus(common.version().getLifecycleStatus()).build();
                         }).toList())
@@ -1470,7 +1479,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .commonRegulationId(commonVersion.regulation().getId())
                 .commonRegulationVersionId(commonVersion.version().getId())
                 .commonRegulationCode(commonVersion.regulation().getRegulationCode())
-                .commonRegulationName(commonVersion.regulation().getRegulationName())
+                .commonRegulationName(requireSnapshotRegulationName(commonVersion.version()))
                 .versionNo(commonVersion.version().getVersionNo())
                 .lifecycleStatus(commonVersion.version().getLifecycleStatus())
                 .effectiveDate(commonVersion.version().getEffectiveDate())
@@ -1564,7 +1573,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .commonRegulationId(regulation.getId())
                 .commonRegulationVersionId(version.getId())
                 .commonRegulationCode(regulation.getRegulationCode())
-                .commonRegulationName(regulation.getRegulationName())
+                .commonRegulationName(requireSnapshotRegulationName(version))
                 .versionNo(version.getVersionNo())
                 .lifecycleStatus(version.getLifecycleStatus())
                 .effectiveDate(version.getEffectiveDate())
@@ -1947,6 +1956,15 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                             .build();
                 })
                 .toList();
+    }
+
+    private static String requireSnapshotRegulationName(MesQaInspectionRegulationVersionDO version) {
+        String name = parseSnapshot(version).getString("regulationName");
+        if (StrUtil.isBlank(name)) {
+            throw exception(QA_INSPECTION_REGULATION_SNAPSHOT_INVALID,
+                    "版本 " + version.getId() + " 缺少发布时的规程名称");
+        }
+        return name;
     }
 
     private static String firstNonBlank(String first, String second) {

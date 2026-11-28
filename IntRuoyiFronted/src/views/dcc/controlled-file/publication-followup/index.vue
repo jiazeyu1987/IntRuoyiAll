@@ -54,8 +54,14 @@
                 />
               </el-select>
             </el-form-item>
-            <el-form-item label="负责人 ID">
-              <el-input v-model="filters.assigneeUserId" clearable />
+            <el-form-item label="负责人">
+              <el-select v-model="filters.assigneeUserId" filterable clearable placeholder="请选择负责人">
+                <el-option v-for="user in assigneeOptions" :key="user.id" :value="String(user.id)" :label="user.nickname || user.username" />
+              </el-select>
+              <details class="mt-4px">
+                <summary>按账号身份精确筛选</summary>
+                <el-input v-model="filters.assigneeUserId" clearable placeholder="输入历史账号身份，可查询停用账号" />
+              </details>
             </el-form-item>
           </el-form>
         </template>
@@ -260,6 +266,7 @@ import {
   revisionTrackingStatusLabel
 } from '../shared/publicationFollowupPresentation'
 import PublicationFollowupTimeline from '../shared/PublicationFollowupTimeline.vue'
+import { getSimpleUserList, type UserVO } from '@/api/system/user'
 
 defineOptions({ name: 'DccControlledFilePublicationFollowup' })
 const router = useRouter()
@@ -270,6 +277,7 @@ const actionError = ref('')
 const retryingDeliveryId = ref('')
 const reopeningTaskId = ref('')
 const rows = ref<DccPublicationFollowupVO[]>([])
+const assigneeOptions = ref<UserVO[]>([])
 const total = ref(0)
 const pageNo = ref(1)
 const pageSize = ref(10)
@@ -295,7 +303,7 @@ const loadPage = async () => {
   loadError.value = ''
   try {
     if (filters.assigneeUserId && !isPositiveLongId(filters.assigneeUserId)) {
-      throw new Error('负责人 ID 必须是有效的正十进制整数')
+      throw new Error('所选负责人身份无效，请重新选择')
     }
     const result = await getPublicationFollowupManagementPage({
       pageNo: pageNo.value, pageSize: pageSize.value, listFilters: filters.listFilters,
@@ -361,7 +369,10 @@ const reopenImpact = async (task: DccPublicationImpactTaskVO) => {
   }
 }
 
-onMounted(loadPage)
+onMounted(async () => {
+  await loadPage()
+  assigneeOptions.value = await getSimpleUserList()
+})
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {
@@ -508,7 +519,7 @@ const allColumnDisplayFilters1: ListColumnFilterDefinition[] = [
     key: 'userName',
     label: '收件人',
     type: 'text',
-    getValue: (row) => [row.userName || row.userId].join(' ')
+    getValue: (row) => [row.userName || '收件人姓名未记录'].join(' ')
   },
   {
     key: 'status',

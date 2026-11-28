@@ -181,7 +181,7 @@
               编辑
             </el-button>
             <el-button
-              v-if="testModeEnabled && (canUseTemplateInteractiveAction(selectedTemplate))"
+              v-if="testModeEnabled && canUseTemplateInteractiveAction(selectedTemplate)"
               link
               class="scheme-d-row-action scheme-d-row-action--primary app-test-button"
               type="primary"
@@ -250,7 +250,9 @@
               启用
             </el-button>
             <el-button
-              v-if="resolveTemplateObsoleteOperationState(selectedTemplate) === 'pending-withdrawable'"
+              v-if="
+                resolveTemplateObsoleteOperationState(selectedTemplate) === 'pending-withdrawable'
+              "
               v-hasPermi="['form:template:obsolete']"
               link
               class="scheme-d-row-action scheme-d-row-action--warning"
@@ -260,7 +262,9 @@
               撤回作废申请
             </el-button>
             <el-button
-              v-else-if="resolveTemplateObsoleteOperationState(selectedTemplate) === 'pending-readonly'"
+              v-else-if="
+                resolveTemplateObsoleteOperationState(selectedTemplate) === 'pending-readonly'
+              "
               link
               class="scheme-d-row-action scheme-d-row-action--warning"
               type="warning"
@@ -330,7 +334,10 @@
     </Teleport>
   </ContentWrap>
 
-  <ContentWrap v-if="isDesignerMode && templateRouteLoadError" class="!mb-0 form-template-route-workspace">
+  <ContentWrap
+    v-if="isDesignerMode && templateRouteLoadError"
+    class="!mb-0 form-template-route-workspace"
+  >
     <el-alert :title="templateRouteLoadError" type="error" :closable="false" show-icon />
   </ContentWrap>
   <FormTemplateDesignerWrapper
@@ -348,7 +355,9 @@
     v-if="!isDesignerMode && !isTemplateSimulationMode"
     v-model="fillConfigDialogVisible"
     :template="selectedTemplate"
-    :sheet-layout-json="visualPreviewFormViewModel?.sheetLayoutJson || parsedTemplateJimuSchema?.sheetLayoutJson"
+    :sheet-layout-json="
+      visualPreviewFormViewModel?.sheetLayoutJson || parsedTemplateJimuSchema?.sheetLayoutJson
+    "
     :cell-rules="templatePreviewCellRules"
     :signature-cell-markers="templatePreviewSignatureMarkers"
     :assist-rows="parsedTemplateJimuSchema?.assistRows || []"
@@ -414,7 +423,7 @@
     </template>
   </Dialog>
   <ContentWrap
-    v-if="testModeEnabled && (isTemplateSimulationMode)"
+    v-if="testModeEnabled && isTemplateSimulationMode"
     :body-style="{ padding: '0px' }"
     class="!mb-0 form-template-route-workspace scheme-d-basic-data-page scheme-d-basic-data-page--form-template"
   >
@@ -499,7 +508,12 @@
           第 {{ row.rowIndex + 1 }} 行 / 第 {{ row.columnIndex + 1 }} 列
         </template>
       </el-table-column>
-      <el-table-column label="签名动作" prop="actionType" width="140" />
+      <el-table-column label="签名动作" width="140"
+        ><template #default="{ row }"
+          >{{ row.actionType === 'FORM_REVIEW' ? '表单复核' : '签名动作未识别'
+          }}<details><summary>动作详情</summary>{{ row.actionType }}</details></template
+        ></el-table-column
+      >
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
           <el-tag class="scheme-d-tag" :type="row.enabled ? 'success' : 'info'" effect="plain">
@@ -510,7 +524,9 @@
     </el-table>
     <template #footer>
       <div class="scheme-d-dialog-footer">
-        <el-button class="scheme-d-btn scheme-d-btn--danger" @click="signatureDialogVisible = false">关闭</el-button>
+        <el-button class="scheme-d-btn scheme-d-btn--danger" @click="signatureDialogVisible = false"
+          >关闭</el-button
+        >
         <el-button
           class="scheme-d-btn scheme-d-btn--primary"
           type="primary"
@@ -552,8 +568,14 @@ import FormTemplateDesignerWrapper from './components/FormTemplateDesignerWrappe
 import FormTemplateFillConfigDialog, {
   type FormTemplateFillConfigSavePayload
 } from './components/FormTemplateFillConfigDialog.vue'
-import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
-import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
+import {
+  useUserTableColumns,
+  type UserTableColumnDefinition
+} from '@/hooks/web/useUserTableColumns'
+import {
+  useTableQuickFilter,
+  type TableQuickFilterDefinition
+} from '@/hooks/web/useTableQuickFilter'
 import { formatDate } from '@/utils/formatTime'
 import EdhrExecutionReadonlyForm from '@/views/mes/pro/edhr/components/EdhrExecutionReadonlyForm.vue'
 import EdhrExecutionTemplateEditableForm from '@/views/mes/pro/edhr/components/EdhrExecutionTemplateEditableForm.vue'
@@ -591,7 +613,9 @@ const fillConfigOpening = ref(false)
 const fillConfigSaving = ref(false)
 const templateRouteLoadError = ref('')
 const templateFillValues = ref<TemplateSimulationValueMap>({})
-const obsoletePendingByTemplateKey = ref<Record<string, FormTemplateObsoletePendingRespVO | null>>({})
+const obsoletePendingByTemplateKey = ref<Record<string, FormTemplateObsoletePendingRespVO | null>>(
+  {}
+)
 const obsoleteRequestTarget = ref<FormTemplateListItemVO | null>(null)
 const obsoleteRequestForm = reactive({
   reason: ''
@@ -660,7 +684,9 @@ const selectedTemplate = computed(() =>
 )
 
 const recognizedFields = computed(() => selectedTemplate.value?.recognizedFields || [])
-const parsedTemplateJimuSchema = computed(() => parseTemplateJimuSchema(selectedTemplate.value?.jimuSchemaJson))
+const parsedTemplateJimuSchema = computed(() =>
+  parseTemplateJimuSchema(selectedTemplate.value?.jimuSchemaJson)
+)
 const baseTemplatePreviewCellRules = computed<BatchRecordReportCellRuleVO[]>(() =>
   buildRecognizedFieldCellRules(recognizedFields.value)
 )
@@ -671,7 +697,9 @@ const templatePreviewCellRules = computed<BatchRecordReportCellRuleVO[]>(() => {
 })
 const templatePreviewSignatureMarkers = computed<BatchRecordReportSignatureCellMarkerVO[]>(() => {
   const persistedMarkers = parsedTemplateJimuSchema.value?.signatureCellMarkers || []
-  return persistedMarkers.length ? persistedMarkers : buildSignatureMarkersFromRules(templatePreviewCellRules.value)
+  return persistedMarkers.length
+    ? persistedMarkers
+    : buildSignatureMarkersFromRules(templatePreviewCellRules.value)
 })
 const visualPreviewFormViewModel = computed(() =>
   buildTemplateVisualPreviewModel(
@@ -706,16 +734,25 @@ const getList = async () => {
   templateRouteLoadError.value = ''
   try {
     if (isDesignerMode.value || isTemplateSimulationMode.value) {
-      return await listRequest.run(async () => {
-        await syncTemplateRouteContext()
-        return { list: [], total: 0 }
-      }, (data) => { list.value = data.list; total.value = data.total })
+      return await listRequest.run(
+        async () => {
+          await syncTemplateRouteContext()
+          return { list: [], total: 0 }
+        },
+        (data) => {
+          list.value = data.list
+          total.value = data.total
+        }
+      )
     }
-    const applied = await listRequest.run(() => TemplateApi.getTemplatePool({ ...queryParams }), (data) => {
-      list.value = data.list
-      total.value = data.total
-      syncSelectedTemplate()
-    })
+    const applied = await listRequest.run(
+      () => TemplateApi.getTemplatePool({ ...queryParams }),
+      (data) => {
+        list.value = data.list
+        total.value = data.total
+        syncSelectedTemplate()
+      }
+    )
     if (!applied) return false
     await syncTemplateRouteContext()
     await refreshSelectedTemplateObsoletePending()
@@ -730,7 +767,12 @@ const getList = async () => {
   }
 }
 
-const quickFilter = useTableQuickFilter('form.center.template', quickFilterDefinitions, queryParams, getList)
+const quickFilter = useTableQuickFilter(
+  'form.center.template',
+  quickFilterDefinitions,
+  queryParams,
+  getList
+)
 
 const handleQuery = async () => {
   await quickFilter.applyQuickFilter()
@@ -750,7 +792,9 @@ const selectTemplate = (row: FormTemplateListItemVO) => {
 }
 
 const selectTemplateVersion = (templateId: number, versionNo: string) => {
-  const row = list.value.find((item) => item.templateId === templateId && item.versionNo === versionNo)
+  const row = list.value.find(
+    (item) => item.templateId === templateId && item.versionNo === versionNo
+  )
   if (!row) return
   selectedTemplateKey.value = templateRowKey(row)
   void refreshSelectedTemplateObsoletePending()
@@ -801,7 +845,10 @@ const loadTemplateObsoletePending = async (row: FormTemplateListItemVO) => {
     }
     return
   }
-  const pending = await TemplateApi.findTemplateObsoletePendingRequest(row.templateId, row.versionNo)
+  const pending = await TemplateApi.findTemplateObsoletePendingRequest(
+    row.templateId,
+    row.versionNo
+  )
   obsoletePendingByTemplateKey.value = {
     ...obsoletePendingByTemplateKey.value,
     [key]: pending
@@ -813,7 +860,10 @@ const selectedTemplateObsoletePending = computed(() => {
   return obsoletePendingByTemplateKey.value[templateRowKey(selectedTemplate.value)] || null
 })
 
-const openDesigner = async (template: FormTemplateListItemVO, reportMode: 'preview' | 'edit' = 'preview') => {
+const openDesigner = async (
+  template: FormTemplateListItemVO,
+  reportMode: 'preview' | 'edit' = 'preview'
+) => {
   const reportId = normalizeRouteQueryText(template.designerReportId)
   if (!reportId) {
     const reason = `表单模板“${template.templateName || template.templateId}”缺少 Jimu 报表 ID，无法进入表单模板 Jimu 编辑器。`
@@ -842,7 +892,11 @@ const openSelectedTemplateWorkspace = async (reportMode: 'preview' | 'edit') => 
     )
     await handleDraftVersionReady(response)
     const draftTemplate = selectedTemplate.value
-    if (!draftTemplate || draftTemplate.status !== 'DRAFT' || draftTemplate.versionNo !== response.versionNo) {
+    if (
+      !draftTemplate ||
+      draftTemplate.status !== 'DRAFT' ||
+      draftTemplate.versionNo !== response.versionNo
+    ) {
       const reason = `未能切换到表单模板草稿版本 ${response.templateId}/${response.versionNo}，无法进入 Jimu 编辑器。`
       message.error(reason)
       throw new Error(reason)
@@ -899,7 +953,11 @@ const openSelectedTemplateFillConfig = async () => {
 }
 
 type FormTemplateAction = 'signature'
-type FormTemplateObsoleteOperationState = 'normal' | 'pending-withdrawable' | 'pending-readonly' | 'voided'
+type FormTemplateObsoleteOperationState =
+  | 'normal'
+  | 'pending-withdrawable'
+  | 'pending-readonly'
+  | 'voided'
 
 const normalizeRouteQueryText = (value: unknown) => {
   const rawValue = Array.isArray(value) ? value[0] : value
@@ -1135,7 +1193,8 @@ const submitSelectedTemplateObsoleteRequest = async () => {
 }
 
 const withdrawSelectedTemplateObsoleteRequest = async () => {
-  if (!selectedTemplate.value || !selectedTemplateObsoletePending.value?.approvalProcessInstanceId) return
+  if (!selectedTemplate.value || !selectedTemplateObsoletePending.value?.approvalProcessInstanceId)
+    return
   try {
     await message.delConfirm('确认撤回当前表单模板作废申请吗？撤回后模板会恢复申请前状态。')
   } catch (error) {
@@ -1184,7 +1243,9 @@ const pendingVersionTagType = (status: FormTemplateStatus) => {
 }
 
 const canPublishTemplate = (row: FormTemplateListItemVO) => {
-  return row.status !== 'PUBLISHED' && row.status !== 'OBSOLETE' && row.status !== 'PENDING_APPROVAL'
+  return (
+    row.status !== 'PUBLISHED' && row.status !== 'OBSOLETE' && row.status !== 'PENDING_APPROVAL'
+  )
 }
 
 const canDisableTemplate = (row: FormTemplateListItemVO) => {
@@ -1210,7 +1271,11 @@ const canUseTemplateInteractiveAction = (row: FormTemplateListItemVO) => {
 }
 
 const canObsoleteTemplate = (row: FormTemplateListItemVO) => {
-  return row.status !== 'PENDING_APPROVAL' && row.status !== 'OBSOLETE' && resolveTemplateObsoleteOperationState(row) === 'normal'
+  return (
+    row.status !== 'PENDING_APPROVAL' &&
+    row.status !== 'OBSOLETE' &&
+    resolveTemplateObsoleteOperationState(row) === 'normal'
+  )
 }
 
 const formatTemplateUpdatedTime = (value?: string | number | Date) => {
@@ -1275,13 +1340,15 @@ const fieldValueType = (fieldType?: string): BatchRecordReportCellValueType => {
     normalized === 'input-number' ||
     compact === 'inputnumber' ||
     normalized.includes('数字')
-  ) return 'NUMBER'
+  )
+    return 'NUMBER'
   if (
     normalized === 'datetime' ||
     normalized === 'date-time' ||
     compact === 'datetime' ||
     normalized.includes('日期时间')
-  ) return 'DATETIME'
+  )
+    return 'DATETIME'
   if (normalized === 'date' || normalized.includes('日期')) return 'DATE'
   if (normalized.includes('时间')) return 'DATETIME'
   if (normalized === 'checkbox' || compact === 'checkbox') return 'BOOLEAN'
@@ -1345,7 +1412,8 @@ const fieldComponentFlag = (fieldType?: string) => {
         compact.includes('radiogroup') ||
         compact.includes('optiongroup') ||
         compact.includes('singlechoice')
-      ) return 'radio-group'
+      )
+        return 'radio-group'
       if (normalized.includes('附件') || normalized.includes('文件')) return 'upload-file'
       if (normalized.includes('图片')) return 'upload-image'
       return 'input-text'
@@ -1388,7 +1456,8 @@ const parseTemplateJimuSchema = (schema?: string): FormTemplateJimuSchemaPayload
   const parsed = JSON.parse(schema) as FormTemplateJimuSchemaPayload
   return {
     ...parsed,
-    sheetLayoutJson: typeof parsed.sheetLayoutJson === 'string' ? parsed.sheetLayoutJson : undefined,
+    sheetLayoutJson:
+      typeof parsed.sheetLayoutJson === 'string' ? parsed.sheetLayoutJson : undefined,
     cellRules: Array.isArray(parsed.cellRules) ? parsed.cellRules : undefined,
     signatureCellMarkers: Array.isArray(parsed.signatureCellMarkers)
       ? parsed.signatureCellMarkers
@@ -1405,7 +1474,9 @@ const buildTemplateJimuSchemaPayload = (payload: FormTemplateJimuSchemaPayload) 
   })
 
 const sortCellRules = (rules: BatchRecordReportCellRuleVO[]) =>
-  [...rules].sort((left, right) => left.rowIndex - right.rowIndex || left.columnIndex - right.columnIndex)
+  [...rules].sort(
+    (left, right) => left.rowIndex - right.rowIndex || left.columnIndex - right.columnIndex
+  )
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message.trim()) return error.message
@@ -1416,19 +1487,25 @@ const resolveErrorMessage = (error: unknown, fallback: string) => {
 }
 
 const isSignatureRule = (rule: BatchRecordReportCellRuleVO) =>
-  rule.valueType === 'SIGNATURE' || String(rule.componentFlag || '').toLowerCase().includes('signature')
+  rule.valueType === 'SIGNATURE' ||
+  String(rule.componentFlag || '')
+    .toLowerCase()
+    .includes('signature')
 
 const buildSignatureMarkersFromRules = (rules: BatchRecordReportCellRuleVO[]) =>
   sortCellRules(rules)
     .filter(isSignatureRule)
-    .map((rule) => ({
-      rowIndex: rule.rowIndex,
-      columnIndex: rule.columnIndex,
-      enabled: true,
-      actionType: 'FORM_REVIEW',
-      label: rule.label || '签名',
-      signatureCellKey: buildTemplateFieldIdentity(rule.rowIndex, rule.columnIndex)
-    }) as BatchRecordReportSignatureCellMarkerVO)
+    .map(
+      (rule) =>
+        ({
+          rowIndex: rule.rowIndex,
+          columnIndex: rule.columnIndex,
+          enabled: true,
+          actionType: 'FORM_REVIEW',
+          label: rule.label || '签名',
+          signatureCellKey: buildTemplateFieldIdentity(rule.rowIndex, rule.columnIndex)
+        }) as BatchRecordReportSignatureCellMarkerVO
+    )
 
 const mergeTemplateRulesIntoSheetLayout = (
   sheetLayoutJson: string,
@@ -1447,7 +1524,10 @@ const mergeTemplateRulesIntoSheetLayout = (
     })
   })
   const markerMap = new Map(
-    markers.map((marker) => [buildTemplateFieldIdentity(marker.rowIndex, marker.columnIndex), marker])
+    markers.map((marker) => [
+      buildTemplateFieldIdentity(marker.rowIndex, marker.columnIndex),
+      marker
+    ])
   )
   sortCellRules(rules).forEach((rule) => {
     const rowKey = String(rule.rowIndex)
@@ -1581,7 +1661,10 @@ const buildTemplateVisualPreviewModel = (
   }
 
   const markerMap = new Map(
-    markers.map((marker) => [buildTemplateFieldIdentity(marker.rowIndex, marker.columnIndex), marker])
+    markers.map((marker) => [
+      buildTemplateFieldIdentity(marker.rowIndex, marker.columnIndex),
+      marker
+    ])
   )
   sortCellRules(rules).forEach((rule) => {
     const rowIndex = rule.rowIndex
@@ -1626,15 +1709,16 @@ const buildTemplateVisualPreviewModel = (
 onMounted(getList)
 
 watch(
-  () => [
-    route.name,
-    route.query.templateId,
-    route.query.versionNo,
-    route.query.mode,
-    route.query.reportId,
-    route.query.reportMode,
-    route.query.action
-  ] as const,
+  () =>
+    [
+      route.name,
+      route.query.templateId,
+      route.query.versionNo,
+      route.query.mode,
+      route.query.reportId,
+      route.query.reportMode,
+      route.query.action
+    ] as const,
   async () => {
     templateRouteLoadError.value = ''
     try {
@@ -1642,7 +1726,10 @@ watch(
       await handleTemplateActionQuery()
     } catch (error) {
       if (isDesignerMode.value || isTemplateSimulationMode.value) {
-        templateRouteLoadError.value = resolveErrorMessage(error, '表单模板加载失败，请联系管理员。')
+        templateRouteLoadError.value = resolveErrorMessage(
+          error,
+          '表单模板加载失败，请联系管理员。'
+        )
         return
       }
       throw error

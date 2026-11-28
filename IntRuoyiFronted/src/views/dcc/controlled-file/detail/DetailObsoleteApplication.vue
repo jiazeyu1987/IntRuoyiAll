@@ -48,8 +48,8 @@
       <el-collapse v-if="reworkEvidence">
         <el-collapse-item title="重办来源的原审批规则（只读）" name="source-matrix">
           <el-table data-testid="dcc-obsolete-source-matrix" :data="reworkEvidence.reworkSourceApprovalMatrix!.nodes" size="small">
-            <el-table-column prop="stageType" label="阶段" /><el-table-column prop="subjectName" label="参与对象" />
-            <el-table-column prop="marker" label="参与标记" /><el-table-column prop="approveMethod" label="批准方式" />
+            <el-table-column prop="stageType" label="阶段"><template #default="{ row }">{{ stageLabel(row.stageType) }}</template></el-table-column><el-table-column prop="subjectName" label="参与对象" />
+            <el-table-column prop="marker" label="参与标记" /><el-table-column prop="approveMethod" label="批准方式"><template #default="{ row }">{{ methodLabel(row.approveMethod) }}</template></el-table-column>
             <el-table-column prop="approveRatio" label="比例" /><el-table-column prop="ruleRemark" label="原规则说明" min-width="220" />
           </el-table>
         </el-collapse-item>
@@ -59,22 +59,22 @@
           <el-table :data="reworkEvidence.reworkSourceRelations!.originalUploadSelections" size="small">
             <el-table-column prop="fileNumber" label="文件编号" /><el-table-column prop="fileName" label="文件名称" />
             <el-table-column prop="versionNo" label="版本" />
-            <el-table-column prop="origin" label="来源" /><el-table-column prop="supplemental" label="补充关联" />
+            <el-table-column prop="origin" label="来源"><template #default="{ row }">{{ originLabel(row.origin) }}</template></el-table-column><el-table-column prop="supplemental" label="补充关联" />
           </el-table>
           <template v-for="stage in reworkEvidence.reworkSourceRelations!.stages" :key="stage.snapshot.header.id">
-            <p>签名凭证 {{ stage.snapshot.header.signatureId }} · {{ stage.snapshot.header.signedAt }}
-              · {{ stage.signatureEvidenceStatus }} · 签名身份匹配：{{ stage.signatureIdentityMatches ? '是' : '否' }}</p>
+            <p>签名时间：{{ stage.snapshot.header.signedAt }} · {{ getDccSignatureEvidenceStatusLabel(stage.signatureEvidenceStatus) }} · 签名身份匹配：{{ stage.signatureIdentityMatches ? '是' : '否' }}</p>
+            <details><summary>签名技术详情</summary>签名凭证：{{ stage.snapshot.header.signatureId }}</details>
             <el-table :data="stage.snapshot.members" size="small">
               <el-table-column prop="fileNumberSnapshot" label="文件编号" /><el-table-column prop="fileNameSnapshot" label="文件名称" />
               <el-table-column prop="versionNoSnapshot" label="版本" />
-              <el-table-column prop="origin" label="来源" /><el-table-column prop="supplemental" label="补充关联" />
+              <el-table-column prop="origin" label="来源"><template #default="{ row }">{{ originLabel(row.origin) }}</template></el-table-column><el-table-column prop="supplemental" label="补充关联" />
             </el-table>
           </template>
           <p>完整关联集合</p>
           <el-table data-testid="dcc-obsolete-source-complete-relations" :data="reworkEvidence.reworkSourceRelations!.completeSelections" size="small">
             <el-table-column prop="fileNumber" label="文件编号" /><el-table-column prop="fileName" label="文件名称" />
             <el-table-column prop="versionNo" label="版本" />
-            <el-table-column prop="origin" label="来源" /><el-table-column prop="supplemental" label="补充关联" />
+            <el-table-column prop="origin" label="来源"><template #default="{ row }">{{ originLabel(row.origin) }}</template></el-table-column><el-table-column prop="supplemental" label="补充关联" />
           </el-table>
         </el-collapse-item>
       </el-collapse>
@@ -83,20 +83,20 @@
         <el-collapse>
           <el-collapse-item v-if="session.draft.approvalMatrixBefore" title="原规则" name="before">
             <el-table :data="session.draft.approvalMatrixBefore.nodes" size="small">
-              <el-table-column prop="stageType" label="阶段" />
+              <el-table-column prop="stageType" label="阶段"><template #default="{ row }">{{ stageLabel(row.stageType) }}</template></el-table-column>
               <el-table-column prop="subjectName" label="参与对象" />
               <el-table-column prop="marker" label="参与标记" />
-              <el-table-column prop="approveMethod" label="批准方式" />
+              <el-table-column prop="approveMethod" label="批准方式"><template #default="{ row }">{{ methodLabel(row.approveMethod) }}</template></el-table-column>
               <el-table-column prop="approveRatio" label="比例" />
               <el-table-column prop="ruleRemark" label="原规则说明" min-width="220" />
             </el-table>
           </el-collapse-item>
           <el-collapse-item title="本次规则" name="after">
             <el-table :data="session.draft.approvalMatrixAfter.nodes" size="small">
-              <el-table-column prop="stageType" label="阶段" />
+              <el-table-column prop="stageType" label="阶段"><template #default="{ row }">{{ stageLabel(row.stageType) }}</template></el-table-column>
               <el-table-column prop="subjectName" label="参与对象" />
               <el-table-column prop="marker" label="参与标记" />
-              <el-table-column prop="approveMethod" label="批准方式" />
+              <el-table-column prop="approveMethod" label="批准方式"><template #default="{ row }">{{ methodLabel(row.approveMethod) }}</template></el-table-column>
               <el-table-column prop="approveRatio" label="比例" />
               <el-table-column prop="ruleRemark" label="原规则说明" min-width="220" />
             </el-table>
@@ -118,6 +118,7 @@
 </template>
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onBeforeUnmount } from 'vue'
+import { getDccSignatureEvidenceStatusLabel } from '../shared/signature-evidence'
 import { ElMessageBox } from 'element-plus'
 import { getSimpleDeptList, type DeptVO } from '@/api/system/dept'
 import { obsoleteControlledFile, getControlledFileObsoleteApplicationDraft, type ControlledFileVO,
@@ -129,6 +130,10 @@ import ProjectAttributesFields from '../project-attributes/ProjectAttributesFiel
 import DetailObsoleteImpact from './DetailObsoleteImpact.vue'
 import { validateAttributes, type ProjectAttributes, type AttributeSnapshot } from '../project-attributes/state'
 import { ObsoleteApplicationSession, type ObsoleteApplicationInput, type ObsoleteMatrixSelection } from './obsolete-application'
+// 与分类审阅矩阵及关系阶段快照的实际枚举一致；保留未知值，避免掩盖异常记录。
+const stageLabel = (value?: string) => value === 'SIGNOFF' ? '审核会签' : value === 'APPROVAL' ? '批准' : value ? `无法识别的审批阶段（${value}）` : '审批阶段未记录'
+const methodLabel = (value?: string) => value === 'ALL' ? '全部同意' : value === 'ANY' ? '任意一个同意' : value ? `无法识别的批准方式（${value}）` : '批准方式未记录'
+const originLabel = (value?: string) => value === 'UPLOAD' ? '上传时关联' : value === 'SUPPLEMENT' ? '审批时补充关联' : value ? `无法识别的关联来源（${value}）` : '关联来源未记录'
 const props = defineProps<{ modelValue: boolean; file: ControlledFileVO; allowed: boolean }>()
 const route = useRoute()
 const notificationSource = () => {

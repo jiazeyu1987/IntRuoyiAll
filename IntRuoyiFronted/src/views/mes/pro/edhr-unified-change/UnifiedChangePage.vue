@@ -52,7 +52,7 @@
 
       <div class="edhr-unified-change__table">
         <el-alert
-          title="历史版本不可覆盖；生效申请只记录阻断状态，待正式版本生效适配器接入后处理。"
+          title="历史版本不可覆盖。当前暂不能完成版本生效；提交生效申请后仍会被阻止，不会更改生效版本。"
           type="warning"
           :closable="false"
           show-icon
@@ -102,12 +102,24 @@
           </el-table-column>
           <el-table-column label="影响范围" min-width="260">
             <template #default="{ row }">
-              <div class="edhr-unified-change__json">{{ row.impactSummaryJson || '--' }}</div>
+              <div v-if="row.impactSummaryJson">
+                <p v-for="line in summarizeRecordedImpact(row.impactSummaryJson).lines" :key="line">{{ line }}</p>
+                <p v-if="summarizeRecordedImpact(row.impactSummaryJson).warning" role="status">{{ summarizeRecordedImpact(row.impactSummaryJson).warning }}</p>
+                <details><summary>查看影响范围原始数据（技术）</summary><pre class="edhr-unified-change__json">{{ row.impactSummaryJson }}</pre></details>
+              </div>
+              <span v-else>未记录影响范围</span>
               <div class="edhr-unified-change__muted">复算：{{ formatDateTime(row.impactRecalculatedAt) }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="复算摘要" min-width="220" prop="impactRecalculationHash" />
-          <el-table-column label="幂等键" min-width="220" prop="idempotencyKey" />
+          <el-table-column label="技术详情" min-width="160">
+            <template #default="{ row }">
+              <details>
+                <summary>查看技术详情</summary>
+                <p>复算校验码：{{ row.impactRecalculationHash || '未记录' }}</p>
+                <p>请求唯一标识：{{ row.idempotencyKey || '未记录' }}</p>
+              </details>
+            </template>
+          </el-table-column>
           <el-table-column label="操作" width="330" fixed="right">
             <template #default="{ row }">
               <div class="edhr-unified-change__actions">
@@ -253,12 +265,15 @@
             <el-form-item label="原因">
               <el-input v-model="changeForm.reason" type="textarea" :rows="3" />
             </el-form-item>
+            <details>
+              <summary>技术数据（变更快照与影响范围）</summary>
             <el-form-item label="差异快照">
               <el-input v-model="changeForm.diffSnapshotJson" type="textarea" :rows="4" />
             </el-form-item>
             <el-form-item label="影响范围">
               <el-input v-model="changeForm.impactSummaryJson" type="textarea" :rows="4" />
             </el-form-item>
+            </details>
           </template>
           <template v-else>
             <el-form-item label="申请ID">
@@ -274,9 +289,12 @@
               <el-input v-model="changeForm.signoffEvidenceHash" />
             </el-form-item>
           </template>
-          <el-form-item label="幂等键">
-            <el-input v-model="changeForm.idempotencyKey" />
-          </el-form-item>
+          <details>
+            <summary>技术详情（请求唯一标识）</summary>
+            <el-form-item label="幂等键">
+              <el-input v-model="changeForm.idempotencyKey" />
+            </el-form-item>
+          </details>
         </el-form>
         <template #footer>
           <el-button @click="changeDialogVisible = false">取消</el-button>
@@ -739,6 +757,46 @@ const formatDateTime = (value?: string | number) => {
 onMounted(() => {
   getList()
 })
+
+// Only fields already defined by EdhrUnifiedChangeImpactRespVO are interpreted here.
+// The backend accepts arbitrary nonempty JSON; unknown keys are not a business schema.
+const summarizeRecordedImpact = (raw: string): { lines: string[]; warning: string } => {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return { lines: [], warning: '影响范围数据格式错误，无法读取业务摘要。请展开原始数据核查。' }
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { lines: [], warning: '影响范围结构暂无法识别，请展开原始数据核查。' }
+  }
+  const value = parsed as Record<string, unknown>
+  const lines: string[] = []
+  const recognized = new Set<string>()
+  for (const [key, label] of [['impactDetail', '影响说明'], ['nextAction', '后续动作']] as const) {
+    const item = value[key]
+    if (typeof item === 'string' && item.trim()) {
+      lines.push(`${label}：${item}`)
+      recognized.add(key)
+    }
+  }
+  for (const [key, label] of [['requiresTraining', '再培训'], ['requiresRevalidation', '再验证'], ['requiresReleaseRecheck', '放行复检']] as const) {
+    if (typeof value[key] === 'boolean') {
+      lines.push(`${label}：${value[key] ? '需要' : '不需要'}`)
+      recognized.add(key)
+    }
+  }
+  const risks: Record<string, string> = { LOW: '低', MEDIUM: '中', HIGH: '高', CRITICAL: '关键' }
+  if (typeof value.riskLevel === 'string' && risks[value.riskLevel]) {
+    lines.push(`风险等级：${risks[value.riskLevel]}`)
+    recognized.add('riskLevel')
+  }
+  return {
+    lines,
+    warning: !lines.length ? '影响范围结构暂无法识别，请展开原始数据核查。'
+      : Object.keys(value).some((key) => !recognized.has(key)) ? '包含尚未识别的影响字段，请展开原始数据核查。' : ''
+  }
+}
 </script>
 
 <style scoped>
@@ -792,8 +850,9 @@ onMounted(() => {
 }
 
 .edhr-unified-change__json {
-  max-height: 48px;
-  overflow: hidden;
+  max-height: 360px;
+  overflow: auto;
+  white-space: pre-wrap;
   color: #172033;
   line-height: 1.5;
   word-break: break-all;

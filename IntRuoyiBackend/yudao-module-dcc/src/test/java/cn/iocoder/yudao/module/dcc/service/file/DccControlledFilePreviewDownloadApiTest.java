@@ -405,4 +405,20 @@ class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
             verify(finalizationService).releaseManualDistribution(99L, 904L);
         }
     }
+
+    @Test void originalDownloadDelegatesExactVariantAndKeepsEvidenceHeaders() {
+        var binary = new DccDownloadFileBinary("original.pdf", "application/pdf", new byte[]{1,2,3},
+                "original-request", "AE-original", "a".repeat(64));
+        when(queryService.readOriginalDownloadFile(eq(99L),eq(900L),eq(true),eq("original-request"),any()))
+                .thenReturn(binary);
+        try (var security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            var response=controller.downloadOriginalControlledFile(900L,true," original-request ",auditRequest());
+            org.junit.jupiter.api.Assertions.assertArrayEquals(binary.bytes(),response.getBody());
+            assertEquals("original-request",response.getHeaders().getFirst("X-DCC-Download-Request-Id"));
+            assertEquals("AE-original",response.getHeaders().getFirst("X-DCC-Access-Event-Code"));
+            verify(queryService,never()).readEditableDownloadFile(any(),any(),any(),any(),any());
+            verify(queryService,never()).readReadOnlyDownloadFile(any(),any(),any(),any(),any());
+        }
+    }
 }

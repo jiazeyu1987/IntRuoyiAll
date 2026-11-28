@@ -744,7 +744,7 @@
               :disabled="productionSopLoading"
               :aria-busy="productionSopLoading"
               aria-label="查看当前工序SOP"
-              :title="productionSopLoadError || (productionSopFileUrl ? '查看当前工序SOP' : '当前工序没有上传SOP文件')"
+              :title="productionSopLoadError ? 'SOP读取失败，点击查看原因' : (productionSopFileUrl ? '查看当前工序SOP' : '当前工序没有上传SOP文件')"
               @click="openProductionSop"
             >
               SOP
@@ -1326,12 +1326,19 @@
         </header>
         <div class="frontline-production-sop-body">
           <div v-if="productionSopLoadError" role="alert">
-            <p>SOP读取失败：{{ productionSopLoadError }}</p>
+            <p>SOP读取失败，当前无法查看该工序的SOP。请重试；如仍失败，请联系工艺负责人核查SOP配置。</p>
+            <details>
+              <summary>技术错误详情</summary>
+              <p>{{ productionSopLoadError }}</p>
+            </details>
             <button type="button" :disabled="productionSopLoading" @click="productionSopRefreshKey += 1">重试</button>
           </div>
           <p v-else-if="productionSopLoading || productionSopPreviewLoading" role="status">正在读取SOP文件…</p>
           <p v-else-if="!productionSopFileUrl" role="status">{{ deviceState.selectedProcess ? '当前工序没有上传SOP文件' : '请先选择工序' }}</p>
-          <p v-else-if="productionSopPreviewError" role="alert">SOP文件加载失败：{{ productionSopPreviewError }}</p>
+          <div v-else-if="productionSopPreviewError" role="alert">
+            <p>SOP文件加载失败，当前无法预览文件。请重试或联系工艺负责人检查文件。</p>
+            <details><summary>技术错误详情</summary><p>{{ productionSopPreviewError }}</p></details>
+          </div>
           <img
             v-else-if="productionSopIsImage && productionSopPreviewUrl"
             :src="productionSopPreviewUrl"

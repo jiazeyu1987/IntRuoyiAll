@@ -45,6 +45,13 @@
                 <Icon icon="ep:plus" class="mr-5px" />
                 新增类别
               </el-button>
+              <el-button
+                plain
+                v-hasPermi="['dcc:controlled-file:category:manage']"
+                @click="uploadPolicyDialogRef?.open({ categories })"
+              >
+                上传大小策略
+              </el-button>
             </template>
             <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <el-table
@@ -260,6 +267,7 @@
   </ContentWrap>
 
   <CategoryForm v-if="categoryFormMounted" ref="formRef" @success="loadData" />
+  <UploadSizePolicyDialog ref="uploadPolicyDialogRef" />
   <CategoryUploadSizePolicyDialog
     v-if="categoryUploadPolicyDialogMounted"
     ref="categoryUploadPolicyDialogRef"
@@ -272,6 +280,7 @@ import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter
 import { checkPermi } from '@/utils/permission'
 import ControlledFileWorkbenchEntry from '../shared/ControlledFileWorkbenchEntry.vue'
 import FileTypeTaxonomyPanel from '../basic-data/file-type-taxonomy/index.vue'
+import UploadSizePolicyDialog from './components/UploadSizePolicyDialog.vue'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import { handleTree } from '@/utils/tree'
@@ -368,6 +377,7 @@ const activeTab = ref<PermissionTabName>(resolveActiveTab(route.query.tab))
 const loadedTabNames = ref<Set<PermissionTabName>>(new Set([activeTab.value]))
 const loading = ref(false)
 const formRef = ref()
+const uploadPolicyDialogRef = ref<InstanceType<typeof UploadSizePolicyDialog>>()
 const categoryUploadPolicyDialogRef = ref()
 const categoryFormMounted = ref(false)
 const categoryUploadPolicyDialogMounted = ref(false)

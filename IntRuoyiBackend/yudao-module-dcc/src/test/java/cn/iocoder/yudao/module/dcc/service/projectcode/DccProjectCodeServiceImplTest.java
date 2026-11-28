@@ -580,6 +580,22 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void formalViewerCanReadAssociatedFilesWithoutCorrectionAssignment() {
+        var project = insertProjectCode("1", "查看权限项目", "VIEW-ONLY");
+        var file = insertControlledFile(project.getId(), "VIEW-1", "view.pdf", null, null);
+        var request = new DccProjectCodeControlledFilePageReqVO();
+        request.setPageNo(1);
+        request.setPageSize(20);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        when(controlledFileQueryService.canViewFileName(eq(99L), any(DccControlledFileDO.class))).thenReturn(true);
+
+        var result = projectCodeService.getControlledFilePage(99L, project.getId(), request);
+
+        assertEquals(List.of(file.getId()), result.getList().stream().map(DccControlledFileRespVO::getId).toList());
+        verify(projectAccess).assertProjectViewerOrAbove(99L, project.getId());
+    }
+
+    @Test
     void associatedFilePageExcludesFilesWhoseNameIsNotAuthorized() {
         var project = insertProjectCode("1", "项目权限测试", "CODE-PRIVATE");
         insertControlledFile(project.getId(), "PRIVATE-1", "private.pdf", null, null);

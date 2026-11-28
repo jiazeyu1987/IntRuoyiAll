@@ -22,7 +22,9 @@ import static org.mockito.Mockito.*;
 class DccLibraryOriginalDownloadPermissionTest {
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
 
-    @Test void editableEndpointAcceptsOnlyTheActualTenantLibraryEditorWithoutGlobalDownloadPermission() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"downloadEditableControlledFile", "downloadOriginalControlledFile"})
+    void libraryEndpointsAcceptOnlyTheActualTenantLibraryEditorWithoutGlobalDownloadPermission(String method) throws Exception {
         TenantContextHolder.setTenantId(1L);
         var files = mock(DccControlledFileMapper.class);
         var projects = mock(DccProjectCodeMapper.class);
@@ -41,7 +43,7 @@ class DccLibraryOriginalDownloadPermissionTest {
         when(projects.selectById(7L)).thenReturn(project);
 
         var expression = new SpelExpressionParser().parseExpression(DccControlledFileController.class
-                .getMethod("downloadEditableControlledFile", Long.class, Boolean.class, String.class, HttpServletRequest.class)
+                .getMethod(method, Long.class, Boolean.class, String.class, HttpServletRequest.class)
                 .getAnnotation(PreAuthorize.class).value());
         var context = new StandardEvaluationContext();
         context.setVariable("id", 10L);

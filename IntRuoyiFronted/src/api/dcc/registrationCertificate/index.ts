@@ -122,7 +122,7 @@ export interface DccRegistrationCertificatePageItemVO {
 }
 
 export interface DccRegistrationCertificateOldIndexItemVO {
-  factsJson?: string
+  certificateType: string
   certificateId: number | string
   versionId: number | string
   ownerCompanyId: number | string
@@ -529,10 +529,10 @@ export const getUploadOwnerCompanies = async (params?: { keyword?: string }) => 
   })
 }
 
-export const getUploadProjectCodes = async (params?: { keyword?: string; sourceRequestId?:number|string }) => {
+export const getUploadProjectCodes = async (params?: { keyword?: string; sourceRequestId?:number|string; ids?: (number|string)[] }) => {
   return await request.get<DccRegistrationCertificateUploadProjectCodeRespVO[]>({
     url: '/dcc/registration-certificates/uploads/project-codes',
-    params
+    params: params ? { ...params, ids: params.ids?.map(String).join(',') } : undefined
   })
 }
 

@@ -83,7 +83,8 @@ public class DccRegistrationCertificateUploadController {
     @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:upload:create')")
     public CommonResult<List<java.util.Map<String,Object>>> listProjectCodes(
             @RequestParam(value = "keyword", required = false) String keyword,
-            @RequestParam(value = "sourceRequestId", required = false) Long sourceRequestId) {
+            @RequestParam(value = "sourceRequestId", required = false) Long sourceRequestId,
+            @RequestParam(value = "ids", required = false) List<Long> ids) {
         DccProjectCodePageReqVO query = new DccProjectCodePageReqVO();
         query.setPageNo(1);
         query.setPageSize(20);
@@ -91,6 +92,7 @@ public class DccRegistrationCertificateUploadController {
         query.setStatus("ENABLE");
         Long tenantId=TenantContextHolder.getRequiredTenantId();
         Long excluded=uploadService.rejectedCertificateId(tenantId,getLoginUserId(),sourceRequestId);
+        if (ids != null) return success(uploadService.selectedProjectCandidates(tenantId, getLoginUserId(), ids, excluded));
         return success(projectCodeService.getProjectCodePage(query).getList().stream().map(item->{
             java.util.Map<String,Object> row=new java.util.LinkedHashMap<>();
             row.put("id",item.getId());row.put("projectCode",item.getProjectCode());row.put("projectName",item.getProjectName());

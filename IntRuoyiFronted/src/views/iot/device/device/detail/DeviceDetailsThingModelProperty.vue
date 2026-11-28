@@ -89,7 +89,7 @@
                 <!-- 数据图标 - 可点击 -->
                 <div
                   class="cursor-pointer flex items-center justify-center w-8 h-8 rounded-full hover:bg-blue-50 transition-colors"
-                  @click="openHistory(props.deviceId, item.identifier, item.dataType)"
+                  @click="openHistory(props.deviceId, item)"
                 >
                   <Icon icon="ep:data-line" class="text-[18px] text-[#0070ff]" />
                 </div>
@@ -99,9 +99,9 @@
               <div class="text-[14px]">
                 <div class="mb-2.5 last:mb-0">
                   <span class="text-[#717c8e] mr-2.5">属性值</span>
-                  <span class="text-[var(--el-text-color-primary)] font-600">
-                    {{ formatValueWithUnit(item) }}
-                  </span>
+                  <div class="text-[var(--el-text-color-primary)] font-600">
+                    <DevicePropertyValue :value="item.value" :definition="item" />
+                  </div>
                 </div>
                 <div class="mb-2.5 last:mb-0">
                   <span class="text-[#717c8e] mr-2.5">更新时间</span>
@@ -123,7 +123,7 @@
       <el-table-column label="数据类型" align="center" prop="dataType" />
       <el-table-column label="属性值" align="center" prop="value">
         <template #default="scope">
-          {{ formatValueWithUnit(scope.row) }}
+          <DevicePropertyValue :value="scope.row.value" :definition="scope.row" />
         </template>
       </el-table-column>
       <el-table-column
@@ -138,7 +138,7 @@
           <el-button
             link
             type="primary"
-            @click="openHistory(props.deviceId, scope.row.identifier, scope.row.dataType)"
+            @click="openHistory(props.deviceId, scope.row)"
           >
             查看数据
           </el-button>
@@ -151,6 +151,7 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
+import DevicePropertyValue from './DevicePropertyValue.vue'
 import { DeviceApi, IotDevicePropertyDetailRespVO } from '@/api/iot/device/device'
 import { dateFormatter, formatDate } from '@/utils/formatTime'
 import DeviceDetailsThingModelPropertyHistory from './DeviceDetailsThingModelPropertyHistory.vue'
@@ -206,17 +207,8 @@ const handleQuery = () => {
 
 /** 历史操作 */
 const historyRef = ref()
-const openHistory = (deviceId: number, identifier: string, dataType: string) => {
-  historyRef.value.open(deviceId, identifier, dataType)
-}
-
-/** 格式化属性值和单位 */
-const formatValueWithUnit = (item: IotDevicePropertyDetailRespVO) => {
-  if (item.value === null || item.value === undefined || item.value === '') {
-    return '-'
-  }
-  const unitName = item.dataSpecs?.unitName
-  return unitName ? `${item.value} ${unitName}` : item.value
+const openHistory = (deviceId: number, property: IotDevicePropertyDetailRespVO) => {
+  historyRef.value.open(deviceId, property)
 }
 
 /** 监听自动刷新 */

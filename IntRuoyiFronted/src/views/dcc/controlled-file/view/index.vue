@@ -1286,6 +1286,8 @@ const renderPdfPages = async (
 ) => {
   const loadingTask = getDocument({
     data: clonePdfBytesForWorker(pdfBytes),
+    cMapUrl: `${protectedViewerWorkerBaseUrl}pdfjs/cmaps/`,
+    cMapPacked: true,
     useWorkerFetch: false,
     isEvalSupported: false,
     enableXfa: false,

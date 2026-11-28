@@ -77,7 +77,8 @@
             v-bind="sortColumnAttrs('status')"
           >
             <template #default="{ row }">
-              <el-tag :type="row.statusType" size="small">{{ row.status }}</el-tag>
+              <el-tag :type="row.statusType" size="small">{{ governanceStatusLabel(row.status) }}</el-tag>
+              <details v-if="/^[A-Z][A-Z0-9_]*$/.test(row.status)" class="governance-technical-details"><summary>状态技术详情</summary>{{ row.status }}</details>
             </template>
           </el-table-column>
           <el-table-column
@@ -93,7 +94,7 @@
             prop="evidence"
             :min-width="getColumnMinWidthString('evidence', 240)"
             v-bind="sortColumnAttrs('evidence')"
-          />
+          ><template #default="{ row }"><details v-if="/^[a-fA-F0-9]{64}$/.test(row.evidence)"><summary>已记录校验码，展开技术详情</summary>{{ row.evidence }}</details><span v-else>{{ row.evidence }}</span></template></el-table-column>
           <el-table-column
             v-if="isColumnVisible('blockerImpact')"
             label="阻断影响"
@@ -130,6 +131,7 @@
 </template>
 
 <script lang="ts" setup>
+import { governanceLabel, governanceStatusLabel } from './governancePresentation'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
@@ -602,9 +604,9 @@ const buildClearBlockerRow = (): GovernanceRow => ({
   id: 'blocker-clear',
   item: '阻断项',
   source: '检查结果',
-  status: 'CLEAR',
+  status: retentionResult.value || dccReceiptResult.value || edhrReceiptResult.value || recoveryResult.value ? 'CLEAR' : '尚未检查',
   statusType: 'success',
-  keyFields: '暂无阻断',
+  keyFields: retentionResult.value || dccReceiptResult.value || edhrReceiptResult.value || recoveryResult.value ? '已执行的检查未发现阻断，未执行项仍需核查' : '执行对应检查后显示阻断结果',
   evidence: '—',
   blockerImpact: '—',
   actions: []
@@ -618,7 +620,7 @@ const rows = computed<GovernanceRow[]>(() => {
       source: `${displayValue(retentionForm.endpoint)} / ${displayValue(retentionForm.bucketName)}`,
       status: retentionResult.value?.status || '等待来源',
       statusType: statusTagType(retentionResult.value?.status),
-      keyFields: `模式 ${displayValue(retentionForm.retentionMode)}；Object Lock ${boolText(retentionForm.objectLockEnabled)}；Versioning ${boolText(retentionForm.versioningEnabled)}`,
+      keyFields: `模式 ${governanceLabel(retentionForm.retentionMode)}；Object Lock ${boolText(retentionForm.objectLockEnabled)}；Versioning ${boolText(retentionForm.versioningEnabled)}`,
       evidence: `权限 ${retentionForm.permissionsVerified ? '已确认' : '等待确认'}`,
       blockerImpact: retentionError.value || candidateAutoFillError.value || '—',
       actions: [{ label: '预检', loading: retentionLoading.value, handler: runRetentionPrecheck }]

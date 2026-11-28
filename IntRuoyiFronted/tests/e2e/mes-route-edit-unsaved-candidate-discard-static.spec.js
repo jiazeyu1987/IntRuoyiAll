@@ -74,7 +74,7 @@ assert.match(
   '用户选择“保存草稿”且存在未保存变更时，必须先保存候选草稿再离开页面，且不弹保存后发布提示。'
 )
 const discardDraft = getFunctionBody(editPage, 'discardListEditCandidateDraft')
-assert.match(discardDraft, /ProRouteApi\.cancelRouteCandidateVersion\(context\.routeVersionId\)/,
+assert.match(discardDraft, /ProRouteApi\.cancelRouteCandidateVersion\(context\.routeVersionId, true\)/,
   '丢弃本次列表直建草稿时必须调用候选版本取消接口。')
 assert.match(leaveConfirm,
   /!shouldPromptUnsavedCandidateDraftBeforeExit\.value[\s\S]*shouldDiscardListEditCandidateDraftBeforeExit\.value[\s\S]*discardListEditCandidateDraft\(false\)/,

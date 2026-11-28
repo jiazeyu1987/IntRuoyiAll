@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.controller.admin.md.workstation;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.apilog.core.annotation.ApiAccessLog;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageParam;
@@ -18,6 +19,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkshopDO
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationMachineDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationCapacityMetrics;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationCapacityService;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdProductionLineService;
@@ -50,6 +53,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.apilog.core.enums.OperateTypeEnum.EXPORT;
@@ -71,6 +75,8 @@ public class MesMdWorkstationController {
     private MesMdProductionLineService productionLineService;
     @Resource
     private MesProProcessService processService;
+    @Resource
+    private MesProRouteProcessMapper routeProcessMapper;
     @Resource
     private MesMdWorkstationCapacityService workstationCapacityService;
     @Resource
@@ -154,6 +160,9 @@ public class MesMdWorkstationController {
                 convertSet(list, MesMdWorkstationDO::getProductionLineId));
         Map<Long, MesProProcessDO> processMap = processService.getProcessMap(
                 convertSet(list, MesMdWorkstationDO::getProcessId));
+        Map<Long, List<MesProRouteProcessDO>> routeProcessMap = convertMultiMap(
+                routeProcessMapper.selectListByWorkstationIds(convertSet(list, MesMdWorkstationDO::getId)),
+                MesProRouteProcessDO::getWorkstationId);
         Map<Long, MesMdWorkstationCapacityMetrics> capacityMetricsMap =
                 workstationCapacityService.getCapacityMetricsForList(list);
         List<MesMdWorkstationMachineDO> workstationMachines =
@@ -170,6 +179,8 @@ public class MesMdWorkstationController {
                     line -> vo.setProductionLineName(line.getName()));
             MapUtils.findAndThen(processMap, vo.getProcessId(),
                     process -> vo.setProcessName(process.getName()));
+            vo.setDisplayName(resolveDisplayName(vo,
+                    routeProcessMap.getOrDefault(vo.getId(), Collections.emptyList())));
             vo.setMachinerySummary(buildMachinerySummary(vo.getId(), machineMap, machineryMap));
             vo.setMachineryCount(getMachineryCount(vo.getId(), machineMap));
             MapUtils.findAndThen(capacityMetricsMap, vo.getId(), metrics -> vo
@@ -178,6 +189,28 @@ public class MesMdWorkstationController {
                     .setMachineryStandardHourlyCapacity(metrics.getMachineryStandardHourlyCapacity())
                     .setTodayCapacity(metrics.getTodayCapacity()));
         });
+    }
+
+    /** 只根据真实关联识别自动生成名称；自定义名称（包括合法数字）完整保留。 */
+    static String resolveDisplayName(MesMdWorkstationRespVO workstation,
+                                    List<MesProRouteProcessDO> routeProcesses) {
+        if (StrUtil.isBlank(workstation.getProcessName())) {
+            return workstation.getName();
+        }
+        for (MesProRouteProcessDO routeProcess : routeProcesses) {
+            if (!Objects.equals(workstation.getId(), routeProcess.getWorkstationId())
+                    || !Objects.equals(workstation.getProcessId(), routeProcess.getProcessId())
+                    || routeProcess.getRouteId() == null || routeProcess.getSort() == null) {
+                continue;
+            }
+            String suffix = routeProcess.getRouteId() + "-" + routeProcess.getSort();
+            String generatedName = StrUtil.sub(workstation.getProcessName(), 0, 90) + "工作站-" + suffix;
+            if (Objects.equals(workstation.getCode(), "WS-" + suffix)
+                    && Objects.equals(workstation.getName(), generatedName)) {
+                return workstation.getProcessName() + "工作站";
+            }
+        }
+        return workstation.getName();
     }
 
     private Integer getMachineryCount(Long workstationId,

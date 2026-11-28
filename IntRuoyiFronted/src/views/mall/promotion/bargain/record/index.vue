@@ -39,23 +39,6 @@
       <el-form-item>
         <el-button @click="handleQuery"><Icon icon="ep:search" class="mr-5px" /> 搜索</el-button>
         <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
-        <el-button
-          type="primary"
-          plain
-          @click="openForm('create')"
-          v-hasPermi="['promotion:bargain-record:create']"
-        >
-          <Icon icon="ep:plus" class="mr-5px" /> 新增
-        </el-button>
-        <el-button
-          type="success"
-          plain
-          @click="handleExport"
-          :loading="exportLoading"
-          v-hasPermi="['promotion:bargain-record:export']"
-        >
-          <Icon icon="ep:download" class="mr-5px" /> 导出
-        </el-button>
       </el-form-item>
     </el-form>
   </ContentWrap>
@@ -157,7 +140,7 @@ type BargainRecordListItem = BargainRecordApi.BargainRecordVO & {
   helpCount?: number
 }
 
-const message = useMessage() // 消息弹窗
+
 
 const loading = ref(true) // 列表的加载中
 const total = ref(0) // 列表的总页数
@@ -169,23 +152,6 @@ const queryParams = reactive({
   createTime: []
 })
 const queryFormRef = ref() // 搜索的表单
-const exportLoading = ref(false) // 导出的加载中
-
-/** 新增记录 */
-const openForm = (type: string) => {
-  message.error(`当前后端未提供管理后台砍价记录${type}接口：/promotion/bargain-record/create`)
-}
-
-/** 导出记录 */
-const handleExport = async () => {
-  exportLoading.value = true
-  try {
-    message.error('当前后端未提供管理后台砍价记录导出接口：/promotion/bargain-record/export-excel')
-  } finally {
-    exportLoading.value = false
-  }
-}
-
 /** 查询列表 */
 const getList = async () => {
   loading.value = true

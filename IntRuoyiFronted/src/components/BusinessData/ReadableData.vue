@@ -1,7 +1,10 @@
 <template>
   <div class="readable-data">
     <BusinessEvidenceDetails :title="title" :source="source" />
-    <p v-if="checksum" class="readable-data__checksum">内容校验码：{{ checksum }}</p>
+    <details v-if="checksum" class="readable-data__checksum">
+      <summary>查看内容校验信息</summary>
+      <p>内容校验码：{{ checksum }}</p>
+    </details>
   </div>
 </template>
 

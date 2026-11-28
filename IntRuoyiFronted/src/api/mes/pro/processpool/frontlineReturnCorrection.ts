@@ -31,8 +31,19 @@ export interface OwnReturnPqcItem {
   selectedEquipmentNumber?: string
   sampleValues: string[]
 }
+export interface RecordedReturnObjectName {
+  name?: string
+  code?: string
+}
+export interface OwnReturnProductionDisplayNames {
+  materials: Record<string, RecordedReturnObjectName>
+  lossReasons: Record<string, RecordedReturnObjectName>
+  devices: Record<string, RecordedReturnObjectName>
+  parameters: Record<string, RecordedReturnObjectName>
+}
 export interface OwnReturnDetail {
   row: OwnReturnRow
+  productionDisplayNames?: OwnReturnProductionDisplayNames
   production?: Pick<
     ProcessPoolProductionReportCorrectionReqVO,
     'outputQuantity' | 'materialDetails' | 'lossDetails' | 'deviceParameterReadings'

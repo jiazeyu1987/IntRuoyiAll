@@ -21,6 +21,9 @@ public interface MesPqcItemEquipmentConfigService {
 
     MesPqcItemEquipmentConfigRespVO replaceItemConfigs(MesPqcItemEquipmentBatchConfigSaveReqVO reqVO);
 
+    /** 清理已无任何规程项目引用的设备配置；保留其他规程仍使用的编号。 */
+    void deleteUnusedItemConfigs(Collection<String> itemCodes);
+
     Map<String, List<MesPqcItemEquipmentOption>> listEnabledEquipmentOptionsByItemCodes(Collection<String> itemCodes);
 
     Map<String, List<MesPqcItemEquipmentOption>> listEnabledEquipmentOptionsByProjectAndItemCodes(

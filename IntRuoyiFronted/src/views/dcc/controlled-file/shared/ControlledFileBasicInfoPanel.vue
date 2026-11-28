@@ -129,24 +129,16 @@
       <el-descriptions-item label="当前执行受控版本">
         {{ getDccVersionDisplayText(file?.currentActiveVersionNo) }}
       </el-descriptions-item>
-      <el-descriptions-item label="流程实例">
-        {{ file?.processInstanceId || '-' }}
-      </el-descriptions-item>
       <el-descriptions-item v-if="file?.effectiveMode === 'DELAYED'" label="延迟生效时间">{{ formatDelayedEffectiveFact(file.delayedEffectiveTime) || '尚未确认' }}</el-descriptions-item>
       <el-descriptions-item v-if="file?.effectiveMode === 'DELAYED'" label="延迟确认签名时间">{{ formatDelayedEffectiveFact(file.delayedEffectiveConfirmedAt) || '尚未签名确认' }}</el-descriptions-item>
-      <el-descriptions-item v-if="file?.effectiveMode === 'DELAYED'" label="延迟确认签名">{{ file.delayedEffectiveSignatureId ? `#${file.delayedEffectiveSignatureId}` : '未记录' }}</el-descriptions-item>
-      <el-descriptions-item v-if="file?.effectiveMode === 'DELAYED'" label="延迟确认轮次">{{ file.delayedEffectiveProcessInstanceId || '未记录' }}</el-descriptions-item>
       <el-descriptions-item label="提交人">
-        {{ requesterName || file?.requesterId || '-' }}
+        {{ requesterName || '提交人姓名未记录' }}
       </el-descriptions-item>
       <el-descriptions-item label="提交时间">
         {{ formatControlledFileDateTime(file?.submittedTime) }}
       </el-descriptions-item>
       <el-descriptions-item label="发布时间">
         {{ formatControlledFileDateTime(file?.publishedTime) }}
-      </el-descriptions-item>
-      <el-descriptions-item label="流程定义">
-        {{ file?.processDefinitionKey || '-' }}
       </el-descriptions-item>
       <el-descriptions-item v-if="file?.rejectReason" label="驳回原因" :span="column">
         {{ file.rejectReason }}
@@ -158,6 +150,19 @@
         {{ file.obsoleteReason }}
       </el-descriptions-item>
     </el-descriptions>
+    <details class="mt-12px">
+      <summary>流程技术详情</summary>
+      <el-descriptions :column="column" border>
+        <el-descriptions-item label="流程实例">
+          {{ file?.processInstanceId || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item v-if="file?.effectiveMode === 'DELAYED'" label="延迟确认签名">{{ file.delayedEffectiveSignatureId ? `#${file.delayedEffectiveSignatureId}` : '未记录' }}</el-descriptions-item>
+        <el-descriptions-item v-if="file?.effectiveMode === 'DELAYED'" label="延迟确认轮次">{{ file.delayedEffectiveProcessInstanceId || '未记录' }}</el-descriptions-item>
+        <el-descriptions-item label="流程定义">
+          {{ file?.processDefinitionKey || '-' }}
+        </el-descriptions-item>
+      </el-descriptions>
+    </details>
   </div>
 </template>
 

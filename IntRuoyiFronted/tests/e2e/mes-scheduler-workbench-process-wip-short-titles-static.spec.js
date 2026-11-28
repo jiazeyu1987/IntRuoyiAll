@@ -13,7 +13,7 @@ for (const label of ['工序编号', '工序名称', '班次产能', '班次状�
   assert(new RegExp(`label="${label}"`).test(pageSource), `工序列表必须保留标题：${label}`)
 }
 
-for (const label of ['在制单数', '未完需求', '预计完工', '今日报工']) {
+for (const label of ['在制单数', '未完需求', '计划完工', '今日报工']) {
   assert(new RegExp(`label="${label}"`).test(pageSource), `工序列表必须使用不超过 4 个字的短标题：${label}`)
 }
 

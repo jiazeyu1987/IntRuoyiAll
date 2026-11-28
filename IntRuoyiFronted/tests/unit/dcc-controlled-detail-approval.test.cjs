@@ -272,3 +272,17 @@ test('authorized approval evidence remains readable when separate APPROVAL_HISTO
   assert.ok(groups.every(group => !group.error))
   assert.ok(groups.every(group => group.rows.some(row => row.details.includes('指派会签人：李四'))))
 })
+
+test('loading and failure hide empty table, successful empty and populated reads show table', () => {
+  const refs = []
+  const component = compilePanel({ vue: { ...vue, ref(v) { const r = vue.ref(v); refs.push(r); return r },
+    watch() {}, onBeforeUnmount() {}, resolveComponent: name => ({ name }), resolveDirective: () => ({}), withDirectives: node => node } })
+  const { file } = fixture(), props = vue.reactive({ file, contextError: '' })
+  const render = component.setup(props, { expose() {} })
+  const table = () => render(props, []).children[0].children.find(n => n.type?.name === 'el-table')
+  refs[1].value = true; assert.equal(table(), undefined)
+  refs[1].value = false; refs[2].value = '读取失败'; assert.equal(table(), undefined)
+  refs[2].value = ''; assert.equal(table().props.data.length, 0)
+  refs[0].value = [{ key: 'one', rows: [], version: 'A/1', applicationLabel: '新建' }]
+  assert.equal(table().props.data.length, 1)
+})

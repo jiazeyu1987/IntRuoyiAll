@@ -649,7 +649,7 @@ public class SchedulePlanner {
             if (availableMinutes <= 0) {
                 continue;
             }
-            BigDecimal remainingDailyCapacity = capacityLedger.remaining(lineId, routeProcess.getProcessId(),
+            BigDecimal remainingDailyCapacity = capacityLedger.remaining(routeProcess.getProcessId(),
                     window.calendarDate, scheduleOrderProcess);
             if (remainingDailyCapacity == null) {
                 remainingDailyCapacity = remainingQuantity;
@@ -673,7 +673,7 @@ public class SchedulePlanner {
             LocalDateTime segmentEnd = segmentStart.plusMinutes(segmentMinutes);
             plans.add(buildPlannedTask(workOrder, routeProduct, routeProcess, scheduleOrderProcess, pool,
                     lineId, lineName, segmentStart, segmentEnd, segmentMinutes, segmentQuantity));
-            capacityLedger.reserve(lineId, routeProcess.getProcessId(), window.calendarDate,
+            capacityLedger.reserve(routeProcess.getProcessId(), window.calendarDate,
                     scheduleOrderProcess, segmentQuantity);
             remainingQuantity = remainingQuantity.subtract(segmentQuantity);
             remainingMinutes = Math.max(0, remainingMinutes - segmentMinutes);
@@ -1436,19 +1436,19 @@ public class SchedulePlanner {
             return resolveDailyMaxCapacity(scheduleOrderProcess) != null;
         }
 
-        BigDecimal remaining(Long lineId, Long processId, LocalDate planDate,
+        BigDecimal remaining(Long processId, LocalDate planDate,
                              MesProScheduleOrderProcessDO scheduleOrderProcess) {
             BigDecimal maxCapacity = resolveDailyMaxCapacity(scheduleOrderProcess);
             if (maxCapacity == null || planDate == null || processId == null) {
                 return null;
             }
             BigDecimal used = usedQuantityByKey.getOrDefault(
-                    new DailyProcessCapacityKey(lineId, processId, planDate), BigDecimal.ZERO);
+                    new DailyProcessCapacityKey(processId, planDate), BigDecimal.ZERO);
             BigDecimal remaining = maxCapacity.subtract(used);
             return remaining.compareTo(BigDecimal.ZERO) > 0 ? remaining : BigDecimal.ZERO;
         }
 
-        void reserve(Long lineId, Long processId, LocalDate planDate,
+        void reserve(Long processId, LocalDate planDate,
                      MesProScheduleOrderProcessDO scheduleOrderProcess, BigDecimal quantity) {
             if (scheduleOrderProcess != null && resolveDailyMaxCapacity(scheduleOrderProcess) == null) {
                 return;
@@ -1457,7 +1457,7 @@ public class SchedulePlanner {
                     || quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
                 return;
             }
-            DailyProcessCapacityKey key = new DailyProcessCapacityKey(lineId, processId, planDate);
+            DailyProcessCapacityKey key = new DailyProcessCapacityKey(processId, planDate);
             usedQuantityByKey.merge(key, quantity, BigDecimal::add);
         }
 
@@ -1472,7 +1472,8 @@ public class SchedulePlanner {
         }
     }
 
-    private record DailyProcessCapacityKey(Long lineId, Long processId, LocalDate planDate) {
+    // 同一租户同一工序 ID 的日产能由所有工单共享，与产线和工序名称无关。
+    private record DailyProcessCapacityKey(Long processId, LocalDate planDate) {
     }
 
     private static final class DailyExplanationAccumulator {

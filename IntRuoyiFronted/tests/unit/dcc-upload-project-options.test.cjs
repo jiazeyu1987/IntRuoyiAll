@@ -15,7 +15,7 @@ test('all candidates use authoritative server readiness and stale searches canno
   const end = source.indexOf('const handleProjectCodeOptionsVisibleChange', start)
   const body = ts.transpileModule(source.slice(start, end) + '\nexports.load = loadProjectCodeOptions', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   const pending = []
-  const context = { exports: {}, projectOptionsRequestSequence: 0, isLibraryUpload: { value: false }, libraryScope: { value: 'PROJECT' },
+  const context = { exports: {}, projectOptionsRequestSequence: 0, projectCodeOptionsEmptyMessage: { value: '' }, isExternalReview: { value: false }, isLibraryUpload: { value: false }, libraryScope: { value: 'PROJECT' },
     projectCodeOptionsLoading: { value: false }, projectCodeOptionsError: { value: '' }, projectCodeOptions: { value: [] },
     acceptedProjectCodeOption: { value: undefined },
     getProjectUploadOptions: keyword => new Promise(resolve => pending.push({ keyword, resolve })),
@@ -52,7 +52,7 @@ test('option API retains all rows and red incomplete projects without inventing 
 test('ordinary QMS upload uses the real library identity and permission response', async () => {
   const start = source.indexOf('const loadProjectCodeOptions =')
   const end = source.indexOf('const handleLibraryScopeChange', start)
-  const context = { exports: {}, projectOptionsRequestSequence: 0, isLibraryUpload: { value: true }, libraryScope: { value: 'QMS' },
+  const context = { exports: {}, projectOptionsRequestSequence: 0, projectCodeOptionsEmptyMessage: { value: '' }, isExternalReview: { value: false }, isLibraryUpload: { value: true }, libraryScope: { value: 'QMS' },
     projectCodeOptionsLoading: { value: false }, projectCodeOptionsError: { value: '' }, projectCodeOptions: { value: [] },
     getControlledImportLibrary: async scope => { assert.equal(scope, 'QMS'); return { id: '9007199254740993', projectName: 'QMS文件', projectCode: 'QMS', status: 'ENABLE' } },
     getProjectUploadOptions: () => { throw Error('library must not call project readiness/product lookup') },
@@ -61,4 +61,57 @@ test('ordinary QMS upload uses the real library identity and permission response
   await context.exports.load()
   assert.equal(context.projectCodeOptions.value[0].id, '9007199254740993')
   assert.equal(context.projectCodeOptions.value[0].uploadSelectable, true)
+  assert.equal(context.projectCodeOptionsEmptyMessage.value, '')
+})
+
+test('project empty guidance follows the latest successful query and never masks a load failure', async () => {
+  const start = source.indexOf('const loadProjectCodeOptions =')
+  const end = source.indexOf('const handleLibraryScopeChange', start)
+  const pending = []
+  const errors = []
+  const context = {
+    exports: {}, projectOptionsRequestSequence: 0,
+    isLibraryUpload: { value: false }, isExternalReview: { value: false },
+    projectCodeOptionsLoading: { value: false }, projectCodeOptionsError: { value: '' },
+    projectCodeOptionsEmptyMessage: { value: '' }, projectCodeOptions: { value: [] },
+    getProjectUploadOptions: keyword => new Promise((resolve, reject) => pending.push({ keyword, resolve, reject })),
+    resolveUploadErrorMessage: error => error.message, message: { error: text => errors.push(text) }
+  }
+  vm.runInNewContext(ts.transpileModule(source.slice(start, end) + '\nexports.load = loadProjectCodeOptions', {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 }
+  }).outputText, context)
+
+  const initial = context.exports.load()
+  pending[0].resolve([])
+  await initial
+  assert.equal(context.projectCodeOptionsEmptyMessage.value, '暂无可选择的启用项目，请联系项目管理员确认项目已启用，并为您授予项目权限')
+
+  const search = context.exports.load('missing')
+  assert.equal(context.projectCodeOptionsEmptyMessage.value, '')
+  assert.equal(context.projectCodeOptionsLoading.value, true)
+  pending[1].resolve([])
+  await search
+  assert.equal(context.projectCodeOptionsEmptyMessage.value, '没有匹配的项目，请调整搜索条件')
+
+  const failed = context.exports.load()
+  pending[2].reject(new Error('当前租户没有项目查询权限'))
+  await failed
+  assert.equal(context.projectCodeOptionsEmptyMessage.value, '')
+  assert.equal(context.projectCodeOptionsError.value, 'DCC 项目候选加载失败：当前租户没有项目查询权限')
+  assert.equal(errors.at(-1), context.projectCodeOptionsError.value)
+
+  const stale = context.exports.load()
+  const latest = context.exports.load('new search')
+  pending[4].resolve([])
+  await latest
+  pending[3].resolve([])
+  await stale
+  assert.equal(context.projectCodeOptionsEmptyMessage.value, '没有匹配的项目，请调整搜索条件')
+  assert.equal(context.projectCodeOptionsLoading.value, false)
+
+  context.isExternalReview.value = true
+  const external = context.exports.load()
+  pending[5].resolve([])
+  await external
+  assert.equal(context.projectCodeOptionsEmptyMessage.value, '')
 })

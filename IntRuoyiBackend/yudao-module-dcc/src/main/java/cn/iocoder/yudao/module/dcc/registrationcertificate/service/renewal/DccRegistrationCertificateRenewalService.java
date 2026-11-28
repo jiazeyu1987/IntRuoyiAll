@@ -266,7 +266,7 @@ public class DccRegistrationCertificateRenewalService {
         DccRegistrationCertificateAccessRequestDO request = requireRenewalRequest(tenantId, requestId);
         RenewalRequestDetail detail = parseRenewalRequestDetail(request);
         markRenewalRequestFiles(tenantId, requestId, REQUEST_FILE_STATUS_REJECTED);
-        voidStagedRenewalFile(tenantId, detail.businessFileId(), actorId, reason);
+        markStagedRenewalFileForCleanup(tenantId, detail.businessFileId());
         registrationHandlingTasks.recordDecision(tenantId, actorId, requestId, false, reason);
     }
 
@@ -839,7 +839,7 @@ public class DccRegistrationCertificateRenewalService {
                 REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
     }
 
-    private void voidStagedRenewalFile(Long tenantId, Long businessFileId, Long actorId, String reason) {
+    private void markStagedRenewalFileForCleanup(Long tenantId, Long businessFileId) {
         if (businessFileId == null || businessFileId <= 0) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
         }
@@ -850,9 +850,7 @@ public class DccRegistrationCertificateRenewalService {
                         .eq(DccRegistrationCertificateFileDO::getOwnerType, FILE_OWNER_VERSION)
                         .eq(DccRegistrationCertificateFileDO::getFileKind, FILE_KIND_REGISTRATION_CERTIFICATE)
                         .eq(DccRegistrationCertificateFileDO::getStatus, FILE_STATUS_STAGED)
-                        .set(DccRegistrationCertificateFileDO::getStatus, FILE_STATUS_VOIDED)
-                        .set(DccRegistrationCertificateFileDO::getBoundAt, businessClock.now())
-                        .set(DccRegistrationCertificateFileDO::getBoundBy, actorId)),
+                        .set(DccRegistrationCertificateFileDO::getStatus, "CLEANUP_REQUIRED")),
                 REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT);
     }
 
@@ -876,6 +874,7 @@ public class DccRegistrationCertificateRenewalService {
         if (content.length == 0 || content.length != file.getSize()) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
         }
+        cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.DccRegistrationCertificateMaterialValidator.validate(originalName, content);
         return new RenewalUploadFile(originalName, mimeType, file.getSize(), content, sha256(content));
     }
 

@@ -35,6 +35,35 @@ import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteCandidateConfigServiceTest {
+    @Test
+    void sopMissingOrInvalidDraftCannotReachPersistence() {
+        for (String binding : new String[]{"", ",\"sopFileUrl\":42"}) {
+            MesProRouteVersionDO candidate = nameDraft("DRAFT");
+            JSONObject snapshot = JSON.parseObject(candidate.getRouteSnapshotJson());
+            snapshot.getJSONObject("configSnapshots").put("flowGraph", JSON.parseObject(
+                    "{\"nodes\":[{\"routeProcessId\":10,\"processId\":20" + binding + "}]}"));
+            assertThrows(ServiceException.class, () -> service.saveConfigSnapshots(candidate.getId(), "original-hash",
+                    Map.of("flowGraph", snapshot.getJSONObject("configSnapshots").getJSONObject("flowGraph"))));
+        }
+        verify(routeVersionMapper, never()).update(any(MesProRouteVersionDO.class), any());
+    }
+
+    @Test
+    void sopNullAndFrozenUrlSurviveDraftPersistence() {
+        MesProRouteVersionDO candidate = nameDraft("DRAFT");
+        JSONObject snapshot = JSON.parseObject(candidate.getRouteSnapshotJson());
+        snapshot.getJSONObject("configSnapshots").put("flowGraph", JSON.parseObject(
+                "{\"nodes\":[{\"sopFileUrl\":null},{\"sopFileUrl\":\"/frozen.pdf\"}]}"));
+        service.saveConfigSnapshots(candidate.getId(), "original-hash",
+                Map.of("flowGraph", snapshot.getJSONObject("configSnapshots").getJSONObject("flowGraph")));
+        ArgumentCaptor<MesProRouteVersionDO> saved = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper).update(saved.capture(), any());
+        var nodes = JSON.parseObject(saved.getValue().getRouteSnapshotJson()).getJSONObject("configSnapshots")
+                .getJSONObject("flowGraph").getJSONArray("nodes");
+        assertTrue(nodes.getJSONObject(0).containsKey("sopFileUrl"));
+        assertEquals(null, nodes.getJSONObject(0).get("sopFileUrl"));
+        assertEquals("/frozen.pdf", nodes.getJSONObject(1).getString("sopFileUrl"));
+    }
     @org.mockito.Mock
     private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
 
@@ -271,7 +300,7 @@ class MesProRouteCandidateConfigServiceTest {
                 .active(Boolean.FALSE)
                 .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT)
                 .sourceRouteVersionId(2001L)
-                .routeSnapshotJson("{\"routeId\":9001,\"routeCode\":\"R-001\",\"configSnapshots\":{\"flowGraph\":{\"nodes\":[{\"routeProcessId\":10,\"processId\":20}]}}}")
+                .routeSnapshotJson("{\"routeId\":9001,\"routeCode\":\"R-001\",\"configSnapshots\":{\"flowGraph\":{\"nodes\":[{\"routeProcessId\":10,\"processId\":20,\"sopFileUrl\":null}]}}}")
                 .build();
         when(routeVersionMapper.selectById(candidate.getId())).thenReturn(candidate);
         when(routeVersionMapper.selectActiveByRouteId(9001L)).thenReturn(MesProRouteVersionDO.builder()
@@ -305,8 +334,8 @@ class MesProRouteCandidateConfigServiceTest {
         MesProRouteVersionDO candidate = nameDraft("DRAFT");
         JSONObject snapshot = JSON.parseObject(candidate.getRouteSnapshotJson());
         snapshot.getJSONObject("configSnapshots").put("flowGraph", JSON.parseObject(
-                "{nodes:[{routeProcessId:10,processId:20}]}"));
-        candidate.setRouteSnapshotJson(snapshot.toJSONString());
+                "{nodes:[{routeProcessId:10,processId:20,sopFileUrl:null}]}"));
+        candidate.setRouteSnapshotJson(MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(snapshot));
         service.migrateProductionConfigSnapshots(candidate.getId(), "original-hash", Map.of(
                 "productionProcessConfigSchemaVersion", 1, "productionProcessConfigs", List.of(Map.of(
                         "routeProcessId",10L,"processId",20L,"overagePercent",10,
@@ -324,7 +353,7 @@ class MesProRouteCandidateConfigServiceTest {
         MesProRouteVersionDO candidate = nameDraft("DRAFT");
         JSONObject snapshot = JSON.parseObject(candidate.getRouteSnapshotJson());
         snapshot.getJSONObject("configSnapshots").put("productionProcessConfigs", List.of());
-        candidate.setRouteSnapshotJson(snapshot.toJSONString());
+        candidate.setRouteSnapshotJson(MesProRouteVersionSnapshotIdentityWriter.toSnapshotJson(snapshot));
         assertThrows(ServiceException.class, () -> service.migrateProductionConfigSnapshots(candidate.getId(),
                 "original-hash",Map.of("productionProcessConfigSchemaVersion",1,"productionProcessConfigs",List.of())));
         assertThrows(ServiceException.class, () -> service.migrateProductionConfigSnapshots(candidate.getId(),
@@ -518,7 +547,7 @@ class MesProRouteCandidateConfigServiceTest {
                 .active(Boolean.FALSE)
                 .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT)
                 .sourceRouteVersionId(2001L)
-                .routeSnapshotJson("{\"routeId\":9001,\"configSnapshots\":{\"flowGraph\":{\"nodes\":[{\"routeProcessId\":10,\"processId\":20}]}}}")
+                .routeSnapshotJson("{\"routeId\":9001,\"configSnapshots\":{\"flowGraph\":{\"nodes\":[{\"routeProcessId\":10,\"processId\":20,\"sopFileUrl\":null}]}}}")
                 .routeSnapshotSha256("current-hash")
                 .build();
     }

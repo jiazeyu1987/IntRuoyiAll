@@ -180,7 +180,11 @@
             align="center"
             prop="childMaterialType"
             :width="getDetailColumnWidthString('childMaterialType', 120)"
-          />
+          >
+            <template #default="{ row }">
+              <KingdeeValueLabel :value="row.childMaterialType" field="childMaterialType" />
+            </template>
+          </el-table-column>
           <el-table-column
             :formatter="erpListIntegerColumnFormatter"
             v-if="isDetailColumnVisible('numerator')"
@@ -242,7 +246,7 @@
             :width="getDetailColumnWidthString('issueMethod', 120)"
           >
             <template #default="{ row }">
-              {{ String(row.issueMethod) === '1' ? '直接领料' : row.issueMethod || '' }}
+              <KingdeeValueLabel :value="row.issueMethod" field="issueMethod" />
             </template>
           </el-table-column>
           <el-table-column
@@ -265,6 +269,7 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
+import KingdeeValueLabel from '@/views/erp/components/KingdeeValueLabel.vue'
 import { checkPermi } from '@/utils/permission'
 import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'

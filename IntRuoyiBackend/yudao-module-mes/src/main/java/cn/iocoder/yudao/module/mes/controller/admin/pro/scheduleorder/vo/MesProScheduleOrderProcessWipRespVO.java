@@ -81,10 +81,10 @@ public class MesProScheduleOrderProcessWipRespVO {
     @Schema(description = "未完成订单需求", example = "1500")
     private BigDecimal unfinishedDemandQuantity;
 
-    @Schema(description = "按开排约束预计开始时间")
+    @Schema(description = "在制工序正式计划的最早开始时间；任一工序未排程时为空")
     private LocalDateTime estimatedStartTime;
 
-    @Schema(description = "按班次产能预计完成时间")
+    @Schema(description = "在制工序正式计划的最晚完成时间；任一工序未排程时为空")
     private LocalDateTime estimatedCompletionTime;
 
     @Schema(description = "今日历史报工数量", example = "320")

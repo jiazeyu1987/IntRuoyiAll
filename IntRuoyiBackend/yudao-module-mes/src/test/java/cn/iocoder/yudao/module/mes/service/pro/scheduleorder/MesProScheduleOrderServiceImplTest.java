@@ -120,6 +120,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_PRODUCTION_QUANTITY_FACTOR_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VERSION_ACTIVE_NOT_EXISTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -672,7 +673,7 @@ class MesProScheduleOrderServiceImplTest {
     }
 
     @Test
-    void getProcessWipStatistics_shouldAnchorEstimatedTimesToLatestPlannedStartTime() {
+    void getProcessWipStatistics_shouldUseEarliestFormalStartAndNotInventMissingEnd() {
         LocalDateTime earlierStartTime = LocalDate.now().plusDays(5).atStartOfDay();
         LocalDateTime latestStartTime = LocalDate.now().plusDays(12).atStartOfDay();
         MesProScheduleOrderDO firstOrder = MesProScheduleOrderDO.builder()
@@ -727,16 +728,54 @@ class MesProScheduleOrderServiceImplTest {
         when(routeScheduleConfigMapper.selectByRouteVersionIdAndRouteProcessId(600351L, 710351L))
                 .thenReturn(routeConfigWithShiftCapacity(750351L, 600351L, 710351L, "960.000000", false));
 
+        LocalDateTime formalStart = earlierStartTime.plusHours(8);
+        LocalDateTime formalEnd = latestStartTime.plusHours(17);
+        when(taskScheduleExtMapper.selectListByScheduleOrderProcessIds(Set.of(800351L, 800352L)))
+                .thenReturn(List.of(
+                        new MesProTaskScheduleExtDO().setTaskId(11L).setScheduleOrderProcessId(800351L),
+                        new MesProTaskScheduleExtDO().setTaskId(12L).setScheduleOrderProcessId(800351L),
+                        new MesProTaskScheduleExtDO().setTaskId(13L).setScheduleOrderProcessId(800352L)));
+        when(taskMapper.selectListByIds(List.of(11L, 12L, 13L))).thenReturn(List.of(
+                new MesProTaskDO().setId(11L).setStartTime(formalStart).setEndTime(formalStart.plusHours(4)),
+                new MesProTaskDO().setId(12L).setStartTime(formalStart.plusHours(5)).setEndTime(formalEnd),
+                new MesProTaskDO().setId(13L).setStartTime(formalStart.plusDays(1)).setEndTime(formalEnd.minusHours(1))));
+
         List<MesProScheduleOrderProcessWipRespVO> result = scheduleOrderService.getProcessWipStatistics();
 
         assertEquals(1, result.size());
         MesProScheduleOrderProcessWipRespVO row = result.get(0);
-        assertEquals(latestStartTime, row.getEstimatedStartTime());
+        assertEquals(formalStart, row.getEstimatedStartTime());
+        assertEquals(formalEnd, row.getEstimatedCompletionTime());
+        assertNull(row.getPlannedStartDate());
+        assertTrue(row.getPlannedStartDateMixed());
+        assertEquals(earlierStartTime, firstProcess.getPlannedStartTime());
+        assertEquals(latestStartTime, secondProcess.getPlannedStartTime());
+
+        // No manual start constraint is required to display an applied formal plan.
+        firstProcess.setPlannedStartTime(null);
+        secondProcess.setPlannedStartTime(null);
+        row = scheduleOrderService.getProcessWipStatistics().get(0);
+        assertEquals(formalStart, row.getEstimatedStartTime());
+        assertEquals(formalEnd, row.getEstimatedCompletionTime());
+        assertNull(row.getPlannedStartDate());
+        assertFalse(row.getPlannedStartDateMixed());
+        assertNull(firstProcess.getPlannedStartTime());
+        assertNull(secondProcess.getPlannedStartTime());
+
+        // A missing current task makes the group incomplete, even with dated snapshots.
+        when(taskMapper.selectListByIds(List.of(11L, 12L, 13L))).thenReturn(List.of(
+                new MesProTaskDO().setId(11L).setStartTime(formalStart).setEndTime(formalEnd)));
+        firstProcess.setPlannedStartTime(earlierStartTime);
+        secondProcess.setPlannedStartTime(earlierStartTime);
+        row = scheduleOrderService.getProcessWipStatistics().get(0);
+        assertNull(row.getEstimatedStartTime());
         assertNull(row.getEstimatedCompletionTime());
+        assertEquals(earlierStartTime.toLocalDate(), row.getPlannedStartDate());
+        assertFalse(row.getPlannedStartDateMixed());
     }
 
     @Test
-    void getProcessWipStatistics_shouldEstimateCompletionByProcessMaxCapacityWhenCurrentCapacityMissing() {
+    void getProcessWipStatistics_shouldNotEstimateMissingPlanFromAnotherWorkstationCapacity() {
         MesProScheduleOrderDO order = MesProScheduleOrderDO.builder()
                 .id(900361L)
                 .routeId(500361L)
@@ -794,7 +833,8 @@ class MesProScheduleOrderServiceImplTest {
         assertEquals(1, result.size());
         MesProScheduleOrderProcessWipRespVO row = result.get(0);
         assertEquals(BigDecimal.ZERO.setScale(6), row.getShiftCapacityTotal());
-        assertEquals(LocalDate.now().atStartOfDay().plusDays(3), row.getEstimatedCompletionTime());
+        assertNull(row.getEstimatedStartTime());
+        assertNull(row.getEstimatedCompletionTime());
     }
 
     @Test
@@ -1351,7 +1391,8 @@ class MesProScheduleOrderServiceImplTest {
         assertEquals(1, result.size());
         MesProScheduleOrderProcessWipRespVO row = result.get(0);
         assertEquals(new BigDecimal("160.000000"), row.getShiftCapacityTotal());
-        assertEquals(LocalDate.now().atStartOfDay().plusDays(2), row.getEstimatedCompletionTime());
+        assertNull(row.getEstimatedStartTime());
+        assertNull(row.getEstimatedCompletionTime());
     }
 
     @Test
@@ -1405,7 +1446,8 @@ class MesProScheduleOrderServiceImplTest {
         assertEquals(new BigDecimal("1200.000000"), row.getShiftCapacityTotal());
         assertEquals(MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode(), row.getCapacityMode());
         assertEquals("MANUAL_OVERRIDE", row.getCapacitySource());
-        assertEquals(LocalDate.now().atStartOfDay().plusDays(2), row.getEstimatedCompletionTime());
+        assertNull(row.getEstimatedStartTime());
+        assertNull(row.getEstimatedCompletionTime());
     }
 
     @Test
@@ -1664,7 +1706,7 @@ class MesProScheduleOrderServiceImplTest {
         assertEquals("NORMAL", row.getResourceStatus());
         assertEquals("正常", row.getResourceStatusReason());
         assertEquals(new BigDecimal("16.00000000").setScale(6), row.getShiftCapacityTotal().setScale(6));
-        assertNotNull(row.getEstimatedCompletionTime());
+        assertNull(row.getEstimatedCompletionTime());
     }
 
     @Test
@@ -1720,6 +1762,12 @@ class MesProScheduleOrderServiceImplTest {
                 routeConfigWithShiftCapacity(750551L, 600551L, 700551L, "40.000000", true);
         config.setCalendarRuleId(1L);
 
+        LocalDateTime firstStart = LocalDateTime.of(2026, 11, 25, 8, 0);
+        LocalDateTime lastEnd = LocalDateTime.of(2026, 11, 27, 17, 42);
+        firstProcess.setPlannedStartTime(firstStart);
+        firstProcess.setPlannedEndTime(LocalDateTime.of(2026, 11, 26, 17, 42));
+        secondProcess.setPlannedStartTime(LocalDateTime.of(2026, 11, 26, 8, 0));
+        secondProcess.setPlannedEndTime(lastEnd);
         stubProcessWipScheduleOrders(firstOrder, secondOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900551L, 900552L)))
                 .thenReturn(List.of(firstProcess, secondProcess));
@@ -1730,6 +1778,16 @@ class MesProScheduleOrderServiceImplTest {
         org.mockito.Mockito.lenient().when(
                 routeScheduleConfigMapper.selectByRouteVersionIdAndRouteProcessId(600551L, 700551L))
                 .thenReturn(config);
+
+        when(taskScheduleExtMapper.selectListByScheduleOrderProcessIds(Set.of(800551L, 800552L)))
+                .thenReturn(List.of(
+                        new MesProTaskScheduleExtDO().setTaskId(551L).setScheduleOrderProcessId(800551L),
+                        new MesProTaskScheduleExtDO().setTaskId(552L).setScheduleOrderProcessId(800552L)));
+        MesProTaskDO firstTask = new MesProTaskDO().setId(551L).setStartTime(firstStart)
+                .setEndTime(LocalDateTime.of(2026, 11, 26, 17, 42));
+        MesProTaskDO secondTask = new MesProTaskDO().setId(552L)
+                .setStartTime(LocalDateTime.of(2026, 11, 26, 8, 0)).setEndTime(lastEnd);
+        when(taskMapper.selectListByIds(List.of(551L, 552L))).thenReturn(List.of(firstTask, secondTask));
 
         List<MesProScheduleOrderProcessWipRespVO> result = scheduleOrderService.getProcessWipStatistics();
 
@@ -1743,6 +1801,11 @@ class MesProScheduleOrderServiceImplTest {
         assertEquals(710551L, row.getProcessId());
         assertEquals(BigDecimal.ZERO.setScale(6), row.getShiftCapacityTotal());
         assertEquals(new BigDecimal("80.000000"), row.getUnfinishedDemandQuantity());
+        assertEquals(firstStart, row.getEstimatedStartTime());
+        assertEquals(lastEnd, row.getEstimatedCompletionTime());
+        // Removing a formal task leaves the grouped plan incomplete despite dated snapshots.
+        when(taskMapper.selectListByIds(List.of(551L, 552L))).thenReturn(List.of(firstTask));
+        assertNull(scheduleOrderService.getProcessWipStatistics().get(0).getEstimatedCompletionTime());
         assertEquals(Boolean.TRUE, row.getNightShiftEnabled());
         assertThrows(NoSuchFieldException.class,
                 () -> MesProScheduleOrderProcessWipRespVO.class.getDeclaredField("nightShiftMixed"));
@@ -2720,9 +2783,6 @@ class MesProScheduleOrderServiceImplTest {
                 Map.of("total", 1L, "warnCount", 0, "readyCount", 1, "alreadyAdmittedCount", 0, "blockedCount", 0));
         when(admissionListMapper.selectPageIds(eq(1L), any(), any(), any(), any(), eq(reqVO), eq(0L)))
                 .thenReturn(List.of(102L));
-        when(syncRecordMapper.selectByWorkOrderIds(List.of(102L))).thenReturn(List.of(
-                MesKingdeeProductionOrderSyncRecordDO.builder().workOrderId(102L)
-                        .sourceFid("FID-102").sourceBillNo("ERP-MO-102").build()));
         when(workOrderMapper.selectListByIds(List.of(102L))).thenReturn(List.of(readyToAdmit));
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(102L))).thenReturn(List.of());
         when(routeProductMapper.selectListByItemId(22L))

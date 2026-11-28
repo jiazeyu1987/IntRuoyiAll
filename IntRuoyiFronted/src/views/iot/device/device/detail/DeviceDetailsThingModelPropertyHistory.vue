@@ -60,7 +60,7 @@
           </el-table-column>
           <el-table-column label="属性值" align="center" prop="value">
             <template #default="scope">
-              {{ scope.row.value }}
+              <DevicePropertyValue :value="scope.row.value" :definition="propertyDefinition" />
             </template>
           </el-table-column>
         </el-table>
@@ -69,7 +69,9 @@
   </Dialog>
 </template>
 <script setup lang="ts">
-import { DeviceApi, IotDevicePropertyRespVO } from '@/api/iot/device/device'
+import DevicePropertyValue from './DevicePropertyValue.vue'
+import type { PropertyValueDefinition } from './propertyValuePresentation'
+import { DeviceApi, IotDevicePropertyRespVO, IotDevicePropertyDetailRespVO } from '@/api/iot/device/device'
 import { beginOfDay, defaultShortcuts, endOfDay, formatDate } from '@/utils/formatTime'
 import { Echart } from '@/components/Echart'
 import { IoTDataSpecsDataTypeEnum } from '@/views/iot/utils/constants'
@@ -84,7 +86,7 @@ const loading = ref(false)
 const viewMode = ref<'chart' | 'list'>('chart') // 视图模式状态
 const list = ref<IotDevicePropertyRespVO[]>([]) // 列表的数据
 const chartKey = ref(0) // 图表重新渲染的key
-const thingModelDataType = ref<string>('') // 物模型数据类型
+const propertyDefinition = ref<PropertyValueDefinition>({ dataType: '' }) // 当前属性的真实物模型定义
 const queryParams = reactive({
   deviceId: -1,
   identifier: '',
@@ -98,9 +100,9 @@ const queryFormRef = ref() // 搜索的表单
 
 // 判断是否为复杂数据类型（struct 或 array）
 const isComplexDataType = computed(() => {
-  if (!thingModelDataType.value) return false
+  if (!propertyDefinition.value.dataType) return false
   return [IoTDataSpecsDataTypeEnum.STRUCT, IoTDataSpecsDataTypeEnum.ARRAY].includes(
-    thingModelDataType.value as any
+    propertyDefinition.value.dataType as any
   )
 })
 
@@ -180,11 +182,11 @@ const getList = async () => {
 }
 
 /** 打开弹窗 */
-const open = async (deviceId: number, identifier: string, dataType: string) => {
+const open = async (deviceId: number, property: IotDevicePropertyDetailRespVO) => {
   dialogVisible.value = true
   queryParams.deviceId = deviceId
-  queryParams.identifier = identifier
-  thingModelDataType.value = dataType
+  queryParams.identifier = property.identifier
+  propertyDefinition.value = property
 
   // 如果物模型是 struct、array，需要默认使用 list 模式
   if (isComplexDataType.value) {

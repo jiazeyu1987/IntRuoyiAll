@@ -32,6 +32,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.craft.MesSharedRouteSnapsh
 @Transactional(rollbackFor = Exception.class)
 public class MesProSharedChangeService implements cn.iocoder.yudao.module.mes.service.common.MesSharedMasterDataChangeGuard {
     @Resource private MesProCraftService crafts;
+    @Resource private cn.iocoder.yudao.framework.security.core.service.SecurityFrameworkService security;
     @Resource private MesProCraftMapper craftMapper;
     @Resource private MesProCraftChangeMapper changeMapper;
     @Resource private MesProProcessMapper processMapper;
@@ -272,10 +273,12 @@ public class MesProSharedChangeService implements cn.iocoder.yudao.module.mes.se
             if (Objects.equals(metadata.getString("requestId"), request.getRequestId())) {
                 if (!Objects.equals(actor, metadata.getLong("actorId")) || !Objects.equals(requestHash, metadata.getString("requestHash")))
                     throw invalid("请求编号已用于其他变更");
+                requireSubmitPermissions(request, !metadata.getJSONArray("routes").isEmpty());
                 return previous;
             }
         }
         Plan plan = plan(request);
+        requireSubmitPermissions(request, !plan.references.isEmpty());
         if (!Objects.equals(request.getImpactToken(), plan.result.get("impactToken"))) throw invalid("影响范围已变化，请重新确认");
         if ((Integer) plan.result.get("pendingSelectionCount") > 0) throw invalid("请选择全部工序的替换参数");
         @SuppressWarnings("unchecked") List<String> blockers = (List<String>) plan.result.get("blockers");
@@ -288,6 +291,17 @@ public class MesProSharedChangeService implements cn.iocoder.yudao.module.mes.se
         proposal.put("targetDeviceId", plan.targetDeviceId);
         return crafts.submitShared(plan.before.toJSONString(), proposal, request.getReason(), plan.references,
                 (active, snapshot) -> transform(plan, active.getRouteId(), snapshot));
+    }
+
+    void requireSubmitPermissions(MesSharedChangeReqVO request, boolean affectsRoutes) {
+        // Only an unreferenced device update avoids creating route versions.
+        if ("DEVICE".equals(request.getSubjectType()) && "UPDATE".equals(request.getAction()) && !affectsRoutes) return;
+        for (String permission : List.of("mes:pro-route:version-create", "mes:pro-route:version-update",
+                "mes:pro-route:version-submit")) {
+            if (!security.hasPermission(permission)) {
+                throw new org.springframework.security.access.AccessDeniedException("缺少工艺路线版本权限：" + permission);
+            }
+        }
     }
 
     private JSONObject requestContent(MesSharedChangeReqVO request) {

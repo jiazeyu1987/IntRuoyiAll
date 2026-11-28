@@ -326,7 +326,7 @@ class MesProSharedApprovalTransactionTest {
         return """
                 {"routeId":%d,"routeCode":"RT-%d","routeName":"Approval test",
                  "configSnapshots":{%s
-                  "flowGraph":{"nodes":[{"routeProcessId":10,"processId":20,"sort":1}],"edges":[]},
+                  "flowGraph":{"nodes":[{"routeProcessId":10,"processId":20,"sort":1,"sopFileUrl":"/test/approval-sop.pdf"}],"edges":[]},
                   "products":[],"scheduleConfigs":[],"batchUseConfigs":[],"scheduleUseConfigs":[],
                   "routeStartProductionLeaders":[{"productionLineId":%d,"candidateSourceType":"USER","candidateSourceIds":[7]}],
                   "productionProcessConfigSchemaVersion":1,

@@ -7,6 +7,7 @@
     </el-collapse-item>
   </el-collapse>
   <el-row :gutter="24" class="certificate-facts-fields">
+    <el-col v-if="model.certificateType === 'DOMESTIC' && model.ownProduct === false && (!creationSection || creationSection === 'attributes')" :span="12" :xs="24" :md="creationSection ? 8 : 12"><el-form-item label="实际项目代码" :required="creation"><el-input v-model="model.projectCode" :readonly="readonly || lockedFields?.includes('projectCode')" placeholder="填写证件对应的实际项目代码" maxlength="128"/></el-form-item></el-col>
     <el-col v-if="!creationSection" :span="12"><el-form-item label="注册证类型" required><el-select v-model="model.certificateType" :disabled="readonly || lockType || lockedFields?.includes('certificateType')"><el-option label="国内" value="DOMESTIC"/><el-option label="CE" value="CE"/><el-option label="FDA" value="FDA"/></el-select></el-form-item></el-col>
     <el-col v-if="!creationSection" :span="12"><el-form-item label="产品归属" required><el-select v-model="model.ownProduct" :disabled="readonly || lockType || lockedFields?.includes('ownProduct')"><el-option label="瑛泰产品（关联系统产品）" :value="true"/><el-option label="其他（不关联系统产品）" :value="false"/></el-select></el-form-item></el-col>
     <el-col v-for="field in visibleFields" :key="field" :span="['remark','changeDescription','registrationLink'].includes(field) ? 24 : 12" :xs="creationSection ? 24 : undefined" :sm="['remark','changeDescription','registrationLink'].includes(field) ? 24 : 12" :md="['remark','changeDescription','registrationLink'].includes(field) ? 24 : creationSection ? 8 : 12">
@@ -49,11 +50,11 @@ const model = defineModel<CertificateFacts>({ required: true })
 const props = defineProps<{ creationSection?: 'attributes' | 'certificate' | 'supplement'; readonly?: boolean; lockType?: boolean; lockedFields?: string[]; historicalRecord?: boolean; creation?: boolean; change?: boolean; visualState?: string; hideCeModels?: boolean }>()
 const attributeFields = ['certificateHolder', 'classification', 'productNameEn', 'tradeName', 'productCode', 'customerHeld']
 const visibleFields = computed(() => {
-  const fields = (props.creation ? creationFieldsFor(model.value.certificateType) : fieldsFor(model.value.certificateType)).filter(field => !props.change || field !== 'otherContentDescription')
+  const fields = (props.creation ? creationFieldsFor(model.value.certificateType) : fieldsFor(model.value.certificateType)).filter(field => !props.change || (field !== 'otherContentDescription' && !(field === 'approvalDate' && model.value.certificateType !== 'FDA')))
   if (!props.creationSection) return fields
   return fields.filter(field => props.creationSection === 'attributes' ? attributeFields.includes(field) : props.creationSection === 'supplement' ? field === 'remark' : !attributeFields.includes(field) && field !== 'remark')
 })
-const requiredCreationFields = computed(() => ['classification', ...(model.value.certificateType === 'DOMESTIC' ? ['certificateNo', 'firstObtainedDate', 'effectiveDate', 'expiryDate'] : []), ...(model.value.certificateType === 'CE' ? ['expiryDate'] : []), ...(model.value.certificateType === 'FDA' ? ['submissionType', 'customerHeld', 'approvalLetterStatus', 'factoryRegistrationStatus'] : ['certificateStatus'])])
+const requiredCreationFields = computed(() => ['classification', ...(model.value.certificateType === 'DOMESTIC' ? ['certificateNo', 'firstObtainedDate', 'approvalDate', 'effectiveDate', 'expiryDate'] : []), ...(model.value.certificateType === 'CE' ? ['approvalDate', 'expiryDate'] : []), ...(model.value.certificateType === 'FDA' ? ['submissionType', 'customerHeld', 'approvalLetterStatus', 'factoryRegistrationStatus'] : ['certificateStatus'])])
 const addModelSpecification = () => { model.value.modelSpecifications ??= []; model.value.modelSpecifications.push('') }
 const addRevision = () => { model.value.ceCertificates ??= []; model.value.ceCertificates.push({revision:''}) }
 </script>

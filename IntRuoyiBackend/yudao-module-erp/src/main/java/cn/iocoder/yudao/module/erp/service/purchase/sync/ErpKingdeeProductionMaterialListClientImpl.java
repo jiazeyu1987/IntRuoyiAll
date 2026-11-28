@@ -112,12 +112,12 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
             LocalDateTime windowStart, LocalDateTime windowEnd,
             java.util.function.Consumer<List<ErpKingdeeProductionMaterialList>> pageConsumer) {
         properties.validateProductionOrderSyncConfig();
-        String cookieHeader = login(properties);
+        QuerySession session = new QuerySession(login(properties));
         java.util.Objects.requireNonNull(pageConsumer, "pageConsumer");
         int startRow = 0;
         while (true) {
             int limit = Math.min(PAGE_LIMIT, properties.getProductionOrder().getQueryLimit());
-            JsonNode rows = executeBillQuery(properties, cookieHeader, windowStart == null ? buildFullFilterString() : buildFilterString(windowStart, windowEnd), startRow, limit);
+            JsonNode rows = executeBillQuery(properties, session, windowStart == null ? buildFullFilterString() : buildFilterString(windowStart, windowEnd), startRow, limit);
             if (!rows.isArray()) {
                 throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "PRD_PPBOM response is not an array");
             }
@@ -143,7 +143,7 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
         if (windowStart == null || windowEnd == null || windowStart.isAfter(windowEnd)) {
             throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "PRD_PPBOM sync window is invalid");
         }
-        String cookieHeader = login(properties);
+        QuerySession session = new QuerySession(login(properties));
         Map<String, Object> query = new LinkedHashMap<>();
         query.put("FormId", ErpKingdeeProductionMaterialList.FORM_ID);
         query.put("FieldKeys", FIELD_KEYS);
@@ -151,7 +151,7 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
         query.put("OrderString", "FModifyDate ASC");
         query.put("StartRow", 0);
         query.put("Limit", properties.getProductionOrder().getQueryLimit());
-        JsonNode rows = postJsonData(properties, cookieHeader, QUERY_SERVICE, query, "PRD_PPBOM ExecuteBillQuery response");
+        JsonNode rows = postJsonData(properties, session, QUERY_SERVICE, query, "PRD_PPBOM ExecuteBillQuery response");
         if (rows.isObject()) {
             throw exception(KINGDEE_PRODUCTION_ORDER_REQUEST_FAIL, rows.toString());
         }
@@ -173,7 +173,7 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
         if (normalizedOrderNos.isEmpty()) {
             return Collections.emptyList();
         }
-        String cookieHeader = login(properties);
+        QuerySession session = new QuerySession(login(properties));
         List<ErpKingdeeProductionMaterialList> result = new ArrayList<>();
         for (int index = 0; index < normalizedOrderNos.size(); index += ORDER_NO_QUERY_BATCH_SIZE) {
             List<String> batch = normalizedOrderNos.subList(index,
@@ -181,7 +181,7 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
             int startRow = 0;
             while (true) {
                 int limit = Math.min(PAGE_LIMIT, properties.getProductionOrder().getQueryLimit());
-                JsonNode rows = executeBillQuery(properties, cookieHeader,
+                JsonNode rows = executeBillQuery(properties, session,
                         buildProductionOrderNoFilterString(batch), startRow, limit);
                 if (!rows.isArray()) {
                     throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "PRD_PPBOM response is not an array");
@@ -201,6 +201,14 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
         return result;
     }
 
+    private static final class QuerySession {
+        private String cookieHeader;
+
+        private QuerySession(String cookieHeader) {
+            this.cookieHeader = cookieHeader;
+        }
+    }
+
     private String login(ErpKingdeeProperties properties) {
         Map<String, String> form = new LinkedHashMap<>();
         form.put("acctID", properties.getAcctId());
@@ -213,7 +221,7 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
                 String.class);
         JsonNode responseJson = parseJson(response.getBody(), "ValidateUser response");
         if (!isLoginSuccess(responseJson)) {
-            throw exception(KINGDEE_PRODUCTION_ORDER_REQUEST_FAIL, responseJson.toString());
+            throw exception(KINGDEE_PRODUCTION_ORDER_REQUEST_FAIL, "ValidateUser authentication failed");
         }
         List<String> cookies = response.getHeaders().get(HttpHeaders.SET_COOKIE);
         if (cookies == null || cookies.isEmpty()) {
@@ -252,17 +260,18 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
                 .build();
     }
 
-    private JsonNode postJsonData(ErpKingdeeProperties properties, String cookieHeader, String serviceName,
+    private JsonNode postJsonData(ErpKingdeeProperties properties, QuerySession session, String serviceName,
                                   Map<String, Object> payload, String label) {
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("data", JsonUtils.toJsonString(payload));
-        for (int attempt = 1; ; attempt++) {
+        boolean renewed = false;
+        for (int attempt = 1; ; ) {
             long started = System.nanoTime();
             ResponseEntity<String> response;
             try {
                 response = restTemplate.postForEntity(
                     buildServiceUrl(properties.getBaseUrl(), serviceName),
-                    new HttpEntity<>(body, buildFormHeaders(cookieHeader)), String.class);
+                    new HttpEntity<>(body, buildFormHeaders(session.cookieHeader)), String.class);
             } catch (RestClientException ex) {
                 Throwable cause = ex.getMostSpecificCause();
                 if (!(cause instanceof SocketTimeoutException || cause instanceof SocketException
@@ -278,7 +287,7 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
                             + "），连续3次尝试失败，本次同步已失败，请检查金蝶查询耗时及网络连接", ex);
                 }
                 try {
-                    waitBeforeRetry(attempt);
+                    waitBeforeRetry(attempt++);
                 } catch (InterruptedException interrupted) {
                     Thread.currentThread().interrupt();
                     RestClientException cancelled = new RestClientException("生产用料清单同步等待重试时被中断", interrupted);
@@ -288,32 +297,40 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
                 continue;
             }
             JsonNode result = parseJson(response.getBody(), label);
-            try {
-                rejectQueryErrors(result);
-            } catch (ServiceException ex) {
-                String message = ex.getMessage();
-                // SQL Server explicitly rolls back a deadlock victim; retry this read-only page only.
-                boolean deadlockVictim = message != null && ((message.contains("死锁") && message.contains("牺牲品"))
-                        || message.toLowerCase(java.util.Locale.ROOT).contains("deadlock victim"));
-                if (!deadlockVictim || attempt >= MAX_QUERY_ATTEMPTS) {
-                    throw ex;
-                }
-                log.warn("PRD_PPBOM deadlock victim: startRow={}, limit={}, attempt={}/{}, cause={}",
-                        payload.get("StartRow"), payload.get("Limit"), attempt, MAX_QUERY_ATTEMPTS, message);
-                try {
-                    waitBeforeRetry(attempt);
-                } catch (InterruptedException interrupted) {
-                    Thread.currentThread().interrupt();
-                    RestClientException cancelled = new RestClientException("生产用料清单死锁重试等待被中断", interrupted);
-                    cancelled.addSuppressed(ex);
-                    throw cancelled;
-                }
+            JsonNode status = firstFailedStatus(result);
+            if (status == null) {
+                log.info("PRD_PPBOM query completed: startRow={}, limit={}, attempt={}, elapsedMs={}",
+                        payload.get("StartRow"), payload.get("Limit"), attempt,
+                        (System.nanoTime() - started) / 1_000_000);
+                return result;
+            }
+            JsonNode errors = status.path("Errors");
+            if (!renewed && "500".equals(status.path("ErrorCode").asText()) && errors.isArray()
+                    && errors.size() == 1 && "会话信息已丢失，请重新登录".equals(errors.get(0).path("Message").asText())) {
+                log.warn("PRD_PPBOM session expired: startRow={}, limit={}; authenticating once",
+                        payload.get("StartRow"), payload.get("Limit"));
+                session.cookieHeader = login(properties);
+                renewed = true;
                 continue;
             }
-            log.info("PRD_PPBOM query completed: startRow={}, limit={}, attempt={}, elapsedMs={}",
-                    payload.get("StartRow"), payload.get("Limit"), attempt,
-                    (System.nanoTime() - started) / 1_000_000);
-            return result;
+            ServiceException ex = queryError(status);
+            String message = ex.getMessage();
+            // SQL Server explicitly rolls back a deadlock victim; retry this read-only page only.
+            boolean deadlockVictim = message != null && ((message.contains("死锁") && message.contains("牺牲品"))
+                    || message.toLowerCase(java.util.Locale.ROOT).contains("deadlock victim"));
+            if (!deadlockVictim || attempt >= MAX_QUERY_ATTEMPTS) {
+                throw ex;
+            }
+            log.warn("PRD_PPBOM deadlock victim: startRow={}, limit={}, attempt={}/{}, cause={}",
+                    payload.get("StartRow"), payload.get("Limit"), attempt, MAX_QUERY_ATTEMPTS, message);
+            try {
+                waitBeforeRetry(attempt++);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                RestClientException cancelled = new RestClientException("生产用料清单死锁重试等待被中断", interrupted);
+                cancelled.addSuppressed(ex);
+                throw cancelled;
+            }
         }
     }
 
@@ -321,31 +338,32 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
         Thread.sleep(failedAttempt == 1 ? 5_000L : 15_000L);
     }
 
-    private void rejectQueryErrors(JsonNode node) {
+    private JsonNode firstFailedStatus(JsonNode node) {
         if (node.isArray()) {
             for (JsonNode child : node) {
                 if (child.isContainerNode()) {
-                    rejectQueryErrors(child);
+                    JsonNode failed = firstFailedStatus(child);
+                    if (failed != null) return failed;
                 }
             }
-            return;
         }
         JsonNode status = node.path("Result").path("ResponseStatus");
-        if (status.isObject() && status.path("IsSuccess").isBoolean()
-                && !status.path("IsSuccess").booleanValue()) {
-            List<String> messages = new ArrayList<>();
-            for (JsonNode error : status.path("Errors")) {
-                if (error.path("Message").isTextual()) {
-                    messages.add(error.path("Message").textValue());
-                }
-            }
-            throw exception(KINGDEE_PRODUCTION_ORDER_REQUEST_FAIL,
-                    "PRD_PPBOM ExecuteBillQuery failed (ErrorCode="
-                            + status.path("ErrorCode").asText() + "): " + String.join("; ", messages));
-        }
+        return status.path("IsSuccess").isBoolean() && !status.path("IsSuccess").booleanValue() ? status : null;
     }
 
-    private JsonNode executeBillQuery(ErpKingdeeProperties properties, String cookieHeader, String filterString,
+    private ServiceException queryError(JsonNode status) {
+        List<String> messages = new ArrayList<>();
+        for (JsonNode error : status.path("Errors")) {
+            if (error.path("Message").isTextual()) {
+                messages.add(error.path("Message").textValue());
+            }
+        }
+        return exception(KINGDEE_PRODUCTION_ORDER_REQUEST_FAIL,
+                "PRD_PPBOM ExecuteBillQuery failed (ErrorCode="
+                        + status.path("ErrorCode").asText() + "): " + String.join("; ", messages));
+    }
+
+    private JsonNode executeBillQuery(ErpKingdeeProperties properties, QuerySession session, String filterString,
                                       int startRow, int limit) {
         Map<String, Object> query = new LinkedHashMap<>();
         query.put("FormId", ErpKingdeeProductionMaterialList.FORM_ID);
@@ -355,7 +373,7 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
         query.put("OrderString", "FMoBillNo ASC,FMoEntrySeq ASC,FMOEntryID ASC,FBillNo ASC,FMaterialID2.FNumber ASC");
         query.put("StartRow", startRow);
         query.put("Limit", limit);
-        JsonNode responseJson = postJsonData(properties, cookieHeader, QUERY_SERVICE,
+        JsonNode responseJson = postJsonData(properties, session, QUERY_SERVICE,
                 query, "PRD_PPBOM ExecuteBillQuery response");
         if (responseJson.isObject()) {
             throw exception(KINGDEE_PRODUCTION_ORDER_REQUEST_FAIL, responseJson.toString());
@@ -501,13 +519,13 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
     @Override
     public List<ErpKingdeeProductionMaterialList> fetchProductionMaterialListsByCode(ErpKingdeeProperties properties, String code) {
         properties.validateProductionOrderSyncConfig();
-        String cookie = login(properties);
+        QuerySession session = new QuerySession(login(properties));
         String filter = "FBillNo = '" + code.replace("'", "''") + "'";
         List<ErpKingdeeProductionMaterialList> result = new ArrayList<>();
         int offset = 0;
         int limit = Math.min(PAGE_LIMIT, properties.getProductionOrder().getQueryLimit());
         while (true) {
-            JsonNode rows = executeBillQuery(properties, cookie, filter, offset, limit);
+            JsonNode rows = executeBillQuery(properties, session, filter, offset, limit);
             if (!rows.isArray()) {
                 throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "PRD_PPBOM response is not an array");
             }

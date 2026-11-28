@@ -829,7 +829,7 @@ class MesProScheduleCalendarServiceImplTest {
     }
 
     @Test
-    void getDayDetail_shouldExcludeEffectiveTasksOutsideLatestReplanScope() {
+    void getDayDetail_shouldIncludeEffectiveTasksOutsideLatestReplanScope() {
         stubRuleAndSimulation();
         LocalDate day = LocalDate.of(2026, 7, 27);
         MesProTaskDO scopedTask = MesProTaskDO.builder()
@@ -856,7 +856,7 @@ class MesProScheduleCalendarServiceImplTest {
                 .endTime(day.atTime(16, 0))
                 .build();
         outsideTask.setUpdateTime(day.atTime(10, 0));
-        when(replanExplanationSnapshotMapper.selectLatest()).thenReturn(MesProReplanExplanationSnapshotDO.builder()
+        org.mockito.Mockito.lenient().when(replanExplanationSnapshotMapper.selectLatest()).thenReturn(MesProReplanExplanationSnapshotDO.builder()
                 .id(31L)
                 .snapshotJson("{\"orders\":[{\"scheduleOrderId\":900}]}")
                 .build());
@@ -876,7 +876,7 @@ class MesProScheduleCalendarServiceImplTest {
                         .build()
         ));
         when(workOrderService.getWorkOrderMap(anyCollection())).thenReturn(Map.of(
-                200L, MesProWorkOrderDO.builder().id(200L).code("WO-LATEST").productId(500L).quantity(new BigDecimal("100")).build(),
+                200L, MesProWorkOrderDO.builder().id(200L).code("WO-LATEST").productId(500L).quantity(new BigDecimal("2019")).build(),
                 201L, MesProWorkOrderDO.builder().id(201L).code("WO-OUTSIDE").productId(501L).quantity(new BigDecimal("12")).build()
         ));
         when(productionMaterialListMapper.selectListByWorkOrderIds(anyCollection()))
@@ -936,11 +936,15 @@ class MesProScheduleCalendarServiceImplTest {
         var resp = service.getDayDetail("2026-07-27");
 
         var task = resp.getWorkshops().get(0).getLines().get(0).getTasks().get(0);
-        assertEquals(1, resp.getWorkshops().get(0).getTaskCount());
-        assertEquals(1, resp.getWorkshops().get(0).getLines().get(0).getTaskCount());
+        assertEquals(2, resp.getWorkshops().get(0).getTaskCount());
+        assertEquals(2, resp.getWorkshops().get(0).getLines().get(0).getTaskCount());
         assertEquals(0, new BigDecimal("100").compareTo(task.getQuantity()));
         assertEquals("PT-LATEST", task.getTaskCode());
         assertEquals("WO-LATEST", task.getWorkOrderCode());
+        assertEquals(0, new BigDecimal("2019").compareTo(task.getWorkOrderQuantity()));
+        assertTrue(resp.getWorkshops().get(0).getLines().get(0).getTasks().stream()
+                .anyMatch(item -> "PT-OUTSIDE".equals(item.getTaskCode())));
+        org.mockito.Mockito.verifyNoInteractions(replanExplanationSnapshotMapper);
     }
 
     @Test
@@ -2497,7 +2501,7 @@ class MesProScheduleCalendarServiceImplTest {
         when(taskMapper.selectCurrentScheduleCount()).thenReturn(1L);
         when(taskMapper.selectLatestUpdatedTask()).thenReturn(task);
         when(workOrderService.getWorkOrderMap(anyCollection())).thenReturn(Map.of(
-                200L, MesProWorkOrderDO.builder().id(200L).code("881MO101365").productId(500L).build()));
+                200L, MesProWorkOrderDO.builder().id(200L).code("881MO101365").productId(500L).quantity(BigDecimal.ONE).build()));
         when(productionMaterialListMapper.selectListByWorkOrderIds(anyCollection())).thenReturn(List.of(
                 MesKingdeeProductionMaterialListDO.builder()
                         .id(901L)
@@ -2615,7 +2619,7 @@ class MesProScheduleCalendarServiceImplTest {
         when(taskMapper.selectListByStartTimeRange(isNull(), any())).thenReturn(List.of(task));
         when(taskMapper.selectCurrentScheduleCount()).thenReturn(1L);
         when(taskMapper.selectLatestUpdatedTask()).thenReturn(task);
-        when(workOrderService.getWorkOrderMap(anyCollection())).thenReturn(Map.of(200L, MesProWorkOrderDO.builder().id(200L).code("WO-001").build()));
+        when(workOrderService.getWorkOrderMap(anyCollection())).thenReturn(Map.of(200L, MesProWorkOrderDO.builder().id(200L).code("WO-001").quantity(BigDecimal.ONE).build()));
         when(productionMaterialListMapper.selectListByWorkOrderIds(anyCollection()))
                 .thenReturn(buildProductionMaterialListRows(Map.of(200L, Map.of(501L, BigDecimal.ONE))));
         when(workstationMapper.selectByIds(anyCollection())).thenReturn(List.of(MesMdWorkstationDO.builder().id(300L).workshopId(700L).productionLineId(600L).build()));
@@ -2688,6 +2692,56 @@ class MesProScheduleCalendarServiceImplTest {
         var detailTask = resp.getWorkshops().get(0).getLines().get(0).getTasks().get(0);
         assertEquals(0, new BigDecimal("60").compareTo(detailTask.getQuantity()));
         assertEquals(0, new BigDecimal("20").compareTo(detailTask.getDailyQuantity()));
+    }
+
+    @Test
+    void getDayDetail_shouldExposeOriginalWorkOrderQuantityIndependentOfTaskSlice() {
+        stubRuleAndSimulation();
+        MesProTaskDO task = MesProTaskDO.builder()
+                .id(100L)
+                .code("PT-DAILY-QTY")
+                .workOrderId(200L)
+                .workstationId(300L)
+                .processId(400L)
+                .itemId(500L)
+                .quantity(new BigDecimal("969"))
+                .startTime(LocalDateTime.of(2026, 5, 13, 20, 0))
+                .endTime(LocalDateTime.of(2026, 5, 14, 2, 0))
+                .build();
+        task.setUpdateTime(LocalDateTime.of(2026, 5, 13, 20, 30));
+        when(taskMapper.selectListByStartTimeRange(isNull(), any())).thenReturn(List.of(task));
+        when(taskMapper.selectCurrentScheduleCount()).thenReturn(1L);
+        when(taskMapper.selectLatestUpdatedTask()).thenReturn(task);
+        when(workOrderService.getWorkOrderMap(anyCollection())).thenReturn(Map.of(200L,
+                MesProWorkOrderDO.builder().id(200L).code("WO-001").productId(500L).quantity(new BigDecimal("2019")).build()));
+        when(productionMaterialListMapper.selectListByWorkOrderIds(anyCollection()))
+                .thenReturn(buildProductionMaterialListRows(Map.of(200L, Map.of(501L, BigDecimal.ONE))));
+        when(workstationMapper.selectByIds(anyCollection())).thenReturn(List.of(
+                MesMdWorkstationDO.builder().id(300L).workshopId(700L).productionLineId(600L).build()));
+        when(productionLineService.getProductionLineMap(anyCollection())).thenReturn(Map.of(600L,
+                MesMdProductionLineDO.builder().id(600L).calendarPlanId(800L).code("LINE-01").name("Line 01").build()));
+        when(workshopService.getWorkshopMap(anyCollection())).thenReturn(Map.of(700L,
+                MesMdWorkshopDO.builder().id(700L).code("WS-01").name("Workshop 01").build()));
+        when(processService.getProcessMap(anyCollection())).thenReturn(Map.of(400L,
+                MesProProcessDO.builder().id(400L).name("Cut").build()));
+        when(itemService.getItemMap(anyCollection())).thenReturn(Map.of(500L,
+                new MesMdItemDO().setId(500L).setCode("ITEM-01").setName("Item 01")));
+        when(taskScheduleExtMapper.selectListByTaskIds(anyCollection())).thenReturn(List.of(
+                MesProTaskScheduleExtDO.builder().taskId(100L).scheduleSource("AUTO").locked(false).riskStatus("NONE").build()));
+        when(planShiftService.getPlanShiftListByPlanId(800L)).thenReturn(List.of(
+                MesCalPlanShiftDO.builder().id(801L).planId(800L).sort(2).name("Night").startTime("20:00").endTime("08:00").build()
+        ));
+        when(capacityPlanMapper.selectListByLineIdsAndDate(anyCollection(), any())).thenReturn(List.of(
+                MesProCapacityPlanDO.builder().id(950L).lineId(600L).calendarDate(LocalDateTime.of(2026, 5, 13, 0, 0)).shiftId(801L).capacityMinutes(480).enabled(true).build(),
+                MesProCapacityPlanDO.builder().id(951L).lineId(600L).calendarDate(LocalDateTime.of(2026, 5, 14, 0, 0)).shiftId(801L).capacityMinutes(480).enabled(true).build()
+        ));
+        when(scheduleIssueMapper.selectListByWorkOrderIds(anyCollection())).thenReturn(Collections.emptyList());
+
+        var resp = service.getDayDetail("2026-05-14");
+
+        var detailTask = resp.getWorkshops().get(0).getLines().get(0).getTasks().get(0);
+        assertEquals(0, new BigDecimal("969").compareTo(detailTask.getQuantity()));
+        assertEquals(0, new BigDecimal("2019").compareTo(detailTask.getWorkOrderQuantity()));
     }
 
     @Test

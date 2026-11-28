@@ -2579,12 +2579,15 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                 .map(MesProTaskDO::getId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        List<MesProTaskDO> lineResourceTasks = CollUtil.isEmpty(computation.workstationMap)
-                ? Collections.emptyList()
-                : taskMapper.selectListByWorkstationIds(computation.workstationMap.keySet());
+        Set<Long> processIds = computation.routeProcessesByWorkOrderId.values().stream()
+                .flatMap(Collection::stream)
+                .map(MesProRouteProcessDO::getProcessId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        List<MesProTaskDO> processResourceTasks = taskMapper.selectListByProcessIds(processIds);
         List<MesProTaskDO> contextTasks = new ArrayList<>();
         contextTasks.addAll(computation.preservedTasks);
-        contextTasks.addAll(lineResourceTasks);
+        contextTasks.addAll(processResourceTasks);
         Map<Long, MesProScheduleOrderDO> effectiveScheduleOrderByWorkOrderId =
                 loadEffectiveScheduleOrderByWorkOrderId(contextTasks);
         Map<Long, List<MesProScheduleOrderProcessDO>> processByScheduleOrderId =
@@ -2598,14 +2601,14 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             seedTaskDailyProcessCapacity(computation, ledger, preservedTask,
                     effectiveScheduleOrderByWorkOrderId, processByScheduleOrderId, seededTaskIds);
         }
-        for (MesProTaskDO lineResourceTask : lineResourceTasks) {
-            if (lineResourceTask.getId() != null && replaceableTaskIds.contains(lineResourceTask.getId())) {
+        for (MesProTaskDO processResourceTask : processResourceTasks) {
+            if (processResourceTask.getId() != null && replaceableTaskIds.contains(processResourceTask.getId())) {
                 continue;
             }
-            if (isProgressOnlyProtectedTask(computation, lineResourceTask)) {
+            if (isProgressOnlyProtectedTask(computation, processResourceTask)) {
                 continue;
             }
-            seedTaskDailyProcessCapacity(computation, ledger, lineResourceTask,
+            seedTaskDailyProcessCapacity(computation, ledger, processResourceTask,
                     effectiveScheduleOrderByWorkOrderId, processByScheduleOrderId, seededTaskIds);
         }
         computation.processCapacityLedger = ledger;
@@ -2673,14 +2676,6 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                     "已有有效任务缺少工序，无法计算已占日产能"));
             return;
         }
-        boolean routeProcessDailyCapacity = isRouteProcessDailyCapacity(scheduleOrderProcess);
-        Long lineId = resolveTaskCapacityLedgerLineId(computation, task, scheduleOrderProcess);
-        if (!routeProcessDailyCapacity && task.getWorkstationId() != null && lineId == null) {
-            computation.issues.add(ScheduleIssueDraft.blocking(ISSUE_TYPE_CAPACITY, task.getWorkOrderId(),
-                    processId, task.getWorkstationId(), null,
-                    "已有有效任务工作站缺少产线，无法计算已占日产能"));
-            return;
-        }
         LocalDate taskEndDate = resolveTaskEndDate(task);
         LocalDate capacityStartDate = computation.requestStartTime == null
                 ? task.getStartTime().toLocalDate()
@@ -2693,23 +2688,8 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                 : task.getStartTime().toLocalDate();
         for (; !cursor.isAfter(taskEndDate); cursor = cursor.plusDays(1)) {
             BigDecimal dailyQuantity = calculateDailyTaskQuantity(task, cursor);
-            ledger.reserve(lineId, processId, cursor, scheduleOrderProcess, dailyQuantity);
+            ledger.reserve(processId, cursor, scheduleOrderProcess, dailyQuantity);
         }
-    }
-
-    private Long resolveTaskCapacityLedgerLineId(ScheduleComputation computation,
-                                                 MesProTaskDO task,
-                                                 MesProScheduleOrderProcessDO scheduleOrderProcess) {
-        if (isRouteProcessDailyCapacity(scheduleOrderProcess)) {
-            return null;
-        }
-        return resolveTaskLineId(computation, task);
-    }
-
-    private boolean isRouteProcessDailyCapacity(MesProScheduleOrderProcessDO scheduleOrderProcess) {
-        return scheduleOrderProcess != null
-                && CAPACITY_SOURCE_ROUTE_PROCESS.equals(scheduleOrderProcess.getCapacitySource())
-                && hasDailyProcessCapacityLimit(scheduleOrderProcess);
     }
 
     private MesProScheduleOrderDO resolveSeedScheduleOrder(ScheduleComputation computation,
@@ -2749,14 +2729,6 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                 .filter(process -> ObjUtil.equal(process.getProcessId(), task.getProcessId()))
                 .findFirst()
                 .orElse(null);
-    }
-
-    private Long resolveTaskLineId(ScheduleComputation computation, MesProTaskDO task) {
-        if (task == null || task.getWorkstationId() == null) {
-            return null;
-        }
-        MesMdWorkstationDO workstation = computation.workstationMap.get(task.getWorkstationId());
-        return workstation == null ? null : workstation.getProductionLineId();
     }
 
     private LocalDate resolveTaskEndDate(MesProTaskDO task) {
@@ -3502,7 +3474,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         }
         for (int dayOffset = 0; dayOffset < LINE_CAPACITY_SEARCH_DAY_LIMIT; dayOffset++) {
             LocalDate planDate = startDate.plusDays(dayOffset);
-            BigDecimal remainingDailyCapacity = capacityLedger.remaining(null, processId, planDate, scheduleOrderProcess);
+            BigDecimal remainingDailyCapacity = capacityLedger.remaining(processId, planDate, scheduleOrderProcess);
             if (remainingDailyCapacity != null && remainingDailyCapacity.compareTo(BigDecimal.ZERO) > 0) {
                 remainingQuantity = remainingQuantity.subtract(remainingDailyCapacity.setScale(0, RoundingMode.FLOOR));
             }

@@ -43,7 +43,7 @@ export interface FolderNode { key: string; parentKey?: string | null; name: stri
 export interface FolderStructure { nodes: FolderNode[] }
 export interface FolderTemplate {
   id: number; name: string; description?: string; active: boolean
-  structureJson: string; editedByUserId: number; everUsed: boolean; updateTime?: string
+  structureJson: string; editedByUserId: number; editedByName?: string; everUsed: boolean; updateTime?: string
 }
 export interface ProjectFolder {
   id: number | string; projectCodeId: number | string; parentId: number | string; name: string; sortOrder: number

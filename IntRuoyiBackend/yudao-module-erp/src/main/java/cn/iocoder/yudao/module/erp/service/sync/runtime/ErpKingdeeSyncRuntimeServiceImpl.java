@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.erp.service.sync.runtime;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.validation.annotation.Validated;
 
 @Service
@@ -15,6 +16,10 @@ public class ErpKingdeeSyncRuntimeServiceImpl implements ErpKingdeeSyncRuntimeSe
 
     @Override
     public ErpKingdeeSyncRunResult executeSync(ErpKingdeeSyncCommand command, ErpKingdeeSyncTask task) {
+        if (command.isPageTransactions() && (TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isSynchronizationActive())) {
+            throw new IllegalStateException("分页同步不能在已有数据库事务中启动");
+        }
         String syncType = command.getSyncType().getType();
         org.redisson.api.RLock source = sourceLock.acquire();
         try {
@@ -25,7 +30,14 @@ public class ErpKingdeeSyncRuntimeServiceImpl implements ErpKingdeeSyncRuntimeSe
             execution = transactionService.start(command);
             cancellation.register(execution.getRunId());
             try {
-                ErpKingdeeSyncRunResult result = transactionService.execute(execution, task, cancellation);
+                if (!command.isPageTransactions()) {
+                    return transactionService.execute(execution, task, cancellation);
+                }
+                // Pages own their transactions. Do not borrow a connection while waiting for ERP.
+                ErpKingdeeSyncRunResult result = execution.run(task);
+                cancellation.check(execution.getRunId());
+                // Call the transactional bean after the last page; watermark and SUCCESS commit together.
+                transactionService.complete(execution, result);
                 return result;
             } catch (RuntimeException failure) {
                 if (cancellation.isRequested(execution.getRunId())) {

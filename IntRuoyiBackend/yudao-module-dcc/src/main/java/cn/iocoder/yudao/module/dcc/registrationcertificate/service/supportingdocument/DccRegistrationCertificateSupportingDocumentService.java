@@ -68,6 +68,7 @@ public class DccRegistrationCertificateSupportingDocumentService {
         }
         byte[] content = file.getBytes();
         if (content.length == 0) throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
+        cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.DccRegistrationCertificateMaterialValidator.validate(name, content);
         ExistingEvent existing = findEvent(tenantId, key);
         if (existing != null) {
             EventDetail detail = JsonUtils.parseObject(existing.detailJson(), EventDetail.class);

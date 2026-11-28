@@ -3,7 +3,7 @@
     <el-table-column label="地址编号" align="center" prop="id" width="150px" />
     <el-table-column label="收件人名称" align="center" prop="name" width="150px" />
     <el-table-column label="手机号" align="center" prop="mobile" width="150px" />
-    <el-table-column label="地区编码" align="center" prop="areaId" width="150px" />
+    <el-table-column label="所在地区" align="center" prop="areaName" min-width="180px" />
     <el-table-column label="收件详细地址" align="center" prop="detailAddress" />
     <el-table-column label="是否默认" align="center" prop="defaultStatus" width="150px">
       <template #default="scope">
@@ -23,6 +23,8 @@
 import { DICT_TYPE } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
 import * as AddressApi from '@/api/member/address'
+import { getAreaTree } from '@/api/system/area'
+import { getAddressAreaName } from './areaDisplay'
 
 const { userId }: { userId: number } = defineProps({
   userId: {
@@ -32,13 +34,20 @@ const { userId }: { userId: number } = defineProps({
 })
 
 const loading = ref(true) // 列表的加载中
-const list = ref([]) // 列表的数据
+const list = ref<Array<AddressApi.AddressVO & { areaName: string }>>([]) // 列表的数据
 
 /** 查询列表 */
 const getList = async () => {
   loading.value = true
   try {
-    list.value = await AddressApi.getAddressList({ userId })
+    const [addresses, areas] = await Promise.all([
+      AddressApi.getAddressList({ userId }),
+      getAreaTree()
+    ])
+    list.value = addresses.map((address) => {
+      const areaName = getAddressAreaName(areas, address.areaId)
+      return { ...address, areaName }
+    })
   } finally {
     loading.value = false
   }

@@ -18,7 +18,7 @@
       </div>
       <el-alert v-if="error" :title="error" type="error" :closable="false" />
       <el-table
-v-if="!contextError" :data="records" :span-method="spanGroup" :row-class-name="rowClass"
+v-if="!loading && !error && !contextError" :data="records" :span-method="spanGroup" :row-class-name="rowClass"
         row-key="key" border empty-text="暂无匹配的审批或电子签名记录" data-user-table-column-explicit>
         <el-table-column label="办理事项" min-width="290">
           <template #default="{ row }">
@@ -33,7 +33,7 @@ v-if="!contextError" :data="records" :span-method="spanGroup" :row-class-name="r
                 <span v-if="duplicateGroup(row.group)" class="approval-secondary">本版本第 {{ groupOrdinal(row.group) }} 次申请</span>
               </button>
               <el-alert v-if="row.group.error" :title="row.group.error" type="error" :closable="false" />
-              <div v-if="expandedGroups.includes(row.group.key) && !row.group.rows.length" class="approval-secondary">暂无可查办理记录</div>
+              <div v-if="expandedGroups.includes(row.group.key) && !row.group.rows.length && !row.group.error" class="approval-secondary">暂无可查办理记录</div>
             </template>
             <template v-else>
               <button

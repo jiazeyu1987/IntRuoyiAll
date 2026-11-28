@@ -68,6 +68,7 @@
 </template>
 
 <script lang="ts" setup>
+import { presentUploadFailure } from '@/views/ai/utils/failurePresentation'
 import { PropType, ref, computed, inject, getCurrentInstance, onMounted } from 'vue'
 import { useMessage } from '@/hooks/web/useMessage'
 import { useUpload } from '@/components/UploadFile/src/useUpload'
@@ -200,8 +201,10 @@ const handleUploadSuccess = (response, file) => {
  * @param error 错误信息
  * @param file 上传的文件
  */
-const handleUploadError = (error, file) => {
-  message.error(`文件 ${file.name} 上传失败: ${error}`)
+const handleUploadError = (error: unknown, file) => {
+  const failure = presentUploadFailure(error)
+  const errorCode = failure.code !== undefined ? `；错误编号：${failure.code}` : ''
+  message.error(`文件 ${file.name} 上传失败：${failure.reason}（${failure.category}${errorCode}）`)
   // 减少上传中的文件计数
   uploadingCount.value = Math.max(0, uploadingCount.value - 1)
 }

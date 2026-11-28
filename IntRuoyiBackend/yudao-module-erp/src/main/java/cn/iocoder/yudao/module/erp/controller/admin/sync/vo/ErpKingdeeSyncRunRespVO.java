@@ -18,6 +18,9 @@ public class ErpKingdeeSyncRunRespVO {
     @Schema(description = "触发类型", requiredMode = Schema.RequiredMode.REQUIRED)
     private String triggerType;
 
+    @Schema(description = "按编号同步的目标编号")
+    private String targetCode;
+
     @Schema(description = "运行状态", requiredMode = Schema.RequiredMode.REQUIRED)
     private Integer status;
 

@@ -9,6 +9,34 @@ import static org.junit.jupiter.api.Assertions.*;
 import static cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.*;
 
 class MesProCraftParametersTest {
+    @Test void booleanDefaultsExplainHowToFixTheParameter() {
+        JSONArray parameters = definitions();
+        JSONObject valid = parameters.getJSONObject(2);
+        valid.remove("defaultValue");
+        assertValidationMessage(parameters, "有效", "VALID", "默认值", "必须选择“是”或“否”");
+        valid.put("defaultValue", 2);
+        assertValidationMessage(parameters, "有效", "VALID", "默认值", "必须选择“是”或“否”");
+        for (int value : List.of(0, 1)) {
+            valid.put("defaultValue", value);
+            assertDoesNotThrow(() -> MesProCraftService.validateDefinitions(22L, parameters));
+        }
+        valid.put("lowerLimit", 0);
+        assertValidationMessage(parameters, "有效", "VALID", "类型配置", "是否类型不能填写");
+    }
+    @Test void incompatibleTypeFieldsAndPrecisionIdentifyTheParameter() {
+        JSONArray parameters = definitions();
+        parameters.getJSONObject(4).put("defaultValue", 1);
+        assertValidationMessage(parameters, "要求", "NOTE", "类型配置", "文本标准类型不能填写");
+        parameters = definitions();
+        parameters.getJSONObject(3).put("lowerLimit", 0);
+        assertValidationMessage(parameters, "模式", "MODE", "类型配置", "下拉类型不能填写");
+        parameters = definitions();
+        parameters.getJSONObject(0).put("decimalScale", 7);
+        assertValidationMessage(parameters, "温度", "TEMP", "小数位数", "0到6");
+        parameters = definitions();
+        parameters.getJSONObject(1).put("decimalScale", 1);
+        assertValidationMessage(parameters, "次数", "COUNT", "小数位数", "整数类型只能为0");
+    }
     @Test void invalidRangesIdentifyParameterAndField() {
         JSONArray parameters = definitions();
         JSONObject temperature = parameters.getJSONObject(0);

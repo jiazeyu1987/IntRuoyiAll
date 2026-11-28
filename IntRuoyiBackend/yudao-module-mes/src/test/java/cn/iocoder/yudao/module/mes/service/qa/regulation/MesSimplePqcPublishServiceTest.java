@@ -14,6 +14,25 @@ class MesSimplePqcPublishServiceTest {
  private final MesQaInspectionRegulationMapper mapper = mock(MesQaInspectionRegulationMapper.class);
  private final MesDvMachineryMapper machinery = mock(MesDvMachineryMapper.class);
  private final MesSimplePqcPublishService service = new MesSimplePqcPublishService(regulations,equipment,machinery,mapper);
+ @org.junit.jupiter.api.BeforeEach void draftIdentity() {
+  when(regulations.saveDraft(any())).thenReturn(MesQaInspectionRegulationSaveRespVO.builder()
+    .regulationId(1L).draftVersionId(2L).draftRevision(4L).build());
+ }
+ @Test void sameNameItemsShareBindingsWithoutReusingCodes() {
+  var q=request("真实原因");
+  var first=q.getProcesses().get(0).getItems().get(0);
+  var second=request("真实原因").getProcesses().get(0).getItems().get(0);
+  q.getProcesses().get(0).setItems(List.of(first,second));
+  service.publish(q);
+  assertNotEquals(first.getItemCode(),second.getItemCode());
+  verify(equipment).replaceItemConfigs(argThat(c->c.getItemCodes().size()==2 && c.getEquipmentGroups().isEmpty()));
+ }
+ @Test void configurationFailureDoesNotFreezeVersion() {
+  var q=request("真实原因");
+  doThrow(new IllegalStateException("configuration failed")).when(equipment).replaceItemConfigs(any());
+  assertThrows(IllegalStateException.class,()->service.publish(q));
+  verify(regulations).saveDraft(q);verify(regulations,never()).publish(any());
+ }
  @Test void invalidRequestDoesNotPublish() {
   var r=mock(MesQaInspectionRegulationService.class); var e=mock(MesPqcItemEquipmentConfigService.class);
   var s=new MesSimplePqcPublishService(r,e,mock(MesDvMachineryMapper.class),mapper);
@@ -26,7 +45,9 @@ class MesSimplePqcPublishServiceTest {
   var i=new MesQaInspectionRegulationSaveReqVO.InspectionItem();i.setItemName("visual");i.setItemCode("OLD");i.setInspectionTool("目测");i.setEquipmentOptions(List.of());
   var p=new MesQaInspectionRegulationSaveReqVO.InspectionProcess();p.setItems(List.of(i));
   var q=new MesQaInspectionRegulationSaveReqVO();q.setProcesses(List.of(p));q.setDccProjectCodeId(129L);
-  s.publish(q);assertNotEquals("OLD",i.getItemCode());verify(r).publish(q);verify(e).replaceItemConfigs(any());
+  when(r.saveDraft(any())).thenReturn(MesQaInspectionRegulationSaveRespVO.builder()
+    .regulationId(1L).draftRevision(4L).build());
+  s.publish(q);assertEquals(4L,q.getExpectedDraftRevision());assertEquals(1L,q.getRegulationId());assertNotEquals("OLD",i.getItemCode());verify(r).publish(q);verify(e).replaceItemConfigs(any());
  }
  @Test void nonSensoryToolRequiresExplicitReason() {
   var error=assertThrows(RuntimeException.class,()->service.publish(request("  ")));

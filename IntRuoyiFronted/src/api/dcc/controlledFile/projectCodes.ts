@@ -12,6 +12,8 @@ export interface DccProjectCodePageReqVO extends PageParam {
   keyword?: string
   projectName?: string
   projectCode?: string
+  productCode?: string
+  projectLeader?: string
   category?: string
   priority?: string
   status?: string

@@ -78,7 +78,13 @@ public class MesFrontlineReturnCorrectionService {
                           BigDecimal lowerLimit, BigDecimal upperLimit, String unit, Integer precision,
                           Long selectedEquipmentId, String selectedEquipmentNumber, List<String> sampleValues) { }
     public record PqcFields(Integer actualInspectionQuantity, Integer scrapQuantity, List<PqcItem> items) { }
-    public record ReturnDetail(ReturnRow row, ProductionFields production, PqcFields pqc) { }
+    public record RecordedObjectName(String name, String code) { }
+    public record ProductionDisplayNames(Map<String, RecordedObjectName> materials,
+                                         Map<String, RecordedObjectName> lossReasons,
+                                         Map<String, RecordedObjectName> devices,
+                                         Map<String, RecordedObjectName> parameters) { }
+    public record ReturnDetail(ReturnRow row, ProductionFields production, PqcFields pqc,
+                               ProductionDisplayNames productionDisplayNames) { }
     public record ChangedField(String fieldName,String beforeValue,String afterValue) { }
     public record CorrectionResult(Long eventId,Long revisionId,List<ChangedField> changes) { }
 
@@ -120,7 +126,8 @@ public class MesFrontlineReturnCorrectionService {
         gxpAuditService.acquireLedgerLock();
         ReturnContext context=requireOwnReturned(eventId,activeOrderId,rejectedReviewId,expectedRevisionId,actor,leaderType);
         return new ReturnDetail(toRow(context), "PRODUCTION".equals(leaderType) ? productionFields(context.event()) : null,
-                "PQC".equals(leaderType) ? pqcFields(context.event()) : null);
+                "PQC".equals(leaderType) ? pqcFields(context.event()) : null,
+                "PRODUCTION".equals(leaderType) ? productionDisplayNames(context.event()) : null);
     }
 
     /** Called under the correction transaction; all ownership/round facts are locked before signing. */
@@ -227,6 +234,71 @@ public class MesFrontlineReturnCorrectionService {
                 array(p,"materialDetails",MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand.class,false),
                 array(p,"lossDetails",MesProcessPoolProductionReportCorrectionCommand.LossDetailCommand.class,true),
                 array(p,"deviceParameterReadings",MesProcessPoolProductionReportCorrectionCommand.DeviceParameterReadingCommand.class,false));
+    }
+
+    // Display-only projection from the already-authorized formal event. Never query current master
+    // names here: renamed objects must not be presented as the names recorded when signing.
+    ProductionDisplayNames productionDisplayNames(MesProProcessPoolEventDO event) {
+        JsonNode payload = object(event.getRawPayload(), "ownReturn.payload");
+        Map<String, RecordedObjectName> materials = new LinkedHashMap<>();
+        Map<String, RecordedObjectName> reasons = new LinkedHashMap<>();
+        Map<String, RecordedObjectName> devices = new LinkedHashMap<>();
+        Map<String, RecordedObjectName> parameters = new LinkedHashMap<>();
+        collectRecordedReasons(payload.path("lossDetails"), reasons);
+        collectRecordedDevices(payload, devices, parameters);
+        JsonNode materialDetails = payload.path("materialDetails");
+        if (materialDetails.isArray()) {
+            for (JsonNode material : materialDetails) {
+                putRecordedName(materials, recordedId(material, "materialId"), material, "materialName", "materialCode");
+                collectRecordedReasons(material.path("lossDetails"), reasons);
+                collectRecordedDevices(material, devices, parameters);
+            }
+        }
+        return new ProductionDisplayNames(materials, reasons, devices, parameters);
+    }
+
+    private static void collectRecordedReasons(JsonNode rows, Map<String, RecordedObjectName> reasons) {
+        if (!rows.isArray()) return;
+        for (JsonNode row : rows) putRecordedName(reasons, recordedId(row, "reasonId"), row, "reasonName", "reasonCode");
+    }
+
+    private static void collectRecordedDevices(JsonNode source, Map<String, RecordedObjectName> devices,
+                                               Map<String, RecordedObjectName> parameters) {
+        JsonNode selected = source.path("selectedDevice");
+        putRecordedName(devices, recordedId(selected, "deviceId"), selected, "deviceName", "deviceCode");
+        for (String field : List.of("selectedDevices", "deviceMeteringValidity", "deviceParameterReadings")) {
+            JsonNode rows = source.path(field);
+            if (!rows.isArray()) continue;
+            for (JsonNode row : rows) {
+                String deviceId = recordedId(row, "deviceId");
+                putRecordedName(devices, deviceId, row, "deviceName", "deviceCode");
+                String parameterCode = recordedText(row, "parameterCode");
+                if (deviceId != null && parameterCode != null) {
+                    putRecordedName(parameters, deviceId + ":" + parameterCode, row, "parameterName", "parameterCode");
+                }
+            }
+        }
+    }
+
+    private static String recordedId(JsonNode source, String field) {
+        JsonNode id = source.path(field);
+        return id.isIntegralNumber() ? id.asText() : id.isTextual() && !id.asText().isBlank() ? id.asText() : null;
+    }
+
+    private static String recordedText(JsonNode source, String field) {
+        JsonNode value = source.path(field);
+        return value.isTextual() && !value.asText().isBlank() ? value.asText() : null;
+    }
+
+    private static void putRecordedName(Map<String, RecordedObjectName> target, String id,
+                                         JsonNode source, String nameField, String codeField) {
+        if (id == null) return;
+        String name = recordedText(source, nameField);
+        String code = recordedText(source, codeField);
+        RecordedObjectName existing = target.get(id);
+        // A selected-device snapshot can carry its name separately from a parameter reading.
+        target.put(id, new RecordedObjectName(existing != null && existing.name() != null ? existing.name() : name,
+                existing != null && existing.code() != null ? existing.code() : code));
     }
 
     private PqcFields pqcFields(MesProProcessPoolEventDO event) {

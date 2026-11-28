@@ -259,7 +259,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     @Override
     public PageResult<DccControlledFileRespVO> getControlledFilePage(Long userId, Long id,
                                                                       DccProjectCodeControlledFilePageReqVO reqVO) {
-        getProjectCode(userId, id);
+        getReadableProjectCode(userId, id);
         List<DccControlledFileRespVO> associatedRows = controlledFileMapper
                 .selectAssociatedFilesByProjectCodeId(id, null)
                 .stream()

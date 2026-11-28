@@ -62,6 +62,7 @@ class KingdeeProductionMaterialListSyncJobTest {
         ArgumentCaptor<ErpKingdeeSyncCommand> commandCaptor = ArgumentCaptor.forClass(ErpKingdeeSyncCommand.class);
         verify(runtimeService).executeSync(commandCaptor.capture(), any(ErpKingdeeSyncTask.class));
         assertEquals(ErpKingdeeSyncTypeEnum.PRODUCTION_MATERIAL_LIST, commandCaptor.getValue().getSyncType());
+        Assertions.assertFalse(commandCaptor.getValue().isPageTransactions());
         verify(syncService).syncModifiedBetween(windowStart, windowEnd);
     }
 
@@ -97,6 +98,9 @@ class KingdeeProductionMaterialListSyncJobTest {
         String output = job.execute(ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM);
 
         assertTrue(output.contains("full sync"));
+        ArgumentCaptor<ErpKingdeeSyncCommand> commandCaptor = ArgumentCaptor.forClass(ErpKingdeeSyncCommand.class);
+        verify(runtimeService).executeSync(commandCaptor.capture(), any(ErpKingdeeSyncTask.class));
+        assertTrue(commandCaptor.getValue().isPageTransactions());
         assertTrue(output.contains("updated=1"));
         verify(syncService).syncAllWithUpdates(91L);
         verify(syncService, never()).syncModifiedBetween(any(), any());

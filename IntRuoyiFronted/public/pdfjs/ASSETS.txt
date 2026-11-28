@@ -1,0 +1,4 @@
+PDF.js CMap assets: pdfjs-dist 5.4.530 (build 50cc4adac), matching the vendored viewer and worker.
+Source: https://registry.npmjs.org/pdfjs-dist/-/pdfjs-dist-5.4.530.tgz
+cmaps/ is copied unchanged from that package; see cmaps/LICENSE and LICENSE.
+These local packed CMaps resolve non-embedded composite fonts such as STSong-Light / UniGB-UCS2-H.

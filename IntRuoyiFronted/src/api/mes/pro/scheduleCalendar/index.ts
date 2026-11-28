@@ -69,6 +69,7 @@ export interface ProScheduleCalendarMonthRespVO {
 }
 
 export interface ProScheduleCalendarTaskVO {
+  workOrderQuantity: number
   taskId: number
   taskCode: string
   workOrderId: number

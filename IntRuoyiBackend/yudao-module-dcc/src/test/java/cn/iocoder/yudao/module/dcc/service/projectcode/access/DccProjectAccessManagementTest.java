@@ -7,7 +7,6 @@ import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.access.DccPro
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectAccessRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectAccessRuleMapper;
-import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
@@ -34,7 +33,6 @@ class DccProjectAccessManagementTest {
     private DccProjectAccessServiceImpl service;
     private DccProjectCodeMapper projects;
     private DccProjectAccessRuleMapper rules;
-    private DccProjectCodeAssignmentMapper assignments;
     private AdminUserApi users;
     private PermissionApi permissions;
     private DccProjectCodeDO project;
@@ -49,12 +47,10 @@ class DccProjectAccessManagementTest {
         service = new DccProjectAccessServiceImpl();
         projects = mock(DccProjectCodeMapper.class);
         rules = mock(DccProjectAccessRuleMapper.class);
-        assignments = mock(DccProjectCodeAssignmentMapper.class);
         users = mock(AdminUserApi.class);
         permissions = mock(PermissionApi.class);
         ReflectionTestUtils.setField(service, "projectCodeMapper", projects);
         ReflectionTestUtils.setField(service, "accessRuleMapper", rules);
-        ReflectionTestUtils.setField(service, "assignmentMapper", assignments);
         ReflectionTestUtils.setField(service, "adminUserApi", users);
         ReflectionTestUtils.setField(service, "permissionApi", permissions);
         ReflectionTestUtils.setField(service, "deptApi", mock(DeptApi.class));
@@ -127,14 +123,27 @@ class DccProjectAccessManagementTest {
         assertDeniedRead();
     }
 
-    @Test
-    void assignmentRestrictionAlsoAppliesToAclRead() {
-        grantFormalAccess("OWNER");
+    @ParameterizedTest
+    @ValueSource(strings = {"VIEW", "EDIT", "OWNER"})
+    void formalViewingDoesNotRequireCorrectionAssignment(String level) {
+        grantFormalAccess(level);
         when(permissions.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
-        when(assignments.selectActiveProjectCodeIdsByAssigneeUserId(eq(1L), eq(99L), any()))
-                .thenReturn(List.of(101L));
-        assertDeniedRead();
+        when(rules.selectActiveReaderRules(eq(1L), any())).thenReturn(List.of(formalRule(level)));
+        assertDoesNotThrow(() -> service.assertProjectViewerOrAbove(99L, 100L));
+        assertDoesNotThrow(() -> service.getProjectAccessRules(100L));
+        assertEquals(List.of(100L), service.listReadableProjectIds(99L));
+        if ("VIEW".equals(level)) {
+            assertFalse(service.hasProjectEditorOrOwner(99L, 100L));
+            assertThrows(ServiceException.class, () -> service.assertProjectMetadataEditable(99L, 100L));
+        }
         assertDeniedWrite();
+    }
+
+    @Test
+    void correctionExecutionPermissionAloneDoesNotGrantViewing() {
+        when(permissions.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        assertDeniedRead();
+        assertTrue(service.listReadableProjectIds(99L).isEmpty());
     }
 
     @ParameterizedTest

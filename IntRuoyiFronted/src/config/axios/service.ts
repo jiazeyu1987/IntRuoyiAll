@@ -301,18 +301,7 @@ service.interceptors.response.use(
       }
       return Promise.reject(createApiError(msg, code, data))
     } else if (code === 901) {
-      if (!ignoreErrorMessage) ElMessage.error({
-        offset: 300,
-        dangerouslyUseHTMLString: true,
-        message:
-          '<div>' +
-          t('sys.api.errMsg901') +
-          '</div>' +
-          '<div> &nbsp; </div>' +
-          '<div>参考 https://doc.iocoder.cn/ 教程</div>' +
-          '<div> &nbsp; </div>' +
-          '<div>5 分钟搭建本地环境</div>'
-      })
+      if (!ignoreErrorMessage) ElMessage.error('当前为演示环境，不能保存、修改或删除资料。请联系管理员确认可操作的环境。')
       return Promise.reject(createApiError(msg, code, data))
     } else if (code !== 0 && code !== 200) {
       if (msg === '无效的刷新令牌') {

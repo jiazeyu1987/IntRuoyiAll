@@ -11,7 +11,8 @@
   >
     <p v-if="errorText" role="alert" class="return-error">{{ errorText }}</p>
     <section v-if="result" role="status" aria-label="重提结果">
-      <p>已签名重提，等待组长复核。原事件：{{ result.eventId }}，新修订：{{ result.revisionId }}</p>
+      <p>已签名重提，等待组长复核。</p>
+      <details><summary>技术记录详情</summary><p>原事件：{{ result.eventId }}，新修订：{{ result.revisionId }}</p></details>
       <el-table :data="result.changes">
         <el-table-column prop="fieldName" label="修改字段" />
         <el-table-column prop="beforeValue" label="修改前" />
@@ -21,8 +22,20 @@
     <template v-else-if="draft">
       <p><WorkOrderCodeLink :code="draft.row.workOrderCode" /> · {{ draft.row.formName }}</p>
       <p>退回原因：{{ draft.row.rejectionReason }}</p>
-      <p data-own-return-formal-identity>原事件：{{ draft.row.eventId }}；原退回轮次：{{ draft.row.rejectedReviewId }}；原修订：{{ draft.row.expectedRevisionId }}</p>
-      <p>退回轮次：{{ draft.row.rejectedReviewId }}。修改业务值后由本人签名，组长再次复核。</p>
+      <details><summary>技术记录详情</summary>
+        <p data-own-return-formal-identity>原事件：{{ draft.row.eventId }}；原退回轮次：{{ draft.row.rejectedReviewId }}；原修订：{{ draft.row.expectedRevisionId }}</p>
+      </details>
+      <p>修改业务值后由本人签名，组长再次复核。</p>
+      <details v-if="draft.production">
+        <summary>原记录对象技术标识</summary>
+        <p v-for="loss in draft.production.lossDetails" :key="`reason:${loss.reasonId}`">不良项目编号：{{ loss.reasonId }}；原记录编码：{{ draft.productionDisplayNames?.lossReasons?.[String(loss.reasonId)]?.code || '历史未记录' }}</p>
+        <div v-for="material in draft.production.materialDetails" :key="`material:${material.materialId}`">
+          <p>物料编号：{{ material.materialId }}</p>
+          <p v-for="loss in material.lossDetails" :key="`reason:${loss.reasonId}`">物料不良项目编号：{{ loss.reasonId }}；原记录编码：{{ draft.productionDisplayNames?.lossReasons?.[String(loss.reasonId)]?.code || '历史未记录' }}</p>
+          <p v-for="reading in material.deviceParameterReadings" :key="`${reading.deviceId}:${reading.parameterCode}`">设备编号：{{ reading.deviceId }}；参数编码：{{ reading.parameterCode }}</p>
+        </div>
+        <p v-for="reading in draft.production.deviceParameterReadings" :key="`${reading.deviceId}:${reading.parameterCode}`">设备编号：{{ reading.deviceId }}；参数编码：{{ reading.parameterCode }}</p>
+      </details>
       <fieldset :disabled="busy" class="return-fields">
         <template v-if="draft.production">
           <label
@@ -36,11 +49,11 @@
             />
           </label>
           <label v-for="loss in draft.production.lossDetails" :key="loss.reasonId">
-            不良项目 {{ loss.reasonId }} 数量
+            {{ recordedObjectLabel('lossReasons', loss.reasonId, '不良项目') }} 数量
             <input v-model.number="loss.quantity" type="number" min="1" aria-label="更正不良数量" />
           </label>
           <article v-for="material in draft.production.materialDetails" :key="material.materialId">
-            <h4>物料 {{ material.materialId }}</h4>
+            <h4>{{ recordedObjectLabel('materials', material.materialId, '物料') }}</h4>
             <label
               >物料完成数量<input v-model.number="material.outputQuantity" type="number" min="0"
             /></label>
@@ -48,7 +61,7 @@
               >物料损耗数量<input v-model.number="material.lossQuantity" type="number" min="0"
             /></label>
             <label v-for="loss in material.lossDetails" :key="loss.reasonId">
-              不良项目 {{ loss.reasonId }} 数量<input
+              {{ recordedObjectLabel('lossReasons', loss.reasonId, '不良项目') }} 数量<input
                 v-model.number="loss.quantity"
                 type="number"
                 min="1"
@@ -58,18 +71,18 @@
               v-for="reading in material.deviceParameterReadings"
               :key="`${reading.deviceId}:${reading.parameterCode}`"
             >
-              物料设备 {{ reading.deviceId }} · {{ reading.parameterCode }}
+              {{ recordedObjectLabel('devices', reading.deviceId, '设备') }} · {{ recordedParameterLabel(reading.deviceId, reading.parameterCode) }}
               <input
                 v-if="reading.value != null"
                 v-model.number="reading.value"
                 type="number"
                 step="any"
-                :aria-label="`物料参数 ${reading.parameterCode}`"
+                :aria-label="recordedParameterLabel(reading.deviceId, reading.parameterCode)"
               />
               <input
                 v-else
                 v-model="reading.textValue"
-                :aria-label="`物料参数 ${reading.parameterCode}`"
+                :aria-label="recordedParameterLabel(reading.deviceId, reading.parameterCode)"
               />
             </label>
           </article>
@@ -77,18 +90,18 @@
             v-for="reading in draft.production.deviceParameterReadings"
             :key="`${reading.deviceId}:${reading.parameterCode}`"
           >
-            设备 {{ reading.deviceId }} · {{ reading.parameterCode }}
+            {{ recordedObjectLabel('devices', reading.deviceId, '设备') }} · {{ recordedParameterLabel(reading.deviceId, reading.parameterCode) }}
             <input
               v-if="reading.value != null"
               v-model.number="reading.value"
               type="number"
               step="any"
-              :aria-label="`更正参数 ${reading.parameterCode}`"
+              :aria-label="recordedParameterLabel(reading.deviceId, reading.parameterCode)"
             />
             <input
               v-else
               v-model="reading.textValue"
-              :aria-label="`更正参数 ${reading.parameterCode}`"
+              :aria-label="recordedParameterLabel(reading.deviceId, reading.parameterCode)"
             />
           </label>
         </template>
@@ -438,6 +451,18 @@ const resubmit = async () => {
   }
 }
 defineExpose({ open, openTask })
+
+const recordedObjectLabel = (group: 'materials' | 'lossReasons' | 'devices', id: number | string, kind: string) => {
+  if (!draft.value?.productionDisplayNames) return '原记录名称信息未返回，请刷新或联系管理员'
+  const recorded = draft.value.productionDisplayNames[group]?.[String(id)]
+  if (!recorded?.name) return `历史未记录${kind}名称，请展开技术标识核查`
+  return group === 'lossReasons' || !recorded.code ? recorded.name : `${recorded.name}（${recorded.code}）`
+}
+const recordedParameterLabel = (deviceId: number, code: string) => {
+  if (!draft.value?.productionDisplayNames) return '原记录参数名称信息未返回，请刷新或联系管理员'
+  const recorded = draft.value.productionDisplayNames.parameters?.[`${deviceId}:${code}`]
+  return recorded?.name ? `${recorded.name}（${code}）` : '历史未记录参数名称，请展开技术标识核查'
+}
 </script>
 
 <style scoped>

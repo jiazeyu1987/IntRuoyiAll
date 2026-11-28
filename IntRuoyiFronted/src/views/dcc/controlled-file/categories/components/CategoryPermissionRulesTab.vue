@@ -77,11 +77,11 @@
           <el-table-column label="原有操作（只读保留）" min-width="180">
             <template #default="{ row }">{{ permissionLabel(row.actionType) }}</template>
           </el-table-column>
-          <el-table-column label="主体类型" prop="subjectType" width="110" />
+          <el-table-column label="主体类型" prop="subjectType" width="110"><template #default="{ row }">{{ subjectTypeOptions.find(item => item.value === row.subjectType)?.label || (row.subjectType ? `无法识别的主体类型（${row.subjectType}）` : '主体类型未记录') }}</template></el-table-column>
           <el-table-column label="授权对象" min-width="190">
-            <template #default="{ row }">{{ subjectOptions(row.subjectType).find((item) => item.value === row.subjectId)?.label || `#${row.subjectId}` }}</template>
+            <template #default="{ row }">{{ subjectOptions(row.subjectType).find((item) => item.value === row.subjectId)?.label || '授权对象名称未记录' }}</template>
           </el-table-column>
-          <el-table-column label="范围" prop="scopeType" width="130" />
+          <el-table-column label="范围" prop="scopeType" width="130"><template #default="{ row }">{{ row.scopeType === 'GLOBAL' ? '全局' : row.scopeType === 'PRODUCT_GROUP' ? '产品组' : row.scopeType ? `无法识别的授权范围（${row.scopeType}）` : '授权范围未记录' }}</template></el-table-column>
           <el-table-column label="启用" width="80"><template #default="{ row }">{{ row.active ? '是' : '否' }}</template></el-table-column>
           <el-table-column label="备注" prop="remark" min-width="160" />
         </el-table>

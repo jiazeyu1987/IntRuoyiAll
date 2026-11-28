@@ -537,7 +537,7 @@ const previewRow = async (row: FileCandidate) => {
     state.error = error instanceof Error ? error.message : String(error)
   }
 }
-const downloadLibraryFile=async(row:FileCandidate)=>{try {await triggerControlledFileVariantDownload(row.controlledFileId,'editable')} catch(e:any){state.error=e.message||'下载失败'}}
+const downloadLibraryFile=async(row:FileCandidate)=>{try {await triggerControlledFileVariantDownload(row.controlledFileId,'original')} catch(e:any){state.error=e.message||'下载失败'}}
 const openOperationRow = async (row: FileCandidate) => {
   try {
     await openOperation([row])

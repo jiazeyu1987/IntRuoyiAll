@@ -42,6 +42,10 @@ test('numeric BPM task results and unknown signature states are readable without
   assert.equal(api.approvalSignatureStatus('INTERNAL'), '状态未记录')
 })
 
+test('rejected assignment respects the backend business stage', () => {
+  assert.equal(api.approvalNodeLabel({ actionType: 'REJECT', stageCode: 'MATRIX_REVIEW_ASSIGN', nodeName: '部门负责人签名指派' }), '部门负责人签名指派')
+})
+
 test('assignment, actual signoff and approval use business names while other stages keep their historical name', () => {
   for (const actionType of ['ASSIGN', 'ASSIGNED']) {
     assert.equal(api.approvalNodeLabel({ actionType, stageCode: 'MATRIX_REVIEW', nodeName: '会签指派与实际签名' }), '部门负责人签名指派')

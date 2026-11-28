@@ -275,7 +275,12 @@
           </el-table-column>
           <el-table-column label="策略" width="150">
             <template #default="{ row }">
-              {{ row.aggregationStrategy || row.overwritePolicy || 'ONLY_WHEN_EMPTY' }}
+              {{ resolveLinkStrategyLabel(row.aggregationStrategy, row.overwritePolicy) }}
+              <details v-if="row.aggregationStrategy || row.overwritePolicy">
+                <summary>技术策略详情</summary>
+                <p>汇总策略：{{ row.aggregationStrategy || '未设置' }}</p>
+                <p>覆盖策略：{{ row.overwritePolicy || '未设置' }}</p>
+              </details>
             </template>
           </el-table-column>
           <el-table-column label="状态" width="90">
@@ -1634,6 +1639,13 @@ function resolveErrorMessage(error: unknown, fallback: string) {
   const candidate = error as { message?: string; msg?: string }
   return candidate?.msg || candidate?.message || fallback
 }
+
+const resolveLinkStrategyLabel = (aggregation?: string, overwrite?: string) => {
+  if (aggregation) return PROCESS_POOL_REPORT_AGGREGATION_OPTIONS.find((option) => option.value === aggregation)?.label || '汇总策略未识别，请查看技术详情'
+  if (overwrite === 'ONLY_WHEN_EMPTY') return '仅目标为空时填入'
+  return overwrite ? '覆盖策略未识别，请查看技术详情' : '未记录策略'
+}
+
 </script>
 
 <style scoped>

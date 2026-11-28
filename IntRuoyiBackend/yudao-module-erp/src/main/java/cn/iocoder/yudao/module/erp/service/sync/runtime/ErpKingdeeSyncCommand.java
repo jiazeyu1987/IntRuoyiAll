@@ -13,6 +13,9 @@ public class ErpKingdeeSyncCommand {
 
     private ErpKingdeeSyncTypeEnum syncType;
     private ErpKingdeeSyncTriggerTypeEnum triggerType;
+    private String targetCode;
+    /** The task commits each page and its progress together, using the run id from its context. */
+    private boolean pageTransactions;
     private boolean forceInitialWindowStart;
     private LocalDateTime initialWindowStart;
     private LocalDateTime windowEnd;

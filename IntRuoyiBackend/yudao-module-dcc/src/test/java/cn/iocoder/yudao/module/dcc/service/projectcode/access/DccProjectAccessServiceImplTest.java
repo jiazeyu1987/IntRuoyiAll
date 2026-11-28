@@ -67,6 +67,50 @@ class DccProjectAccessServiceImplTest {
     @AfterEach void clearTenant() { TenantContextHolder.clear(); org.springframework.security.core.context.SecurityContextHolder.clearContext(); }
 
     @Test
+    void deniedMessagesIdentifyOnlyVisibleProjectsAndRequiredLevel() {
+        var project = DccProjectCodeDO.builder().id(100L).projectCode("P100")
+                .projectName("可见项目").status("ENABLE").build();
+        project.setTenantId(1L);
+        when(projectCodeMapper.selectById(100L)).thenReturn(project);
+        when(accessRuleMapper.selectActiveRules(eq(100L), any()))
+                .thenReturn(List.of(rule("USER", 99L, "VIEW")));
+        ServiceException editDenied = assertThrows(ServiceException.class,
+                () -> service.assertProjectEditorOrOwner(99L, 100L));
+        assertEquals(DCC_PROJECT_ACCESS_DENIED.getCode(), editDenied.getCode());
+        assertEquals("缺少项目【P100 / 可见项目】编辑权限，请联系项目管理员", editDenied.getMessage());
+        assertEquals("缺少项目【P100 / 可见项目】所有者权限，请联系项目管理员",
+                assertThrows(ServiceException.class, () -> service.assertProjectOwner(99L, 100L)).getMessage());
+        project.setTenantId(2L);
+        assertEquals("缺少该项目编辑权限，请联系项目管理员",
+                assertThrows(ServiceException.class, () -> service.assertProjectEditorOrOwner(99L, 100L)).getMessage());
+        project.setTenantId(1L);
+        when(accessRuleMapper.selectActiveRules(eq(100L), any())).thenReturn(List.of());
+        assertEquals("缺少该项目编辑权限，请联系项目管理员",
+                assertThrows(ServiceException.class, () -> service.assertProjectEditorOrOwner(99L, 100L)).getMessage());
+        assertEquals("缺少该项目查看权限，请联系项目管理员",
+                assertThrows(ServiceException.class, () -> service.assertProjectViewerOrAbove(99L, 999L)).getMessage());
+    }
+
+    @Test
+    void deniedMessagesIdentifyViewableProjectButHideDisabledProject() {
+        var project = DccProjectCodeDO.builder().id(100L).projectCode("SECRET100")
+                .projectName("范围外项目").status("ENABLE").build();
+        project.setTenantId(1L);
+        when(projectCodeMapper.selectById(100L)).thenReturn(project);
+        when(accessRuleMapper.selectActiveRules(eq(100L), any()))
+                .thenReturn(List.of(rule("USER", 99L, "VIEW")));
+        ServiceException outsideScope = assertThrows(ServiceException.class,
+                () -> service.assertProjectEditorOrOwner(99L, 100L));
+        assertEquals(DCC_PROJECT_ACCESS_DENIED.getCode(), outsideScope.getCode());
+        assertEquals("缺少项目【SECRET100 / 范围外项目】编辑权限，请联系项目管理员", outsideScope.getMessage());
+        project.setStatus("DISABLE");
+        ServiceException disabled = assertThrows(ServiceException.class,
+                () -> service.assertProjectEditorOrOwner(99L, 100L));
+        assertEquals(DCC_PROJECT_ACCESS_DENIED.getCode(), disabled.getCode());
+        assertEquals("缺少该项目编辑权限，请联系项目管理员", disabled.getMessage());
+    }
+
+    @Test
     void projectCodeAdministratorCanMaintainMetadataWithoutGainingFormalEditOrOwner() {
         var project = DccProjectCodeDO.builder().id(100L).status("ENABLE").build();
         project.setTenantId(1L);
@@ -344,8 +388,6 @@ class DccProjectAccessServiceImplTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"QMS,dcc:library:qms:view,dcc:library:qms:edit", "GENERAL,dcc:library:general:view,dcc:library:general:edit"})
     void libraryViewEditRevocationAndTenantBoundaries(String scope, String view, String edit) {
-        when(permissionApi.hasAnyPermissions(99L,"dcc:project-code:scope:all")).thenReturn(false);
-        when(permissionApi.hasAnyPermissions(99L,"dcc:project-code-assignment:execute")).thenReturn(false);
         when(permissionApi.hasAnyPermissions(99L,view,edit)).thenReturn(false);
         when(permissionApi.hasAnyPermissions(99L,edit)).thenReturn(false);
         var library = DccProjectCodeDO.builder().id(200L).libraryScope(scope).status("ENABLE").build();

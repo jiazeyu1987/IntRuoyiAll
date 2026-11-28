@@ -94,7 +94,9 @@ class SignatureGovernanceRecordServiceTest extends BaseMockitoUnitTest {
                 String scoped = interceptor.parserSingle(sql, null);
                 assertTrue(scoped.contains("system_electronic_signature sig"));
                 assertEquals(3, scoped.split("sig.tenant_id = 183", -1).length - 1);
-                assertTrue(scoped.contains("FROM system_electronic_signature sig WHERE sig.deleted = B'0' AND sig.tenant_id = 183"));
+                assertTrue(scoped.contains("LEFT JOIN ACT_HI_PROCINST approval_process"));
+                assertTrue(scoped.contains("LEFT JOIN ACT_HI_TASKINST approval_task"));
+                assertTrue(scoped.contains("sig.deleted = B'0'"));
                 assertFalse(scoped.contains("merged.source_code = 'BATCH_RECORD'"));
             }
         } finally {

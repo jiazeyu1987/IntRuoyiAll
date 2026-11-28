@@ -37,6 +37,7 @@ public class DccObsoleteFormExecutionPreparationService {
     @Resource private DccControlledFileRouteReadinessService readiness;
     @Resource private ObjectProvider<DccDirectSupervisorSource> supervisors;
     @Resource private AdminUserApi users;
+    @Resource private cn.iocoder.yudao.module.system.api.dept.DeptApi departments;
     @Resource private DccApprovalMatrixTokenProperties signing;
     @Resource private DccObsoleteFormPreparationProof proof;
     @Resource private DccApplicationRoundService rounds;
@@ -145,7 +146,7 @@ public class DccObsoleteFormExecutionPreparationService {
         if(!Boolean.TRUE.equals(attrs.getSubmitted()))projectAttributes.freeze(actor,file.getDccProjectCodeId(),"OBSOLETE",fileId,number);
         var runtime=runtimeStore.appendVerifiedSubmitted(form,file,number,bpm,(Map<String,Object>)raw);freezeDepartmentAssignments(runtime);
     }
-    private void freezeDepartmentAssignments(DccObsoleteFormRuntimeStore.RuntimeEvidence runtime){
+    void freezeDepartmentAssignments(DccObsoleteFormRuntimeStore.RuntimeEvidence runtime){
         var head=runtime.head();var members=runtime.obligations().stream().filter(r->"MATRIX_REVIEW".equals(r.stageCode())).toList();
         var existing=taskSnapshots.selectList(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileTaskAssigneeSnapshotDO>()
                 .eq("tenant_id",head.tenantId()).eq("controlled_file_id",head.controlledFileId()).eq("process_instance_id",head.bpmProcessInstanceId()).eq("stage_code","MATRIX_REVIEW").eq("deleted",false));
@@ -154,10 +155,13 @@ public class DccObsoleteFormExecutionPreparationService {
             for(var member:members){var matching=existing.stream().filter(r->Objects.equals(r.getObligationId(),member.obligationId())).toList();var leaders=JsonUtils.parseArray(member.frozenUserIdsJson(),Long.class);
                 if(matching.size()!=1||leaders.size()!=1||!Objects.equals(matching.get(0).getDepartmentId(),member.departmentId())||!Objects.equals(matching.get(0).getLeaderUserId(),leaders.get(0)))throw invalid("DEPARTMENT_ASSIGNMENT_SOURCE_CHANGED");}return;
         }
+        if(!Objects.equals(TenantContextHolder.getRequiredTenantId(),head.tenantId()))throw invalid("DEPARTMENT_TENANT_INVALID");
         for(var member:members){var ids=JsonUtils.parseArray(member.frozenUserIdsJson(),Long.class);if(ids.size()!=1)throw invalid("SINGLE_DEPARTMENT_LEADER_REQUIRED");var user=users.getUser(ids.get(0));
             if(user==null||!Objects.equals(user.getId(),ids.get(0))||!Objects.equals(user.getTenantId(),head.tenantId())||!Integer.valueOf(0).equals(user.getStatus()))throw invalid("FROZEN_LEADER_ACCOUNT_INVALID");
+            var department=departments.getDept(member.departmentId());
+            if(department==null||!Objects.equals(department.getId(),member.departmentId())||department.getName()==null||department.getName().isBlank())throw invalid("DEPARTMENT_SOURCE_INVALID");
             var row=cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileTaskAssigneeSnapshotDO.builder().tenantId(head.tenantId()).controlledFileId(head.controlledFileId()).stageCode(member.stageCode()).stageNo(member.stageNo())
-                    .departmentId(member.departmentId()).assigneeUserId(ids.get(0)).leaderUserId(ids.get(0)).assigneeName(user.getNickname()).leaderConfigDigest(head.preparationDigest()).processInstanceId(head.bpmProcessInstanceId()).obligationId(member.obligationId()).build();
+                    .departmentId(member.departmentId()).departmentName(department.getName().strip()).assigneeUserId(ids.get(0)).leaderUserId(ids.get(0)).assigneeName(user.getNickname()).leaderConfigDigest(head.preparationDigest()).processInstanceId(head.bpmProcessInstanceId()).obligationId(member.obligationId()).build();
             if(taskSnapshots.insert(row)!=1)throw invalid("DEPARTMENT_ASSIGNMENT_INSERT_FAILED");
         }
     }

@@ -20,7 +20,7 @@ expectIncludes(
   '工序在制统计必须归一化预计开始时间'
 )
 expectIncludes(workbench, "key: 'estimatedStartTime'", '列配置必须包含预计开始')
-expectIncludes(workbench, 'label="预计开始"', '工序在制列表必须显示预计开始列')
+expectIncludes(workbench, 'label="计划开始"', '工序在制列表必须显示正式计划开始列')
 expectIncludes(workbench, 'prop="estimatedStartTime"', '预计开始列必须绑定后端字段')
 expectIncludes(
   workbench,

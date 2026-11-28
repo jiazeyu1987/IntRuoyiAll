@@ -32,7 +32,8 @@
 
 - Trigger: DCC 受控文件升大版本、影响评估关联大版本、发布后旧正式版 supersede、签名证据响应、项目 OWNER/EDIT/VIEW 范围。
 - Preflight check: 升大版本和影响评估选/关联大版本必须只读取 `dcc_project_access_rule` 的当前有效 OWNER，按 `dccProjectCodeId` 解析 USER/DEPT/ROLE/POSITION；不能用 `requesterId`、项目负责人文本、项目代码修正任务 `dcc_project_code_assignment` 或菜单权限替代。非 requester 的合法 OWNER 应可继续处理，原 requester 或修正任务负责人无 OWNER 时必须被拒绝。发布 supersede 只更新旧 ACTIVE 行状态与 `supersededByFileId`，不得在同一事务内先移动旧版物理文件；真正作废流程才进入 obsolete artifact move。签名响应给 DCC 页面时必须返回 DCC 投影 ID、DCC evidence HMAC 和投影 `signedAt`，不能把统一签名表 ID/摘要当成 DCC 证据身份。
-- Blocker: OWNER 被 requester 判断挡住、requester 绕过项目 OWNER 或分配硬范围、发布失败可能导致旧 ACTIVE 数据库路径仍在但物理文件已移动、验签使用的 `signedAt` 与计算 HMAC 的时间源不同，或重开影响任务后历史关联版本号无法从审计关联 ID 还原时必须停止。
+- Project-viewing rule: 项目列表、项目详情、关联文档及受控浏览的项目可见范围由有效正式 VIEW/EDIT/OWNER 授权决定，不得再与修正任务分配项目取交集。修正分配只限制修正任务；文件操作仍分别检查类别、文件及操作权限，VIEW 不授予编辑或授权管理资格。
+- Blocker: OWNER 被 requester 判断挡住、requester 绕过项目 OWNER 或修正任务自身的分配范围、发布失败可能导致旧 ACTIVE 数据库路径仍在但物理文件已移动、验签使用的 `signedAt` 与计算 HMAC 的时间源不同，或重开影响任务后历史关联版本号无法从审计关联 ID 还原时必须停止。
 - Approval-reason rule: 审批意见属于签名审计事实，Controller VO、审批中心适配器和签名服务边界都必须拒绝空白；服务端不得把空值替换为“审批通过”等默认文案。签名服务应在授权、证据计算和任何落库动作之前校验原因。
 - Working-iteration rollover rule: 当下一 Revision 从上一 Revision 的 WORKING Iteration 创建时，正式发布新 Revision 必须在同一发布事务内收口所有版本号低于新正式版的 WORKING Iteration，并保存 `supersededByFileId`；不得只替代旧 ACTIVE 后留下永远无法送审却持续触发“修改中”的低版本工作稿。WORKING 的检出、检入和显式送审只允许该 Iteration 的 requester；项目 OWNER 仍可通过正式升大版本或影响任务入口创建/关联新 Revision，但不得隐式代替 requester 提交其工作稿。
 - Version-policy rule: DCC 版本大/小判定必须走 `DccControlledFileVersionPolicy`。默认 `majorIdentitySegmentCount=1` 时 `A/1 -> A/2` 是小版本、`A/1 -> B/1` 是大版本；配置为 `2` 时 `A/1/1 -> A/1/2` 是小版本，`A/1`、`B/1` 等前两段是大版本身份。发布后续通知、影响评估、检入版本生成、提交流程版本字段和关联新版候选必须使用同一策略，禁止在通知层或单个服务中硬编码 `revisionCode` / `iterationNo`。

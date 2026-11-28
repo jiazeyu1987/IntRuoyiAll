@@ -195,6 +195,46 @@ class MesFrontlineReturnCorrectionServiceTest {
         verify(f.handoff,never()).completeReturnAndScheduleReview(anyLong(),anyLong(),anyLong(),anyLong());
     }
 
+    @Test void productionDisplayUsesTheFormalEventNamesWithoutChangingSignedPayload() {
+        Fixture f = new Fixture();
+        String payload = """
+                {"materialDetails":[{"materialId":7,"materialName":"记录时的物料","materialCode":"MAT-7",
+                  "lossDetails":[{"reasonId":9,"reasonName":"记录时的不良","reasonCode":"LOSS-9"}],
+                  "selectedDevice":{"deviceId":12,"deviceName":"记录时的设备","deviceCode":"DEV-12"},
+                  "deviceParameterReadings":[{"deviceId":12,"parameterCode":"TEMP","parameterName":"记录时的温度"}]}],
+                 "lossDetails":[{"reasonId":-1,"reasonName":"其他损耗","reasonCode":"SYSTEM_OTHER_LOSS"}],
+                 "selectedDevices":[{"deviceId":13,"deviceName":"主设备","deviceCode":"DEV-13"}],
+                 "deviceParameterReadings":[{"deviceId":13,"parameterCode":"PRESS","parameterName":"压力"}]}
+                """;
+        f.event.setRawPayload(payload);
+        var display = f.service.productionDisplayNames(f.event);
+        assertEquals("记录时的物料", display.materials().get("7").name());
+        assertEquals("MAT-7", display.materials().get("7").code());
+        assertEquals("记录时的不良", display.lossReasons().get("9").name());
+        assertEquals("其他损耗", display.lossReasons().get("-1").name());
+        assertEquals("记录时的设备", display.devices().get("12").name());
+        assertEquals("主设备", display.devices().get("13").name());
+        assertEquals("记录时的温度", display.parameters().get("12:TEMP").name());
+        assertEquals("压力", display.parameters().get("13:PRESS").name());
+        assertEquals(payload, f.event.getRawPayload());
+        verifyNoInteractions(f.events, f.activeOrders, f.handoff);
+    }
+
+    @Test void missingHistoricalNamesRemainMissingRatherThanBeingInferredFromIdsOrCurrentData() {
+        Fixture f = new Fixture();
+        f.event.setRawPayload("""
+                {"materialDetails":[{"materialId":7,"lossDetails":[{"reasonId":9}],
+                  "deviceParameterReadings":[{"deviceId":12,"parameterCode":"TEMP"}]}]}
+                """);
+        var display = f.service.productionDisplayNames(f.event);
+        assertNull(display.materials().get("7").name());
+        assertNull(display.lossReasons().get("9").name());
+        assertNull(display.devices().get("12").name());
+        assertNull(display.parameters().get("12:TEMP").name());
+        assertEquals("TEMP", display.parameters().get("12:TEMP").code());
+        verifyNoInteractions(f.events, f.activeOrders, f.handoff);
+    }
+
     private static Fixture pqcDetailFixture() {
         Fixture f=new Fixture();
         f.event.setEventType("PQC_INSPECTION").setFeedbackSourceType("MES_PQC_INSPECTION_TASK")

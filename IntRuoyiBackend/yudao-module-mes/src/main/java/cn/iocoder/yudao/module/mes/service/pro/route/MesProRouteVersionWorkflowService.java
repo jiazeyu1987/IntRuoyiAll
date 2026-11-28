@@ -26,7 +26,7 @@ public interface MesProRouteVersionWorkflowService {
 
     MesProRouteVersionDO reopenRejectedCandidate(Long id);
 
-    MesProRouteVersionDO cancelCandidate(Long id);
+    MesProRouteVersionDO cancelCandidate(Long id, boolean discardUnsavedOnly);
 
     MesProRouteVersionBlockerRespVO getPublishBlockers(Long id);
 

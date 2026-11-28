@@ -14,7 +14,6 @@
     </el-button>
     <!-- 列表 -->
     <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true" border>
-      <el-table-column label="岗位编号" align="center" prop="postId" />
       <el-table-column label="岗位名称" align="center" prop="postName" />
       <el-table-column label="数量" align="center" prop="quantity" width="100" />
       <el-table-column label="备注" align="center" prop="remark" />

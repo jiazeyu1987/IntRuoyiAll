@@ -390,7 +390,7 @@
                   v-bind="sortColumnAttrs('expiryDate')"
                 >
                   <template #default="{ row }">
-                    {{ parseFacts(row.factsJson).certificateType === 'FDA' ? '不适用' : formatRegistrationCertificateDate(row.expiryDate) }}
+                    {{ row.certificateType === 'FDA' ? '不适用' : formatRegistrationCertificateDate(row.expiryDate) }}
                   </template>
                 </el-table-column>
                 <el-table-column

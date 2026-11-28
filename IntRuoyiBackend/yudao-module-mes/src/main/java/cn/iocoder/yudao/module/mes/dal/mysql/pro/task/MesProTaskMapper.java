@@ -82,6 +82,16 @@ public interface MesProTaskMapper extends BaseMapperX<MesProTaskDO> {
                 .orderByAsc(MesProTaskDO::getId));
     }
 
+    default List<MesProTaskDO> selectListByProcessIds(Collection<Long> processIds) {
+        if (processIds == null || processIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProTaskDO>()
+                .in(MesProTaskDO::getProcessId, processIds)
+                .orderByAsc(MesProTaskDO::getStartTime)
+                .orderByAsc(MesProTaskDO::getId));
+    }
+
     default List<MesProTaskDO> selectListByIds(Collection<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return Collections.emptyList();

@@ -6,6 +6,8 @@
         title="检验编制"
         import-accept=".doc,.docx"
         :projects="projects"
+        :project-loading="projectLoading"
+        :project-hint="projectHint"
         :busy="busy"
         :has-content="!!draft"
         :published="published"
@@ -563,6 +565,9 @@ const finalEditor = ref<{ $el: HTMLElement }>()
 const projectId = ref<number>()
 const projectEditor = ref<HTMLElement>()
 const projects = ref<SimpleParserProject[]>([])
+const projectLoading = ref(false)
+const projectHint = ref('')
+let projectQuery = 0
 const draft = ref<Draft>()
 const baseline = ref<QaInspectionRegulationPublishedVersionVO | null>(null)
 const machinery = ref<DvMachineryVO[]>([])
@@ -671,15 +676,24 @@ async function run(action: () => Promise<void>, text = '正在处理，请稍候
   }
 }
 async function searchProjects(keyword = '') {
+  const query = ++projectQuery
+  projectLoading.value = true
+  projectHint.value = ''
   try {
     const selected = projects.value.find((p) => p.id === projectId.value)
     const candidates = await getSimpleParserProjects(keyword)
+    if (query !== projectQuery) return
+    projectHint.value = candidates.length ? '' : keyword.trim()
+      ? '没有匹配的项目，请调整搜索条件'
+      : '当前租户暂无启用项目，请联系项目管理员创建或启用项目'
     projects.value =
       selected && !candidates.some((p) => p.id === selected.id)
         ? [selected, ...candidates]
         : candidates
   } catch (e) {
-    error.value = `产品列表加载失败：${String(e)}`
+    if (query === projectQuery) error.value = `项目列表加载失败：${String(e)}`
+  } finally {
+    if (query === projectQuery) projectLoading.value = false
   }
 }
 async function loadResources() {

@@ -231,7 +231,8 @@
             />
             <el-descriptions v-else-if="latestArchive" :column="2" border>
               <el-descriptions-item label="归档状态">
-                {{ latestArchive.archiveStatus || '--' }}
+                {{ resolveApprovalArchiveStatus(latestArchive.archiveStatus) }}
+                <details v-if="latestArchive.archiveStatus"><summary>技术状态详情</summary>{{ latestArchive.archiveStatus }}</details>
               </el-descriptions-item>
               <el-descriptions-item label="归档编号">
                 {{ latestArchive.archiveCode || '--' }}
@@ -816,6 +817,12 @@ const goBack = async () => {
 onMounted(() => {
   loadDetail()
 })
+
+const resolveApprovalArchiveStatus = (status?: string) => {
+  const labels: Record<string, string> = { GENERATING: '生成中', SEALED: '已封存', FAILED: '生成失败' }
+  return status ? labels[status] || '归档状态未识别，请查看技术详情' : '未记录归档状态'
+}
+
 </script>
 
 <style scoped>

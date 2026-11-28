@@ -62,27 +62,33 @@ class MesProTaskControllerHistoryDisplayTest {
     private MesProTaskController controller;
 
     @Test
-    void latestScopeQueriesOnlyLinkedWorkOrdersAndPreservesFilter() {
+    void allEffectiveOrdersQueryOnlyLinkedWorkOrdersAndPreserveFilter() {
         var snapshot = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProReplanExplanationSnapshotDO();
         snapshot.setSnapshotJson("{\"orders\":[{\"scheduleOrderId\":7}]}");
-        when(replanExplanationSnapshotMapper.selectLatest()).thenReturn(snapshot);
+        org.mockito.Mockito.lenient().when(replanExplanationSnapshotMapper.selectLatest()).thenReturn(snapshot);
         var order = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO();
         order.setId(7L);
-        when(scheduleOrderMapper.selectListByIds(Set.of(7L))).thenReturn(List.of(order));
+        var historicalOrder = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO();
+        historicalOrder.setId(17L);
+        when(scheduleOrderMapper.selectList()).thenReturn(List.of(order, historicalOrder));
         var ext = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProTaskScheduleExtDO();
         ext.setTaskId(8L); ext.setScheduleOrderId(7L); ext.setScheduleOrderProcessId(9L);
-        when(taskScheduleExtMapper.selectListByScheduleOrderIds(Set.of(7L))).thenReturn(List.of(ext));
+        var historicalExt = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProTaskScheduleExtDO();
+        historicalExt.setTaskId(18L); historicalExt.setScheduleOrderId(17L); historicalExt.setScheduleOrderProcessId(19L);
+        when(taskScheduleExtMapper.selectListByScheduleOrderIds(Set.of(7L, 17L))).thenReturn(List.of(ext, historicalExt));
         MesProTaskDO task = new MesProTaskDO(); task.setId(8L); task.setWorkOrderId(10L);
-        when(taskService.getTaskList(Set.of(8L))).thenReturn(List.of(task));
+        MesProTaskDO historicalTask = new MesProTaskDO(); historicalTask.setId(18L); historicalTask.setWorkOrderId(20L);
+        when(taskService.getTaskList(Set.of(8L, 18L))).thenReturn(List.of(task, historicalTask));
         var request = new cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderPageReqVO();
         request.setCode("FILTER");
-        when(workOrderService.getWorkOrderPageByIds(request, Set.of(10L)))
+        when(workOrderService.getWorkOrderPageByIds(request, Set.of(10L, 20L)))
                 .thenReturn(new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(), 0L));
         assertTrue(controller.listGanttTaskList(request).getData().isEmpty());
         assertEquals("FILTER", request.getCode());
-        verify(workOrderService).getWorkOrderPageByIds(request, Set.of(10L));
+        verify(workOrderService).getWorkOrderPageByIds(request, Set.of(10L, 20L));
         org.mockito.Mockito.verify(workOrderService, org.mockito.Mockito.never()).getWorkOrderPage(org.mockito.ArgumentMatchers.any());
-        org.mockito.Mockito.verify(scheduleOrderMapper, org.mockito.Mockito.never()).selectList();
+        org.mockito.Mockito.verifyNoInteractions(replanExplanationSnapshotMapper);
+        verify(taskScheduleExtMapper).selectListByScheduleOrderIds(Set.of(7L, 17L));
         org.mockito.Mockito.verify(taskService, org.mockito.Mockito.never()).getTaskListByWorkOrderIds(org.mockito.ArgumentMatchers.any());
     }
 

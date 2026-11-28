@@ -28,9 +28,6 @@
         <el-descriptions-item label="状态">
           <el-tag type="success">已启用</el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="模板文件ID">
-          {{ activeTemplate.templateFileId }}
-        </el-descriptions-item>
         <el-descriptions-item label="更新时间">
           {{ formatDateTimeValue(activeTemplate.updateTime) }}
         </el-descriptions-item>

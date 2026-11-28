@@ -25,7 +25,9 @@
         <div v-if="selectedItem" class="leading-6">
           <div>编码：{{ selectedItem.code }}</div>
           <div>名称：{{ selectedItem.name }}</div>
-          <div>类型：{{ selectedItem.type || '-' }}</div>
+          <div>
+            类型：<dict-tag :type="DICT_TYPE.MES_INDICATOR_TYPE" :value="selectedItem.type" />
+          </div>
           <div>检测工具：{{ selectedItem.tool || '-' }}</div>
         </div>
       </template>
@@ -45,6 +47,7 @@
 
 <script setup lang="ts">
 import { QcIndicatorApi, QcIndicatorVO } from '@/api/mes/qc/indicator'
+import { DICT_TYPE } from '@/utils/dict'
 import { Search, CircleClose } from '@element-plus/icons-vue'
 import QcIndicatorSelectDialog from './QcIndicatorSelectDialog.vue'
 

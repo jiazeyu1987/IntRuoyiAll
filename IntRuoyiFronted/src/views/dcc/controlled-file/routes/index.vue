@@ -53,7 +53,7 @@
             <template #default="{ row }">
               <div class="route-category">
                 <span class="route-category__name">{{ row.categoryName || '未解析类别' }}</span>
-                <span class="route-category__meta">类别ID：{{ row.categoryId || '-' }}</span>
+
               </div>
             </template>
           </el-table-column>

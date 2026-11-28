@@ -22,6 +22,7 @@
           :label="`${project.projectCode} / ${project.projectName}${project.occupied ? '（已有工艺流程）' : ''}`"
         />
       </el-select>
+      <span v-if="requiresProject && projectHint" role="status">{{ projectHint }}</span>
       <el-upload
         v-if="canImport"
         :auto-upload="false"
@@ -62,6 +63,7 @@ const props = withDefaults(
     requiresProject?: boolean
     showProject?: boolean
     projects: Array<{ id: number; projectCode: string; projectName: string; occupied?: boolean }>
+    projectHint?: string
     projectLoading?: boolean
     busy: boolean
     hasContent: boolean

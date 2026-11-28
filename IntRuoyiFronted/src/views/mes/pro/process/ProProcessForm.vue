@@ -9,7 +9,8 @@
       v-loading="formLoading"
       :disabled="isDetail || formLoading"
       >
-      <el-form-item v-if="formType === 'create'" label="所属项目" prop="projectId" :rules="[{ required: true, message: '请选择所属项目' }]"><el-select v-model="formData.projectId" filterable><el-option v-for="p in codeProjects" :key="p.id" :value="p.id" :label="p.projectCode + ' / ' + p.projectName" /></el-select></el-form-item>
+      <el-form-item v-if="formType === 'create'" label="所属项目" prop="projectId" :rules="[{ required: true, message: '请选择所属项目' }]"><el-select v-model="formData.projectId" filterable no-match-text="没有匹配的项目，请调整搜索条件"><el-option v-for="p in codeProjects" :key="p.id" :value="p.id" :label="p.projectCode + ' / ' + p.projectName" /></el-select></el-form-item>
+      <el-alert v-if="formType === 'create' && codeProjectsLoaded && !codeProjects.length" title="暂无可选择的启用项目，请联系项目管理员确认项目已启用，并为您授予项目权限" type="warning" :closable="false" />
       <el-row :gutter="20">
         <el-col :span="8">
           <el-form-item label="工序编码" prop="code">
@@ -172,6 +173,7 @@ const router = useRouter()
 const craftBindingPanel = ref<InstanceType<typeof ProcessCraftBindingPanel>>()
 
 const codeProjects = ref<RouteProjectOption[]>([])
+const codeProjectsLoaded = ref(false)
 const dialogVisible = ref(false) // 弹窗的是否展示
 const dialogTitle = ref('') // 弹窗的标题
 const formLoading = ref(false) // 表单的加载中：1）修改时的数据加载；2）提交的按钮禁用
@@ -222,7 +224,8 @@ const routeSelectionTip = computed(() => {
 /** 打开弹窗 */
 const open = async (type: string, id?: number | string, context: ProProcessFormOpenContext = {}) => {
   dialogVisible.value = true
-  if (type === 'create') codeProjects.value = await getRouteProjectOptions()
+  codeProjects.value = []
+  codeProjectsLoaded.value = false
   const titles: Record<string, string> = {
     create: '新增生产工序',
     update: '编辑生产工序',
@@ -231,6 +234,10 @@ const open = async (type: string, id?: number | string, context: ProProcessFormO
   dialogTitle.value = titles[type] || type
   formType.value = type
   resetForm()
+  if (type === 'create') {
+    codeProjects.value = await getRouteProjectOptions()
+    codeProjectsLoaded.value = true
+  }
   sharedFingerprint.value = ''
   applyRouteContext(context.row, context.routeId)
   // 修改时，设置数据

@@ -43,6 +43,9 @@ class ErpKingdeeSyncRuntimeServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
+                new org.apache.ibatis.builder.MapperBuilderAssistant(
+                        new com.baomidou.mybatisplus.core.MybatisConfiguration(), ""), ErpKingdeeSyncRunDO.class);
         org.mockito.Mockito.lenient().when(runMapper.update(any(), any())).thenReturn(1);
         runtimeService = new ErpKingdeeSyncRuntimeServiceImpl(
                 new ErpKingdeeSyncRuntimeTransactionService(watermarkMapper, runMapper), cancellation, sourceLock);
@@ -64,6 +67,57 @@ class ErpKingdeeSyncRuntimeServiceImplTest {
         org.junit.jupiter.api.Assertions.assertTrue(update.getValue().getFailureMessage().contains("step=更新已有订单, fetched=12"));
         verify(watermarkMapper, never()).insert(any(ErpKingdeeSyncWatermarkDO.class));
         verify(watermarkMapper, never()).updateById(any(ErpKingdeeSyncWatermarkDO.class));
+    }
+
+    @Test
+    void targetedSyncPersistsCodeAndFinalCountsWithoutReadingOrAdvancingWatermark() {
+        var command = buildCommand();
+        command.setTargetCode("881MO104106");
+        runtimeService.executeSync(command, context -> {
+            assertEquals("881MO104106", context.getTargetCode());
+            org.junit.jupiter.api.Assertions.assertNull(context.getWindowStart());
+            return ErpKingdeeSyncRunResult.success(null, 1, 2, 0, 0);
+        });
+        var inserted = ArgumentCaptor.forClass(ErpKingdeeSyncRunDO.class);
+        var updated = ArgumentCaptor.forClass(ErpKingdeeSyncRunDO.class);
+        verify(runMapper).insert(inserted.capture());
+        verify(runMapper).update(updated.capture(), any());
+        assertEquals("881MO104106", inserted.getValue().getTargetCode());
+        assertNotNull(inserted.getValue().getStartedAt());
+        assertEquals(20, updated.getValue().getStatus());
+        assertEquals(1, updated.getValue().getCreatedCount());
+        assertEquals(2, updated.getValue().getUpdatedCount());
+        assertNotNull(updated.getValue().getEndedAt());
+        org.mockito.Mockito.verifyNoInteractions(watermarkMapper);
+    }
+
+    @Test
+    void targetedFailureKeepsTraceAndOriginalExceptionWithNoCommittedCounts() {
+        var command = buildCommand();
+        command.setTargetCode("881MO104106");
+        var failure = new IllegalStateException("ERP连接失败");
+        assertSame(failure, assertThrows(IllegalStateException.class, () -> runtimeService.executeSync(
+                command, context -> { throw failure; })));
+        var inserted = ArgumentCaptor.forClass(ErpKingdeeSyncRunDO.class);
+        var updated = ArgumentCaptor.forClass(ErpKingdeeSyncRunDO.class);
+        verify(runMapper).insert(inserted.capture());
+        verify(runMapper).update(updated.capture(), any());
+        assertEquals("881MO104106", inserted.getValue().getTargetCode());
+        assertEquals(30, updated.getValue().getStatus());
+        assertEquals(1, updated.getValue().getFailedCount());
+        assertEquals(0, updated.getValue().getCreatedCount());
+        assertEquals("ERP连接失败", updated.getValue().getFailureMessage());
+        assertNotNull(updated.getValue().getEndedAt());
+        org.mockito.Mockito.verifyNoInteractions(watermarkMapper);
+    }
+
+    @Test
+    void targetedSyncRejectsAttemptToAdvanceWatermark() {
+        var command = buildCommand();
+        command.setTargetCode("881MO104106");
+        assertThrows(IllegalStateException.class, () -> runtimeService.executeSync(command,
+                context -> ErpKingdeeSyncRunResult.success(LocalDateTime.now(), 1, 0, 0, 0)));
+        org.mockito.Mockito.verifyNoInteractions(watermarkMapper);
     }
 
     @Test

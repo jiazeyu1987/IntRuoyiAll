@@ -7,6 +7,8 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.*;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.*;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.*;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -39,6 +41,7 @@ public class DccPublicationFollowupQueryServiceImpl implements DccPublicationFol
     @Resource private DccPublicationImpactAuditMapper impactAuditMapper;
     @Resource private DccControlledFileMapper controlledFileMapper;
     @Resource private PermissionApi permissionApi;
+    @Resource private AdminUserApi userApi;
 
     @Override
     public DccPublicationFollowupRespVO getFileFollowup(Long userId, Long controlledFileId) {
@@ -143,7 +146,7 @@ public class DccPublicationFollowupQueryServiceImpl implements DccPublicationFol
         Map<Long, List<DccPublicationImpactAuditDO>> impactAuditsByBatch = impactAudits.stream()
                 .collect(Collectors.groupingBy(DccPublicationImpactAuditDO::getBatchId));
 
-        return batches.stream().map(batch -> {
+        var result = batches.stream().map(batch -> {
             DccPublicationFollowupRespVO vo = toFollowup(batch);
             vo.setNotificationDeliveries(deliveriesByBatch.getOrDefault(batch.getId(), List.of()).stream()
                     .map(row -> toDelivery(row, candidates.get(row.getCandidateId()),
@@ -159,6 +162,24 @@ public class DccPublicationFollowupQueryServiceImpl implements DccPublicationFol
                     candidates, tasksById, directionMap));
             return vo;
         }).toList();
+        // Resolve only people already present in the authorized records, once for the whole page.
+        var events = result.stream().flatMap(row -> row.getTimeline().stream()).toList();
+        var userIds = events.stream().flatMap(event -> java.util.stream.Stream.of(
+                        event.getActorId(), event.getAssigneeBefore(), event.getAssigneeAfter()))
+                .filter(cn.hutool.core.util.StrUtil::isNotBlank).map(Long::valueOf).collect(Collectors.toSet());
+        var users = userIds.isEmpty() ? Map.<Long, AdminUserRespDTO>of() : userApi.getUserMap(userIds);
+        events.forEach(event -> {
+            event.setActorName(personName(users, event.getActorId()));
+            event.setAssigneeBeforeName(personName(users, event.getAssigneeBefore()));
+            event.setAssigneeAfterName(personName(users, event.getAssigneeAfter()));
+        });
+        return result;
+    }
+
+    private String personName(Map<Long, AdminUserRespDTO> users, String id) {
+        var user = cn.hutool.core.util.StrUtil.isBlank(id) ? null : users.get(Long.valueOf(id));
+        return user == null ? null : cn.hutool.core.util.StrUtil.isNotBlank(user.getNickname())
+                ? user.getNickname() : user.getUsername();
     }
 
     private List<DccPublicationImpactTaskRespVO> toTasksWithDirections(
@@ -299,9 +320,9 @@ public class DccPublicationFollowupQueryServiceImpl implements DccPublicationFol
                     "NOTIFICATION:" + audit.getId(), "NOTIFICATION", "站内通知",
                     notificationActionLabel(audit.getActionType()), requireOccurredAt(audit.getOccurredAt()),
                     id(audit.getActorId()), id(delivery.getId()), candidate == null
-                            ? "收件用户 #" + delivery.getUserId()
+                            ? "收件人姓名未记录"
                             : Objects.requireNonNullElse(candidate.getUserNameSnapshot(),
-                            "收件用户 #" + delivery.getUserId()));
+                            "收件人姓名未记录"));
             event.setStatusBeforeLabel(notificationStatusLabel(audit.getStatusBefore()));
             event.setStatusAfterLabel(notificationStatusLabel(audit.getStatusAfter()));
             event.setDirectionLabels(List.of());

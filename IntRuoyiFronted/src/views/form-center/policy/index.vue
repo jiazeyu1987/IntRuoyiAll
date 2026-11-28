@@ -22,11 +22,31 @@
 
     <div class="form-center-policy__table">
       <el-table v-loading="loading" :data="list" border :show-overflow-tooltip="true">
-        <el-table-column label="数据域" prop="dataDomain" width="100" />
-        <el-table-column label="系统编码" prop="systemCode" width="110" />
-        <el-table-column label="对象类型" prop="objectType" min-width="140" />
-        <el-table-column label="动作编码" prop="actionCode" width="120" />
-        <el-table-column label="对象状态" prop="objectState" width="110" />
+        <el-table-column label="数据域" width="100">
+          <template #default="{ row }">
+            {{ policyDisplay(row.dataDomain) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="系统" width="110">
+          <template #default="{ row }">
+            {{ policyDisplay(row.systemCode) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="对象类型" min-width="140">
+          <template #default="{ row }">
+            {{ policyDisplay(row.objectType) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="业务动作" width="120">
+          <template #default="{ row }">
+            {{ policyActionDisplay(row) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="对象状态" width="110">
+          <template #default="{ row }">
+            {{ policyDisplay(row.objectState) }}
+          </template>
+        </el-table-column>
         <el-table-column label="审批模式" prop="approvalMode" width="110">
           <template #default="{ row }">
             <el-tag :type="formatApprovalModeTagType(row.approvalMode)">
@@ -55,7 +75,11 @@
             {{ row.bpmProcessKey || '--' }}
           </template>
         </el-table-column>
-        <el-table-column label="执行器" prop="effectExecutorCode" width="140" />
+        <el-table-column label="执行处理" width="140">
+          <template #default="{ row }">
+            {{ policyDisplay(row.effectExecutorCode) }}
+          </template>
+        </el-table-column>
         <el-table-column label="状态" prop="status" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 'PUBLISHED' ? 'success' : 'warning'">
@@ -66,6 +90,19 @@
         <el-table-column label="槽位" min-width="180">
           <template #default="{ row }">
             <span>{{ slotSummary(row.slots) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="技术详情" min-width="140">
+          <template #default="{ row }">
+            <details>
+              <summary>策略配置原码</summary>
+              <div>数据域：{{ row.dataDomain }}</div>
+              <div>系统：{{ row.systemCode }}</div>
+              <div>对象类型：{{ row.objectType }}</div>
+              <div>业务动作：{{ row.actionCode }}</div>
+              <div>对象状态：{{ row.objectState }}</div>
+              <div>执行处理：{{ row.effectExecutorCode }}</div>
+            </details>
           </template>
         </el-table-column>
         <el-table-column fixed="right" label="操作" width="120">
@@ -188,7 +225,11 @@
 <script setup lang="ts">
 import * as PolicyApi from '@/api/form-center/policy'
 import * as TemplateApi from '@/api/form-center/template'
-import type { FormApprovalMode, FormPolicyListItemVO, FormPolicySlotVO } from '@/api/form-center/policy'
+import type {
+  FormApprovalMode,
+  FormPolicyListItemVO,
+  FormPolicySlotVO
+} from '@/api/form-center/policy'
 import type { FormTemplateListItemVO } from '@/api/form-center/template'
 
 defineOptions({ name: 'FormCenterPolicy' })
@@ -227,7 +268,8 @@ const policyForm = reactive({
 })
 
 const resolvePolicyErrorMessage = (error: unknown) => {
-  const responseMessage = (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
+  const responseMessage =
+    (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
   if (responseMessage) return responseMessage
   return (error as Error)?.message || '表单策略请求失败'
 }
@@ -372,8 +414,45 @@ const handleApprovalModeSwitch = async (row: FormPolicyListItemVO, enabled: bool
   }
 }
 
+const policyDisplay = (value?: string) => {
+  const labels: Record<string, string> = {
+    MES: '制造执行',
+    DCC: '文档控制',
+    CONTROLLED_FILE: '受控文件',
+    SCHEDULE_REPLAN_SCOPE: '排程重排范围',
+    REPLAN: '重新排程',
+    READY: '就绪',
+    MES_EDHR_ROUTE_FORM_FILL: '工序表单填报完成',
+    MES_SCHEDULE_REPLAN: '执行排程重排',
+    DCC_OBSOLETE: '执行受控文件作废',
+    EDHR_ROUTE_FORM: '工序表单',
+    ACTIVE: '有效',
+    OBSOLETE_FORM: '表单作废',
+    OBSOLETE: '作废',
+    DRAFT: '草稿',
+    FORM_REVIEW: '表单复核',
+    EDHR: '电子批记录',
+    FORM_TEMPLATE: '表单模板',
+    PUBLISH: '发布',
+    FORM: '表单'
+  }
+  return value ? labels[value] || '配置名称未识别（见技术详情）' : '未配置'
+}
+
+const policyActionDisplay = (row: FormPolicyListItemVO) => {
+  // 执行器只接受 MES 工序表单 ACTIVE 动作；动态动作码后缀是绑定标识，不代表业务名称。
+  if (
+    row.systemCode === 'MES' &&
+    row.objectType === 'EDHR_ROUTE_FORM' &&
+    row.effectExecutorCode === 'MES_EDHR_ROUTE_FORM_FILL'
+  ) {
+    return '工序表单填报'
+  }
+  return policyDisplay(row.actionCode)
+}
+
 const slotSummary = (slots: FormPolicySlotVO[]) => {
-  return slots.map((slot) => `${slot.slotCode}:${slot.templateVersionRef.templateName}`).join('、')
+  return slots.map((slot) => slot.templateVersionRef?.templateName || '未绑定模板').join('、')
 }
 
 onMounted(getList)

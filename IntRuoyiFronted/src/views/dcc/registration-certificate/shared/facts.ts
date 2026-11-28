@@ -33,24 +33,30 @@ export const factLabels: Record<string, string> = {
 }
 export const fieldsFor = (type: CertificateType) => [
   'classification', 'certificateHolder', 'registrationLink',
-  ...(type === 'DOMESTIC' ? ['certificateNo', 'firstObtainedDate', 'effectiveDate', 'expiryDate'] : []),
-  ...(type === 'CE' ? ['expiryDate', 'productNameEn', 'productCode', 'tradeName', 'notifiedBodyCode'] : []),
+  ...(type === 'DOMESTIC' ? ['certificateNo', 'firstObtainedDate', 'approvalDate', 'effectiveDate', 'expiryDate'] : []),
+  ...(type === 'CE' ? ['approvalDate', 'expiryDate', 'productNameEn', 'productCode', 'tradeName', 'notifiedBodyCode'] : []),
   ...(type === 'FDA' ? ['productNameEn', 'submissionType', 'kpNumber', 'regulationCode', 'productCode', 'approvalDate', 'listingNumber', 'listingDate', 'customerHeld', 'approvalLetterStatus', 'factoryRegistrationStatus'] : ['certificateStatus']),
   'remark', 'changeDescription', 'otherContentDescription'
 ]
 export const creationFieldsFor = (type: CertificateType) => [
   'classification', 'certificateHolder', 'registrationLink',
-  ...(type === 'DOMESTIC' ? ['certificateNo', 'firstObtainedDate', 'effectiveDate', 'expiryDate', 'certificateStatus'] : []),
-  ...(type === 'CE' ? ['expiryDate', 'productNameEn', 'productCode', 'tradeName', 'notifiedBodyCode', 'certificateStatus'] : []),
+  ...(type === 'DOMESTIC' ? ['certificateNo', 'firstObtainedDate', 'approvalDate', 'effectiveDate', 'expiryDate', 'certificateStatus'] : []),
+  ...(type === 'CE' ? ['approvalDate', 'expiryDate', 'productNameEn', 'productCode', 'tradeName', 'notifiedBodyCode', 'certificateStatus'] : []),
   ...(type === 'FDA' ? ['productNameEn', 'submissionType', 'kpNumber', 'regulationCode', 'productCode', 'approvalDate', 'listingNumber', 'listingDate', 'customerHeld', 'approvalLetterStatus', 'factoryRegistrationStatus'] : []),
   'remark'
 ]
 export const validateCreationFacts = (facts: CertificateFacts) => {
-  const removed = ['changeDescription', ...(facts.certificateType !== 'FDA' ? ['approvalDate'] : []), ...(facts.certificateType === 'CE' ? ['firstObtainedDate', 'modelSpecifications'] : [])]
+  const removed = ['changeDescription', ...(facts.certificateType === 'CE' ? ['firstObtainedDate', 'modelSpecifications'] : [])]
   for (const field of removed) {
     if (facts[field] != null) throw new Error(`新建${facts.certificateType === 'DOMESTIC' ? '国内' : facts.certificateType}注册证不支持${field === 'modelSpecifications' ? '型号规格' : factLabels[field]}字段`)
   }
   validateFacts(facts)
+  if (facts.certificateType === 'DOMESTIC' && facts.ownProduct === false && !facts.projectCode?.trim()) throw new Error('请填写实际项目代码')
+  if (facts.certificateType !== 'FDA') {
+    if (!facts.approvalDate) throw new Error('请填写批准日期')
+    if (facts.certificateType === 'DOMESTIC' && facts.effectiveDate && facts.approvalDate > facts.effectiveDate) throw new Error('批准日期不能晚于生效日期')
+    if (facts.certificateType === 'CE' && facts.expiryDate && facts.approvalDate >= facts.expiryDate) throw new Error('批准日期必须早于有效期至')
+  }
 }
 export const factOptions = (field: string, type: CertificateType): Array<{label: string; value: any}> => {
   if (field === 'certificateStatus') return [{value:'VALID',label:'有效'}, ...(type === 'CE' ? [{value:'SUSPENDED',label:'暂停'}] : []), {value:'REVOKED',label:'撤销'}, {value:'EXPIRED',label:'失效'}]

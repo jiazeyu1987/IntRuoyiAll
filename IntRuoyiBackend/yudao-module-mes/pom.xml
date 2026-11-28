@@ -185,6 +185,9 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>
                     <configuration><skip>false</skip><testIncludes>
+                        <testInclude>**/MesProcessSharedCapacityTest.java</testInclude>
+                        <testInclude>**/MesKingdeeProductionOrderSyncServiceImplTest.java</testInclude>
+                        <testInclude>**/MesErpCodeSyncServiceTest.java</testInclude>
                         <testInclude>**/MesProAutoScheduleServiceImplTest.java</testInclude>
                         <testInclude>**/MesProReplan*Test.java</testInclude>
                         <testInclude>**/SchedulePlannerTest.java</testInclude>

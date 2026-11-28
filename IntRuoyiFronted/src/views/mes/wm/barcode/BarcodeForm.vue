@@ -12,8 +12,9 @@
           <el-option
             v-for="dict in getIntDictOptions(DICT_TYPE.MES_WM_BARCODE_BIZ_TYPE)"
             :key="dict.value"
-            :label="dict.label"
+            :label="isSupportedBizType(dict.value) ? dict.label : `${dict.label}（暂不支持）`"
             :value="dict.value"
+            :disabled="!isSupportedBizType(dict.value)"
           />
         </el-select>
       </el-form-item>
@@ -175,13 +176,11 @@
       >
         <ProCardSelect v-model="formData.bizId" @change="handleBizSelect" class="!w-1/1" />
       </el-form-item>
-      <!-- TODO 流转单（TRANSORDER）后端模块尚未实现，待后续补充 -->
-      <el-form-item v-else-if="formData.bizType" label="暂未接入" prop="bizId">
-        <el-input-number
-          v-model="formData.bizId"
-          :min="1"
-          class="!w-240px"
-          placeholder="请输入业务编号"
+      <el-form-item v-else-if="formData.bizType" label="业务对象">
+        <el-alert
+          title="该业务类型暂不支持条码维护，请选择其他业务类型。"
+          type="warning"
+          :closable="false"
         />
       </el-form-item>
       <el-form-item label="业务编码" prop="bizCode">
@@ -209,7 +208,12 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="submitForm" type="primary" :disabled="formLoading">确 定</el-button>
+      <el-button
+        @click="submitForm"
+        type="primary"
+        :disabled="formLoading || !isSupportedBizType(formData.bizType)"
+        >确 定</el-button
+      >
       <el-button @click="dialogVisible = false">取 消</el-button>
     </template>
   </Dialog>
@@ -243,6 +247,28 @@ defineOptions({ name: 'BarcodeForm' })
 
 const { t } = useI18n() // 国际化
 const message = useMessage() // 消息弹窗
+
+// 仅启用已有业务对象选择器的类型，未实现的类型不能手填系统编号保存。
+const supportedBizTypes = new Set<number>([
+  BarcodeBizTypeEnum.WAREHOUSE,
+  BarcodeBizTypeEnum.LOCATION,
+  BarcodeBizTypeEnum.AREA,
+  BarcodeBizTypeEnum.WORKORDER,
+  BarcodeBizTypeEnum.MACHINERY,
+  BarcodeBizTypeEnum.ITEM,
+  BarcodeBizTypeEnum.VENDOR,
+  BarcodeBizTypeEnum.WORKSTATION,
+  BarcodeBizTypeEnum.WORKSHOP,
+  BarcodeBizTypeEnum.USER,
+  BarcodeBizTypeEnum.CLIENT,
+  BarcodeBizTypeEnum.TOOL,
+  BarcodeBizTypeEnum.PACKAGE,
+  BarcodeBizTypeEnum.STOCK,
+  BarcodeBizTypeEnum.BATCH,
+  BarcodeBizTypeEnum.PROCARD
+])
+const isSupportedBizType = (bizType?: number) =>
+  bizType != null && supportedBizTypes.has(bizType)
 
 const dialogVisible = ref(false) // 弹窗的是否展示
 const dialogTitle = ref('') // 弹窗的标题
@@ -416,6 +442,10 @@ defineExpose({ open })
 /** 提交表单 */
 const emit = defineEmits(['success'])
 const submitForm = async () => {
+  if (!isSupportedBizType(formData.value.bizType)) {
+    message.warning('该业务类型暂不支持条码维护，请选择其他业务类型。')
+    return
+  }
   await formRef.value.validate()
   formLoading.value = true
   try {

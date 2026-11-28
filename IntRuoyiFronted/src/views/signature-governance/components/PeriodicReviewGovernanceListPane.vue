@@ -66,11 +66,12 @@
           <el-table-column v-if="isColumnVisible('source')" label="来源" prop="source" :min-width="getColumnMinWidthString('source', 190)" v-bind="sortColumnAttrs('source')" />
           <el-table-column v-if="isColumnVisible('status')" label="状态" prop="status" :width="getColumnWidthString('status', 130)" v-bind="sortColumnAttrs('status')">
             <template #default="{ row }">
-              <el-tag :type="row.statusType" size="small">{{ row.status }}</el-tag>
+              <el-tag :type="row.statusType" size="small">{{ governanceStatusLabel(row.status) }}</el-tag>
+              <details v-if="/^[A-Z][A-Z0-9_]*$/.test(row.status)" class="governance-technical-details"><summary>状态技术详情</summary>{{ row.status }}</details>
             </template>
           </el-table-column>
           <el-table-column v-if="isColumnVisible('keyFields')" label="关键字段" prop="keyFields" :min-width="getColumnMinWidthString('keyFields', 300)" v-bind="sortColumnAttrs('keyFields')" />
-          <el-table-column v-if="isColumnVisible('evidence')" label="证据" prop="evidence" :min-width="getColumnMinWidthString('evidence', 240)" v-bind="sortColumnAttrs('evidence')" />
+          <el-table-column v-if="isColumnVisible('evidence')" label="证据" prop="evidence" :min-width="getColumnMinWidthString('evidence', 240)" v-bind="sortColumnAttrs('evidence')" ><template #default="{ row }"><details v-if="/^[a-fA-F0-9]{64}$/.test(row.evidence)"><summary>已记录校验码，展开技术详情</summary>{{ row.evidence }}</details><span v-else>{{ row.evidence }}</span></template></el-table-column>
           <el-table-column v-if="isColumnVisible('blockerImpact')" label="阻断影响" prop="blockerImpact" :min-width="getColumnMinWidthString('blockerImpact', 260)" v-bind="sortColumnAttrs('blockerImpact')" />
           <el-table-column v-if="isColumnVisible('operation')" label="操作" fixed="right" :width="getColumnWidthString('operation', 120)">
             <template #default="{ row }">
@@ -96,6 +97,7 @@
 </template>
 
 <script lang="ts" setup>
+import { governanceLabel, governanceStatusLabel } from './governancePresentation'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
@@ -227,7 +229,7 @@ const displayValue = (value: unknown) => {
   return text || '等待来源'
 }
 
-const arrayText = (value: unknown[]) => value.length > 0 ? value.join('、') : '等待来源'
+const arrayText = (value: unknown[]) => value.length > 0 ? value.map(governanceLabel).join('、') : '等待来源'
 
 const statusTagType = (status?: string) => {
   if (['READY', 'GO', 'COLLECTED', 'ALLOWED', 'RECORDED', 'PASSED', 'SIGNED', 'CLOSED'].includes(String(status))) return 'success'
@@ -445,9 +447,9 @@ const buildClearBlockerRow = (): GovernanceRow => ({
   id: 'blocker-clear',
   item: '阻断项',
   source: '检查结果',
-  status: 'CLEAR',
+  status: reviewResult.value ? 'CLEAR' : '尚未复核',
   statusType: 'success',
-  keyFields: '暂无阻断',
+  keyFields: reviewResult.value ? '本次复核未发现阻断' : '复核后显示阻断检查结果',
   evidence: '—',
   blockerImpact: '—',
   actions: []
@@ -474,7 +476,7 @@ const rows = computed<GovernanceRow[]>(() => {
       source: `${displayValue(projection.sourceTable)} / ${displayValue(projection.sourceId)}`,
       status: projection.sourceHash ? 'READY' : '等待来源',
       statusType: projection.sourceHash ? 'success' : 'warning',
-      keyFields: `模块 ${displayValue(projection.moduleCode)}；动作 ${displayValue(projection.actionCode)}；发现 ${displayValue(projection.findingCode)}`,
+      keyFields: `模块 ${governanceLabel(projection.moduleCode)}；动作 ${governanceLabel(projection.actionCode)}；发现 ${governanceLabel(projection.findingCode)}`,
       evidence: displayValue(projection.sourceHash),
       blockerImpact: '—',
       actions: []
@@ -485,8 +487,8 @@ const rows = computed<GovernanceRow[]>(() => {
       source: displayValue(reviewResult.value?.batchId),
       status: reviewResult.value?.status || '未执行',
       statusType: statusTagType(reviewResult.value?.status),
-      keyFields: `快照 ${displayValue(reviewResult.value?.snapshotHash)}`,
-      evidence: `样本 ${reviewResult.value?.snapshotItems?.length || 0}`,
+      keyFields: `样本 ${reviewResult.value?.snapshotItems?.length || 0}；${reviewResult.value?.snapshotHash ? '已记录快照校验码（见证据技术详情）' : '未记录快照校验码'}`,
+      evidence: reviewResult.value?.snapshotHash || `样本 ${reviewResult.value?.snapshotItems?.length || 0}`,
       blockerImpact: reviewResult.value?.blockers?.[0]?.impact || '—',
       actions: [{ label: '创建', loading: reviewLoading.value, handler: createReviewBatch }]
     },

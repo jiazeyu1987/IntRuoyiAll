@@ -73,8 +73,8 @@ class MesProRouteVersionSnapshotResolverTest {
         assertThrows(IllegalStateException.class, () -> resolver.resolve(13L, 101L));
 
         String duplicate = "{\"routeId\":9,\"configSnapshots\":{\"flowGraph\":{\"nodes\":["
-                + "{\"routeProcessId\":101,\"processId\":501,\"sort\":1},"
-                + "{\"routeProcessId\":101,\"processId\":501,\"sort\":2}]}}}";
+                + "{\"routeProcessId\":101,\"processId\":501,\"sopFileUrl\":null,\"sort\":1},"
+                + "{\"routeProcessId\":101,\"processId\":501,\"sopFileUrl\":null,\"sort\":2}]}}}";
         when(mapper.selectById(14L)).thenReturn(publishedVersion(14L, 9L, duplicate));
         assertThrows(IllegalStateException.class, () -> resolver.resolve(14L, 101L));
     }
@@ -134,7 +134,7 @@ class MesProRouteVersionSnapshotResolverTest {
 
     private static String snapshot(Long routeId, Long routeProcessId, String processName) {
         return "{\"routeId\":" + routeId + ",\"configSnapshots\":{\"flowGraph\":{\"nodes\":["
-                + "{\"routeProcessId\":" + routeProcessId + ",\"processId\":501,"
+                + "{\"routeProcessId\":" + routeProcessId + ",\"processId\":501,\"sopFileUrl\":null,"
                 + "\"routeProcessWorkstationId\":601,\"sort\":1,\"processName\":\"" + processName
                 + "\"}]}}}";
     }

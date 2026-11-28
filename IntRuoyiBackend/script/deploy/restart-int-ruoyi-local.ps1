@@ -5,6 +5,7 @@
     [string]$OperationRecordPath,
     [string]$PrebuiltBackendJar,
     [string]$PrebuiltBackendSha256,
+    [string]$DccConfigurationFile,
     [switch]$BackendSchemaReadOnly,
     [switch]$LocalDevelopmentAuditPolicy,
     [switch]$RegistrationCertificateDailyAutoRun
@@ -1631,6 +1632,15 @@ function Assert-BackendLaunchConfiguration {
 }
 
 function Start-Backend {
+    # Explicit file import retains the established signing keys across restarts.
+    $dccConfigArgument = ''
+    if (-not [string]::IsNullOrWhiteSpace($DccConfigurationFile)) {
+        if (-not (Test-Path -LiteralPath $DccConfigurationFile -PathType Leaf)) {
+            throw "Required DCC configuration file missing: $DccConfigurationFile"
+        }
+        $dccConfigUri = ([uri](Resolve-Path -LiteralPath $DccConfigurationFile).Path).AbsoluteUri
+        $dccConfigArgument = '  "--spring.config.additional-location=' + $dccConfigUri + '"'
+    }
     $hasPrebuiltJar = -not [string]::IsNullOrEmpty($PrebuiltBackendJar)
     $hasPrebuiltHash = -not [string]::IsNullOrEmpty($PrebuiltBackendSha256)
     if ($hasPrebuiltJar -ne $hasPrebuiltHash) {
@@ -1692,6 +1702,7 @@ Remove-Item -Path 'Env:\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue
   "$runtimeJar"
   "--server.port=$BackendPort"
   "--spring.profiles.active=local"
+$dccConfigArgument
   "--yudao.local-job-control.enabled=true"
 $(if ($RegistrationCertificateDailyAutoRun) { '  "--yudao.local-job-control.quartz-auto-run-handler-whitelist=kingdeeProductionOrderSyncJob,kingdeeBomSyncJob,registrationCertificateReminderDailyJob"' })
   "--yudao.gxp-audit.local-development-policy=$($LocalDevelopmentAuditPolicy.IsPresent.ToString().ToLowerInvariant())"

@@ -112,6 +112,7 @@ public class MesProRouteSnapshotCanonicalizer {
         Set<Long> processIdentities = new HashSet<>();
         Map<Long, Long> processIdByRouteProcessId = new LinkedHashMap<>();
         for (int index = 0; index < nodes.size(); index++) {
+            validateSopBinding(nodes.get(index), index, blockers);
             JsonNode routeProcessIdNode = nodes.get(index).get("routeProcessId");
             if (routeProcessIdNode == null || !routeProcessIdNode.isIntegralNumber()
                     || !routeProcessIdNode.canConvertToLong()) {
@@ -167,6 +168,7 @@ public class MesProRouteSnapshotCanonicalizer {
         Set<Long> clientIds = new HashSet<>();
         for (int index = 0; index < nodes.size(); index++) {
             JsonNode node = nodes.get(index);
+            validateSopBinding(node, index, blockers);
             JsonNode routeProcessId = node.get("routeProcessId");
             if (isPositiveLong(routeProcessId)) {
                 if (!officialIds.add(routeProcessId.longValue())) {
@@ -191,6 +193,31 @@ public class MesProRouteSnapshotCanonicalizer {
             return validate(expectedRouteId, routeSnapshotJson);
         }
         return new Validation(List.copyOf(blockers));
+    }
+
+    /** Checks existing node arrays only; structural validation remains with the existing save/publish validators. */
+    public Validation validateExistingSopBindings(String snapshotJson) {
+        JsonNode root;
+        try {
+            root = mapper.readTree(snapshotJson);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+            throw new IllegalArgumentException("route snapshot json is invalid", ex);
+        }
+        JsonNode nodes = root.path("configSnapshots").path("flowGraph").path("nodes");
+        List<Blocker> blockers = new ArrayList<>();
+        if (nodes.isArray()) {
+            for (int index = 0; index < nodes.size(); index++) validateSopBinding(nodes.get(index), index, blockers);
+        }
+        return new Validation(List.copyOf(blockers));
+    }
+
+    private void validateSopBinding(JsonNode node, int index, List<Blocker> blockers) {
+        JsonNode binding = node.get("sopFileUrl");
+        if (binding == null) {
+            blockers.add(new Blocker("SOP_BINDING_MISSING", "nodeIndex=" + index + ", sopFileUrl is required; explicit null means unbound"));
+        } else if (!binding.isNull() && !binding.isTextual()) {
+            blockers.add(new Blocker("SOP_BINDING_INVALID", "nodeIndex=" + index + ", sopFileUrl must be a string or null"));
+        }
     }
 
     private void validateFormalProductIdentities(JsonNode configSnapshots, List<Blocker> blockers) {

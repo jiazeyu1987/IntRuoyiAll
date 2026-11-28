@@ -282,7 +282,7 @@ test('actual shared workflow wrappers use identical canonical metadata params an
     request: { get: async request => { calls.push(['metadata', request]); return metadata } },
     axios: { get: async (url, request) => { calls.push(['binary', { url, ...request }]); return { data: 'exact-blob', headers: {} } } },
     parseControlledFilePreviewMetadata: data => data, assertDistributionPreviewRequest: () => {}, assertDistributionPreviewMetadata: () => {},
-    buildControlledFileBinaryHeaders: headers => headers, getAxiosHeader: () => 'watermark', decodePreviewWatermark: () => ({ traceCode: 'trace' }),
+    buildControlledFileBinaryHeaders: headers => headers, getAxiosHeader: () => 'watermark', decodePreviewWatermark: () => ({ traceCode: 'trace' }), assertControlledFileDownloadBusinessResult: async () => {},
     DCC_VIEWER_TOKEN_HEADER: 'X-DCC-Viewer-Token', DCC_VIEWER_TOKEN_ID_HEADER: 'X-DCC-Viewer-Token-Id', DCC_VIEWER_TOKEN_NONCE_HEADER: 'X-DCC-Viewer-Token-Nonce',
     DCC_ACCESS_EVENT_CODE_HEADER: 'X-DCC-Access-Event-Code', DCC_WATERMARK_TRACE_CODE_HEADER: 'X-DCC-Watermark-Trace-Code',
     CONTROLLED_FILE_PREVIEW_WATERMARK_HEADER: 'X-DCC-Preview-Watermark' }

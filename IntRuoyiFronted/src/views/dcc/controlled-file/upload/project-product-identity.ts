@@ -27,8 +27,13 @@ export const readProjectProductIdentity = (response: unknown, selectedProjectId:
     if (keys.some(key => value[key] !== null) || value.productCode !== null || value.productName !== null)
       throw new Error('未绑定产品预览包含矛盾身份')
   } else throw new Error('正式项目产品来源不合法')
-  if (value.source !== 'UNBOUND' && (typeof value.productCode !== 'string' || !value.productCode.trim()
-    || typeof value.productName !== 'string' || !value.productName.trim())) throw new Error('正式产品编码或名称缺失')
+  if (value.source !== 'UNBOUND' && (typeof value.productName !== 'string' || !value.productName.trim()))
+    throw new Error('正式产品名称缺失')
+  if (value.source === 'MDM_MASTER') {
+    if (value.productCode !== null && (typeof value.productCode !== 'string' || !value.productCode.trim()))
+      throw new Error('正式产品编号格式不合法')
+  } else if (value.source === 'DCC_CATALOG' && (typeof value.productCode !== 'string' || !value.productCode.trim()))
+    throw new Error('已批准项目产品编码缺失')
   return { projectCodeId: projectId, source: value.source, productMasterId: value.productMasterId as string | null,
     productCatalogId: value.productCatalogId as string | null, productRelationId: value.productRelationId as string | null,
     productCreateRequestId: value.productCreateRequestId as string | null,

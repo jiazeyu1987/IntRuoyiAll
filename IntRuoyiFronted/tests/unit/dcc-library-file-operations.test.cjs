@@ -60,3 +60,17 @@ test('actual table operation entry renders for an editable library file and rema
   }
   assert.match(panel.template.content, /:can-manage="libraryScope \? canManageLibraryFile : undefined"/)
 })
+
+test('library original download requests the original variant and preserves download errors', async () => {
+  const ast = ts.createSourceFile('panel.ts', panel.scriptSetup.content, ts.ScriptTarget.Latest, true)
+  const declaration = ast.statements.find(n => n.declarationList?.declarations.some(d => d.name.text === 'downloadLibraryFile'))
+  const calls = [], state = { error: '' }
+  const context = { exports: {}, state, triggerControlledFileVariantDownload: async (...args) => calls.push(args) }
+  vm.runInNewContext(transpile(declaration.getText(ast) + '\nexports.download=downloadLibraryFile'), context)
+  await context.exports.download({ controlledFileId: '9223372036854775000' })
+  assert.equal(calls[0][0], '9223372036854775000')
+  assert.equal(calls[0][1], 'original')
+  context.triggerControlledFileVariantDownload = async () => { throw new Error('该受控版本未保存原件，无法下载原件') }
+  await context.exports.download({ controlledFileId: '9223372036854775000' })
+  assert.equal(state.error, '该受控版本未保存原件，无法下载原件')
+})

@@ -194,6 +194,21 @@ public class DccRegistrationCertificateUploadService {
         return result;
     }
 
+    public List<java.util.Map<String,Object>> selectedProjectCandidates(
+            Long tenantId, Long actorId, List<Long> ids, Long excludedCertificateId) {
+        if (ids.isEmpty() || ids.size() > 100 || ids.stream().anyMatch(java.util.Objects::isNull)) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("请选择1至100个有效项目");
+        }
+        return ids.stream().distinct().map(id -> {
+            var project = requireProjectCode(tenantId, actorId, id, false);
+            java.util.Map<String,Object> row = new java.util.LinkedHashMap<>();
+            row.put("id", project.getId());
+            row.put("projectCode", project.getProjectCode());
+            row.put("projectName", project.getProjectName());
+            row.putAll(candidateBinding(tenantId, id, excludedCertificateId));
+            return row;
+        }).toList();
+    }
     public Long rejectedCertificateId(Long tenantId, Long actorId, Long sourceRequestId) {
         return sourceRequestId == null ? null : requireRejectedSource(tenantId,actorId,sourceRequestId).getCertificateId();
     }
@@ -438,6 +453,18 @@ public class DccRegistrationCertificateUploadService {
             if(links.stream().noneMatch(link -> Objects.equals(link.getBusinessFileId(),id))) throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
             var file=fileMapper.selectById(id);
             if(file==null || !Objects.equals(file.getTenantId(),tenantId) || !FILE_STATUS_STAGED.equals(file.getStatus())) throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+            var infra = fileService.getFile(file.getInfraFileId());
+            if (infra == null) throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+            byte[] content;
+            try {
+                content = fileService.getFileContent(infra.getConfigId(), infra.getPath());
+            } catch (Exception exception) {
+                throw new IllegalStateException("读取原驳回申请文件失败: " + id, exception);
+            }
+            if (content == null || content.length != file.getFileSize() || !sha256(content).equals(file.getSha256())) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+            }
+            cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.DccRegistrationCertificateMaterialValidator.validate(file.getOriginalName(), content);
             return file;
         }).toList();
     }
@@ -737,6 +764,7 @@ public class DccRegistrationCertificateUploadService {
         if (content.length == 0 || content.length != file.getSize()) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
         }
+        cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.DccRegistrationCertificateMaterialValidator.validate(originalName, content);
         return new UploadFile(originalName, mimeType, file.getSize(), content, sha256(content));
     }
 

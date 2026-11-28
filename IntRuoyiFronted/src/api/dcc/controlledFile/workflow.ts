@@ -1913,8 +1913,13 @@ export const parseControlledFilePreviewMetadata = (
   assertNoForbiddenDccFileCapabilityFields(payload, 'DCC preview metadata')
   const unavailableReason = readOptionalString(payload, 'previewUnavailableReason')
   if (unavailableReason) throw new DccControlledFileContractError(unavailableReason)
-  if (payload.receiptAcknowledged != null && typeof payload.receiptAcknowledged !== 'boolean') {
-    throw new DccControlledFileContractError('DCC preview metadata has invalid receiptAcknowledged')
+  let receiptAcknowledged: boolean | undefined
+  if (payload.receiptAcknowledged != null) {
+    const value = payload.receiptAcknowledged
+    if (typeof value !== 'boolean') {
+      throw new DccControlledFileContractError('DCC preview metadata has invalid receiptAcknowledged')
+    }
+    receiptAcknowledged = value
   }
   const previewRegisteredAt=readOptionalString(payload,'previewRegisteredAt')
   if(!previewRegisteredAt || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.test(previewRegisteredAt)
@@ -1931,7 +1936,7 @@ export const parseControlledFilePreviewMetadata = (
     controlledFileId: readOptionalString(payload, 'controlledFileId'),
     distributionId: readOptionalString(payload, 'distributionId'),
     recipientId: readOptionalString(payload, 'recipientId'),
-    receiptAcknowledged: payload.receiptAcknowledged ?? undefined,
+    receiptAcknowledged,
     versionNo: readOptionalString(payload, 'versionNo'),
     approvalProcessInstanceId: readOptionalString(payload, 'approvalProcessInstanceId'),
     previewKind: assertRequiredPreviewKind(payload, 'previewKind', 'DCC preview metadata'),
@@ -2731,7 +2736,7 @@ export const decodePreviewWatermark = (rawHeader: unknown): ControlledPreviewWat
 const buildControlledFileDownloadEndpoint = (id: number | string) =>
   `${axiosConfig.base_url}/dcc/controlled-files/${id}/download`
 
-const buildControlledFileVariantDownloadEndpoint = (id: number | string, variant: 'read-only' | 'editable' | 'archive') =>
+const buildControlledFileVariantDownloadEndpoint = (id: number | string, variant: 'read-only' | 'editable' | 'original' | 'archive') =>
   `${axiosConfig.base_url}/dcc/controlled-files/${id}/download/${variant}`
 
 const decodeContentDispositionFileName = (rawHeader: unknown): string | null => {
@@ -2779,7 +2784,9 @@ const assertControlledFileDownloadHeaders = (
   }
 }
 
-const assertControlledFileDownloadBusinessResult = async (response: AxiosResponse<Blob>): Promise<void> => {
+const assertControlledFileDownloadBusinessResult = async (
+  response: AxiosResponse<Blob>, operation: '下载' | '预览' = '下载'
+): Promise<void> => {
   const contentType = String(getAxiosHeader(response.headers, 'Content-Type') || response.data.type).split(';')[0].trim().toLowerCase()
   const disposition = String(getAxiosHeader(response.headers, 'Content-Disposition') || '')
   if (contentType !== 'application/json' || /^\s*attachment(?:\s*;|$)/i.test(disposition)) return
@@ -2787,15 +2794,15 @@ const assertControlledFileDownloadBusinessResult = async (response: AxiosRespons
   try {
     payload = JSON.parse(await response.data.text())
   } catch (cause) {
-    throw new DccControlledFileContractError('下载错误响应不是有效 JSON，无法核验下载结果', cause)
+    throw new DccControlledFileContractError(`${operation}错误响应不是有效 JSON，无法核验${operation}结果`, cause)
   }
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    throw new DccControlledFileContractError('下载错误响应缺少正式业务错误')
+    throw new DccControlledFileContractError(`${operation}错误响应缺少正式业务错误`)
   }
   const result = payload as Record<string, unknown>
   if (typeof result.code !== 'number' || !Number.isInteger(result.code) || result.code === 0 ||
       typeof result.msg !== 'string' || !result.msg.trim()) {
-    throw new DccControlledFileContractError('下载错误响应缺少正式业务错误码或原因')
+    throw new DccControlledFileContractError(`${operation}错误响应缺少正式业务错误码或原因`)
   }
   throw Object.assign(new Error(result.msg.trim()), { code: result.code, details: result.data ?? null })
 }
@@ -2842,6 +2849,7 @@ export const previewControlledFileWithWatermark = async (
     timeout: axiosConfig.request_timeout,
     responseType: 'blob'
   })
+  await assertControlledFileDownloadBusinessResult(response, '预览')
   const watermark = decodePreviewWatermark(
     getAxiosHeader(response.headers, CONTROLLED_FILE_PREVIEW_WATERMARK_HEADER)
   )
@@ -2909,7 +2917,7 @@ export const downloadControlledFileWithName = async (
 
 export const downloadControlledFileVariantWithName = async (
   id: number | string,
-  variant: 'read-only' | 'editable' | 'archive'
+  variant: 'read-only' | 'editable' | 'original' | 'archive'
 ): Promise<ControlledFileDownloadResult> => {
   const downloadRequestId = createControlledFileDownloadRequestId()
   const response = await axios.get<Blob>(buildControlledFileVariantDownloadEndpoint(id, variant), {
@@ -2964,7 +2972,7 @@ export const downloadControlledFileAttachmentWithName = async (
 
 export const triggerControlledFileVariantDownload = async (
   id: number | string,
-  variant: 'read-only' | 'editable'
+  variant: 'read-only' | 'editable' | 'original'
 ): Promise<boolean> => {
   const confirmed = await confirmControlledFileDownload()
   if (!confirmed) {

@@ -175,7 +175,11 @@
             prop="documentStatus"
             align="center"
             :width="getPickListColumnWidthString('documentStatus', 110)"
-          />
+          >
+            <template #default="{ row }">
+              <KingdeeValueLabel :value="row.documentStatus" field="documentStatus" />
+            </template>
+          </el-table-column>
           <el-table-column
             v-if="isPickListColumnVisible('billDate')"
             label="单据日期"
@@ -247,6 +251,7 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
+import KingdeeValueLabel from '@/views/erp/components/KingdeeValueLabel.vue'
 import WorkOrderCodeLink from '@/components/WorkOrderCodeLink.vue'
 import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'

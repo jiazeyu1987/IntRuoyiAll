@@ -1464,7 +1464,7 @@
         class="edhr-page-shell__archive-alert"
       />
       <el-descriptions :column="1" border class="edhr-page-shell__signature-summary">
-        <el-descriptions-item label="签名动作">FORM_REVIEW</el-descriptions-item>
+        <el-descriptions-item label="签名动作">表单复核签名</el-descriptions-item>
         <el-descriptions-item label="签名含义">表单复核</el-descriptions-item>
         <el-descriptions-item label="执行编号">
           {{ execution?.executionCode || execution?.id || '--' }}

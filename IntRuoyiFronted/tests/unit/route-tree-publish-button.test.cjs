@@ -57,7 +57,7 @@ function setup() {
 test('the publish button template and script compile', () => {
   compileScript(descriptor, { id: 'publish-button' })
   assert.deepEqual(compileTemplate({ source: descriptor.template.content, filename, id: 'publish-button' }).errors, [])
-  assert.match(descriptor.template.content, /v-if="publishableDraft"/)
+  assert.match(descriptor.template.content, /v-if="publishableDraft && hasPermission\(\['mes:pro-route:version-submit'\]\)"/)
 })
 
 test('only a permitted, unblocked draft shows the button', async () => {

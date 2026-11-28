@@ -23,6 +23,8 @@ public final class DccProjectCodeListQuery {
         query.eq(request.getProductMasterId() != null, "q.product_master_id", request.getProductMasterId());
         query.like(hasText(request.getProjectName()), "q.project_name", request.getProjectName());
         query.like(hasText(request.getProjectCode()), "q.project_code", request.getProjectCode());
+        query.like(hasText(request.getProductCode()), productCodes(), request.getProductCode());
+        query.like(hasText(request.getProjectLeader()), "q.project_leader", request.getProjectLeader());
         query.eq(hasText(request.getCategory()), "q.category", request.getCategory());
         query.eq(hasText(request.getPriority()), "q.priority", request.getPriority());
         query.eq(hasText(request.getStatus()), "q.status", request.getStatus());
@@ -40,6 +42,8 @@ public final class DccProjectCodeListQuery {
         return ListFilterQueryUtils.apply(request, query, Map.ofEntries(
                 entry("docControlNo", text("q.doc_control_no")), entry("primaryCode", text("'无'")),
                 entry("projectName", text("q.project_name")), entry("projectCode", text("q.project_code")),
+                entry("productCode", textCollection(productCodes(), "SELECT 1" + productCatalogRows(), "c.product_code")),
+                entry("projectLeader", text("q.project_leader")),
                 entry("category", text("q.category")), entry("associatedFileCount", number("q.associated_file_count")),
                 entry("batchRecordTotalRecognitionJson", text("q.batch_record_total_recognition_json")),
                 entry("routeStatus", text("q.route_display")), entry("mainBatchRecordStatus", text("q.main_batch_display")),
@@ -48,6 +52,23 @@ public final class DccProjectCodeListQuery {
     }
 
     private static boolean hasText(String value) { return value != null && !value.trim().isEmpty(); }
+
+    private static String productCodes() {
+        return "(SELECT GROUP_CONCAT(DISTINCT c.product_code SEPARATOR '、')" + productCatalogRows() + ")";
+    }
+
+    /** Use confirmed/imported or completed creation bindings; never infer a product from its name/code. */
+    private static String productCatalogRows() {
+        return " FROM dcc_product_catalog c WHERE c.tenant_id=q.tenant_id AND c.deleted=0 AND ("
+                + "EXISTS(SELECT 1 FROM dcc_data_relation dr WHERE dr.tenant_id=q.tenant_id"
+                + " AND dr.project_code_id=q.id AND dr.product_catalog_id=c.id AND dr.deleted=0 AND dr.relation_status='CONFIRMED')"
+                + " OR EXISTS(SELECT 1 FROM dcc_project_product_relation pr"
+                + " JOIN dcc_project_product_create_request cr ON cr.id=pr.request_id AND cr.tenant_id=pr.tenant_id"
+                + " AND cr.deleted=0 AND cr.status='COMPLETED' AND cr.generated_project_code_id=pr.project_code_id"
+                + " AND cr.generated_product_catalog_id=pr.product_catalog_id AND cr.relation_id=pr.id"
+                + " WHERE pr.tenant_id=q.tenant_id AND pr.project_code_id=q.id AND pr.product_catalog_id=c.id"
+                + " AND pr.deleted=0 AND pr.relation_status='ACTIVE'))";
+    }
 
     public static String count() { return script("COUNT(*)", false); }
     public static String page() { return script("q.*", true); }

@@ -1,17 +1,10 @@
 <template>
   <div class="showroom-company-version" v-loading="loading">
-    <el-alert
-      v-if="loadError"
-      :closable="false"
-      show-icon
-      type="error"
-      :title="loadError"
-    />
+    <el-alert v-if="loadError" :closable="false" show-icon type="error" :title="loadError" />
 
     <template v-else-if="current">
       <div class="showroom-company-version__toolbar">
         <div>
-
           <p class="showroom-company-version__subtitle">
             {{ current.displayName || '未命名公司' }}
           </p>
@@ -19,7 +12,8 @@
             {{ current.displayNameEn || 'English company name not filled' }}
           </p>
           <p class="showroom-company-version__version-tip">
-            当前版本：V{{ current.revisionNo }} · {{ current.live ? '当前生效版本' : '最新待生效版本' }}
+            当前版本：V{{ current.revisionNo }} ·
+            {{ current.live ? '当前生效版本' : '最新待生效版本' }}
           </p>
         </div>
         <div class="showroom-company-version__summary-tags">
@@ -59,7 +53,11 @@
           :title="historyLoadError"
         />
 
-        <div v-else v-loading="historyLoading" class="showroom-company-version__history-table-shell">
+        <div
+          v-else
+          v-loading="historyLoading"
+          class="showroom-company-version__history-table-shell"
+        >
           <UnifiedListTemplate
             table-key="showroom.company.versions"
             :rows="historyRows"
@@ -67,10 +65,19 @@
             data-list-viewport="embedded"
             :columns="listFilterColumns0"
             :show-column-settings="false"
-            :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
+            :column-filter-definitions="[
+              ...listColumnFilterDefinitions0,
+              ...allColumnDisplayFilters0
+            ]"
           >
             <template #table="{ rows: standardRows }">
-              <el-table stripe border :data="standardRows" row-key="revisionId" empty-text="暂无历史版本">
+              <el-table
+                stripe
+                border
+                :data="standardRows"
+                row-key="revisionId"
+                empty-text="暂无历史版本"
+              >
                 <el-table-column label="版本" width="110">
                   <template #default="{ row }">
                     <strong>V{{ row.revisionNo }}</strong>
@@ -188,14 +195,26 @@
                 <article class="showroom-company-version__narration-card">
                   <h5>{{ language.code === 'zh' ? '讲解语音' : 'Narration Audio' }}</h5>
                   <template v-if="resolveHistoryPreviewNarration(language.code)">
-                    <p>
-                      语音版本：{{ resolveHistoryPreviewNarration(language.code)?.versionId ?? '未记录' }}
-                    </p>
-                    <p>Voice：{{ resolveHistoryPreviewNarration(language.code)?.voice || '未记录' }}</p>
+                    <p
+                      >音色：{{
+                        voiceLabel(resolveHistoryPreviewNarration(language.code)?.voice)
+                      }}</p
+                    >
+                    <details>
+                      <summary>语音追溯详情</summary>
+                      <p
+                        >语音版本：{{
+                          resolveHistoryPreviewNarration(language.code)?.versionId ?? '未记录'
+                        }}</p
+                      >
+                      <p>音色标识：{{ resolveHistoryPreviewNarration(language.code)?.voice }}</p>
+                    </details>
                     <p class="showroom-company-version__narration-script">
                       {{
                         resolveHistoryPreviewNarration(language.code)?.scriptText ||
-                        (language.code === 'zh' ? '当前没有讲解稿内容' : 'No narration script recorded')
+                        (language.code === 'zh'
+                          ? '当前没有讲解稿内容'
+                          : 'No narration script recorded')
                       }}
                     </p>
                     <audio
@@ -211,7 +230,9 @@
                   <template v-else>
                     <p class="showroom-company-version__narration-script">
                       {{
-                        language.code === 'zh' ? '当前没有讲解稿内容' : 'No narration script recorded'
+                        language.code === 'zh'
+                          ? '当前没有讲解稿内容'
+                          : 'No narration script recorded'
                       }}
                     </p>
                     <span class="showroom-company-version__audio-empty">
@@ -229,7 +250,9 @@
           <el-button
             type="primary"
             :disabled="!canRestorePreviewedRevision"
-            :loading="historyPreviewRow ? restoringRevisionId === historyPreviewRow.revisionId : false"
+            :loading="
+              historyPreviewRow ? restoringRevisionId === historyPreviewRow.revisionId : false
+            "
             @click="historyPreviewRow && handleRestoreHistoryRevision(historyPreviewRow)"
           >
             复制为最新版本
@@ -241,6 +264,13 @@
 </template>
 
 <script setup lang="ts">
+import { ALIYUN_NLS_VOICE_OPTIONS } from '@/api/ai/tts'
+const voiceLabel = (voice?: string) =>
+  voice
+    ? ALIYUN_NLS_VOICE_OPTIONS.find((item) => item.value === voice)?.label ||
+      '音色未识别（见追溯详情）'
+    : '未记录'
+
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -310,13 +340,12 @@ const historyPreviewCoverPreviewList = computed(() =>
     : []
 )
 
-const canRestorePreviewedRevision = computed(
-  () =>
-    Boolean(
-      historyPreviewRow.value?.revisionId &&
-        current.value?.revisionId &&
-        historyPreviewRow.value.revisionId !== current.value.revisionId
-    )
+const canRestorePreviewedRevision = computed(() =>
+  Boolean(
+    historyPreviewRow.value?.revisionId &&
+      current.value?.revisionId &&
+      historyPreviewRow.value.revisionId !== current.value.revisionId
+  )
 )
 
 const clearHistoryPreview = () => {
@@ -355,7 +384,8 @@ const resolveHistoryPreviewNarration = (
   }
   const narrationLanguage = languageCode === 'zh' ? 'ZH' : 'EN'
   return (
-    historyPreviewVersion.value.narrations.find((item) => item.language === narrationLanguage) || null
+    historyPreviewVersion.value.narrations.find((item) => item.language === narrationLanguage) ||
+    null
   )
 }
 
@@ -537,14 +567,32 @@ const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
   display: flex;
   flex-direction: column;
   gap: 16px;
-  height: calc(100dvh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding) - 37px);
+  height: calc(
+    100dvh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding) - 37px
+  );
   min-height: 0;
   overflow: hidden;
 }
-.showroom-company-version > .showroom-company-version__toolbar { flex-shrink: 0; }
-.showroom-company-version > .showroom-company-version__panel { display:flex;flex:1;flex-direction:column;min-height:0; }
-.showroom-company-version__history-table-shell { display:flex;flex:1;flex-direction:column;min-height:0; }
-.showroom-company-version__history-table-shell > .unified-list-template { flex:1;height:auto;min-height:0; }
+.showroom-company-version > .showroom-company-version__toolbar {
+  flex-shrink: 0;
+}
+.showroom-company-version > .showroom-company-version__panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.showroom-company-version__history-table-shell {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.showroom-company-version__history-table-shell > .unified-list-template {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
 
 .showroom-company-version__toolbar,
 .showroom-company-version__panel {

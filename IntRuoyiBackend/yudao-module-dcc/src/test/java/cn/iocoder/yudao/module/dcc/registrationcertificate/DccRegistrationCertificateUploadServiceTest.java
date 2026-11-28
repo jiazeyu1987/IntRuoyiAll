@@ -141,6 +141,51 @@ class DccRegistrationCertificateUploadServiceTest {
         TenantContextHolder.clear();
     }
 
+    @Test void selectedProjectCandidatesReturnsExactLargeIdAndDeduplicates() {
+        long id = 2121453181393523290L;
+        var project = DccProjectCodeDO.builder().id(id).projectCode("REAL-733")
+                .projectName("Exact selected project").status(DccProjectCodeStatusConstants.ENABLE).build();
+        project.setTenantId(TENANT_ID);
+        when(projectCodeService.getProjectCode(ACTOR_ID, id)).thenReturn(project);
+        when(projectProductMapper.selectBindings(TENANT_ID, id)).thenReturn(List.of(
+                new cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateProjectProductMapper.Row(
+                        TENANT_ID,id,10L,"P10","Product ten","CONFIRMED",1L)));
+        var result = uploadService.selectedProjectCandidates(TENANT_ID, ACTOR_ID, List.of(id,id), null);
+        assertEquals(1, result.size());
+        assertEquals(id, result.get(0).get("id"));
+        assertEquals("REAL-733", result.get(0).get("projectCode"));
+        assertEquals("Exact selected project", result.get(0).get("projectName"));
+        assertEquals(false, result.get(0).containsKey("disabled"));
+        verify(projectCodeService).getProjectCode(ACTOR_ID,id);
+        org.mockito.Mockito.verifyNoInteractions(productBindings);
+    }
+
+    @Test void selectedProjectCandidatesPreservesMissingFormalProductDisabledState() {
+        mockProjectCodeWithoutProductBinding();
+        when(projectProductMapper.selectBindings(TENANT_ID,1001L)).thenReturn(List.of());
+        var row=uploadService.selectedProjectCandidates(TENANT_ID,ACTOR_ID,List.of(1001L),null).get(0);
+        assertEquals(true,row.get("disabled"));
+        assertEquals("尚未绑定有效DCC产品",row.get("bindingMessage"));
+    }
+
+    @Test void selectedProjectCandidatesPropagatesRevokedPermission() {
+        var denied=new IllegalStateException("project access denied");
+        when(projectCodeService.getProjectCode(ACTOR_ID,1001L)).thenThrow(denied);
+        assertEquals(denied,assertThrows(IllegalStateException.class,()->
+                uploadService.selectedProjectCandidates(TENANT_ID,ACTOR_ID,List.of(1001L),null)));
+        org.mockito.Mockito.verifyNoInteractions(projectProductMapper);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"FOREIGN_TENANT","DISABLED"})
+    void selectedProjectCandidatesRejectsForeignOrDisabledProject(String scenario) {
+        var project=DccProjectCodeDO.builder().id(1001L).projectCode("P-1")
+                .status("DISABLED".equals(scenario)?"DISABLE":DccProjectCodeStatusConstants.ENABLE).build();
+        project.setTenantId("FOREIGN_TENANT".equals(scenario)?TENANT_ID+1:TENANT_ID);
+        when(projectCodeService.getProjectCode(ACTOR_ID,1001L)).thenReturn(project);
+        assertThrows(ServiceException.class,()->uploadService.selectedProjectCandidates(TENANT_ID,ACTOR_ID,List.of(1001L),null));
+        org.mockito.Mockito.verifyNoInteractions(projectProductMapper);
+    }
     @Test void validProductCandidateIsAvailableWithoutCheckingOtherCertificates() {
         when(projectProductMapper.selectBindings(TENANT_ID,100L)).thenReturn(List.of(
             new cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateProjectProductMapper.Row(
@@ -210,7 +255,7 @@ class DccRegistrationCertificateUploadServiceTest {
         }
         if ("STATED".equals(productSource)) {
             command = new DccRegistrationCertificateUploadCommand(command.projectCodeId(),command.companyId(),"证载产品名称",command.certificateNo(),command.firstObtainedDate(),command.effectiveDate(),command.expiryDate(),command.classification(),command.entrustedProduction(),command.selfProduction(),command.entrustedEnterpriseIds(),command.remark(),command.file(),command.factsJson(),List.of(),List.of(),null,List.of(),handlingTaskId,
-                List.of(new MockMultipartFile("additionalPrimaryFiles","second.pdf","application/pdf","%PDF-second".getBytes(StandardCharsets.UTF_8))));
+                List.of(new MockMultipartFile("additionalPrimaryFiles","second.pdf","application/pdf",RegistrationCertificateMaterialFixtures.pdf("second"))));
             when(fileService.createFileAndReturnId(any(byte[].class),eq("second.pdf"),eq("dcc/registration-certificate/upload/9101"),eq("application/pdf"))).thenReturn(9202L);
         }
         DccRegistrationCertificateUploadSubmitResult result = uploadService.submitUploadForApproval(
@@ -246,19 +291,19 @@ class DccRegistrationCertificateUploadServiceTest {
     }
 
     @Test
-    void unsupportedDomesticApprovalDateDoesNotCreateDraftOrApproval() {
+    void missingDomesticApprovalDateDoesNotCreateDraftOrApproval() {
         mockOwnedCompany();
         mockProjectCode();
         var command = uploadCommand(true, false, List.of(301L, 302L));
         var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(command.factsJson());
-        facts.setApprovalDate(LocalDate.of(2025, 1, 1));
+        facts.setApprovalDate(null);
         var unsupported = new DccRegistrationCertificateUploadCommand(command.projectCodeId(), command.companyId(), command.productName(),
                 command.certificateNo(), command.firstObtainedDate(), command.effectiveDate(), command.expiryDate(), command.classification(),
                 command.entrustedProduction(), command.selfProduction(), command.entrustedEnterpriseIds(), command.remark(), command.file(),
                 facts.toJson(), List.of(), List.of(), null, List.of(), null);
         var error = assertThrows(ServiceException.class, () -> uploadService.submitUploadForApproval(
                 TENANT_ID, ACTOR_ID, "unsupported-approval-date", "unsupported-approval-trace", unsupported));
-        assertEquals("国内和CE新建注册证不支持批准日期字段", error.getMessage());
+        assertEquals("请填写批准日期", error.getMessage());
         verify(commandService, never()).createDraft(any(), any(), any(), any(), any());
         verify(requestMapper, never()).insert(any(DccRegistrationCertificateAccessRequestDO.class));
     }
@@ -618,6 +663,34 @@ class DccRegistrationCertificateUploadServiceTest {
         when(projectCodeService.getProjectCode(ACTOR_ID, 1001L)).thenReturn(projectCode);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"PRIMARY", "ADDITIONAL", "ATTACHMENT", "DESCRIPTION"})
+    void rejectsInvalidMaterialBeforeDraftStorageAndApproval(String slot) {
+        if (!"PRIMARY".equals(slot)) {
+            mockOwnedCompany();
+            mockProjectCode();
+        }
+        var base = uploadCommand(1001L, "一次性使用无菌导管", false, true, List.of());
+        var invalid = new MockMultipartFile("file", "invalid.pdf", "application/pdf",
+                "not a PDF".getBytes(StandardCharsets.UTF_8));
+        var command = new DccRegistrationCertificateUploadCommand(base.projectCodeId(), base.companyId(),
+                base.productName(), base.certificateNo(), base.firstObtainedDate(), base.effectiveDate(),
+                base.expiryDate(), base.classification(), base.entrustedProduction(), base.selfProduction(),
+                base.entrustedEnterpriseIds(), base.remark(), "PRIMARY".equals(slot) ? invalid : base.file(),
+                base.factsJson(), "ATTACHMENT".equals(slot) ? List.of(invalid) : List.of(),
+                "DESCRIPTION".equals(slot) ? List.of(invalid) : List.of(), null, List.of(), null,
+                "ADDITIONAL".equals(slot) ? List.of(invalid) : List.of());
+
+        ServiceException exception = assertThrows(ServiceException.class, () -> uploadService.submitUploadForApproval(
+                TENANT_ID, ACTOR_ID, "INVALID-MATERIAL", "TRACE-INVALID", command));
+
+        assertEquals(400, exception.getCode());
+        org.junit.jupiter.api.Assertions.assertTrue(exception.getMessage().contains("实际格式与扩展名不符"));
+        org.mockito.Mockito.verifyNoInteractions(commandService, fileService);
+        verify(requestMapper, never()).insert(any(DccRegistrationCertificateAccessRequestDO.class));
+        verify(fileMapper, never()).insert(any(DccRegistrationCertificateFileDO.class));
+    }
+
     private DccRegistrationCertificateUploadCommand uploadCommand(
             Boolean entrustedProduction, Boolean selfProduction, List<Long> entrustedEnterpriseIds) {
         return uploadCommand(1001L, "一次性使用无菌导管",
@@ -654,7 +727,7 @@ class DccRegistrationCertificateUploadServiceTest {
                 entrustedEnterpriseIds,
                 "上传注册证审批",
                 new MockMultipartFile("file", "registration.pdf", "application/pdf",
-                        "%PDF-1.4".getBytes(StandardCharsets.UTF_8)),
+                        RegistrationCertificateMaterialFixtures.pdf("registration")),
                 uploadFacts(projectCodeId!=null),List.of(),List.of(),null,List.of(),handlingTaskId);
     }
 
@@ -663,6 +736,7 @@ class DccRegistrationCertificateUploadServiceTest {
         facts.setCertificateType("DOMESTIC");facts.setCertificateStatus("VALID");facts.setOwnProduct(ownProduct);
         facts.setCertificateNo("REG-CERT-UPLOAD-1");facts.setClassification("A类");
         facts.setFirstObtainedDate(LocalDate.of(2025,1,1));facts.setEffectiveDate(LocalDate.of(2025,1,2));
+        facts.setApprovalDate(LocalDate.of(2025,1,1));
         if(ownProduct) {
             var product=new DccRegistrationCertificateProjectProduct(1001L,663L,"0313170202","一次性使用无菌导管",List.of(new DccRegistrationCertificateProjectProduct.Binding("CONFIRMED",56L)));
             facts.setProjectProduct(product);facts.setProjectProducts(List.of(product));

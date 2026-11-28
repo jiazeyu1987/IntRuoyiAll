@@ -14,11 +14,14 @@ const recorded = (value?: string | number) =>
 
 export const edhrReadDisplay = (facts: EdhrReadFacts) => {
   const taskLabels: Record<string, string> = {
-    CREATED: '交接已创建', WAIT: '待处理', RUNNING: '处理中', COMPLETED: '任务已完成',
-    CANCELLED: '已取消', OVERDUE: '已逾期'
+    CREATED: '交接已创建',
+    WAIT: '待处理',
+    RUNNING: '处理中',
+    COMPLETED: '任务已完成',
+    CANCELLED: '已取消',
+    OVERDUE: '已逾期'
   }
-  const taskLabel = taskLabels[facts.taskOutcome || '']
-    || `任务状态未识别（${recorded(facts.sourceStatus)}）`
+  const taskLabel = taskLabels[facts.taskOutcome || ''] || '任务状态未识别（见追溯详情）'
   const decision = facts.decisionState
   let decisionLabel = '决定未知'
   let decisionType: DisplayType = 'info'
@@ -29,7 +32,7 @@ export const edhrReadDisplay = (facts: EdhrReadFacts) => {
     decisionLabel = '审批驳回'
     decisionType = 'danger'
   } else if (decision === 'UNSUPPORTED') {
-    decisionLabel = `决定未识别（${recorded(facts.decisionSourceStatus)}）`
+    decisionLabel = '决定未识别（见追溯详情）'
   }
   return {
     taskLabel,
@@ -43,10 +46,16 @@ export const edhrReadDisplay = (facts: EdhrReadFacts) => {
     sourceRemark: facts.sourceRemark,
     terminationReason: facts.terminationReason,
     actorName: '姓名未记录',
-    actorIdentity: facts.decisionActorUserId == null ? '未记录' : `系统用户 ID：${facts.decisionActorUserId}`,
-    completionActorIdentity: facts.taskCompletedByUserId == null ? '未记录' : `系统用户 ID：${facts.taskCompletedByUserId}`,
-    creationActorIdentity: facts.taskOutcome === 'CREATED' && 'actorUserId' in facts && facts.actorUserId != null
-      ? `系统用户 ID：${facts.actorUserId}` : '未记录',
+    actorIdentity:
+      facts.decisionActorUserId == null ? '未记录' : `系统用户 ID：${facts.decisionActorUserId}`,
+    completionActorIdentity:
+      facts.taskCompletedByUserId == null
+        ? '未记录'
+        : `系统用户 ID：${facts.taskCompletedByUserId}`,
+    creationActorIdentity:
+      facts.taskOutcome === 'CREATED' && 'actorUserId' in facts && facts.actorUserId != null
+        ? `系统用户 ID：${facts.actorUserId}`
+        : '未记录',
     creationAt: facts.taskOutcome === 'CREATED' && 'actedAt' in facts ? facts.actedAt : undefined,
     taskCreatedAt: facts.taskCreatedAt,
     taskCompletedAt: facts.taskCompletedAt,
@@ -58,8 +67,10 @@ export const edhrReadDisplay = (facts: EdhrReadFacts) => {
 }
 
 export const bpmMissingPermissionReason = (row: ApprovalTaskSummaryVO) => {
-  const domainNavigation = row.moduleCode === 'BPM'
-    || (row.moduleCode === 'EDHR' && ['EDHR_WORK_TASK', 'ACTIVE_ORDER_HANDOFF'].includes(row.sourceTaskType || ''))
+  const domainNavigation =
+    row.moduleCode === 'BPM' ||
+    (row.moduleCode === 'EDHR' &&
+      ['EDHR_WORK_TASK', 'ACTIVE_ORDER_HANDOFF'].includes(row.sourceTaskType || ''))
   if (!domainNavigation) return undefined
   const contractMissing = row.decisionDetailQuery?.navigationContractMissing
   if (contractMissing) return String(contractMissing)
@@ -78,15 +89,23 @@ export const bpmMissingPermissionReason = (row: ApprovalTaskSummaryVO) => {
     'mes:pro-process-pool-team-leader:query': '组长工作台查询',
     'mes:pro-edhr-nonconformance-review:query': '不合格评审查询'
   }
-  return `领域办理缺少权限：${String(missing).split(',').map(code => labels[code] || code).join('、')}`
+  return `领域办理缺少权限：${String(missing)
+    .split(',')
+    .map((code) => labels[code] || code)
+    .join('、')}`
 }
 
 export const canProcessBpmInModule = (row: ApprovalTaskSummaryVO, view: ApprovalTaskViewType) =>
-  view === 'TODO' && row.moduleCode === 'BPM' && !row.businessDeleted
-  && Boolean(row.availableActions?.includes('PROCESS_IN_MODULE'))
-  && Boolean(row.decisionDetailRoute?.trim())
+  view === 'TODO' &&
+  row.moduleCode === 'BPM' &&
+  !row.businessDeleted &&
+  Boolean(row.availableActions?.includes('PROCESS_IN_MODULE')) &&
+  Boolean(row.decisionDetailRoute?.trim())
 
-export const bpmModuleDecisionLocation = (row: ApprovalTaskSummaryVO, view: ApprovalTaskViewType) =>
+export const bpmModuleDecisionLocation = (
+  row: ApprovalTaskSummaryVO,
+  view: ApprovalTaskViewType
+) =>
   canProcessBpmInModule(row, view)
     ? { path: row.decisionDetailRoute!, query: { ...row.decisionDetailQuery } }
     : undefined
