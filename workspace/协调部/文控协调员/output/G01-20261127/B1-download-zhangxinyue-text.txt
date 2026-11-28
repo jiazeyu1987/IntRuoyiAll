@@ -1,4 +1,0 @@
-TEST ONLY - 非真实质量批准
-Document DCC0-IDI-20261127-G01
-Major replacement B/1: G01换版更新，验证不需要培训的新大版本独立启用和签收。
-仅本地测试1租户模拟验证，不构成真实生产或质量批准。

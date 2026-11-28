@@ -1,6 +1,0 @@
-TEST ONLY - DCC-G03A-20261127
-Simulated correction for rejection branch A. Not real quality approval.
-Scope: this simulation applies only to DCC guide 03 branch A on localhost tenant TEST1.
-Responsibilities: applicant prepares; supervisor reviews; three assigned departments countersign; approver approves; document controller standardizes.
-Verification scope: simulation workflow and evidence only; no production or real product acceptance.
-Document identity: G03A.txt, controlled number DCC-G03A-20261127.

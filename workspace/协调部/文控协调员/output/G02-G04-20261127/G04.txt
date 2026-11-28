@@ -1,3 +1,0 @@
-TEST ONLY - DCC-G04-20261127
-Software workflow simulation. Revision A/2 for withdraw and resubmit testing.
-Not a real quality approval, production instruction, or product record.

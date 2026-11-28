@@ -1,2 +1,0 @@
-Validation passed: no errors found.
-Found 0 issue(s):

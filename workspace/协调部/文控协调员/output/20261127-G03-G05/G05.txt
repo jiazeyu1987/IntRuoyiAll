@@ -1,2 +1,0 @@
-TEST ONLY - DCC-G05-20261127
-Simulated DCC workflow branch G05. Not real quality approval.

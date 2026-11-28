@@ -1,4 +1,0 @@
-memory_only_check=true; no business endpoint or database used
-after_JSON_toJSON_sop_field_present=false
-after_snapshot_writer_expression_sop_field_present=false
-explicit_null_preserved=true

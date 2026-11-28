@@ -1,2 +1,0 @@
-TEST ONLY - DCC-G03C-20261127
-Simulated DCC workflow branch G03C. Not real quality approval.

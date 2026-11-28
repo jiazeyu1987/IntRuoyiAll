@@ -1,9 +1,0 @@
-{
-  "report": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\总经办\\普通管理员\\report\\20261127152717.xlsx",
-  "dataChanges": "无",
-  "run": "20261127143039oqth",
-  "result": "未完成，九条业务主链均因指定租户不可选而未执行",
-  "evidence": "登录页.png；租户选项页面文字.txt",
-  "server": "http://localhost:8081",
-  "tenant": "测试A"
-}
