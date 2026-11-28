@@ -1,0 +1,1632 @@
+[
+  {
+    "command": "set",
+    "props": {
+      "name": "已通过"
+    },
+    "path": "/Sheet1"
+  },
+  {
+    "command": "add",
+    "type": "sheet",
+    "parent": "/",
+    "props": {
+      "name": "未通过"
+    }
+  },
+  {
+    "command": "add",
+    "type": "sheet",
+    "parent": "/",
+    "props": {
+      "name": "存疑"
+    }
+  },
+  {
+    "command": "set",
+    "props": {
+      "font": "Microsoft YaHei",
+      "font.color": "FFFFFF",
+      "size": "11",
+      "bold": "true",
+      "fill": "17365D",
+      "value": "检查内容"
+    },
+    "path": "/已通过/A1"
+  },
+  {
+    "command": "set",
+    "props": {
+      "font": "Microsoft YaHei",
+      "font.color": "FFFFFF",
+      "size": "11",
+      "bold": "true",
+      "fill": "17365D",
+      "value": "主链及账号"
+    },
+    "path": "/已通过/B1"
+  },
+  {
+    "command": "set",
+    "props": {
+      "font": "Microsoft YaHei",
+      "font.color": "FFFFFF",
+      "size": "11",
+      "bold": "true",
+      "fill": "17365D",
+      "value": "结论和边界"
+    },
+    "path": "/已通过/C1"
+  },
+  {
+    "command": "set",
+    "props": {
+      "font": "Microsoft YaHei",
+      "font.color": "FFFFFF",
+      "size": "11",
+      "bold": "true",
+      "fill": "17365D",
+      "value": "实际依据或未完成原因"
+    },
+    "path": "/已通过/D1"
+  },
+  {
+    "command": "set",
+    "props": {
+      "font": "Microsoft YaHei",
+      "font.color": "FFFFFF",
+      "size": "11",
+      "bold": "true",
+      "fill": "17365D",
+      "value": "完整复现路径"
+    },
+    "path": "/已通过/E1"
+  },
+  {
+    "command": "set",
+    "props": {
+      "font": "Microsoft YaHei",
+      "font.color": "FFFFFF",
+      "size": "11",
+      "bold": "true",
+      "fill": "17365D",
+      "value": "证据截图"
+    },
+    "path": "/已通过/F1"
+  },
+  {
+    "command": "set",
+    "props": {
+      "width": "25"
+    },
+    "path": "/已通过/col[A]"
+  },
+  {
+    "command": "set",
+    "props": {
+      "width": "25"
+    },
+    "path": "/已通过/col[B]"
+  },
+  {
+    "command": "set",
+    "props": {
+      "width": "42"
+    },
+    "path": "/已通过/col[C]"
+  },
+  {
+    "command": "set",
+    "props": {
+      "width": "60"
+    },
+    "path": "/已通过/col[D]"
+  },
+  {
+    "command": "set",
+    "props": {
+      "width": "65"
+    },
+    "path": "/已通过/col[E]"
+  },
+  {
+    "command": "set",
+    "props": {
+      "width": "75"
+    },
+    "path": "/已通过/col[F]"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "生产组长入口和员工选择",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/A2"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "01至03；张飞红",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/B2"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "可开始本轮生产准备，不要求员工姓名也叫张飞红。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/C2"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本人入口与员工下拉已核实；33名候选不等于每工序均适用，新工序仍须选择适用员工。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/D2"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本地 localhost:8081；测试1租户；本轮 SIM-EDHR-20261128-1544。张飞红登录→生产班长→生产作业→员工选择；不创建旧对象。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/E2"
+  },
+  {
+    "command": "set",
+    "props": {
+      "height": "225"
+    },
+    "path": "/已通过/row[2]"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "parent": "/已通过",
+    "props": {
+      "name": "证据2",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\SIM-EDHR-20261128-1544-admin\\06-张飞红账号员工候选.png",
+      "anchor": "F2:G3",
+      "alt": "生产组长入口和员工选择"
+    }
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "检验填写入口",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/A3"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "01至03；杨珊",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/B3"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "已有检验填写和提交操作，可开始后续新对象检验。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/C3"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "角色有任务查询、巡检操作；本人实登可见检验填写及提交。仅查看旧记录，不提交。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/D3"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本地 localhost:8081；测试1租户；本轮 SIM-EDHR-20261128-1544。杨珊登录→eDHR→生产执行→检验填报。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/E3"
+  },
+  {
+    "command": "set",
+    "props": {
+      "height": "225"
+    },
+    "path": "/已通过/row[3]"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "parent": "/已通过",
+    "props": {
+      "name": "证据3",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\SIM-EDHR-20261128-1544-admin\\10-杨珊检验填写入口.png",
+      "anchor": "F3:G4",
+      "alt": "检验填写入口"
+    }
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "复核和不合格发起",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/A4"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "01；吴学燕",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/B4"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "已有复核和从原记录发起不合格审查的操作。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/C4"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本人检验组长列表有详情、复核、不合格审查；角色工作台专用查询及创建权限已勾选。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/D4"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本地 localhost:8081；测试1租户；本轮 SIM-EDHR-20261128-1544。吴学燕登录→eDHR→生产执行→检验组长→查看本人可见记录按钮。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/E4"
+  },
+  {
+    "command": "set",
+    "props": {
+      "height": "225"
+    },
+    "path": "/已通过/row[4]"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "parent": "/已通过",
+    "props": {
+      "name": "证据4",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\SIM-EDHR-20261128-1544-admin\\11-吴学燕复核不合格审查按钮.png",
+      "anchor": "F4:G5",
+      "alt": "复核和不合格发起"
+    }
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "生产放行和不合格发起",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/A5"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "02、03；朱利江",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/B5"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "已有生产放行及原放行申请的不合格审查入口。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/C5"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "角色有放行通过、上传、驳回及不合格评审创建；本人页面显示放行与不合格审查。未操作旧申请。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/D5"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本地 localhost:8081；测试1租户；本轮 SIM-EDHR-20261128-1544。朱利江登录→eDHR→生产执行→生产放行→查看申请按钮。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/E5"
+  },
+  {
+    "command": "set",
+    "props": {
+      "height": "225"
+    },
+    "path": "/已通过/row[5]"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "parent": "/已通过",
+    "props": {
+      "name": "证据5",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\SIM-EDHR-20261128-1544-admin\\12-朱利江放行不合格审查按钮.png",
+      "anchor": "F5:G6",
+      "alt": "生产放行和不合格发起"
+    }
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "不合格处置授权",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/A6"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "01、02、06；管理员",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/B6"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "已核实具体处置权限，不只是能登录管理员。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/C6"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "租户管理员已勾选不合格评审查询、创建、处置及偏差管理；此前真实候选中包含该账号。新对象签名待到节点验证。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/D6"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本地 localhost:8081；测试1租户；本轮 SIM-EDHR-20261128-1544。管理员登录→系统管理→角色管理→权限角色→菜单分类→租户管理员→菜单权限；只读取消。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/E6"
+  },
+  {
+    "command": "set",
+    "props": {
+      "height": "225"
+    },
+    "path": "/已通过/row[6]"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "parent": "/已通过",
+    "props": {
+      "name": "证据6",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\SIM-EDHR-20261128-1544-admin\\20-管理员实际不合格处置授权.png",
+      "anchor": "F6:G7",
+      "alt": "不合格处置授权"
+    }
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "来料资料上传入口",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/A7"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "03；朱月浪",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/B7"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "已有来料资料上传入口。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/C7"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本人列表显示上传，进入旧对象可看到来料检文件类别；未上传任何文件。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/D7"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本地 localhost:8081；测试1租户；本轮 SIM-EDHR-20261128-1544。朱月浪 zhuyuelang 登录→eDHR→生产执行→上市放行→上传入口；只读查看。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/E7"
+  },
+  {
+    "command": "set",
+    "props": {
+      "height": "225"
+    },
+    "path": "/已通过/row[7]"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "parent": "/已通过",
+    "props": {
+      "name": "证据7",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\SIM-EDHR-20261128-1544-admin\\14-朱月浪上传入口.png",
+      "anchor": "F7:G8",
+      "alt": "来料资料上传入口"
+    }
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "灭菌资料上传入口",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/A8"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "03；丁加美",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/B8"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "已有上传入口和对应岗位角色。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/C8"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本人上市放行列表有上传；对应角色含批次查询、上传及工作任务查询。未上传。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/D8"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本地 localhost:8081；测试1租户；本轮 SIM-EDHR-20261128-1544。丁加美登录→eDHR→生产执行→上市放行→查看上传按钮。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/E8"
+  },
+  {
+    "command": "set",
+    "props": {
+      "height": "225"
+    },
+    "path": "/已通过/row[8]"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "parent": "/已通过",
+    "props": {
+      "name": "证据8",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\SIM-EDHR-20261128-1544-admin\\15-丁加美上传入口.png",
+      "anchor": "F8:G9",
+      "alt": "灭菌资料上传入口"
+    }
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "成品两类资料接收",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/A9"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "03；钱凤琴",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/B9"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "成品检报告和成品检记录是两类独立任务。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/C9"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本人工作台已有两个独立类别的旧任务，角色分别具备工作任务及上市放行入口；不把旧任务当本轮成功。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/D9"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本地 localhost:8081；测试1租户；本轮 SIM-EDHR-20261128-1544。钱凤琴登录→个人工作台→分别查看成品检报告与成品检记录任务类别；不办理。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/E9"
+  },
+  {
+    "command": "set",
+    "props": {
+      "height": "225"
+    },
+    "path": "/已通过/row[9]"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "parent": "/已通过",
+    "props": {
+      "name": "证据9",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\SIM-EDHR-20261128-1544-admin\\16-钱凤琴两类资料接收.png",
+      "anchor": "F9:G10",
+      "alt": "成品两类资料接收"
+    }
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "上市放行入口",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/A10"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "03；宋媛",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/B10"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "已有上市放行操作入口。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/C10"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本人上市放行列表有详情、驳回、放行；角色有上市放行及批次查询。未批准任何旧批次。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/D10"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本地 localhost:8081；测试1租户；本轮 SIM-EDHR-20261128-1544。宋媛登录→eDHR→生产执行→上市放行→只读列表。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/E10"
+  },
+  {
+    "command": "set",
+    "props": {
+      "height": "225"
+    },
+    "path": "/已通过/row[10]"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "parent": "/已通过",
+    "props": {
+      "name": "证据10",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\SIM-EDHR-20261128-1544-admin\\13-宋媛上市放行按钮.png",
+      "anchor": "F10:G11",
+      "alt": "上市放行入口"
+    }
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "偏差调查岗位入口",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/A11"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "04至06；牛志晓",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/B11"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "偏差管理入口可用，不追加不合格处置权。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/C11"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "现有偏差管理员角色具有偏差管理及任务查询；本人能查询现有偏差、看到发起入口。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/D11"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本地 localhost:8081；测试1租户；本轮 SIM-EDHR-20261128-1544。牛志晓登录→生产执行→偏差管理；原管理员角色页面跳转不可用不代表本业务入口不可用。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/E11"
+  },
+  {
+    "command": "set",
+    "props": {
+      "height": "225"
+    },
+    "path": "/已通过/row[11]"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "parent": "/已通过",
+    "props": {
+      "name": "证据11",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\SIM-EDHR-20261128-1544-admin\\17-牛志晓偏差实际入口.png",
+      "anchor": "F11:G12",
+      "alt": "偏差调查岗位入口"
+    }
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "偏差核验岗位入口",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/A12"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "04至06；王思雨",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/B12"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "已完成强制首次改密，实登后偏差入口可用。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/C12"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "约定正式凭据被明确拒绝后，仅尝试一次初始凭据；按页面完成首次改密。查回测试1、王思雨和偏差入口。无重置。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/D12"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本地 localhost:8081；测试1租户；本轮 SIM-EDHR-20261128-1544。王思雨登录→首次改密→重新登录→核对测试1和本人→生产执行→偏差管理。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/E12"
+  },
+  {
+    "command": "set",
+    "props": {
+      "height": "225"
+    },
+    "path": "/已通过/row[12]"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "parent": "/已通过",
+    "props": {
+      "name": "证据12",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\SIM-EDHR-20261128-1544-admin\\18-王思雨改密后偏差入口.png",
+      "anchor": "F12:G13",
+      "alt": "偏差核验岗位入口"
+    }
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "偏差后续职责页面结构",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/A13"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "04至06；仅结构核实",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/B13"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "调查、核验、部门确认、QA关闭、质量批准节点确实存在。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/C13"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "只读旧偏差详情的处置与签署页，能见五种指定职责。证明页面支持，不证明本轮指定人已获准签署。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/D13"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本地 localhost:8081；测试1租户；本轮 SIM-EDHR-20261128-1544。管理员→生产执行→偏差管理→既有偏差详情→处置与签署；只读，不更改。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/已通过/E13"
+  },
+  {
+    "command": "set",
+    "props": {
+      "height": "225"
+    },
+    "path": "/已通过/row[13]"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "parent": "/已通过",
+    "props": {
+      "name": "证据13",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\SIM-EDHR-20261128-1544-admin\\09-偏差既有签署节点.png",
+      "anchor": "F13:G14",
+      "alt": "偏差后续职责页面结构"
+    }
+  },
+  {
+    "command": "set",
+    "props": {
+      "freeze": "A2",
+      "autoFilter": "A1:F13"
+    },
+    "path": "/已通过"
+  },
+  {
+    "command": "set",
+    "props": {
+      "font": "Microsoft YaHei",
+      "font.color": "FFFFFF",
+      "size": "11",
+      "bold": "true",
+      "fill": "17365D",
+      "value": "检查内容"
+    },
+    "path": "/未通过/A1"
+  },
+  {
+    "command": "set",
+    "props": {
+      "font": "Microsoft YaHei",
+      "font.color": "FFFFFF",
+      "size": "11",
+      "bold": "true",
+      "fill": "17365D",
+      "value": "主链及账号"
+    },
+    "path": "/未通过/B1"
+  },
+  {
+    "command": "set",
+    "props": {
+      "font": "Microsoft YaHei",
+      "font.color": "FFFFFF",
+      "size": "11",
+      "bold": "true",
+      "fill": "17365D",
+      "value": "结论和边界"
+    },
+    "path": "/未通过/C1"
+  },
+  {
+    "command": "set",
+    "props": {
+      "font": "Microsoft YaHei",
+      "font.color": "FFFFFF",
+      "size": "11",
+      "bold": "true",
+      "fill": "17365D",
+      "value": "实际依据或未完成原因"
+    },
+    "path": "/未通过/D1"
+  },
+  {
+    "command": "set",
+    "props": {
+      "font": "Microsoft YaHei",
+      "font.color": "FFFFFF",
+      "size": "11",
+      "bold": "true",
+      "fill": "17365D",
+      "value": "完整复现路径"
+    },
+    "path": "/未通过/E1"
+  },
+  {
+    "command": "set",
+    "props": {
+      "font": "Microsoft YaHei",
+      "font.color": "FFFFFF",
+      "size": "11",
+      "bold": "true",
+      "fill": "17365D",
+      "value": "证据截图"
+    },
+    "path": "/未通过/F1"
+  },
+  {
+    "command": "set",
+    "props": {
+      "width": "25"
+    },
+    "path": "/未通过/col[A]"
+  },
+  {
+    "command": "set",
+    "props": {
+      "width": "25"
+    },
+    "path": "/未通过/col[B]"
+  },
+  {
+    "command": "set",
+    "props": {
+      "width": "42"
+    },
+    "path": "/未通过/col[C]"
+  },
+  {
+    "command": "set",
+    "props": {
+      "width": "60"
+    },
+    "path": "/未通过/col[D]"
+  },
+  {
+    "command": "set",
+    "props": {
+      "width": "65"
+    },
+    "path": "/未通过/col[E]"
+  },
+  {
+    "command": "set",
+    "props": {
+      "width": "75"
+    },
+    "path": "/未通过/col[F]"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "签名授权筛选报错",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/未通过/A2"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "管理员查询；不据此判无签名权",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/未通过/B2"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "输入指定账号并应用筛选后页面报系统异常。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/未通过/C2"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "页面保留旧列表且条件仍待应用，不能当作筛选成功。已重置条件，未改签名授权。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/未通过/D2"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本地 localhost:8081；测试1租户；本轮 SIM-EDHR-20261128-1544。管理员登录→系统管理→电子签名→用户授权→增加用户包含条件→输入 yingtaigroupadmin→回车应用→系统异常。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/未通过/E2"
+  },
+  {
+    "command": "set",
+    "props": {
+      "height": "225"
+    },
+    "path": "/未通过/row[2]"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "parent": "/未通过",
+    "props": {
+      "name": "证据2",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\SIM-EDHR-20261128-1544-admin\\22-签名授权筛选系统异常.png",
+      "anchor": "F2:G3",
+      "alt": "签名授权筛选报错"
+    }
+  },
+  {
+    "command": "set",
+    "props": {
+      "freeze": "A2",
+      "autoFilter": "A1:F2"
+    },
+    "path": "/未通过"
+  },
+  {
+    "command": "set",
+    "props": {
+      "font": "Microsoft YaHei",
+      "font.color": "FFFFFF",
+      "size": "11",
+      "bold": "true",
+      "fill": "17365D",
+      "value": "检查内容"
+    },
+    "path": "/存疑/A1"
+  },
+  {
+    "command": "set",
+    "props": {
+      "font": "Microsoft YaHei",
+      "font.color": "FFFFFF",
+      "size": "11",
+      "bold": "true",
+      "fill": "17365D",
+      "value": "主链及账号"
+    },
+    "path": "/存疑/B1"
+  },
+  {
+    "command": "set",
+    "props": {
+      "font": "Microsoft YaHei",
+      "font.color": "FFFFFF",
+      "size": "11",
+      "bold": "true",
+      "fill": "17365D",
+      "value": "结论和边界"
+    },
+    "path": "/存疑/C1"
+  },
+  {
+    "command": "set",
+    "props": {
+      "font": "Microsoft YaHei",
+      "font.color": "FFFFFF",
+      "size": "11",
+      "bold": "true",
+      "fill": "17365D",
+      "value": "实际依据或未完成原因"
+    },
+    "path": "/存疑/D1"
+  },
+  {
+    "command": "set",
+    "props": {
+      "font": "Microsoft YaHei",
+      "font.color": "FFFFFF",
+      "size": "11",
+      "bold": "true",
+      "fill": "17365D",
+      "value": "完整复现路径"
+    },
+    "path": "/存疑/E1"
+  },
+  {
+    "command": "set",
+    "props": {
+      "font": "Microsoft YaHei",
+      "font.color": "FFFFFF",
+      "size": "11",
+      "bold": "true",
+      "fill": "17365D",
+      "value": "证据截图"
+    },
+    "path": "/存疑/F1"
+  },
+  {
+    "command": "set",
+    "props": {
+      "width": "25"
+    },
+    "path": "/存疑/col[A]"
+  },
+  {
+    "command": "set",
+    "props": {
+      "width": "25"
+    },
+    "path": "/存疑/col[B]"
+  },
+  {
+    "command": "set",
+    "props": {
+      "width": "42"
+    },
+    "path": "/存疑/col[C]"
+  },
+  {
+    "command": "set",
+    "props": {
+      "width": "60"
+    },
+    "path": "/存疑/col[D]"
+  },
+  {
+    "command": "set",
+    "props": {
+      "width": "65"
+    },
+    "path": "/存疑/col[E]"
+  },
+  {
+    "command": "set",
+    "props": {
+      "width": "75"
+    },
+    "path": "/存疑/col[F]"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "部门确认与质量批准的准确授权",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/A2"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "04；尚磊、徐建海",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/B2"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "未发现可精准补给的既有对应角色；不是已证实业务拒绝。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/C2"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "已查七类权限角色、组织角色及审批角色。二人现有可见入口为文控；偏差管理员为调查专岗、QA角色为另一职责，未乱加角色。后续指定候选及本人办理仍待核实。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/D2"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本地 localhost:8081；测试1租户；本轮 SIM-EDHR-20261128-1544。管理员→系统管理→角色管理→逐类权限角色、组织角色、审批角色；尚磊或徐建海本人登录→查看菜单；新偏差调查后再检查指定人候选和任务，不要求创建前已有任务。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/E2"
+  },
+  {
+    "command": "set",
+    "props": {
+      "height": "225"
+    },
+    "path": "/存疑/row[2]"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "parent": "/存疑",
+    "props": {
+      "name": "证据2",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\SIM-EDHR-20261128-1544-admin\\19-eDHR已有角色清单.png",
+      "anchor": "F2:G3",
+      "alt": "部门确认与质量批准的准确授权"
+    }
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "偏差等级名称与管理者节点",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/A3"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "05；一般与关键链",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/B3"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "页面普通、重大与指南一般、关键的对应关系未确认。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/C3"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "未自行等同；当前无可只读核实的本轮重大对象，管理者代表后续节点尚不能验证。不能据创建窗口断言不存在后续流程。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/D3"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本地 localhost:8081；测试1租户；本轮 SIM-EDHR-20261128-1544。管理员→生产执行→偏差管理→发起偏差→只读等级选项→取消；新对象后续正式节点再检查管理者代表参与；不创建对象。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/E3"
+  },
+  {
+    "command": "set",
+    "props": {
+      "height": "225"
+    },
+    "path": "/存疑/row[3]"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "parent": "/存疑",
+    "props": {
+      "name": "证据3",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\SIM-EDHR-20261128-1544-admin\\03-管理员发起偏差实际字段.png",
+      "anchor": "F3:G4",
+      "alt": "偏差等级名称与管理者节点"
+    }
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "关键偏差转不合格入口",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/A4"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "06；转审动作",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/B4"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "已见业务限制说明，但未验证当前转审动作。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/C4"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "页面说明仅未关闭的关键偏差可转不合格审批；当前只见已处理普通旧对象，不能把状态不合适当权限拒绝。管理员处置权限已确认。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/D4"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本地 localhost:8081；测试1租户；本轮 SIM-EDHR-20261128-1544。管理员→生产执行→偏差管理→查看未关闭关键偏差条件及列表；等本轮符合条件对象到节点后检查转审入口、来源和候选，不操作旧对象。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/E4"
+  },
+  {
+    "command": "set",
+    "props": {
+      "height": "225"
+    },
+    "path": "/存疑/row[4]"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "parent": "/存疑",
+    "props": {
+      "name": "证据4",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\SIM-EDHR-20261128-1544-admin\\17-牛志晓偏差实际入口.png",
+      "anchor": "F4:G5",
+      "alt": "关键偏差转不合格入口"
+    }
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "新对象数据范围和本人签名",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/A5"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "01至03；节点检查，不阻止开始",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/B5"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "角色授权和本人入口已足够开始，尚不等于整链通过。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/C5"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "新对象创建后才有正式接收、任务和签名；必须分别核对每类资料、实际员工适用范围及审批账号。旧记录按钮仅用于入口证据。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/D5"
+  },
+  {
+    "command": "set",
+    "props": {
+      "size": "11",
+      "alignment.vertical": "top",
+      "value": "本地 localhost:8081；测试1租户；本轮 SIM-EDHR-20261128-1544。生产组长用 zhangfeihong 创建本轮独立活跃对象→各岗位重新查询该对象→逐节点核对数据可见、候选、任务与签名；发现拒绝只暂停受影响节点。",
+      "font": "Microsoft YaHei",
+      "wrap": "true"
+    },
+    "path": "/存疑/E5"
+  },
+  {
+    "command": "set",
+    "props": {
+      "height": "225"
+    },
+    "path": "/存疑/row[5]"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "parent": "/存疑",
+    "props": {
+      "name": "证据5",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\SIM-EDHR-20261128-1544-admin\\21-PQC组长具体操作授权.png",
+      "anchor": "F5:G6",
+      "alt": "新对象数据范围和本人签名"
+    }
+  },
+  {
+    "command": "set",
+    "props": {
+      "freeze": "A2",
+      "autoFilter": "A1:F5"
+    },
+    "path": "/存疑"
+  }
+]

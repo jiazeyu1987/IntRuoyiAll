@@ -1,0 +1,5 @@
+TEST ONLY - GENERAL document workflow test
+Document: DCC0-GENERAL-20261127-G08
+Revision: 2
+Purpose: Verify upload, three-department review, controlled publication and download.
+This is simulated software test material, not a real quality approval or production instruction.

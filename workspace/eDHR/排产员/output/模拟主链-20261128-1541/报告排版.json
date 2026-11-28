@@ -1,0 +1,1917 @@
+[
+  {
+    "props": {
+      "tabColor": "217568",
+      "freeze": "C3"
+    },
+    "command": "set",
+    "path": "/已通过"
+  },
+  {
+    "props": {
+      "height": "65"
+    },
+    "command": "set",
+    "path": "/已通过/row[1]"
+  },
+  {
+    "props": {
+      "value": "2026年11月28日本地测试1排产主链：已通过8项，未确认功能失败0项，存疑4项。完整主链未达验收终点：同步终态、单笔及批量入池、系数及组合、共享负荷和全量对账仍缺证据。104106产能与原计划已恢复，105183未操作。",
+      "alignment.wrapText": "true",
+      "font.name": "Microsoft YaHei"
+    },
+    "command": "set",
+    "path": "/已通过/A1"
+  },
+  {
+    "props": {
+      "merge": "true",
+      "fill": "E9EFF2"
+    },
+    "command": "set",
+    "path": "/已通过/A1:H1"
+  },
+  {
+    "props": {
+      "height": "30"
+    },
+    "command": "set",
+    "path": "/已通过/row[2]"
+  },
+  {
+    "props": {
+      "width": "12"
+    },
+    "command": "set",
+    "path": "/已通过/col[A]"
+  },
+  {
+    "props": {
+      "value": "编号",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "217568"
+    },
+    "command": "set",
+    "path": "/已通过/A2"
+  },
+  {
+    "props": {
+      "width": "28"
+    },
+    "command": "set",
+    "path": "/已通过/col[B]"
+  },
+  {
+    "props": {
+      "value": "核实项",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "217568"
+    },
+    "command": "set",
+    "path": "/已通过/B2"
+  },
+  {
+    "props": {
+      "width": "40"
+    },
+    "command": "set",
+    "path": "/已通过/col[C]"
+  },
+  {
+    "props": {
+      "value": "测试操作",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "217568"
+    },
+    "command": "set",
+    "path": "/已通过/C2"
+  },
+  {
+    "props": {
+      "width": "42"
+    },
+    "command": "set",
+    "path": "/已通过/col[D]"
+  },
+  {
+    "props": {
+      "value": "预期结果",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "217568"
+    },
+    "command": "set",
+    "path": "/已通过/D2"
+  },
+  {
+    "props": {
+      "width": "58"
+    },
+    "command": "set",
+    "path": "/已通过/col[E]"
+  },
+  {
+    "props": {
+      "value": "实际结果",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "217568"
+    },
+    "command": "set",
+    "path": "/已通过/E2"
+  },
+  {
+    "props": {
+      "width": "58"
+    },
+    "command": "set",
+    "path": "/已通过/col[F]"
+  },
+  {
+    "props": {
+      "value": "判断和影响",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "217568"
+    },
+    "command": "set",
+    "path": "/已通过/F2"
+  },
+  {
+    "props": {
+      "width": "75"
+    },
+    "command": "set",
+    "path": "/已通过/col[G]"
+  },
+  {
+    "props": {
+      "value": "完整测试路径",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "217568"
+    },
+    "command": "set",
+    "path": "/已通过/G2"
+  },
+  {
+    "props": {
+      "width": "110"
+    },
+    "command": "set",
+    "path": "/已通过/col[H]"
+  },
+  {
+    "props": {
+      "value": "证据截图",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "217568"
+    },
+    "command": "set",
+    "path": "/已通过/H2"
+  },
+  {
+    "props": {
+      "value": "通过01",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A3"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A3:A4"
+  },
+  {
+    "props": {
+      "value": "身份及恢复前基线",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B3"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B3:B4"
+  },
+  {
+    "props": {
+      "value": "核对租户、用户、既有测试单及保护单。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C3"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C3:C4"
+  },
+  {
+    "props": {
+      "value": "明确当前记录和操作范围，不重复入池。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D3"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D3:D4"
+  },
+  {
+    "props": {
+      "value": "测试1、赵杰；881MO104106为球囊扩张压力泵、2019件、14道工序、完成及报工零。881MO105183为只读保护单。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E3"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E3:E4"
+  },
+  {
+    "props": {
+      "value": "本轮标识模拟主链-20261128-1541；复用既有测试单，未新建虚拟单。工序汇总28266不是订单数量。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F3"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F3:F4"
+  },
+  {
+    "props": {
+      "value": "本地http://localhost:8081，测试1租户，赵杰账号。2026年11月28日本轮模拟测试。智能排产进入排产工单，查看104106详情、工序和资源产能，对照105183原计划。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/G3"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/G3:G4"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/已通过/row[3]"
+  },
+  {
+    "parent": "/已通过",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\01-身份和入池阻断.png",
+      "alt": "通过01",
+      "anchor": "H3:I4"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/已通过/row[4]"
+  },
+  {
+    "parent": "/已通过",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\02-工序原值.png",
+      "alt": "通过01",
+      "anchor": "H4:I5"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "value": "通过02",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A5"
+  },
+  {
+    "props": {
+      "value": "基线检查及正式排程",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B5"
+  },
+  {
+    "props": {
+      "value": "只选104106，从2026年11月29日重排并确认。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C5"
+  },
+  {
+    "props": {
+      "value": "没有阻断，周日不排产，生成正式日期。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D5"
+  },
+  {
+    "props": {
+      "value": "预检查通过零、警告一、阻断零，警告是系统默认策略。正式日期为11月30日08:00至12月1日17:42；最近成功时间16:01:33。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E5"
+  },
+  {
+    "props": {
+      "value": "确实应用正式计划，不是只看预览；周日顺延到周一，保护单未选。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F5"
+  },
+  {
+    "props": {
+      "value": "本地http://localhost:8081，测试1租户，赵杰账号。2026年11月28日本轮模拟测试。排产工单只选881MO104106，手动重排、重新检查、展开警告、开始重排，填2026年11月29日并确认，核对正式日期。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/G5"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/已通过/row[5]"
+  },
+  {
+    "parent": "/已通过",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\03-基线正式日期.png",
+      "alt": "通过02",
+      "anchor": "H5:I6"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "value": "通过03",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A6"
+  },
+  {
+    "props": {
+      "value": "工作台正式日期",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B6"
+  },
+  {
+    "props": {
+      "value": "应用基线后查看工作台14道工序。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C6"
+  },
+  {
+    "props": {
+      "value": "工作台与正式工序日期一致。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D6"
+  },
+  {
+    "props": {
+      "value": "工作台已显示完整正式日期，粗洗11月30日至12月1日。页面说明日期来自已应用计划。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E6"
+  },
+  {
+    "props": {
+      "value": "旧轮缺日期问题本轮未复现，不声称代码已修复。开排日期未设置是另一字段。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F6"
+  },
+  {
+    "props": {
+      "value": "本地http://localhost:8081，测试1租户，赵杰账号。2026年11月28日本轮模拟测试。基线应用成功后，进入排产员工作台，打开104106工序列表，比较计划开始及完成日期。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/G6"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/已通过/row[6]"
+  },
+  {
+    "parent": "/已通过",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\04-工作台正式日期.png",
+      "alt": "通过03",
+      "anchor": "H6:I7"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "value": "通过04",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A7"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A7:A8"
+  },
+  {
+    "props": {
+      "value": "高产能保存及计算",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B7"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B7:B8"
+  },
+  {
+    "props": {
+      "value": "粗洗每班产能1050改2100，保存刷新后仅重排104106。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C7"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C7:C8"
+  },
+  {
+    "props": {
+      "value": "保存不自动改日期，重排按每小时200件计算。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D7"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D7:D8"
+  },
+  {
+    "props": {
+      "value": "刷新后2100仍在，重排前日期保持基线。重排后粗洗11月30日08:00至18:06，每小时200件、每班2100件，成功时间16:22:52。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E7"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E7:E8"
+  },
+  {
+    "props": {
+      "value": "2019件需606分钟，结束时间吻合。仅改变本单覆盖值。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F7"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F7:F8"
+  },
+  {
+    "props": {
+      "value": "本地http://localhost:8081，测试1租户，赵杰账号。2026年11月28日本轮模拟测试。工作台打开104106粗洗，班次产能改2100后按Tab并刷新；排产工单仅选104106，从2026年11月29日重排确认，展开粗洗查看。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/G7"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/G7:G8"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/已通过/row[7]"
+  },
+  {
+    "parent": "/已通过",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\05-高产能保存刷新.png",
+      "alt": "通过04",
+      "anchor": "H7:I8"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/已通过/row[8]"
+  },
+  {
+    "parent": "/已通过",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\06-高产能正式结果.png",
+      "alt": "通过04",
+      "anchor": "H8:I9"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "value": "通过05",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A9"
+  },
+  {
+    "props": {
+      "value": "低产能跨日计算",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B9"
+  },
+  {
+    "props": {
+      "value": "粗洗每班产能改525，保存后仅重排104106。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C9"
+  },
+  {
+    "props": {
+      "value": "每小时50件、每天630分钟，跨日完成。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D9"
+  },
+  {
+    "props": {
+      "value": "粗洗每小时50件、每班525件，需求2019件；粗洗及整单完成时间为12月3日16:53。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E9"
+  },
+  {
+    "props": {
+      "value": "需2423分钟；前三天1890分钟，第四天533分钟，从08:00至16:53，吻合。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F9"
+  },
+  {
+    "props": {
+      "value": "本地http://localhost:8081，测试1租户，赵杰账号。2026年11月28日本轮模拟测试。工作台104106粗洗班次产能改525并保存；排产工单只选104106，从2026年11月29日重排确认，查看需求、产能和结束日期。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/G9"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/已通过/row[9]"
+  },
+  {
+    "parent": "/已通过",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\07-低产能正式结果.png",
+      "alt": "通过05",
+      "anchor": "H9:I10"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "value": "通过06",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A10"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A10:A11"
+  },
+  {
+    "props": {
+      "value": "恢复原值和保护单核对",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B10"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B10:B11"
+  },
+  {
+    "props": {
+      "value": "清除104106粗洗手工覆盖，再按原日期重排。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C10"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C10:C11"
+  },
+  {
+    "props": {
+      "value": "恢复资源计算100件每小时、1050件每班，原日期及保护单保持不变。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D10"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D10:D11"
+  },
+  {
+    "props": {
+      "value": "详情回读资源计算100件每小时、1050件每班，工作台回读1050。104106为11月26日08:00至27日17:42，成功时间16:43:55；105183仍为11月25日08:00至26日17:42。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E10"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E10:E11"
+  },
+  {
+    "props": {
+      "value": "本轮产能和正式日期已恢复。未改共享路线、班次、库存和生产检验记录。截图展示日期，产能另经页面回读。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F10"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F10:F11"
+  },
+  {
+    "props": {
+      "value": "本地http://localhost:8081，测试1租户，赵杰账号。2026年11月28日本轮模拟测试。排产工单查看104106粗洗，清除手工覆盖并确认；仅排104106，日期2026年11月26日；返回工作台回读1050，再对照105183和甘特图。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/G10"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/G10:G11"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/已通过/row[10]"
+  },
+  {
+    "parent": "/已通过",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\08-恢复日期和保护单.png",
+      "alt": "通过06",
+      "anchor": "H10:I11"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/已通过/row[11]"
+  },
+  {
+    "parent": "/已通过",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\12-甘特图两单.png",
+      "alt": "通过06",
+      "anchor": "H11:I12"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "value": "通过07",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A12"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A12:A14"
+  },
+  {
+    "props": {
+      "value": "每日数量抽样及甘特图",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B12"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B12:B14"
+  },
+  {
+    "props": {
+      "value": "查看恢复后11月26日两组任务及甘特图。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C12"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C12:C14"
+  },
+  {
+    "props": {
+      "value": "抽样加总正确，横条日期吻合。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D12"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D12:D14"
+  },
+  {
+    "props": {
+      "value": "一组10道工序各969件合计9690；另一组10道慢工序各1050件、4道快工序各2019件合计18576；合计28266。甘特图105183为25至26日，104106为26至27日。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E12"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E12:E14"
+  },
+  {
+    "props": {
+      "value": "仅通过样本加总及横条日期；卡片未直接标来源工单号，逐单归属与所有日期全量对账未完成，不代表全部数量算法通过。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F12"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F12:F14"
+  },
+  {
+    "props": {
+      "value": "本地http://localhost:8081，测试1租户，赵杰账号。2026年11月28日本轮模拟测试。排程日历打开2026年11月26日任务，分别展开两组工序；生产排产点击全部折叠，核对两单横条。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/G12"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/G12:G14"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/已通过/row[12]"
+  },
+  {
+    "parent": "/已通过",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\09-日历保护单每日数量.png",
+      "alt": "通过07",
+      "anchor": "H12:I13"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/已通过/row[13]"
+  },
+  {
+    "parent": "/已通过",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\10-日历测试单每日数量.png",
+      "alt": "通过07",
+      "anchor": "H13:I14"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/已通过/row[14]"
+  },
+  {
+    "parent": "/已通过",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\12-甘特图两单.png",
+      "alt": "通过07",
+      "anchor": "H14:I15"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "value": "通过08",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A15"
+  },
+  {
+    "props": {
+      "value": "物料短缺提示抽样",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B15"
+  },
+  {
+    "props": {
+      "value": "打开物料需求，抽查需求和短缺量。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C15"
+  },
+  {
+    "props": {
+      "value": "提示可见，库存零时短缺等于需求。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D15"
+  },
+  {
+    "props": {
+      "value": "物料23种、缺料23种。胶塞环需求4038、库存零、短缺4038；压力表4038、弹簧8076等可见。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E15"
+  },
+  {
+    "props": {
+      "value": "仅确认提示及样本算术；未独立核对原始物料清单、真实库存及全部23种物料。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F15"
+  },
+  {
+    "props": {
+      "value": "本地http://localhost:8081，测试1租户，赵杰账号。2026年11月28日本轮模拟测试。排程日历打开2026年11月26日，点击物料需求，对照种数及胶塞环等行的需求、库存、短缺。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/G15"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/已通过/row[15]"
+  },
+  {
+    "parent": "/已通过",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\11-物料需求.png",
+      "alt": "通过08",
+      "anchor": "H15:I16"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "tabColor": "AC3B3B",
+      "freeze": "C3"
+    },
+    "command": "set",
+    "path": "/未通过"
+  },
+  {
+    "props": {
+      "height": "65"
+    },
+    "command": "set",
+    "path": "/未通过/row[1]"
+  },
+  {
+    "props": {
+      "value": "2026年11月28日本地测试1排产主链：已通过8项，未确认功能失败0项，存疑4项。完整主链未达验收终点：同步终态、单笔及批量入池、系数及组合、共享负荷和全量对账仍缺证据。104106产能与原计划已恢复，105183未操作。",
+      "alignment.wrapText": "true",
+      "font.name": "Microsoft YaHei"
+    },
+    "command": "set",
+    "path": "/未通过/A1"
+  },
+  {
+    "props": {
+      "merge": "true",
+      "fill": "E9EFF2"
+    },
+    "command": "set",
+    "path": "/未通过/A1:H1"
+  },
+  {
+    "props": {
+      "height": "30"
+    },
+    "command": "set",
+    "path": "/未通过/row[2]"
+  },
+  {
+    "props": {
+      "width": "12"
+    },
+    "command": "set",
+    "path": "/未通过/col[A]"
+  },
+  {
+    "props": {
+      "value": "编号",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "AC3B3B"
+    },
+    "command": "set",
+    "path": "/未通过/A2"
+  },
+  {
+    "props": {
+      "width": "28"
+    },
+    "command": "set",
+    "path": "/未通过/col[B]"
+  },
+  {
+    "props": {
+      "value": "核实项",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "AC3B3B"
+    },
+    "command": "set",
+    "path": "/未通过/B2"
+  },
+  {
+    "props": {
+      "width": "40"
+    },
+    "command": "set",
+    "path": "/未通过/col[C]"
+  },
+  {
+    "props": {
+      "value": "测试操作",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "AC3B3B"
+    },
+    "command": "set",
+    "path": "/未通过/C2"
+  },
+  {
+    "props": {
+      "width": "42"
+    },
+    "command": "set",
+    "path": "/未通过/col[D]"
+  },
+  {
+    "props": {
+      "value": "预期结果",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "AC3B3B"
+    },
+    "command": "set",
+    "path": "/未通过/D2"
+  },
+  {
+    "props": {
+      "width": "58"
+    },
+    "command": "set",
+    "path": "/未通过/col[E]"
+  },
+  {
+    "props": {
+      "value": "实际结果",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "AC3B3B"
+    },
+    "command": "set",
+    "path": "/未通过/E2"
+  },
+  {
+    "props": {
+      "width": "58"
+    },
+    "command": "set",
+    "path": "/未通过/col[F]"
+  },
+  {
+    "props": {
+      "value": "判断和影响",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "AC3B3B"
+    },
+    "command": "set",
+    "path": "/未通过/F2"
+  },
+  {
+    "props": {
+      "width": "75"
+    },
+    "command": "set",
+    "path": "/未通过/col[G]"
+  },
+  {
+    "props": {
+      "value": "完整测试路径",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "AC3B3B"
+    },
+    "command": "set",
+    "path": "/未通过/G2"
+  },
+  {
+    "props": {
+      "width": "110"
+    },
+    "command": "set",
+    "path": "/未通过/col[H]"
+  },
+  {
+    "props": {
+      "value": "证据截图",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "AC3B3B"
+    },
+    "command": "set",
+    "path": "/未通过/H2"
+  },
+  {
+    "props": {
+      "tabColor": "95651C",
+      "freeze": "C3"
+    },
+    "command": "set",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "height": "65"
+    },
+    "command": "set",
+    "path": "/存疑/row[1]"
+  },
+  {
+    "props": {
+      "value": "2026年11月28日本地测试1排产主链：已通过8项，未确认功能失败0项，存疑4项。完整主链未达验收终点：同步终态、单笔及批量入池、系数及组合、共享负荷和全量对账仍缺证据。104106产能与原计划已恢复，105183未操作。",
+      "alignment.wrapText": "true",
+      "font.name": "Microsoft YaHei"
+    },
+    "command": "set",
+    "path": "/存疑/A1"
+  },
+  {
+    "props": {
+      "merge": "true",
+      "fill": "E9EFF2"
+    },
+    "command": "set",
+    "path": "/存疑/A1:H1"
+  },
+  {
+    "props": {
+      "height": "30"
+    },
+    "command": "set",
+    "path": "/存疑/row[2]"
+  },
+  {
+    "props": {
+      "width": "12"
+    },
+    "command": "set",
+    "path": "/存疑/col[A]"
+  },
+  {
+    "props": {
+      "value": "编号",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "95651C"
+    },
+    "command": "set",
+    "path": "/存疑/A2"
+  },
+  {
+    "props": {
+      "width": "28"
+    },
+    "command": "set",
+    "path": "/存疑/col[B]"
+  },
+  {
+    "props": {
+      "value": "核实项",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "95651C"
+    },
+    "command": "set",
+    "path": "/存疑/B2"
+  },
+  {
+    "props": {
+      "width": "40"
+    },
+    "command": "set",
+    "path": "/存疑/col[C]"
+  },
+  {
+    "props": {
+      "value": "测试操作",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "95651C"
+    },
+    "command": "set",
+    "path": "/存疑/C2"
+  },
+  {
+    "props": {
+      "width": "42"
+    },
+    "command": "set",
+    "path": "/存疑/col[D]"
+  },
+  {
+    "props": {
+      "value": "预期结果",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "95651C"
+    },
+    "command": "set",
+    "path": "/存疑/D2"
+  },
+  {
+    "props": {
+      "width": "58"
+    },
+    "command": "set",
+    "path": "/存疑/col[E]"
+  },
+  {
+    "props": {
+      "value": "实际结果",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "95651C"
+    },
+    "command": "set",
+    "path": "/存疑/E2"
+  },
+  {
+    "props": {
+      "width": "58"
+    },
+    "command": "set",
+    "path": "/存疑/col[F]"
+  },
+  {
+    "props": {
+      "value": "判断和影响",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "95651C"
+    },
+    "command": "set",
+    "path": "/存疑/F2"
+  },
+  {
+    "props": {
+      "width": "75"
+    },
+    "command": "set",
+    "path": "/存疑/col[G]"
+  },
+  {
+    "props": {
+      "value": "完整测试路径",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "95651C"
+    },
+    "command": "set",
+    "path": "/存疑/G2"
+  },
+  {
+    "props": {
+      "width": "110"
+    },
+    "command": "set",
+    "path": "/存疑/col[H]"
+  },
+  {
+    "props": {
+      "value": "证据截图",
+      "font.bold": "true",
+      "font.color": "FFFFFF",
+      "fill": "95651C"
+    },
+    "command": "set",
+    "path": "/存疑/H2"
+  },
+  {
+    "props": {
+      "value": "存疑01",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A3"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A3:A4"
+  },
+  {
+    "props": {
+      "value": "同步终态未证实",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B3"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B3:B4"
+  },
+  {
+    "props": {
+      "value": "本人查已有工单，由ERP岗位只读追溯旧任务，不重复提交。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C3"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C3:C4"
+  },
+  {
+    "props": {
+      "value": "取得104106最近按编号同步的成功或失败状态及时间。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D3"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D3:D4"
+  },
+  {
+    "props": {
+      "value": "协作截图显示104106存在、2019件、备注来自金蝶，但没有同步任务最终状态及执行时间。ERP岗报告按编号查询操作日志暂无数据，未找到任务历史。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E3"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E3:E4"
+  },
+  {
+    "props": {
+      "value": "存在不等于同步成功。协作截图用户为管理员，指定账号未独立核实，保留此限制。责任方ERP同步维护岗；提供对应104106的正式任务结果和时间后恢复。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F3"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F3:F4"
+  },
+  {
+    "props": {
+      "value": "本地http://localhost:8081，测试1租户，赵杰账号。2026年11月28日本轮模拟测试。测试1，数据同步进入生产订单，按881MO104106查询、查看详情；再查对应操作日志和同步历史。不能以创建时间代替同步结果，不能重复提交结果未知的旧任务。截图由ERP协调员提供。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G3"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G3:G4"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/存疑/row[3]"
+  },
+  {
+    "parent": "/存疑",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\14-协作金蝶来源详情.png",
+      "alt": "存疑01",
+      "anchor": "H3:I4"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/存疑/row[4]"
+  },
+  {
+    "parent": "/存疑",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\15-协作同步工单查询.png",
+      "alt": "存疑01",
+      "anchor": "H4:I5"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "value": "存疑02",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A5"
+  },
+  {
+    "props": {
+      "value": "单笔及批量入池阻塞",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B5"
+  },
+  {
+    "props": {
+      "value": "查三笔未入池模拟工单的禁选原因。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C5"
+  },
+  {
+    "props": {
+      "value": "有来源、路线、资源齐全的隔离样本后做单笔和批量入池。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D5"
+  },
+  {
+    "props": {
+      "value": "LT-LCF2611261350-B、LT-SOPN261126100008-B、LT-SOPN261126100008-A均因资源计算工序缺少工作站资源产能而禁选。未新增入池、移出或删除。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E5"
+  },
+  {
+    "props": {
+      "value": "前置不足，不判功能失败或通过。路线维护岗准备隔离路线、产品及资源关联，ERP岗提供实际指向它的模拟同步工单；排产岗核对后恢复。咨询没有证明样本已准备好。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F5"
+  },
+  {
+    "props": {
+      "value": "本地http://localhost:8081，测试1租户，赵杰账号。2026年11月28日本轮模拟测试。智能排产进入排产工单、同步工单，查上述三笔LT工单及复选框禁选原因；通过正式前端补齐隔离路线、资源和工单引用，重新核对资格后执行单笔、批量入池，不能改共享路线绕过。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G5"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/存疑/row[5]"
+  },
+  {
+    "parent": "/存疑",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\01-身份和入池阻断.png",
+      "alt": "存疑02",
+      "anchor": "H5:I6"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "value": "存疑03",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A6"
+  },
+  {
+    "props": {
+      "value": "生产系数及组合未执行",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B6"
+  },
+  {
+    "props": {
+      "value": "从工作台查看关联路线粗洗系数。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C6"
+  },
+  {
+    "props": {
+      "value": "在隔离路线改系数，与高低产能组合重排并恢复。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D6"
+  },
+  {
+    "props": {
+      "value": "ID-GYLC-0001详情为已发布候选V34，粗洗系数1、未覆盖，当前入口只读。未创建发布候选，未改系数，组合未做。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E6"
+  },
+  {
+    "props": {
+      "value": "仅证明所见入口只读，不证明无其他维护入口。路线维护岗尚无已核实产品、资源及工单引用的隔离样本；样本及版本影响范围核实后恢复。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F6"
+  },
+  {
+    "props": {
+      "value": "本地http://localhost:8081，测试1租户，赵杰账号。2026年11月28日本轮模拟测试。工作台104106进入关联路线ID-GYLC-0001，粗洗详情显示全部字段，核对系数及版本状态；维护岗通过正常候选维护发布准备隔离版本，用实际引用它的同步模拟单测试，不改共享在用版本。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G6"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/存疑/row[6]"
+  },
+  {
+    "parent": "/存疑",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\13-系数只读.png",
+      "alt": "存疑03",
+      "anchor": "H6:I7"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "value": "存疑04",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A7"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A7:A9"
+  },
+  {
+    "props": {
+      "value": "共享负荷规则和全量对账",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B7"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B7:B9"
+  },
+  {
+    "props": {
+      "value": "对照恢复后11月26日任务、负荷及物料。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C7"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C7:C9"
+  },
+  {
+    "props": {
+      "value": "明确跨单资源约束，并逐日完整核对。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D7"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D7:D9"
+  },
+  {
+    "props": {
+      "value": "粗洗等慢工序产能1050，两单安排2019，页面显示192.29%负荷、超出969。抽样加总一致，但只排所选单是否避让保护单、卡片工单归属尚未确认。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E7"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E7:E9"
+  },
+  {
+    "props": {
+      "value": "超负荷不直接证明算法错误或冲突已解决。排产规则责任人明确共享资源及选择范围规则后，用隔离双订单核验；全部日期和物料也需按来源全量对账。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F7"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F7:F9"
+  },
+  {
+    "props": {
+      "value": "本地http://localhost:8081，测试1租户，赵杰账号。2026年11月28日本轮模拟测试。恢复104106原计划后，排程日历打开2026年11月26日任务及粗洗负荷，对照产能1050与两单2019、两张任务卡片、正式日期及物料。明确共享资源规则后，用隔离两单复核跨单避让并逐日对账。",
+      "alignment.vertical": "top",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G7"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G7:G9"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/存疑/row[7]"
+  },
+  {
+    "parent": "/存疑",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\09-日历保护单每日数量.png",
+      "alt": "存疑04",
+      "anchor": "H7:I8"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/存疑/row[8]"
+  },
+  {
+    "parent": "/存疑",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\10-日历测试单每日数量.png",
+      "alt": "存疑04",
+      "anchor": "H8:I9"
+    },
+    "command": "add"
+  },
+  {
+    "props": {
+      "height": "325"
+    },
+    "command": "set",
+    "path": "/存疑/row[9]"
+  },
+  {
+    "parent": "/存疑",
+    "type": "picture",
+    "props": {
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\排产员\\output\\模拟主链-20261128-1541\\11-物料需求.png",
+      "alt": "存疑04",
+      "anchor": "H9:I10"
+    },
+    "command": "add"
+  }
+]

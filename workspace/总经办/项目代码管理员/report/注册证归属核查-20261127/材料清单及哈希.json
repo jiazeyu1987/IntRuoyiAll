@@ -1,0 +1,68 @@
+[
+  {
+    "source": "C:\\Users\\BJB110\\Desktop\\文档\\1\\医疗器械注册证信息表20260814.xlsx",
+    "sha256": "d42162dc354e8976ced450fa8a2bb00a2ab6099eddf19ab907fec3366ef94ff4",
+    "extracted": ".runtime\\project-query-repair-evidence\\source-tables\\00.txt",
+    "lines": 273
+  },
+  {
+    "source": "C:\\Users\\BJB110\\Desktop\\初始化文件包\\说明书\\医疗器械注册证信息表20260814.xlsx",
+    "sha256": "d42162dc354e8976ced450fa8a2bb00a2ab6099eddf19ab907fec3366ef94ff4",
+    "extracted": ".runtime\\project-query-repair-evidence\\source-tables\\01.txt",
+    "lines": 273
+  },
+  {
+    "source": "C:\\Users\\BJB110\\Desktop\\初始化文件包\\说明书\\项目产品V1.xlsx",
+    "sha256": "9860580b8801a1176bb47c923f90dc9cade477ed467b4faf11665274c28dc353",
+    "extracted": ".runtime\\project-query-repair-evidence\\source-tables\\02.txt",
+    "lines": 356
+  },
+  {
+    "source": "C:\\Users\\BJB110\\Desktop\\文档\\项目代码.xlsx",
+    "sha256": "f780c5f2479053217ce3dc392bae936a48254e1df68de1b38f9bbd9831488240",
+    "extracted": ".runtime\\project-query-repair-evidence\\source-tables\\03.txt",
+    "lines": 126
+  },
+  {
+    "source": "C:\\Users\\BJB110\\Desktop\\文档\\总经办瑛泰产品目录0420.xlsx",
+    "sha256": "28c6a4705beaa2a35866b566834d0572ca7fc5542055143b07ce62ae6effdb95",
+    "extracted": ".runtime\\project-query-repair-evidence\\source-tables\\04.txt",
+    "lines": 237
+  },
+  {
+    "source": "C:\\Users\\BJB110\\Downloads\\DCC产品目录及绑定关系 (1).xlsx",
+    "sha256": "0495fe48cfebcd6c9c25ed0089533c53cee67a0f133db24fb2a001a6494d13a3",
+    "extracted": ".runtime\\project-query-repair-evidence\\source-tables\\05.txt",
+    "lines": 1767
+  },
+  {
+    "source": "C:\\Users\\BJB110\\Downloads\\DCC产品目录及绑定关系 (2).xlsx",
+    "sha256": "039405a267fc3ba8c03a1cd61923297e0a9867131997300d0ed1cd7e75a4851a",
+    "extracted": ".runtime\\project-query-repair-evidence\\source-tables\\06.txt",
+    "lines": 1774
+  },
+  {
+    "source": "C:\\Users\\BJB110\\Downloads\\DCC产品目录及绑定关系 (3).xlsx",
+    "sha256": "af5dee53cac3ab251dc999921af9966e8623dd4d38463773fc830a1e9451467b",
+    "extracted": ".runtime\\project-query-repair-evidence\\source-tables\\07.txt",
+    "lines": 1774
+  },
+  {
+    "source": "C:\\Users\\BJB110\\Downloads\\DCC产品目录及绑定关系 (4).xlsx",
+    "sha256": "7de351c4492edcf6d1d89458de8550d8b9b07595cd490b8cd310be74fb19e916",
+    "extracted": ".runtime\\project-query-repair-evidence\\source-tables\\08.txt",
+    "lines": 1779
+  },
+  {
+    "source": "C:\\Users\\BJB110\\Downloads\\DCC产品目录及绑定关系 (5).xlsx",
+    "sha256": "678dd7c026c5a2c347fa37a5628729cfa44afe21d9f51a849bca61ff7f629b5d",
+    "extracted": ".runtime\\project-query-repair-evidence\\source-tables\\09.txt",
+    "lines": 1779
+  },
+  {
+    "source": "C:\\Users\\BJB110\\Downloads\\DCC产品目录及绑定关系.xlsx",
+    "sha256": "fa18a888a01b033d9bdf52f18ba779d66f1c8ec3b0042e0c34d43d6b4f228cce",
+    "extracted": ".runtime\\project-query-repair-evidence\\source-tables\\10.txt",
+    "lines": 1767
+  }
+]

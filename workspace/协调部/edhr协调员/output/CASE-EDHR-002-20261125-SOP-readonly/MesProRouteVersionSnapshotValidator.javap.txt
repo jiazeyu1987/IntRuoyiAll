@@ -1,0 +1,345 @@
+Compiled from "MesProRouteVersionSnapshotValidator.java"
+final class cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionSnapshotValidator {
+  private static final java.lang.String SNAPSHOT_CONFIGS_KEY;
+
+  private static final java.lang.String FLOW_GRAPH_KEY;
+
+  private static final java.lang.String PRODUCTS_KEY;
+
+  private static final java.lang.String SCHEDULE_CONFIGS_KEY;
+
+  private static final java.lang.String BATCH_USE_CONFIGS_KEY;
+
+  private static final java.lang.String SCHEDULE_USE_CONFIGS_KEY;
+
+  private static final java.lang.String PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY;
+
+  private static final java.lang.String PRODUCTION_PROCESS_CONFIGS_KEY;
+
+  private static final java.lang.String ROUTE_START_PRODUCTION_LEADERS_KEY;
+
+  private static final java.util.Set<java.lang.String> REQUIRED_CONFIG_SNAPSHOT_KEYS;
+
+  private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionSnapshotValidator();
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: return
+
+  static boolean hasCompleteConfigSnapshot(java.lang.String);
+    Code:
+       0: aload_0
+       1: invokestatic  #7                  // Method cn/hutool/core/util/StrUtil.isBlank:(Ljava/lang/CharSequence;)Z
+       4: ifeq          9
+       7: iconst_0
+       8: ireturn
+       9: aload_0
+      10: invokestatic  #13                 // Method com/alibaba/fastjson/JSON.parseObject:(Ljava/lang/String;)Lcom/alibaba/fastjson/JSONObject;
+      13: astore_1
+      14: aload_1
+      15: ifnull        25
+      18: aload_1
+      19: invokevirtual #19                 // Method com/alibaba/fastjson/JSONObject.isEmpty:()Z
+      22: ifeq          27
+      25: iconst_0
+      26: ireturn
+      27: aload_1
+      28: ldc           #25                 // String routeId
+      30: invokevirtual #27                 // Method com/alibaba/fastjson/JSONObject.getLong:(Ljava/lang/String;)Ljava/lang/Long;
+      33: ifnull        60
+      36: aload_1
+      37: ldc           #31                 // String routeCode
+      39: invokevirtual #33                 // Method com/alibaba/fastjson/JSONObject.getString:(Ljava/lang/String;)Ljava/lang/String;
+      42: invokestatic  #7                  // Method cn/hutool/core/util/StrUtil.isBlank:(Ljava/lang/CharSequence;)Z
+      45: ifne          60
+      48: aload_1
+      49: ldc           #37                 // String routeName
+      51: invokevirtual #33                 // Method com/alibaba/fastjson/JSONObject.getString:(Ljava/lang/String;)Ljava/lang/String;
+      54: invokestatic  #7                  // Method cn/hutool/core/util/StrUtil.isBlank:(Ljava/lang/CharSequence;)Z
+      57: ifeq          62
+      60: iconst_0
+      61: ireturn
+      62: aload_1
+      63: ldc           #41                 // String configSnapshots
+      65: invokevirtual #43                 // Method com/alibaba/fastjson/JSONObject.getJSONObject:(Ljava/lang/String;)Lcom/alibaba/fastjson/JSONObject;
+      68: astore_2
+      69: aload_2
+      70: ifnull        88
+      73: aload_2
+      74: invokevirtual #46                 // Method com/alibaba/fastjson/JSONObject.keySet:()Ljava/util/Set;
+      77: getstatic     #50                 // Field REQUIRED_CONFIG_SNAPSHOT_KEYS:Ljava/util/Set;
+      80: invokeinterface #54,  2           // InterfaceMethod java/util/Set.containsAll:(Ljava/util/Collection;)Z
+      85: ifne          90
+      88: iconst_0
+      89: ireturn
+      90: aload_2
+      91: ldc           #60                 // String flowGraph
+      93: invokevirtual #43                 // Method com/alibaba/fastjson/JSONObject.getJSONObject:(Ljava/lang/String;)Lcom/alibaba/fastjson/JSONObject;
+      96: astore_3
+      97: aload_3
+      98: ifnonnull     103
+     101: iconst_0
+     102: ireturn
+     103: aload_3
+     104: ldc           #62                 // String nodes
+     106: invokevirtual #64                 // Method com/alibaba/fastjson/JSONObject.getJSONArray:(Ljava/lang/String;)Lcom/alibaba/fastjson/JSONArray;
+     109: astore        4
+     111: aload         4
+     113: ifnull        124
+     116: aload         4
+     118: invokevirtual #68                 // Method com/alibaba/fastjson/JSONArray.isEmpty:()Z
+     121: ifeq          126
+     124: iconst_0
+     125: ireturn
+     126: aload         4
+     128: invokevirtual #71                 // Method com/alibaba/fastjson/JSONArray.iterator:()Ljava/util/Iterator;
+     131: astore        5
+     133: aload         5
+     135: invokeinterface #75,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+     140: ifeq          206
+     143: aload         5
+     145: invokeinterface #80,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     150: astore        6
+     152: aload         6
+     154: instanceof    #20                 // class com/alibaba/fastjson/JSONObject
+     157: ifeq          177
+     160: aload         6
+     162: checkcast     #20                 // class com/alibaba/fastjson/JSONObject
+     165: astore        7
+     167: aload         7
+     169: ldc           #84                 // String sopFileUrl
+     171: invokevirtual #86                 // Method com/alibaba/fastjson/JSONObject.containsKey:(Ljava/lang/Object;)Z
+     174: ifne          179
+     177: iconst_0
+     178: ireturn
+     179: aload         7
+     181: ldc           #84                 // String sopFileUrl
+     183: invokevirtual #90                 // Method com/alibaba/fastjson/JSONObject.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     186: astore        8
+     188: aload         8
+     190: ifnull        203
+     193: aload         8
+     195: instanceof    #94                 // class java/lang/String
+     198: ifne          203
+     201: iconst_0
+     202: ireturn
+     203: goto          133
+     206: aload_2
+     207: ldc           #96                 // String products
+     209: invokevirtual #90                 // Method com/alibaba/fastjson/JSONObject.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     212: invokestatic  #98                 // Method isArrayOrObject:(Ljava/lang/Object;)Z
+     215: ifeq          279
+     218: aload_2
+     219: ldc           #101                // String scheduleConfigs
+     221: invokevirtual #90                 // Method com/alibaba/fastjson/JSONObject.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     224: invokestatic  #98                 // Method isArrayOrObject:(Ljava/lang/Object;)Z
+     227: ifeq          279
+     230: aload_2
+     231: ldc           #103                // String batchUseConfigs
+     233: invokevirtual #90                 // Method com/alibaba/fastjson/JSONObject.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     236: instanceof    #69                 // class com/alibaba/fastjson/JSONArray
+     239: ifeq          279
+     242: aload_2
+     243: ldc           #105                // String scheduleUseConfigs
+     245: invokevirtual #90                 // Method com/alibaba/fastjson/JSONObject.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     248: instanceof    #69                 // class com/alibaba/fastjson/JSONArray
+     251: ifeq          279
+     254: aload_2
+     255: ldc           #107                // String productionProcessConfigSchemaVersion
+     257: invokevirtual #109                // Method com/alibaba/fastjson/JSONObject.getInteger:(Ljava/lang/String;)Ljava/lang/Integer;
+     260: ifnull        279
+     263: aload_2
+     264: ldc           #113                // String productionProcessConfigs
+     266: invokevirtual #90                 // Method com/alibaba/fastjson/JSONObject.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     269: instanceof    #69                 // class com/alibaba/fastjson/JSONArray
+     272: ifeq          279
+     275: iconst_1
+     276: goto          280
+     279: iconst_0
+     280: istore        5
+     282: iload         5
+     284: ifne          289
+     287: iconst_0
+     288: ireturn
+     289: aload_1
+     290: ldc           #115                // String routeVersionId
+     292: invokevirtual #27                 // Method com/alibaba/fastjson/JSONObject.getLong:(Ljava/lang/String;)Ljava/lang/Long;
+     295: aload_2
+     296: invokestatic  #117                // Method cn/iocoder/yudao/module/mes/service/pro/route/MesProRouteCandidateConfigServiceImpl.validateProductionProcessConfigs:(Ljava/lang/Long;Lcom/alibaba/fastjson/JSONObject;)V
+     299: iconst_1
+     300: ireturn
+     301: astore_1
+     302: iconst_0
+     303: ireturn
+    Exception table:
+       from    to  target type
+           9    26   301   Class java/lang/RuntimeException
+          27    61   301   Class java/lang/RuntimeException
+          62    89   301   Class java/lang/RuntimeException
+          90   102   301   Class java/lang/RuntimeException
+         103   125   301   Class java/lang/RuntimeException
+         126   178   301   Class java/lang/RuntimeException
+         179   202   301   Class java/lang/RuntimeException
+         203   288   301   Class java/lang/RuntimeException
+         289   300   301   Class java/lang/RuntimeException
+
+  static void requireProductionLeaderAssignments(java.lang.String);
+    Code:
+       0: aload_0
+       1: invokestatic  #13                 // Method com/alibaba/fastjson/JSON.parseObject:(Ljava/lang/String;)Lcom/alibaba/fastjson/JSONObject;
+       4: astore_1
+       5: aload_1
+       6: ldc           #41                 // String configSnapshots
+       8: invokevirtual #43                 // Method com/alibaba/fastjson/JSONObject.getJSONObject:(Ljava/lang/String;)Lcom/alibaba/fastjson/JSONObject;
+      11: astore_2
+      12: aload_2
+      13: ifnull        34
+      16: aload_1
+      17: ldc           #25                 // String routeId
+      19: invokevirtual #27                 // Method com/alibaba/fastjson/JSONObject.getLong:(Ljava/lang/String;)Ljava/lang/Long;
+      22: aload_2
+      23: ldc           #125                // String routeStartProductionLeaders
+      25: invokevirtual #64                 // Method com/alibaba/fastjson/JSONObject.getJSONArray:(Ljava/lang/String;)Lcom/alibaba/fastjson/JSONArray;
+      28: invokestatic  #127                // Method hasProductionLeaderAssignments:(Ljava/lang/Long;Lcom/alibaba/fastjson/JSONArray;)Z
+      31: ifne          50
+      34: getstatic     #131                // Field cn/iocoder/yudao/framework/common/exception/enums/GlobalErrorCodeConstants.BAD_REQUEST:Lcn/iocoder/yudao/framework/common/exception/ErrorCode;
+      37: invokevirtual #137                // Method cn/iocoder/yudao/framework/common/exception/ErrorCode.getCode:()Ljava/lang/Integer;
+      40: ldc           #143                // String ����·��δ������Ч�������鳤�����������鳤�����з�����ٷ���
+      42: iconst_0
+      43: anewarray     #2                  // class java/lang/Object
+      46: invokestatic  #145                // Method cn/iocoder/yudao/framework/common/exception/util/ServiceExceptionUtil.exception0:(Ljava/lang/Integer;Ljava/lang/String;[Ljava/lang/Object;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+      49: athrow
+      50: return
+
+  private static boolean hasProductionLeaderAssignments(java.lang.Long, com.alibaba.fastjson.JSONArray);
+    Code:
+       0: aload_0
+       1: ifnull        15
+       4: aload_1
+       5: ifnull        15
+       8: aload_1
+       9: invokevirtual #68                 // Method com/alibaba/fastjson/JSONArray.isEmpty:()Z
+      12: ifeq          17
+      15: iconst_0
+      16: ireturn
+      17: aload_1
+      18: invokevirtual #71                 // Method com/alibaba/fastjson/JSONArray.iterator:()Ljava/util/Iterator;
+      21: astore_2
+      22: aload_2
+      23: invokeinterface #75,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      28: ifeq          153
+      31: aload_2
+      32: invokeinterface #80,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      37: astore_3
+      38: aload_3
+      39: instanceof    #20                 // class com/alibaba/fastjson/JSONObject
+      42: ifeq          65
+      45: aload_3
+      46: checkcast     #20                 // class com/alibaba/fastjson/JSONObject
+      49: astore        4
+      51: aload_0
+      52: aload         4
+      54: ldc           #151                // String productionLineId
+      56: invokevirtual #27                 // Method com/alibaba/fastjson/JSONObject.getLong:(Ljava/lang/String;)Ljava/lang/Long;
+      59: invokevirtual #153                // Method java/lang/Long.equals:(Ljava/lang/Object;)Z
+      62: ifne          67
+      65: iconst_0
+      66: ireturn
+      67: aload         4
+      69: ldc           #158                // String candidateSourceType
+      71: invokevirtual #33                 // Method com/alibaba/fastjson/JSONObject.getString:(Ljava/lang/String;)Ljava/lang/String;
+      74: astore        5
+      76: ldc           #160                // String USER
+      78: aload         5
+      80: invokevirtual #162                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      83: ifne          108
+      86: ldc           #163                // String USERS
+      88: aload         5
+      90: invokevirtual #162                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      93: ifne          108
+      96: ldc           #165                // String ROLE
+      98: aload         5
+     100: invokevirtual #162                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+     103: ifne          108
+     106: iconst_0
+     107: ireturn
+     108: aload         4
+     110: ldc           #167                // String candidateSourceIds
+     112: invokevirtual #64                 // Method com/alibaba/fastjson/JSONObject.getJSONArray:(Ljava/lang/String;)Lcom/alibaba/fastjson/JSONArray;
+     115: astore        6
+     117: aload         6
+     119: ifnull        148
+     122: aload         6
+     124: invokevirtual #68                 // Method com/alibaba/fastjson/JSONArray.isEmpty:()Z
+     127: ifne          148
+     130: aload         6
+     132: invokevirtual #169                // Method com/alibaba/fastjson/JSONArray.stream:()Ljava/util/stream/Stream;
+     135: invokedynamic #173,  0            // InvokeDynamic #0:test:()Ljava/util/function/Predicate;
+     140: invokeinterface #177,  2          // InterfaceMethod java/util/stream/Stream.anyMatch:(Ljava/util/function/Predicate;)Z
+     145: ifeq          150
+     148: iconst_0
+     149: ireturn
+     150: goto          22
+     153: iconst_1
+     154: ireturn
+
+  private static java.lang.Long parsePositiveId(java.lang.Object);
+    Code:
+       0: aload_0
+       1: invokestatic  #183                // Method java/lang/String.valueOf:(Ljava/lang/Object;)Ljava/lang/String;
+       4: invokestatic  #187                // Method java/lang/Long.parseLong:(Ljava/lang/String;)J
+       7: lstore_1
+       8: lload_1
+       9: lconst_0
+      10: lcmp
+      11: ifle          21
+      14: lload_1
+      15: invokestatic  #191                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      18: goto          22
+      21: aconst_null
+      22: areturn
+      23: astore_1
+      24: aconst_null
+      25: areturn
+    Exception table:
+       from    to  target type
+           0    22    23   Class java/lang/NumberFormatException
+
+  private static boolean isArrayOrObject(java.lang.Object);
+    Code:
+       0: aload_0
+       1: instanceof    #69                 // class com/alibaba/fastjson/JSONArray
+       4: ifne          14
+       7: aload_0
+       8: instanceof    #20                 // class com/alibaba/fastjson/JSONObject
+      11: ifeq          18
+      14: iconst_1
+      15: goto          19
+      18: iconst_0
+      19: ireturn
+
+  private static boolean lambda$hasProductionLeaderAssignments$0(java.lang.Object);
+    Code:
+       0: aload_0
+       1: ifnull        11
+       4: aload_0
+       5: invokestatic  #196                // Method parsePositiveId:(Ljava/lang/Object;)Ljava/lang/Long;
+       8: ifnonnull     15
+      11: iconst_1
+      12: goto          16
+      15: iconst_0
+      16: ireturn
+
+  static {};
+    Code:
+       0: ldc           #60                 // String flowGraph
+       2: ldc           #96                 // String products
+       4: ldc           #101                // String scheduleConfigs
+       6: ldc           #103                // String batchUseConfigs
+       8: ldc           #105                // String scheduleUseConfigs
+      10: ldc           #107                // String productionProcessConfigSchemaVersion
+      12: ldc           #113                // String productionProcessConfigs
+      14: invokestatic  #200                // InterfaceMethod java/util/Set.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Set;
+      17: putstatic     #50                 // Field REQUIRED_CONFIG_SNAPSHOT_KEYS:Ljava/util/Set;
+      20: return
+}

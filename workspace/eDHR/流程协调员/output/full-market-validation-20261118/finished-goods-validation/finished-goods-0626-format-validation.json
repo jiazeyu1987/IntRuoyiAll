@@ -1,0 +1,24 @@
+[
+  {
+    "category": "成品检验报告",
+    "path": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\流程协调员\\output\\full-market-validation-20261118\\documents\\SIM-1009200626-成品检验报告-模拟测试.pdf",
+    "pages": 1,
+    "bytes": 67877,
+    "sha256": "f1756d2976ec6a1eeb35131c184452294522d9055382d1d580bbaa899e7041bc",
+    "required_text_checks": "passed",
+    "renders": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\流程协调员\\output\\full-market-validation-20261118\\finished-goods-validation\\SIM-1009200626-成品检验报告-模拟测试-page-1.png"
+    ]
+  },
+  {
+    "category": "成品检验记录",
+    "path": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\流程协调员\\output\\full-market-validation-20261118\\documents\\SIM-1009200626-成品检验记录-模拟测试.pdf",
+    "pages": 1,
+    "bytes": 67884,
+    "sha256": "08b7a140f9d748fd820704d0f49de85650183aedbe8f46a0d05d5c223801ea99",
+    "required_text_checks": "passed",
+    "renders": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\流程协调员\\output\\full-market-validation-20261118\\finished-goods-validation\\SIM-1009200626-成品检验记录-模拟测试-page-1.png"
+    ]
+  }
+]

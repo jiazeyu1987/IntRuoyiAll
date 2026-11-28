@@ -1,0 +1,11 @@
+{
+  "sheets": [
+    "已通过",
+    "未通过",
+    "存疑"
+  ],
+  "picture_count": 58,
+  "last_column_pictures": true,
+  "credentials_check": "通过",
+  "bytes": 4315699
+}

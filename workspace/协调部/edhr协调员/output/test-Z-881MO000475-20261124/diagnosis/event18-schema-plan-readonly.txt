@@ -1,0 +1,73 @@
+Field	Type	Null	Key	Default	Extra
+id	bigint	NO	PRI	NULL	auto_increment
+pool_id	bigint	NO		NULL	
+event_type	varchar(64)	NO		NULL	
+event_idempotency_key	varchar(128)	YES		NULL	
+work_order_id	bigint	YES		NULL	
+work_order_context_key	varchar(64)	YES		NULL	STORED GENERATED
+route_id	bigint	NO		NULL	
+route_process_id	bigint	YES		NULL	
+process_id	bigint	YES		NULL	
+qa_process_id	bigint	YES		NULL	
+actual_employee_id	bigint	NO		NULL	
+device_account_id	bigint	YES		NULL	
+device_id	bigint	YES		NULL	
+workstation_id	bigint	YES		NULL	
+template_type	varchar(64)	NO		NULL	
+feedback_source_type	varchar(64)	NO		NULL	
+feedback_source_id	bigint	NO		NULL	
+pqc_submission_task_id	bigint	YES		NULL	STORED GENERATED
+recordbook_entry_id	bigint	YES		NULL	
+recordbook_source_type	varchar(64)	YES		NULL	
+recordbook_source_id	bigint	YES		NULL	
+raw_payload	json	NO		NULL	
+pqc_task_id	bigint	YES		NULL	STORED GENERATED
+server_submit_time	datetime	NO		NULL	
+signature_id	bigint	NO		NULL	
+signature_user_id	bigint	NO		NULL	
+signature_snapshot	json	YES		NULL	
+simulated	bit(1)	NO		b'0'	
+simulation_stage	varchar(64)	YES		NULL	
+simulation_run_id	varchar(128)	YES		NULL	
+report_management_status	varchar(32)	NO		NOT_APPLICABLE	
+report_output_quantity	decimal(24,6)	NO		0.000000	
+report_allocated_quantity	decimal(24,6)	NO		0.000000	
+report_unallocated_quantity	decimal(24,6)	NO		0.000000	
+report_release_status	varchar(32)	NO		NOT_APPLICABLE	
+creator	varchar(64)	YES			
+create_time	datetime	NO		CURRENT_TIMESTAMP	DEFAULT_GENERATED
+updater	varchar(64)	YES			
+update_time	datetime	NO		CURRENT_TIMESTAMP	DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+deleted	bit(1)	NO		b'0'	
+tenant_id	bigint	NO	MUL	0	
+Field	Type	Null	Key	Default	Extra
+id	bigint	NO	PRI	NULL	auto_increment
+pool_id	bigint	NO		NULL	
+event_id	bigint	NO		NULL	
+production_submit_event_id	bigint	YES		NULL	
+work_order_id	bigint	NO		NULL	
+route_id	bigint	NO		NULL	
+route_process_id	bigint	YES		NULL	
+process_id	bigint	YES		NULL	
+qa_process_id	bigint	YES		NULL	
+actual_employee_id	bigint	NO		NULL	
+signature_id	bigint	NO		NULL	
+signature_user_id	bigint	NO		NULL	
+inspection_result	varchar(32)	NO		NULL	
+server_submit_time	datetime	NO		NULL	
+raw_payload	json	NO		NULL	
+simulated	bit(1)	NO		b'0'	
+simulation_stage	varchar(64)	YES		NULL	
+simulation_run_id	varchar(128)	YES		NULL	
+process_inspection_aggregation_status	varchar(32)	NO		PENDING	
+process_inspection_review_id	bigint	YES		NULL	
+process_inspection_aggregated_at	datetime	YES		NULL	
+creator	varchar(64)	YES			
+create_time	datetime	NO		CURRENT_TIMESTAMP	DEFAULT_GENERATED
+updater	varchar(64)	YES			
+update_time	datetime	NO		CURRENT_TIMESTAMP	DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+deleted	bit(1)	NO		b'0'	
+tenant_id	bigint	NO	MUL	0	
+id	active_order_id	qa_process_id	qa_item_code	qa_regulation_id	regulation_version_id	inspection_type	inspection_rule_key	round_no	planned_inspection_quantity	inspection_item_plan_json	inspection_sampling_plan_json	actual_inspection_quantity	task_status	submitted_event_id
+123	12	211		10	14	FIRST	FIRST	1	20	{"PQC-CR-003-I001": 20, "PQC-CR-003-I002": 5, "PQC-CR-003-I003": 5, "PQC-CR-003-I004": 5}	{}	20	CONFIRMED	12
+124	12	211		10	14	PATROL	PATROL	1	80	{"PQC-CR-003-I001": 80}	{"PQC-CR-003-I001":{"standard":"GB/T 2828.1-2012 / ISO 2859-1:1999","totalQuantity":5012,"inspectionLevel":"I","sampleCode":"J","nominalSampleSize":80,"inspectionQuantity":80,"fullInspection":false}}	80	SUBMITTED	18

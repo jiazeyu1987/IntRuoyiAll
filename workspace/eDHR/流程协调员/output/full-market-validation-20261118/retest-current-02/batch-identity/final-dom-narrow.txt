@@ -1,0 +1,102 @@
+### Result
+{
+  "viewport": [
+    929,
+    995
+  ],
+  "rowText": "SIM-COPY-SIM-COPY-SIM-COPY-CODX-PQC-20260804f9cb386153f3c395c1b\n数量超限（仅提示） +1.000\n参数异常（仅提示）\n\t\n批次号缺失\n\t\n按压式球囊扩充压力泵\n\t\n按压式球囊扩充压力泵工艺流程\n\t\n5000\n\t\n6.7%\n\t\n0%\n\t\n未申请\n\t\n—\n\t\n2026-11-18 09:53:49\n\t\n详情\n异常\n完工",
+  "elements": [
+    {
+      "tag": "TD",
+      "cls": "el-table_2_column_11 el-table__cell",
+      "text": "SIM-COPY-SIM-COPY-SIM-COPY-CODX-PQC-20260804f9cb386153f3c395c1b\n数量超限（仅提示） +1.000\n参数异常（仅提示）",
+      "x": 232,
+      "width": 200,
+      "right": 432,
+      "clientWidth": 199,
+      "scrollWidth": 199,
+      "overflow": "visible"
+    },
+    {
+      "tag": "DIV",
+      "cls": "cell el-tooltip",
+      "text": "SIM-COPY-SIM-COPY-SIM-COPY-CODX-PQC-20260804f9cb386153f3c395c1b\n数量超限（仅提示） +1.000\n参数异常（仅提示）",
+      "x": 232,
+      "width": 198,
+      "right": 430,
+      "clientWidth": 198,
+      "scrollWidth": 328,
+      "overflow": "hidden"
+    },
+    {
+      "tag": "DIV",
+      "cls": "team-leader-workbench__active-order-code-cell",
+      "text": "SIM-COPY-SIM-COPY-SIM-COPY-CODX-PQC-20260804f9cb386153f3c395c1b\n数量超限（仅提示） +1.000\n参数异常（仅提示）",
+      "x": 244,
+      "width": 174,
+      "right": 418,
+      "clientWidth": 174,
+      "scrollWidth": 316,
+      "overflow": "visible"
+    },
+    {
+      "tag": "SPAN",
+      "cls": "",
+      "text": "SIM-COPY-SIM-COPY-SIM-COPY-CODX-PQC-20260804f9cb386153f3c395c1b",
+      "x": 244,
+      "width": 0,
+      "right": 244,
+      "clientWidth": 0,
+      "scrollWidth": 521,
+      "overflow": "hidden"
+    },
+    {
+      "tag": "SPAN",
+      "cls": "el-tag el-tag--danger el-tag--default el-tag--plain team-leader-workbench__active-order-conflict-tag",
+      "text": "数量超限（仅提示） +1.000",
+      "x": 252,
+      "width": 171.5,
+      "right": 423.5,
+      "clientWidth": 170,
+      "scrollWidth": 170,
+      "overflow": "visible"
+    },
+    {
+      "tag": "SPAN",
+      "cls": "el-tag__content",
+      "text": "数量超限（仅提示） +1.000",
+      "x": 262,
+      "width": 151.5,
+      "right": 413.5,
+      "clientWidth": 152,
+      "scrollWidth": 152,
+      "overflow": "visible"
+    },
+    {
+      "tag": "SPAN",
+      "cls": "el-tag el-tag--danger el-tag--default el-tag--plain",
+      "text": "参数异常（仅提示）",
+      "x": 431.5,
+      "width": 128,
+      "right": 559.5,
+      "clientWidth": 126,
+      "scrollWidth": 126,
+      "overflow": "visible"
+    },
+    {
+      "tag": "SPAN",
+      "cls": "el-tag__content",
+      "text": "参数异常（仅提示）",
+      "x": 441.5,
+      "width": 108,
+      "right": 549.5,
+      "clientWidth": 108,
+      "scrollWidth": 108,
+      "overflow": "visible"
+    }
+  ]
+}
+### Ran Playwright code
+```js
+await page.evaluate('() => ((() => {const row=Array.from(document.querySelectorAll(\'tr\')).find(r=>r.innerText.includes(\'f9cb386153f3c395c1b\'));const td=row.querySelector(\'td\');return {viewport:[innerWidth,innerHeight],rowText:row.innerText,elements:[td,...td.querySelectorAll(\'*\')].map(e=>{const r=e.getBoundingClientRect();return {tag:e.tagName,cls:e.className,text:e.innerText,x:r.x,width:r.width,right:r.right,clientWidth:e.clientWidth,scrollWidth:e.scrollWidth,overflow:getComputedStyle(e).overflow}})}})())');
+```

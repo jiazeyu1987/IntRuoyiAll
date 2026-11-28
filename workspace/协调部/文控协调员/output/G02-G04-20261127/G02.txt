@@ -1,0 +1,3 @@
+TEST ONLY - DCC-G02-20261127
+Software workflow simulation. Revision A/2 for delayed activation automatic switch testing.
+Not a real quality approval, production instruction, or product record.

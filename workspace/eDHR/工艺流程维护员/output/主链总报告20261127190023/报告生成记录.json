@@ -1,0 +1,2312 @@
+[
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "路线01",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A13"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "路线必填拦截",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B13"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "缺项不能保存",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C13"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "空表单保存，项目名称车间工序均出现必填提示，未创建路线。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D13"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；工艺流程；列表查询与新增；高级；新增；空表单保存",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E13"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F13"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/已通过/row[13]"
+  },
+  {
+    "props": {
+      "anchor": "F13:G14",
+      "alt": "路线必填拦截；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\路线必填.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/已通过"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "工艺01",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A14"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "空参数拦截",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B14"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "无参数不能保存",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C14"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "提示工艺至少保留一项参数，取消退出。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D14"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；工艺管理；新增工艺；不加参数；保存；取消",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E14"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F14"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/已通过/row[14]"
+  },
+  {
+    "props": {
+      "anchor": "F14:G15",
+      "alt": "空参数拦截；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\空工艺.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/已通过"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "工艺02",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A15"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "上下限拦截",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B15"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "下限不能大于上限",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C15"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本次温度下限30上限20，明确提示下限不能大于上限。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D15"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；工艺管理；新增模拟主链测试工艺202611271323；粗洗工序；小数参数下限30上限20默认25；保存",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E15"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F15"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/已通过/row[15]"
+  },
+  {
+    "props": {
+      "anchor": "F15:G16",
+      "alt": "上下限拦截；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\范围.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/已通过"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "工艺03",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A16"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "新增工艺重查",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B16"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "保存后参数不丢失",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C16"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "GY-0054模拟主链测试工艺202611271323，仅关联既有粗洗工序，未应用路线。单位摄氏度，下限20上限30默认25，小数位1顺序1，重新登录查看一致。仅为模拟数据。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D16"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；工艺管理；新增本次工艺；选IDI-GX-0001；添加模拟温度参数；保存；重登；按编号GY-0054筛选；查看",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E16"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F16"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/已通过/row[16]"
+  },
+  {
+    "props": {
+      "anchor": "F16:G17",
+      "alt": "新增工艺重查；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\新增.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/已通过"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "工艺04",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A17"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "默认值越界拦截",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B17"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "默认值高于上限不能提交",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C17"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "默认35上限30，提示目标值不能大于上限，错误值未提交。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D17"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；工艺管理；GY-0054；修改；填模拟原因；默认35；保存",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E17"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F17"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/已通过/row[17]"
+  },
+  {
+    "props": {
+      "anchor": "F17:G18",
+      "alt": "默认值越界拦截；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\默认.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/已通过"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "工艺05",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A18"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "变更预览",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B18"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "修改及范围清楚",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C18"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "预览默认25改27，受影响路线0条；不等于路线升级通过。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D18"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；工艺管理；GY-0054；修改默认27；填原因；预览全部影响",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E18"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F18"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/已通过/row[18]"
+  },
+  {
+    "props": {
+      "anchor": "F18:G19",
+      "alt": "变更预览；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\影响.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/已通过"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "工艺06",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A19"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "修改后重查",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B19"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "显示新值其他值不变",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C19"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "确认零条路线影响后提交，重新查看默认27，上下限仍20和30。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D19"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；工艺管理；GY-0054；影响预览；确认并提交；重新查看",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E19"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F19"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/已通过/row[19]"
+  },
+  {
+    "props": {
+      "anchor": "F19:G20",
+      "alt": "修改后重查；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\修改.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/已通过"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "工艺07",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A20"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "修改留痕",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B20"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "新增修改分别记录",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C20"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本次新增修改两条均已生效，有原因；仅工艺库生效，不是路线发布。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D20"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；工艺管理；工艺修改记录；核对11月27日本次名称原因记录",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E20"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F20"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/已通过/row[20]"
+  },
+  {
+    "props": {
+      "anchor": "F20:G21",
+      "alt": "修改留痕；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\记录.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/已通过"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "只读01",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A21"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "旧测试路线只读",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B21"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "查看不能直接保存",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C21"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "LCP261126050417R已发布候选V3，15工序；添加调整连接保存均禁用，未点修改，收尾仍V3。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D21"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；工艺流程；LCP261126050417R；流程编辑；查看版本按钮；收尾重新打开",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E21"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F21"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/已通过/row[21]"
+  },
+  {
+    "props": {
+      "anchor": "F21:G22",
+      "alt": "旧测试路线只读；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\只读.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/已通过"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "总览01",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A5"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "整条主链完成情况",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B5"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "独立工序至发布升版及历史隔离全测",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C5"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "尚未跑通。车间设备独立工艺已实测；设备修改失败，本次项目工序未建。依赖步骤未执行，不能算通过。受阻图片只证明前置，不是下游结果。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D5"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；项目代码；项目申请与审批无新建入口；eDHR菜单无独立工序维护；路线新增缺本次项目工序",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E5"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F5"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[5]"
+  },
+  {
+    "props": {
+      "anchor": "F5:G6",
+      "alt": "整条主链完成情况；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\工序.png"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "前置01",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A6"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "独立项目产品",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B6"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本次项目产品关系确定",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C6"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "早期项目产品页异常，后来项目代码恢复12条，无本次标识。申请审批无新建入口；未借别的项目。需有正式入口及权限岗位提供本次项目产品。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D6"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；项目代码；读列表；项目申请与审批；产品目录弹窗无新建申请；路线新增无本次项目",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E6"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F6"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[6]"
+  },
+  {
+    "props": {
+      "anchor": "F6:G7",
+      "alt": "独立项目产品；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\项目.png"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "前置02",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A7"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "工序及人工产能作业文件",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B7"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "可新增工序并验证必填附件",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C7"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "panxin与lixin无独立工序新建菜单，另一工艺员核实相同。编号状态人工产能及正确错误附件均未测。不代表整个系统无功能；需有入口岗位提供本次工序。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D7"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；eDHR批记录；工艺管理仅新增工艺；工序管理面包屑未进入独立维护；补齐专用工序后恢复",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E7"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F7"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[7]"
+  },
+  {
+    "props": {
+      "anchor": "F7:G8",
+      "alt": "工序及人工产能作业文件；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\工序.png"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "工作站01",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A8"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "自动工作站与资源维护",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B8"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "资源关联和产能一致",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C8"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "新路线未建；自动工作站、资源添加移除取消、数量及产能交叉核对均未执行。现有路线只读不能替代。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D8"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；本次项目建立工序；路线高级新增；选本次车间工序；保存；工作站详情及资源表；当前缺前置",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E8"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F8"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[8]"
+  },
+  {
+    "props": {
+      "anchor": "F8:G9",
+      "alt": "自动工作站与资源维护；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\工序.png"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "路线02",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A9"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "保存及重复名称",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B9"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "生成编号且重复被拦截",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C9"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "必填已测；无本次项目工序，有效创建、重复名称、保存失败保留未执行。未借普通项目试建。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D9"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；工艺流程；列表查询与新增；高级；新增；缺本次项目工序；补齐后选WS-MN202611271323保存及重复验证",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E9"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F9"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[9]"
+  },
+  {
+    "props": {
+      "anchor": "F9:G10",
+      "alt": "保存及重复名称；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\项目.png"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "路线03",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A10"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "草稿流转系数设备组",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B10"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "保存重开一致，非法流转被拦截",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C10"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "新路线未建，顺序连接系数超量设备组及草稿重开未测；未改旧路线。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D10"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；本次路线；流程编辑；草稿顺序连接系数设备组；保存重开；当前缺独立项目工序",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E10"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F10"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[10]"
+  },
+  {
+    "props": {
+      "anchor": "F10:G11",
+      "alt": "草稿流转系数设备组；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\工序.png"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "工艺08",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A11"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "多类型参数组合",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B11"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "选项及多行顺序正确",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C11"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "仅覆盖一个小数参数及必填范围。整数文本选择项、多行排序和重复编码组合未完整覆盖。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D11"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；工艺管理；本次GY-0054；参数；分别验证整数文本选择项多行顺序；这些组合未执行",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E11"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F11"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[11]"
+  },
+  {
+    "props": {
+      "anchor": "F11:G12",
+      "alt": "多类型参数组合；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\新增.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "工艺09",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A12"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "应用工艺及设备冲突",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B12"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "带入正确且不重复",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C12"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本次路线工序未建，GY-0054未应用旧路线；重复工艺设备及缺执行设备未测。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D12"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；本次路线工序设备关联建立后；工序设备参数；选工艺执行设备；应用；验证重复缺设备",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E12"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F12"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[12]"
+  },
+  {
+    "props": {
+      "anchor": "F12:G13",
+      "alt": "应用工艺及设备冲突；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\工序.png"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "表单01",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A13"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "工序开始条件",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B13"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "按要求独立核验",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C13"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "新路线未建，开始条件配置保存发布未测，不能用批记录或槽位代替。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D13"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；本次路线；流程编辑；工序开始；配置保存；发布重查；当前缺路线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E13"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F13"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[13]"
+  },
+  {
+    "props": {
+      "anchor": "F13:G14",
+      "alt": "工序开始条件；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\只读.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "表单02",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A14"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "逐工序正式批记录",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B14"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "逐工序关联正式表单",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C14"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "旧LCP粗洗批记录未配置，未判必需或补配。本次路线未建，正式绑定未测。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D14"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；LCP261126050417R；粗洗工序；批记录表单；只读未配置；本次路线建立后逐工序验证",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E14"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F14"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[14]"
+  },
+  {
+    "props": {
+      "anchor": "F14:G15",
+      "alt": "逐工序正式批记录；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\批记录.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "表单03",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A15"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "独立表单槽位",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B15"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "单独核实不由其他链推断",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C15"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "未取得本次槽位配置及发布证据，开始条件批记录槽位互不替代。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D15"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；本次路线；正式前端槽位入口；选择保存发布重查；缺本次路线及已验证槽位入口",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E15"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F15"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[15]"
+  },
+  {
+    "props": {
+      "anchor": "F15:G16",
+      "alt": "独立表单槽位；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\工序.png"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "发布01",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A16"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "产品物料作业文件预览",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B16"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "所需资料及范围正确",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C16"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "缺本次项目产品路线，物料清单作业文件责任人员及发布差异预览未测。旧路线无可查看作业文件，不据此判断本次应失败。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D16"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；本次项目产品路线；物料作业文件责任配置；预览发布核对范围；当前未到达",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E16"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F16"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[16]"
+  },
+  {
+    "props": {
+      "anchor": "F16:G17",
+      "alt": "产品物料作业文件预览；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\只读.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "发布02",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A17"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "审批通过驳回补正",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B17"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "按实际策略完成发布",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C17"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "无本次候选，未提交审批通过驳回重提。只读旧候选不是本次成功；需可发布路线和有效审批责任人。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D17"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；本次草稿；预览发布提交；审批中心责任任务；通过退回补正；重查正式版本；缺本次候选",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E17"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F17"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[17]"
+  },
+  {
+    "props": {
+      "anchor": "F17:G18",
+      "alt": "审批通过驳回补正；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\工序.png"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "发布03",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A18"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "发布后跨模块一致",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B18"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "版本资源参数产能表单一致",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C18"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本次未发布，发布后跨模块核对未测。旧路线参数来源工艺库不替代本次发布结果。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D18"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；本次发布后；工序设置；工作站详情；资源表；逐项比对；缺本次正式版本",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E18"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F18"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[18]"
+  },
+  {
+    "props": {
+      "anchor": "F18:G19",
+      "alt": "发布后跨模块一致；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\参数.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "升版01",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A19"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "候选与旧版隔离",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B19"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "未批准不影响旧版",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C19"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本次无已发布新路线，下一候选取消驳回隔离及新旧差异未测，未改他人草稿。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D19"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；本次新路线发布后；修改候选配置；比较旧版；取消驳回；正常发布；当前未到达",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E19"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F19"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[19]"
+  },
+  {
+    "props": {
+      "anchor": "F19:G20",
+      "alt": "候选与旧版隔离；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\只读.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "升版02",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A20"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "关联路线统一升级",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B20"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "影响路线审批后生效",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C20"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "GY-0054修改成功但影响0条，无关联候选审批生效证据，不等于路线升级成功。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D20"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；GY-0054；修改；预览影响0；需本次路线先应用工艺再测影响升级审批",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E20"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F20"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[20]"
+  },
+  {
+    "props": {
+      "anchor": "F20:G21",
+      "alt": "关联路线统一升级；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\影响.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "历史01",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A21"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "历史订单锁定版本",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B21"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "新版不改旧订单记录",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C21"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "缺本次授权测试订单锁定版本且无新版，历史隔离未测；未借真实订单或接口造单。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D21"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；本次授权订单；锁定路线；新版发布后重开旧单历史比较；缺订单及新版",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E21"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F21"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[21]"
+  },
+  {
+    "props": {
+      "anchor": "F21:G22",
+      "alt": "历史订单锁定版本；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\只读.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "查询01",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A22"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "六模块查询分页权限",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B22"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "筛选分页详情正确",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C22"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "部分车间设备查询及工艺编号详情已查，工序工作站缺入口；路线搜索变化未确认，组合筛选分页未全覆盖。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D22"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；六模块分别编码名称筛选组合分页无结果详情；对比panxin与lixin菜单；缺页面部分未执行",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E22"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F22"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[22]"
+  },
+  {
+    "props": {
+      "anchor": "F22:G23",
+      "alt": "六模块查询分页权限；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\工序.png"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "删除01",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A23"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "删除取消引用限制",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B23"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "只删专用对象并守引用限制",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C23"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本次车间设备工艺保留复现，删除取消及引用限制未测。未删旧数据解除依赖。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D23"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；本次无引用专用对象；核对引用；删除取消再确认；专用有引用对象限制；本次未执行",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E23"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F23"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[23]"
+  },
+  {
+    "props": {
+      "anchor": "F23:G24",
+      "alt": "删除取消引用限制；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\修改.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "基线01",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A24"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "范围外前后对照",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B24"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "全量范围外数据一致",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C24"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "未操作范围外数据，收尾LCP仍V3；未对全部项目产品路线历史逐项比较，不能宣称全量核验。设备保持停机。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D24"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；对照执行前路线列表；重查LCP及范围外关联版本；仅完成部分只读复查",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E24"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F24"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[24]"
+  },
+  {
+    "props": {
+      "anchor": "F24:G25",
+      "alt": "范围外前后对照；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\只读.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "环境02",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A25"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "页面稳定性",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B25"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "不意外出错退出",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C25"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "刷新工艺曾系统异常转登录，正常指定账号登录恢复，GY-0054仍存在。项目后来恢复，早期错误原因未确认，不把错误空列表当无数据。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D25"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "本地localhost:8081，测试1，panxin；工艺管理；新增后刷新曾转登录；正常登录；按GY-0054查询恢复；项目代码后来显示列表",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E25"
+  },
+  {
+    "props": {
+      "alignment.vertical": "top",
+      "font.size": "11pt",
+      "value": "",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F25"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "command": "set",
+    "path": "/存疑/row[25]"
+  },
+  {
+    "props": {
+      "anchor": "F25:G26",
+      "alt": "页面稳定性；受阻截图仅证明前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\主链总报告20261127190023\\环境.jpg"
+    },
+    "type": "picture",
+    "command": "add",
+    "path": "/存疑"
+  }
+]

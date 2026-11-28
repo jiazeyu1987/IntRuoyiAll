@@ -1,0 +1,1992 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:intruoyi:approval-content:edhr-release:contract-design:1",
+  "title": "EDHR_RELEASE canonical business content — task design, not deployed validator",
+  "description": "Every property is mandatory; nullable source snapshots retain explicit null. Cross-field identity, max Long, reference uniqueness, ordering, raw snapshot shape, count formulas and writer locking require the semantic contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contentPolicyVersion",
+    "scopeCode",
+    "identity",
+    "workTask",
+    "release",
+    "finalization"
+  ],
+  "properties": {
+    "contentPolicyVersion": {
+      "const": "approval-content-v1"
+    },
+    "scopeCode": {
+      "const": "EDHR_RELEASE"
+    },
+    "identity": {
+      "$ref": "#/$defs/identity"
+    },
+    "workTask": {
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "assignmentBranch": {
+                "const": "MANAGED"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "assigneeUserId": {
+                "$ref": "#/$defs/id"
+              },
+              "candidate": {
+                "properties": {
+                  "sourceType": {
+                    "const": "ROLE_GROUP"
+                  }
+                }
+              },
+              "responsibility": {
+                "properties": {
+                  "sourceType": {
+                    "const": "ROLE"
+                  },
+                  "sourceKey": {
+                    "const": "MES_MANAGEMENT_REPRESENTATIVE"
+                  },
+                  "sourceVersion": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "sourceDigest": {
+                    "$ref": "#/$defs/sha256"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "$ref": "#/$defs/workTask"
+    },
+    "release": {
+      "$ref": "#/$defs/release"
+    },
+    "finalization": {
+      "$ref": "#/$defs/finalization"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$",
+      "maxLength": 19,
+      "description": "ASCII positive Java Long; semantic validator also enforces <=9223372036854775807."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$",
+      "maxLength": 19,
+      "description": "Exact positive integral source version encoded as decimal; semantic Long/Integer source-range check."
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\+08:00$",
+      "description": "Persisted business LocalDateTime interpreted in explicit Asia/Shanghai, seconds and +08:00; no client-zone or current-clock fill."
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenantId",
+        "ownerCode",
+        "sourceTaskType",
+        "sourceTaskId",
+        "processInstanceId",
+        "domainSubjectType",
+        "domainSubjectId"
+      ],
+      "properties": {
+        "tenantId": {
+          "$ref": "#/$defs/id"
+        },
+        "ownerCode": {
+          "const": "EDHR"
+        },
+        "sourceTaskType": {
+          "const": "EDHR_WORK_TASK"
+        },
+        "sourceTaskId": {
+          "$ref": "#/$defs/id"
+        },
+        "processInstanceId": {
+          "type": "null"
+        },
+        "domainSubjectType": {
+          "const": "EDHR_RELEASE"
+        },
+        "domainSubjectId": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceType",
+        "sourceId",
+        "userSnapshot",
+        "userIds"
+      ],
+      "properties": {
+        "sourceType": {
+          "enum": [
+            "USER",
+            "ROLE_GROUP",
+            "DEPT_GROUP"
+          ]
+        },
+        "sourceId": {
+          "$ref": "#/$defs/id"
+        },
+        "userSnapshot": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*(,[1-9][0-9]*)*$"
+        },
+        "userIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "responsibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceType",
+        "sourceKey",
+        "sourceVersion",
+        "sourceDigest",
+        "scopeJsonRaw"
+      ],
+      "properties": {
+        "sourceType": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceDigest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scopeJsonRaw": {
+          "type": "null"
+        }
+      }
+    },
+    "workTask": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "businessScopeType",
+        "businessScopeId",
+        "batchExecutionId",
+        "workOrderId",
+        "status",
+        "assignmentBranch",
+        "assigneeUserId",
+        "candidate",
+        "responsibility"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "const": "RELEASE_APPROVE"
+        },
+        "businessScopeType": {
+          "const": "RELEASE_TRANSACTION"
+        },
+        "businessScopeId": {
+          "$ref": "#/$defs/id"
+        },
+        "batchExecutionId": {
+          "$ref": "#/$defs/id"
+        },
+        "workOrderId": {
+          "$ref": "#/$defs/id"
+        },
+        "status": {
+          "enum": [
+            "TODO",
+            "OVERDUE"
+          ]
+        },
+        "assignmentBranch": {
+          "enum": [
+            "GENERAL",
+            "MANAGED"
+          ]
+        },
+        "assigneeUserId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "candidate": {
+          "$ref": "#/$defs/candidate"
+        },
+        "responsibility": {
+          "$ref": "#/$defs/responsibility"
+        }
+      }
+    },
+    "batchIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "batchExecutionCode",
+        "batchCode",
+        "workOrderId",
+        "workOrderCode"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "batchExecutionCode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "batchCode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "workOrderId": {
+          "$ref": "#/$defs/id"
+        },
+        "workOrderCode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "code",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "code",
+        "name",
+        "versionId",
+        "versionNo"
+      ],
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "versionId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "versionNo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "checkCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "failed",
+        "blocking"
+      ],
+      "properties": {
+        "required": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocking": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "checkEvidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkItemId",
+        "releaseTransactionId",
+        "sourceObjectType",
+        "sourceObjectId",
+        "evidenceHash"
+      ],
+      "properties": {
+        "checkItemId": {
+          "$ref": "#/$defs/id"
+        },
+        "releaseTransactionId": {
+          "$ref": "#/$defs/id"
+        },
+        "sourceObjectType": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceObjectId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceHash": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "checkItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "result",
+        "evidenceRefs"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "DHR_COMPLETENESS",
+            "DOSSIER_INCOMING_INSPECTION_REPORT",
+            "DOSSIER_STERILIZATION_REPORT",
+            "DOSSIER_FINISHED_PRODUCT_INSPECTION_REPORT",
+            "DOSSIER_FINISHED_PRODUCT_INSPECTION_RECORD",
+            "INSPECTION_RESULT",
+            "DEVIATION_CLOSED",
+            "REWORK_CLOSED",
+            "SCRAP_RECORDED",
+            "INVENTORY_CONSISTENCY"
+          ]
+        },
+        "result": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "BLOCKER",
+            "NOT_APPLICABLE"
+          ]
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/checkEvidenceRef"
+          },
+          "minItems": 1,
+          "uniqueItems": true,
+          "maxItems": 1
+        }
+      }
+    },
+    "precheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/checkItem"
+          },
+          "minItems": 10,
+          "uniqueItems": true,
+          "maxItems": 10
+        }
+      }
+    },
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "releaseCode",
+        "batch",
+        "product",
+        "route",
+        "dhrStatus",
+        "inspectionStatus",
+        "deviationStatus",
+        "reworkStatus",
+        "scrapStatus",
+        "inventoryStatus",
+        "releaseStatus",
+        "checkCount",
+        "precheckSnapshot"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "releaseCode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "batch": {
+          "$ref": "#/$defs/batchIdentity"
+        },
+        "product": {
+          "$ref": "#/$defs/product"
+        },
+        "route": {
+          "$ref": "#/$defs/route"
+        },
+        "dhrStatus": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inspectionStatus": {
+          "type": "string",
+          "minLength": 1
+        },
+        "deviationStatus": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reworkStatus": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scrapStatus": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inventoryStatus": {
+          "type": "string",
+          "minLength": 1
+        },
+        "releaseStatus": {
+          "const": "PENDING_APPROVAL"
+        },
+        "checkCount": {
+          "$ref": "#/$defs/checkCount"
+        },
+        "precheckSnapshot": {
+          "$ref": "#/$defs/precheck"
+        }
+      }
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "tenantId",
+        "batchExecutionId",
+        "entryType",
+        "originKey",
+        "activeOrderId",
+        "workOrderId",
+        "completionTransactionId",
+        "completionVersion",
+        "completionBackfillReceiptId",
+        "completionBackfillReceiptHash",
+        "pickListBindingId",
+        "pickListId",
+        "pickListBindingVersion",
+        "hasActualLoss",
+        "sourceSnapshotHash",
+        "batchProvisionReceiptId",
+        "batchProvisionStatus",
+        "sourceCredentialId",
+        "sourceCredentialHash",
+        "sourceBundleHash",
+        "idempotencyKey",
+        "relationStatus"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "tenantId": {
+          "$ref": "#/$defs/id"
+        },
+        "batchExecutionId": {
+          "$ref": "#/$defs/id"
+        },
+        "entryType": {
+          "enum": [
+            "ACTIVE_ORDER_COMPLETION",
+            "MANUAL",
+            "SCHEDULED",
+            "PQC_INDEPENDENT"
+          ]
+        },
+        "originKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "activeOrderId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "workOrderId": {
+          "$ref": "#/$defs/id"
+        },
+        "completionTransactionId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "completionVersion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/version"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "completionBackfillReceiptId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "completionBackfillReceiptHash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pickListBindingId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pickListId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pickListBindingVersion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/version"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hasActualLoss": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceSnapshotHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "batchProvisionReceiptId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "batchProvisionStatus": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceCredentialId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceCredentialHash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceBundleHash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relationStatus": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "originLinkId",
+        "traceLinkHash",
+        "sourceSnapshotHash",
+        "relationStatus"
+      ],
+      "properties": {
+        "originLinkId": {
+          "$ref": "#/$defs/id"
+        },
+        "traceLinkHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sourceSnapshotHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "relationStatus": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "pickListSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pickListBindingId",
+        "pickListId",
+        "bindingVersion",
+        "sourceSnapshotHash"
+      ],
+      "properties": {
+        "pickListBindingId": {
+          "$ref": "#/$defs/id"
+        },
+        "pickListId": {
+          "$ref": "#/$defs/id"
+        },
+        "bindingVersion": {
+          "$ref": "#/$defs/version"
+        },
+        "sourceSnapshotHash": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "sourceEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceType",
+        "sourceId",
+        "sourceVersion",
+        "sourceSnapshotHash",
+        "payloadHash",
+        "signature"
+      ],
+      "properties": {
+        "sourceType": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceVersion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceSnapshotHash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payloadHash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "signature": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "$comment": "Exact existing independent canonical payload six fields. Issuer attests inputs, not independent source-owner verification. Sort and reject duplicate (sourceType,sourceId). Independent branch requires all six nonempty; completion null remains current reader absence."
+    },
+    "completionReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receiptId",
+        "tenantId",
+        "activeOrderId",
+        "workOrderId",
+        "workOrderCode",
+        "batchCode",
+        "routeId",
+        "routeVersionId",
+        "requestIdempotencyKey",
+        "createdAt",
+        "sourceSnapshotHash",
+        "formalSourceSnapshotJsonRaw",
+        "signatureSnapshotJsonRaw",
+        "completionVersion",
+        "expectedActiveOrderVersion",
+        "completionTransactionId",
+        "completionEventId",
+        "sourceVersion",
+        "sourceBundleHash",
+        "receiptVersion",
+        "payloadHash",
+        "auditEventId",
+        "receiptHash",
+        "status",
+        "batchRecordStatus",
+        "processInspectionStatus",
+        "batchRecordId",
+        "processInspectionId",
+        "batchRecordSourceIds",
+        "processInspectionSourceIds",
+        "hasActualLoss",
+        "lossConditionFactsJsonRaw",
+        "lossQuantity",
+        "lossReportStatus",
+        "lossRecordId",
+        "zeroLossConfirmationSnapshotRaw",
+        "pickListSources",
+        "sourceEvidence"
+      ],
+      "properties": {
+        "receiptId": {
+          "$ref": "#/$defs/id"
+        },
+        "tenantId": {
+          "$ref": "#/$defs/id"
+        },
+        "activeOrderId": {
+          "$ref": "#/$defs/id"
+        },
+        "workOrderId": {
+          "$ref": "#/$defs/id"
+        },
+        "workOrderCode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "batchCode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "routeId": {
+          "$ref": "#/$defs/id"
+        },
+        "routeVersionId": {
+          "$ref": "#/$defs/id"
+        },
+        "requestIdempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "createdAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "sourceSnapshotHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "formalSourceSnapshotJsonRaw": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Opaque formal owner raw; exact string preserved under FLOW4_COMPLETION_RECEIPT_CURRENT_LITERAL. Syntax/duplicate/number guard, exact verified reader, original owner hashes and creation P1 required; no nested semantic qualification; null rules in policy."
+        },
+        "signatureSnapshotJsonRaw": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Opaque formal owner raw; exact string preserved under FLOW4_COMPLETION_RECEIPT_CURRENT_LITERAL. Syntax/duplicate/number guard, exact verified reader, original owner hashes and creation P1 required; no nested semantic qualification; null rules in policy."
+        },
+        "completionVersion": {
+          "$ref": "#/$defs/version"
+        },
+        "expectedActiveOrderVersion": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$",
+              "maxLength": 10
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "completionTransactionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "completionEventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceVersion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceBundleHash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "receiptVersion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payloadHash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "auditEventId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "receiptHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "status": {
+          "const": "BACKFILL_SUCCEEDED"
+        },
+        "batchRecordStatus": {
+          "const": "SUCCESS"
+        },
+        "processInspectionStatus": {
+          "const": "SUCCESS"
+        },
+        "batchRecordId": {
+          "$ref": "#/$defs/id"
+        },
+        "processInspectionId": {
+          "$ref": "#/$defs/id"
+        },
+        "batchRecordSourceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "processInspectionSourceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "hasActualLoss": {
+          "type": "boolean"
+        },
+        "lossConditionFactsJsonRaw": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Opaque formal owner raw; exact string preserved under FLOW4_COMPLETION_RECEIPT_CURRENT_LITERAL. Syntax/duplicate/number guard, exact verified reader, original owner hashes and creation P1 required; no nested semantic qualification; null rules in policy."
+        },
+        "lossQuantity": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]*[1-9])?$"
+        },
+        "lossReportStatus": {
+          "enum": [
+            "SUCCESS",
+            "NOT_REQUIRED"
+          ]
+        },
+        "lossRecordId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "zeroLossConfirmationSnapshotRaw": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Opaque formal owner raw; exact string preserved under FLOW4_COMPLETION_RECEIPT_CURRENT_LITERAL. Syntax/duplicate/number guard, exact verified reader, original owner hashes and creation P1 required; no nested semantic qualification; null rules in policy."
+        },
+        "pickListSources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pickListSource"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "sourceEvidence": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/sourceEvidence"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "independentReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receiptId",
+        "tenantId",
+        "entryType",
+        "workOrderId",
+        "workOrderCode",
+        "routeId",
+        "routeVersionId",
+        "routeVersion",
+        "batchCode",
+        "sourceRelationId",
+        "sourceRelationVersion",
+        "sourceRelationSnapshotHash",
+        "sourceObjectType",
+        "sourceObjectId",
+        "materialSourceType",
+        "materialSourceId",
+        "sourceContextHash",
+        "sourceSnapshotHash",
+        "businessReason",
+        "issuerSystem",
+        "issuerUserId",
+        "issuerUserRole",
+        "issuedAt",
+        "expiresAt",
+        "revokedAt",
+        "revocationReason",
+        "credentialVersion",
+        "status",
+        "canonicalPayloadRaw",
+        "receiptHash",
+        "payloadHash",
+        "signature",
+        "auditEventId",
+        "idempotencyKey",
+        "sourceEvidence"
+      ],
+      "properties": {
+        "receiptId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tenantId": {
+          "$ref": "#/$defs/id"
+        },
+        "entryType": {
+          "enum": [
+            "MANUAL",
+            "SCHEDULED",
+            "PQC_INDEPENDENT"
+          ]
+        },
+        "workOrderId": {
+          "$ref": "#/$defs/id"
+        },
+        "workOrderCode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "routeId": {
+          "$ref": "#/$defs/id"
+        },
+        "routeVersionId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "routeVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "batchCode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceRelationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceRelationVersion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceRelationSnapshotHash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceObjectType": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceObjectId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "materialSourceType": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "materialSourceId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceContextHash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceSnapshotHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "businessReason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issuerSystem": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issuerUserId": {
+          "$ref": "#/$defs/id"
+        },
+        "issuerUserRole": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issuedAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "expiresAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "revokedAt": {
+          "type": "null"
+        },
+        "revocationReason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "credentialVersion": {
+          "$ref": "#/$defs/version"
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonicalPayloadRaw": {
+          "type": "string",
+          "minLength": 1
+        },
+        "receiptHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "payloadHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "signature": {
+          "type": "string",
+          "minLength": 1
+        },
+        "auditEventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceEvidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceEvidence"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "material": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "attachmentId",
+        "batchExecutionId",
+        "batchTaskId",
+        "fieldKey",
+        "attachmentGroupKey",
+        "versionNo",
+        "fileId",
+        "fileName",
+        "fileSize",
+        "contentType",
+        "sha256",
+        "attachmentHash",
+        "sourceSnapshotHash"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "INCOMING_INSPECTION_REPORT",
+            "STERILIZATION_REPORT",
+            "FINISHED_PRODUCT_INSPECTION_REPORT",
+            "FINISHED_PRODUCT_INSPECTION_RECORD"
+          ]
+        },
+        "attachmentId": {
+          "$ref": "#/$defs/id"
+        },
+        "batchExecutionId": {
+          "$ref": "#/$defs/id"
+        },
+        "batchTaskId": {
+          "$ref": "#/$defs/id"
+        },
+        "fieldKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attachmentGroupKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "versionNo": {
+          "$ref": "#/$defs/version"
+        },
+        "fileId": {
+          "$ref": "#/$defs/id"
+        },
+        "fileName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fileSize": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$",
+          "maxLength": 19
+        },
+        "contentType": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "attachmentHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sourceSnapshotHash": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "materialManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receiptId",
+        "batchExecutionId",
+        "gateStatus",
+        "materialTypeKeys",
+        "manifestHash",
+        "sourceSnapshotHash",
+        "materialVersionSetHash",
+        "receiptHash",
+        "issuedBy",
+        "auditEventId",
+        "version",
+        "materials"
+      ],
+      "properties": {
+        "receiptId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "batchExecutionId": {
+          "$ref": "#/$defs/id"
+        },
+        "gateStatus": {
+          "const": "MATERIALS_READY"
+        },
+        "materialTypeKeys": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "INCOMING_INSPECTION_REPORT",
+              "STERILIZATION_REPORT",
+              "FINISHED_PRODUCT_INSPECTION_REPORT",
+              "FINISHED_PRODUCT_INSPECTION_RECORD"
+            ]
+          },
+          "minItems": 4,
+          "uniqueItems": true,
+          "maxItems": 4
+        },
+        "manifestHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sourceSnapshotHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "materialVersionSetHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "receiptHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "issuedBy": {
+          "$ref": "#/$defs/id"
+        },
+        "auditEventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "materials": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/material"
+          },
+          "minItems": 4,
+          "uniqueItems": true,
+          "maxItems": 4
+        }
+      }
+    },
+    "finalization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceKind",
+        "authorizationBranch",
+        "applicationId",
+        "origin",
+        "trace",
+        "sourceRelation",
+        "sourceSnapshotHash",
+        "activeOrderVersion",
+        "completionBackfillReceipt",
+        "independentPrerequisiteReceipt",
+        "materialManifest"
+      ],
+      "properties": {
+        "sourceKind": {
+          "enum": [
+            "ACTIVE_ORDER",
+            "INDEPENDENT"
+          ]
+        },
+        "authorizationBranch": {
+          "enum": [
+            "GENERAL",
+            "MANAGED"
+          ]
+        },
+        "applicationId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "origin": {
+          "$ref": "#/$defs/origin"
+        },
+        "trace": {
+          "$ref": "#/$defs/trace"
+        },
+        "sourceRelation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceSnapshotHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "activeOrderVersion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/version"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "completionBackfillReceipt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/completionReceipt"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "independentPrerequisiteReceipt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/independentReceipt"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "materialManifest": {
+          "$ref": "#/$defs/materialManifest"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "sourceKind": {
+                "const": "ACTIVE_ORDER"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "sourceRelation": {
+                "const": "FLOW4_COMPLETION_BACKFILL_RECEIPT"
+              },
+              "activeOrderVersion": {
+                "$ref": "#/$defs/version"
+              },
+              "completionBackfillReceipt": {
+                "$ref": "#/$defs/completionReceipt"
+              },
+              "independentPrerequisiteReceipt": {
+                "type": "null"
+              },
+              "origin": {
+                "properties": {
+                  "entryType": {
+                    "const": "ACTIVE_ORDER_COMPLETION"
+                  },
+                  "activeOrderId": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "completionBackfillReceiptId": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "completionVersion": {
+                    "$ref": "#/$defs/version"
+                  },
+                  "completionBackfillReceiptHash": {
+                    "$ref": "#/$defs/sha256"
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "activeOrderVersion": {
+                "type": "null"
+              },
+              "completionBackfillReceipt": {
+                "type": "null"
+              },
+              "independentPrerequisiteReceipt": {
+                "$ref": "#/$defs/independentReceipt"
+              },
+              "origin": {
+                "properties": {
+                  "activeOrderId": {
+                    "type": "null"
+                  },
+                  "entryType": {
+                    "enum": [
+                      "MANUAL",
+                      "SCHEDULED",
+                      "PQC_INDEPENDENT"
+                    ]
+                  },
+                  "sourceCredentialId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sourceCredentialHash": {
+                    "$ref": "#/$defs/sha256"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "authorizationBranch": {
+                "const": "MANAGED"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "applicationId": {
+                "$ref": "#/$defs/id"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "batchGuard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "tenantId",
+        "workOrderId",
+        "status",
+        "provisioningStatus",
+        "aggregateHash",
+        "routeVersionId",
+        "routeVersionNo",
+        "routeSnapshotJsonRaw",
+        "attemptNo",
+        "activeContextKey",
+        "sourceRejectedBatchExecutionId",
+        "supersededByBatchExecutionId",
+        "reexecutedByChangeEventId"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "tenantId": {
+          "$ref": "#/$defs/id"
+        },
+        "workOrderId": {
+          "$ref": "#/$defs/id"
+        },
+        "status": {
+          "type": "integer"
+        },
+        "provisioningStatus": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "aggregateHash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "routeVersionId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "routeVersionNo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "routeSnapshotJsonRaw": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "attemptNo": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "activeContextKey": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceRejectedBatchExecutionId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "supersededByBatchExecutionId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reexecutedByChangeEventId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "subjectVersionInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tokenFormatVersion",
+        "contentPolicyVersion",
+        "scopeCode",
+        "identity",
+        "releaseVersion",
+        "workTaskHash",
+        "responsibilityHash",
+        "precheckHash",
+        "finalizationHash",
+        "batchGuard",
+        "previewContentHash"
+      ],
+      "properties": {
+        "tokenFormatVersion": {
+          "const": "EDHR_SUBJECT_V1"
+        },
+        "contentPolicyVersion": {
+          "const": "approval-content-v1"
+        },
+        "scopeCode": {
+          "const": "EDHR_RELEASE"
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "releaseVersion": {
+          "$ref": "#/$defs/version"
+        },
+        "workTaskHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "responsibilityHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "precheckHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "finalizationHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "batchGuard": {
+          "$ref": "#/$defs/batchGuard"
+        },
+        "previewContentHash": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  },
+  "$comment": "DESIGN_INPUT_ONLY; parent-selected six-key receipt projection and opaque authenticated owner content. Structural validity is not implementation/business acceptance; owner integrity, creation P1 and typed qualification remain mandatory.",
+  "x-owner-format-registry": {
+    "precheck": {
+      "identity": "PRECHECK_FASTJSON_1_2_83_SECONDS",
+      "checkedAtType": "string",
+      "checkedAtGrammar": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$",
+      "calendar": "strict year 0001..9999; valid calendar; nanos=0",
+      "equality": "exact LocalDateTime equals OPEN.checkedAt and release.lastPrecheckAt; no rounding",
+      "allowedKeys": [
+        "batchExecutionId",
+        "batchExecutionCode",
+        "workOrderCode",
+        "batchCode",
+        "productCode",
+        "releaseStatus",
+        "checkedAt",
+        "materialGateManifestHash",
+        "items"
+      ],
+      "requiredKeys": [
+        "batchExecutionId",
+        "releaseStatus",
+        "checkedAt",
+        "materialGateManifestHash",
+        "items"
+      ],
+      "itemKeys": [
+        "checkCode",
+        "checkResult",
+        "severity",
+        "responsibilityModule",
+        "sourceObjectCode"
+      ],
+      "writerAcceptance": "Fastjson1.2.83 default Jdk8DateCodec nano0, no global format override; deployment evidence pending"
+    },
+    "completion": {
+      "identity": "FLOW4_COMPLETION_RECEIPT_CURRENT_LITERAL",
+      "owner": "CompletionBackfillPortImpl + CompletionReceiptDO + Flow6ReceiptPortImpl#getByReceiptId/#toReceipt + CompletionReceiptHash",
+      "mode": "opaque syntax-checked exact strings with registered existing canonical owner hashes, P1 creation and typed qualifiers; no nested semantic use",
+      "futureProtocol": "requires explicit registry review; no auto acceptance",
+      "literalIntegrity": "owner hash authenticates canonical parsed content; center hash freezes observed literal, not upstream literal provenance",
+      "sourceLocator": "existing approved P1 creation audit protocol; exact owner operation/locator registration and validation required before new write"
+    }
+  }
+}

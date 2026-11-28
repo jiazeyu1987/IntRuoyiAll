@@ -1,0 +1,32 @@
+[
+  {
+    "order": "881MO083075",
+    "cycle": "1009200645",
+    "batch": "SIM202611210645",
+    "file": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\流程协调员\\output\\pdf\\SIM-1009200645-881MO083075-来料检验报告-软件模拟.pdf",
+    "bytes": 47574,
+    "pages": 1,
+    "strict_parse_and_text": "PASS",
+    "sha256": "4a785eb92d62ec64cc159fe45ba46ddefa937fd7d73d1f1210a9b1c7c4bf9427"
+  },
+  {
+    "order": "881MO097262",
+    "cycle": "1009200646",
+    "batch": "SIM202611210646",
+    "file": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\流程协调员\\output\\pdf\\SIM-1009200646-881MO097262-来料检验报告-软件模拟.pdf",
+    "bytes": 47573,
+    "pages": 1,
+    "strict_parse_and_text": "PASS",
+    "sha256": "d1e3807a77641372856eec850aabc3b48c76707b9ef75f883b9bcb1817124a34"
+  },
+  {
+    "order": "881MO088489",
+    "cycle": "1009200647",
+    "batch": "SIM202611210647",
+    "file": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\流程协调员\\output\\pdf\\SIM-1009200647-881MO088489-来料检验报告-软件模拟.pdf",
+    "bytes": 47575,
+    "pages": 1,
+    "strict_parse_and_text": "PASS",
+    "sha256": "0bf42f6c7619343df41f513f858d3af331b1990c22bb11729f380440b4321d1a"
+  }
+]

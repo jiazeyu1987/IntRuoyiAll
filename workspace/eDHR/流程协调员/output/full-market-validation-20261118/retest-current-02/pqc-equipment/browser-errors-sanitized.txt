@@ -1,0 +1,5 @@
+[  974496ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:8081/admin-api/system/notify-message/get-unread-count:1
+[  974506ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:8081/admin-api/mes/pro/workflow-interaction-log:1
+[  979154ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:8081/admin-api/system/user/profile/signature-settings:1
+[  979161ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:8081/admin-api/mes/pro/workflow-interaction-log:1
+[  979164ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:8081/admin-api/mes/pro/workflow-interaction-log:1

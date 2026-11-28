@@ -1,0 +1,60 @@
+$ErrorActionPreference='Stop'
+$folder=$PSScriptRoot
+$book=Join-Path $folder 'report\20261127152000.xlsx'
+$loginPath='本地 http://localhost:8081，选择测试1，niuzhixiao 登录，右上角牛志晓。'
+$entry="$loginPath 打开 eDHR批记录、生产执行、偏差管理。地址 http://localhost:8081/mes/pro/feedback/edhr-deviation。"
+$form="$entry 点击发起偏差，只查看空白表单，不选择订单，不填凭据，不提交，最后取消。"
+$rows=@(
+@('已通过','入口01','本人和租户','页面显示测试1、牛志晓，登录成功。',$loginPath,'不代表其他账号已验证。','01-本人身份与无调查待办.png'),
+@('已通过','入口02','偏差管理入口','正常菜单可打开列表，可见发起偏差按钮。仅一笔旧记录，没有打开旧记录详情。',$entry,'只验证入口，不代表本轮调查关闭或转审通过。','02-偏差管理入口与列表.png'),
+@('已通过','入口03','空白发起表单','表单可打开，生产订单必填；等级显示普通、重大。未填写未签名，已取消返回列表。',$form,'未创建新偏差，未测试提交和保存。','03-空白发起表单无人员候选.png')
+)
+foreach($person in @('牛志晓 niuzhixiao 调查接收和编制','王思雨 wangsiyu 独立核验','尚磊 shanglei 部门确认','本轮QA yingtaigroupadmin 关闭和转审','徐建海 xujianhai 质量批准','宋媛 songyuan 关键偏差管理者代表批准')) {
+$rows+=,@('存疑','候选资格',$person,'尚未验证正式候选资格。空白表单没有调查接收、调查人员或签署人员选择框。本人工作台没有待办任务。',"$loginPath 个人中心、个人工作台、待办任务；$form",'需本轮正式偏差及对应调查或签署页面后再检查。未使用历史实例替代，不能判断人员缺失或有资格。','03-空白发起表单无人员候选.png')
+}
+foreach($chain in @('04 一般偏差调查整改关闭','05 关键偏差常规关闭','06 关键偏差转不合格评审')) {
+$rows+=,@('存疑','正式主链',$chain,'整链正式业务未执行，仅完成共用入口检查。',"$entry 按 guide 对应指南先由张飞红完成本轮部分生产并保存查回，再发起偏差、牛志晓调查，随后按链执行整改关闭或QA转审。",'协调员交接称本轮生产未提交，本次未重复验证生产阻塞。指南要求先有部分生产，本任务禁止跳过前置。未创建偏差、整改、签署、关闭、转审或恢复生产。','01-本人身份与无调查待办.png')
+}
+$rows+=,@('存疑','界面差异','指南与空白表单','指南发起时要求指定牛志晓，空白表单未见接收人字段。界面叫普通和重大，指南叫一般和关键。',$form,'未选择订单，不能确定选择后是否出现接收人。未验证等级保存含义，不判定整链缺陷。','03-空白发起表单无人员候选.png')
+$commands=[System.Collections.Generic.List[object]]::new()
+$commands.Add(@{command='set';path='/Sheet1';props=@{name='已通过'}})
+foreach($sheet in @('未通过','存疑')){$commands.Add(@{command='add';parent='/';type='sheet';props=@{name=$sheet}})}
+$headers=@('检查编号','检查内容','实际结果','完整复现路径','前置条件与未执行范围','证据截图')
+foreach($sheet in @('已通过','未通过','存疑')) {
+$commands.Add(@{command='set';path="/$sheet";props=@{freeze='C2';orientation='landscape';fitToPage='1x0'}})
+$widths=@(16,32,54,65,62,100)
+for($column=0;$column -lt 6;$column++){
+$letter=[char](65+$column)
+$commands.Add(@{command='set';path="/$sheet/col[$letter]";props=@{width="$($widths[$column])"}})
+$commands.Add(@{command='set';path="/$sheet/${letter}1";props=@{value=$headers[$column];bold='true';fill='17365D';'font.color'='FFFFFF';font='Calibri';wrapText='true'}})
+}
+$commands.Add(@{command='set';path="/$sheet/row[1]";props=@{height='32'}})
+$number=2
+foreach($case in $rows){
+if($case[0] -ne $sheet){continue}
+for($column=0;$column -lt 5;$column++){
+$letter=[char](65+$column)
+$commands.Add(@{command='set';path="/$sheet/$letter$number";props=@{value=$case[$column+1];font='Calibri';wrapText='true';valign='top'}})
+}
+$commands.Add(@{command='set';path="/$sheet/row[$number]";props=@{height='300'}})
+$commands.Add(@{command='add';parent="/$sheet";type='picture';props=@{src=(Join-Path $folder $case[6]);anchor="F${number}:G$($number+1)";alt='本轮真实页面截图，非下游完成证明'}})
+$number++
+}
+if($number -eq 2){
+$commands.Add(@{command='set';path="/$sheet/A2";props=@{value='本子任务没有实测失败项，不代表整链通过。未执行项见存疑。';wrapText='true';font='Calibri'}})
+$commands.Add(@{command='set';path="/$sheet/A2:F2";props=@{merge='true'}})
+}
+}
+$rows|ConvertTo-Json -Depth 5|Set-Content (Join-Path $folder 'cases.json') -Encoding utf8
+$commands|ConvertTo-Json -Depth 8|Set-Content (Join-Path $folder 'report-batch.json') -Encoding utf8
+officecli batch $book --input (Join-Path $folder 'report-batch.json') --stop-on-error
+if($LASTEXITCODE -ne 0){throw '报告编辑失败'}
+officecli validate $book
+if($LASTEXITCODE -ne 0){throw '结构校验失败'}
+officecli view $book html
+if($LASTEXITCODE -ne 0){throw '预览生成失败'}
+officecli close $book
+if($LASTEXITCODE -ne 0){throw '保存失败'}
+$final=Join-Path $folder ("report\{0}.xlsx" -f (Get-Date -Format yyyyMMddHHmmss))
+Move-Item -LiteralPath $book -Destination $final
+Write-Output "最终报告 $final"

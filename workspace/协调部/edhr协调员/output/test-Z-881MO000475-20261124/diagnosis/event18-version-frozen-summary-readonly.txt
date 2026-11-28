@@ -1,0 +1,14 @@
+BACKEND_RELEASE
+{"releaseTag": "2026-11-24-15-38-40", "sourceCommit": "21f7528a51a85e45cd3eca6d03394ea35328ed95", "builtAt": "2026-11-24T07:53:56.381300+00:00", "changeSet": {"gitChanges": ["21f7528a5 docs(db): record frozen application and maintenance contract verification", "b305f8c93 Merge remote-tracking branch 'origin/int_main' into int_main", "265472345 feat(db): add current PQC semantic contract and real MySQL verification", "1b100f81d merge: sync remote int_main after int_qms integration", "46e19344e merge: integrate latest int_qms into int_main", "ca6f9b29b fix(release): keep patrol preflight within readonly SQL contract", "177d8bba2 fix(mes): align PQC patrol CHECK with frozen rule contract", "275c87011 fix(auth): bind print assistant tickets to trusted tenant context", "efc7cd756 fix(dcc): refine department signoff assignment and file selector", "d9022d50a docs: record release preflight and real assistant contract verification"]}}
+FRONTEND_RELEASE
+{"releaseTag": "2026-11-24-15-38-40", "sourceCommit": "21f7528a51a85e45cd3eca6d03394ea35328ed95", "builtAt": "2026-11-24T07:53:56.381300+00:00", "changeSet": {"gitChanges": ["21f7528a5 docs(db): record frozen application and maintenance contract verification", "b305f8c93 Merge remote-tracking branch 'origin/int_main' into int_main", "265472345 feat(db): add current PQC semantic contract and real MySQL verification", "1b100f81d merge: sync remote int_main after int_qms integration", "46e19344e merge: integrate latest int_qms into int_main", "ca6f9b29b fix(release): keep patrol preflight within readonly SQL contract", "177d8bba2 fix(mes): align PQC patrol CHECK with frozen rule contract", "275c87011 fix(auth): bind print assistant tickets to trusted tenant context", "efc7cd756 fix(dcc): refine department signoff assignment and file selector", "d9022d50a docs: record release preflight and real assistant contract verification"]}}
+SCOPED_READONLY
+version_id	process_code	item_code	item_name	applicable_types	sampling_text	first_quantity	inspection_level
+14	PQC-CR-003-P001	PQC-CR-003-I001	外观	["FIRST", "PATROL"]	首件：20件 巡检：GB/T 2828.1，一般水平I，AQL=0.25。	20	I
+14	PQC-CR-003-P001	PQC-CR-003-I002	密封强度	["FIRST"]	首件：5件。	5	NULL
+14	PQC-CR-003-P001	PQC-CR-003-I003	密封强度	["FIRST"]	首件：5件。	5	NULL
+14	PQC-CR-003-P001	PQC-CR-003-I004	密封泄漏	["FIRST"]	首件：5件。	5	NULL
+id	formal_item_plan	detail_count	result_count	detail_item_codes	result_item_codes
+18	{"PQC-CR-003-I001": 80}	1	1	["PQC-CR-003-I001"]	["PQC-CR-003-I001"]
+task_id	item_code	judgement	samples
+124	PQC-CR-003-I001	SUCCESS	80

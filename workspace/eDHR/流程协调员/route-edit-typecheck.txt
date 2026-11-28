@@ -1,0 +1,4 @@
+
+> yudao-ui-admin-vue3@2026.04-snapshot ts:check
+> cross-env NODE_OPTIONS=--max-old-space-size=8192 node node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p tsconfig.relaxed.json
+

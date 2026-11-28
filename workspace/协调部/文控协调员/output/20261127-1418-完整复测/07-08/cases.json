@@ -1,0 +1,510 @@
+[
+  {
+    "caseId": "07-01",
+    "chain": "07",
+    "title": "QMS前置样本及权限",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC-MAIN-20261126，A/2，文件ID2054545668044070362",
+    "expected": "存在本目录生效普通文件，确认浏览、编辑和反向对照账号实际资格",
+    "actual": "已找到现有生效样本并有之前测试1张鑫悦页面证据。DCC0说明记载张鑫悦兼任编辑角色，但不证明当前目录和类型有效资格；资料没有可靠的单范围对照账号清单，现场核验被并行浏览器占用阻断。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→QMS文件夹；样本DCC-MAIN-20261126 A/2，ID2054545668044070362。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\07独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": true,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "07-02",
+    "chain": "07",
+    "title": "QMS独立浏览入口",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC-MAIN-20261126，A/2，文件ID2054545668044070362",
+    "expected": "无需先选项目进入对应目录，只展示授权类型当前生效版本",
+    "actual": "无需先选项目，直接切换本目录成功，默认显示两份A/2生效文件。仅独立入口和默认列表通过，隔离另项未覆盖。",
+    "status": "已通过",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→QMS文件夹；样本DCC-MAIN-20261126 A/2，ID2054545668044070362。本项后续动作未执行。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\07独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": true,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false
+  },
+  {
+    "caseId": "07-03",
+    "chain": "07",
+    "title": "QMS文件检索",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC-MAIN-20261126，A/2，文件ID2054545668044070362",
+    "expected": "在对应目录检索生效文件，不显示草稿、待生效或作废版本",
+    "actual": "完整编号查询加载结束后仅返回目标一条A/2生效文件。仅本样本编号查询通过。",
+    "status": "已通过",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→QMS文件夹；样本DCC-MAIN-20261126 A/2，ID2054545668044070362。本项后续动作未执行。输入DCC-MAIN-20261126→查询→等待列表加载完成。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\07编号检索.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": true,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false
+  },
+  {
+    "caseId": "07-04",
+    "chain": "07",
+    "title": "QMS只读正文",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC-MAIN-20261126，A/2，文件ID2054545668044070362",
+    "expected": "打开授权文件正文并核对版本与内容",
+    "actual": "点击浏览进入只读预览，编号版本A/2及生效状态正确，但正文空白并报缺少预览水印响应信息。",
+    "status": "未通过",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→QMS文件夹；样本DCC-MAIN-20261126 A/2，ID2054545668044070362。本项后续动作未执行。→目标行浏览；直接地址http://localhost:8081/dcc/controlled-file/detail/2054545668044070362?viewer=1 。原始错误：DCC preview response missing required watermark header。时间以本轮截图元数据为准。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\07正文预览报错.png"
+    ],
+    "evidenceGap": "因实际错误无法核对正文内容。",
+    "attempted": true,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false
+  },
+  {
+    "caseId": "07-05",
+    "chain": "07",
+    "title": "QMS纯浏览普通原件下载限制",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC-MAIN-20261126，A/2，文件ID2054545668044070362",
+    "expected": "纯浏览账号可读但不得下载普通原件",
+    "actual": "本项未覆盖。先前已登录并完成目录列表、编号查询和预览尝试；具体目录及类型资格、对照账号未核实。浏览器再次被同机器人另一会话占用。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→QMS文件夹；样本DCC-MAIN-20261126 A/2，ID2054545668044070362。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\07独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": false,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "07-06",
+    "chain": "07",
+    "title": "QMS编辑资格下载原件及留痕",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC-MAIN-20261126，A/2，文件ID2054545668044070362",
+    "expected": "本范围及类型编辑账号下载实际保存原件，核对版本内容、扫描原章和下载记录",
+    "actual": "点击下载原件并确认后，页面提示当前账号无权访问此受控文件，请核对文件权限或审批任务。未取得文件；编辑资格未核实，不能武断归因系统权限缺陷。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→QMS文件夹；样本DCC-MAIN-20261126 A/2，ID2054545668044070362。本项后续动作未执行。→目标行下载原件→确认下载。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\07下载拒绝.png"
+    ],
+    "evidenceGap": "未核实目录和类型编辑资格；无下载文件及留痕。",
+    "attempted": true,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "07-07",
+    "chain": "07",
+    "title": "QMS仅项目账号隔离",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC-MAIN-20261126，A/2，文件ID2054545668044070362",
+    "expected": "仅项目账号通过列表、检索、正文及直接链接均不能访问本目录未授权文件",
+    "actual": "本项未覆盖。先前已登录并完成目录列表、编号查询和预览尝试；具体目录及类型资格、对照账号未核实。浏览器再次被同机器人另一会话占用。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→QMS文件夹；样本DCC-MAIN-20261126 A/2，ID2054545668044070362。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\07独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": false,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "07-08",
+    "chain": "07",
+    "title": "QMS仅QMS账号隔离",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC-MAIN-20261126，A/2，文件ID2054545668044070362",
+    "expected": "仅QMS账号在QMS授权内可读，不能继承通用权限；覆盖列表、检索、正文、直接链接",
+    "actual": "本项未覆盖。先前已登录并完成目录列表、编号查询和预览尝试；具体目录及类型资格、对照账号未核实。浏览器再次被同机器人另一会话占用。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→QMS文件夹；样本DCC-MAIN-20261126 A/2，ID2054545668044070362。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\07独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": false,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "07-09",
+    "chain": "07",
+    "title": "QMS仅通用账号隔离",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC-MAIN-20261126，A/2，文件ID2054545668044070362",
+    "expected": "仅通用账号在通用授权内可读，不能继承QMS权限；覆盖列表、检索、正文、直接链接",
+    "actual": "本项未覆盖。先前已登录并完成目录列表、编号查询和预览尝试；具体目录及类型资格、对照账号未核实。浏览器再次被同机器人另一会话占用。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→QMS文件夹；样本DCC-MAIN-20261126 A/2，ID2054545668044070362。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\07独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": false,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "07-10",
+    "chain": "07",
+    "title": "QMS同目录其他类型隔离",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC-MAIN-20261126，A/2，文件ID2054545668044070362",
+    "expected": "本目录其他未授权类型在列表、检索、正文、直接链接均受限制",
+    "actual": "本项未覆盖。先前已登录并完成目录列表、编号查询和预览尝试；具体目录及类型资格、对照账号未核实。浏览器再次被同机器人另一会话占用。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→QMS文件夹；样本DCC-MAIN-20261126 A/2，ID2054545668044070362。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\07独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": false,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "07-11",
+    "chain": "07",
+    "title": "QMS记录表单下载例外",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC-MAIN-20261126，A/2，文件ID2054545668044070362",
+    "expected": "分别验证记录表单全员下载例外与普通原件限制，不能混同",
+    "actual": "本项未覆盖。先前已登录并完成目录列表、编号查询和预览尝试；具体目录及类型资格、对照账号未核实。浏览器再次被同机器人另一会话占用。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→QMS文件夹；样本DCC-MAIN-20261126 A/2，ID2054545668044070362。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\07独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": false,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "07-12",
+    "chain": "07",
+    "title": "QMS普通上传和扫描入口范围",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC-MAIN-20261126，A/2，文件ID2054545668044070362",
+    "expected": "普通上传及扫描件入口仅接收项目目录，不接收本目录",
+    "actual": "本项未覆盖。先前已登录并完成目录列表、编号查询和预览尝试；具体目录及类型资格、对照账号未核实。浏览器再次被同机器人另一会话占用。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→QMS文件夹；样本DCC-MAIN-20261126 A/2，ID2054545668044070362。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\07独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": false,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "07-13",
+    "chain": "07",
+    "title": "QMS正文搜索冲突现象",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC-MAIN-20261126，A/2，文件ID2054545668044070362",
+    "expected": "采集本轮正文搜索实际现象，需求冲突标待澄清而非猜测通过",
+    "actual": "按现行指南，正文搜索规则存在内部冲突，标需求待澄清。本轮正文预览已报错，不新增搜索验收门槛，也不把此项算系统故障。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→QMS文件夹；样本DCC-MAIN-20261126 A/2，ID2054545668044070362。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\07正文预览报错.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": false,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "08-01",
+    "chain": "08",
+    "title": "通用前置样本及权限",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC0-GENERAL-20261127-G08，A/2，文件ID2054545668044070381",
+    "expected": "存在本目录生效普通文件，确认浏览、编辑和反向对照账号实际资格",
+    "actual": "已找到现有生效样本并有之前测试1张鑫悦页面证据。DCC0说明记载张鑫悦兼任编辑角色，但不证明当前目录和类型有效资格；资料没有可靠的单范围对照账号清单，现场核验被并行浏览器占用阻断。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→通用文件夹；样本DCC0-GENERAL-20261127-G08 A/2，ID2054545668044070381。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\08独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": true,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "08-02",
+    "chain": "08",
+    "title": "通用独立浏览入口",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC0-GENERAL-20261127-G08，A/2，文件ID2054545668044070381",
+    "expected": "无需先选项目进入对应目录，只展示授权类型当前生效版本",
+    "actual": "无需先选项目，直接切换本目录成功，默认显示两份A/2生效文件。仅独立入口和默认列表通过，隔离另项未覆盖。",
+    "status": "已通过",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→通用文件夹；样本DCC0-GENERAL-20261127-G08 A/2，ID2054545668044070381。本项后续动作未执行。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\08独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": true,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false
+  },
+  {
+    "caseId": "08-03",
+    "chain": "08",
+    "title": "通用文件检索",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC0-GENERAL-20261127-G08，A/2，文件ID2054545668044070381",
+    "expected": "在对应目录检索生效文件，不显示草稿、待生效或作废版本",
+    "actual": "完整编号查询加载结束后仅返回目标一条A/2生效文件。仅本样本编号查询通过。",
+    "status": "已通过",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→通用文件夹；样本DCC0-GENERAL-20261127-G08 A/2，ID2054545668044070381。本项后续动作未执行。输入DCC0-GENERAL-20261127-G08→查询→等待列表加载完成。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\08编号检索.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": true,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false
+  },
+  {
+    "caseId": "08-04",
+    "chain": "08",
+    "title": "通用只读正文",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC0-GENERAL-20261127-G08，A/2，文件ID2054545668044070381",
+    "expected": "打开授权文件正文并核对版本与内容",
+    "actual": "点击浏览进入只读预览，编号版本A/2及生效状态正确，但正文空白并报缺少预览水印响应信息。",
+    "status": "未通过",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→通用文件夹；样本DCC0-GENERAL-20261127-G08 A/2，ID2054545668044070381。本项后续动作未执行。→目标行浏览；直接地址http://localhost:8081/dcc/controlled-file/detail/2054545668044070381?viewer=1 。原始错误：DCC preview response missing required watermark header。时间以本轮截图元数据为准。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\08正文预览报错.png"
+    ],
+    "evidenceGap": "因实际错误无法核对正文内容。",
+    "attempted": true,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false
+  },
+  {
+    "caseId": "08-05",
+    "chain": "08",
+    "title": "通用纯浏览普通原件下载限制",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC0-GENERAL-20261127-G08，A/2，文件ID2054545668044070381",
+    "expected": "纯浏览账号可读但不得下载普通原件",
+    "actual": "本项未覆盖。先前已登录并完成目录列表、编号查询和预览尝试；具体目录及类型资格、对照账号未核实。浏览器再次被同机器人另一会话占用。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→通用文件夹；样本DCC0-GENERAL-20261127-G08 A/2，ID2054545668044070381。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\08独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": false,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "08-06",
+    "chain": "08",
+    "title": "通用编辑资格下载原件及留痕",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC0-GENERAL-20261127-G08，A/2，文件ID2054545668044070381",
+    "expected": "本范围及类型编辑账号下载实际保存原件，核对版本内容、扫描原章和下载记录",
+    "actual": "通用样本尚未点击下载原件或确认下载。本次拟补查时内置浏览器为并行任务管理员，随后明确被该会话占用；未切换到张鑫悦，未触发下载。资格和文件内容、原章、留痕均未核实。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→通用文件夹；样本DCC0-GENERAL-20261127-G08 A/2，ID2054545668044070381。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\08独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": false,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "08-07",
+    "chain": "08",
+    "title": "通用仅项目账号隔离",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC0-GENERAL-20261127-G08，A/2，文件ID2054545668044070381",
+    "expected": "仅项目账号通过列表、检索、正文及直接链接均不能访问本目录未授权文件",
+    "actual": "本项未覆盖。先前已登录并完成目录列表、编号查询和预览尝试；具体目录及类型资格、对照账号未核实。浏览器再次被同机器人另一会话占用。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→通用文件夹；样本DCC0-GENERAL-20261127-G08 A/2，ID2054545668044070381。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\08独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": false,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "08-08",
+    "chain": "08",
+    "title": "通用仅QMS账号隔离",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC0-GENERAL-20261127-G08，A/2，文件ID2054545668044070381",
+    "expected": "仅QMS账号在QMS授权内可读，不能继承通用权限；覆盖列表、检索、正文、直接链接",
+    "actual": "本项未覆盖。先前已登录并完成目录列表、编号查询和预览尝试；具体目录及类型资格、对照账号未核实。浏览器再次被同机器人另一会话占用。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→通用文件夹；样本DCC0-GENERAL-20261127-G08 A/2，ID2054545668044070381。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\08独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": false,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "08-09",
+    "chain": "08",
+    "title": "通用仅通用账号隔离",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC0-GENERAL-20261127-G08，A/2，文件ID2054545668044070381",
+    "expected": "仅通用账号在通用授权内可读，不能继承QMS权限；覆盖列表、检索、正文、直接链接",
+    "actual": "本项未覆盖。先前已登录并完成目录列表、编号查询和预览尝试；具体目录及类型资格、对照账号未核实。浏览器再次被同机器人另一会话占用。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→通用文件夹；样本DCC0-GENERAL-20261127-G08 A/2，ID2054545668044070381。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\08独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": false,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "08-10",
+    "chain": "08",
+    "title": "通用同目录其他类型隔离",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC0-GENERAL-20261127-G08，A/2，文件ID2054545668044070381",
+    "expected": "本目录其他未授权类型在列表、检索、正文、直接链接均受限制",
+    "actual": "本项未覆盖。先前已登录并完成目录列表、编号查询和预览尝试；具体目录及类型资格、对照账号未核实。浏览器再次被同机器人另一会话占用。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→通用文件夹；样本DCC0-GENERAL-20261127-G08 A/2，ID2054545668044070381。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\08独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": false,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "08-11",
+    "chain": "08",
+    "title": "通用记录表单下载例外",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC0-GENERAL-20261127-G08，A/2，文件ID2054545668044070381",
+    "expected": "分别验证记录表单全员下载例外与普通原件限制，不能混同",
+    "actual": "本项未覆盖。先前已登录并完成目录列表、编号查询和预览尝试；具体目录及类型资格、对照账号未核实。浏览器再次被同机器人另一会话占用。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→通用文件夹；样本DCC0-GENERAL-20261127-G08 A/2，ID2054545668044070381。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\08独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": false,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "08-12",
+    "chain": "08",
+    "title": "通用普通上传和扫描入口范围",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC0-GENERAL-20261127-G08，A/2，文件ID2054545668044070381",
+    "expected": "普通上传及扫描件入口仅接收项目目录，不接收本目录",
+    "actual": "本项未覆盖。先前已登录并完成目录列表、编号查询和预览尝试；具体目录及类型资格、对照账号未核实。浏览器再次被同机器人另一会话占用。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→通用文件夹；样本DCC0-GENERAL-20261127-G08 A/2，ID2054545668044070381。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\08独立列表.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": false,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  },
+  {
+    "caseId": "08-13",
+    "chain": "08",
+    "title": "通用正文搜索冲突现象",
+    "account": "zhangxinyue（张鑫悦），页面确认测试1",
+    "object": "DCC0-GENERAL-20261127-G08，A/2，文件ID2054545668044070381",
+    "expected": "采集本轮正文搜索实际现象，需求冲突标待澄清而非猜测通过",
+    "actual": "按现行指南，正文搜索规则存在内部冲突，标需求待澄清。本轮正文预览已报错，不新增搜索验收门槛，也不把此项算系统故障。",
+    "status": "存疑",
+    "reproduction": "http://localhost:8081；测试1；zhangxinyue；文控中心→受控浏览→通用文件夹；样本DCC0-GENERAL-20261127-G08 A/2，ID2054545668044070381。本项后续动作未执行。 本次补查先只读观察当前页为管理员个人中心；未修改当前页，随后截图被并行会话占用阻断。恢复后须从环境和账号核对开始，不能直接沿用管理员身份判定张鑫悦资格。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\07-08\\08正文预览报错.png"
+    ],
+    "evidenceGap": "只有目录定位截图，不代表本项执行或资格通过。",
+    "attempted": false,
+    "evidenceScope": "现行指南07/08正式测试，使用既有生效样本符合指南；单项仅按实际证据判断",
+    "isSupplementary": false,
+    "prerequisites": "本轮现场目录及类型权限尚未核实；DCC0仅为历史配置说明。仅项目、仅QMS、仅通用及同目录未授权类型对照账号没有可靠的本轮资格证据。",
+    "latestBlocker": "2026-11-27 17:38:10本轮补查：只读查看内置浏览器为管理员个人中心，未退出或切换；随后截图调用明确返回同机器人另一会话占用，调用未执行。已通知该会话安全释放，不抢占。"
+  }
+]

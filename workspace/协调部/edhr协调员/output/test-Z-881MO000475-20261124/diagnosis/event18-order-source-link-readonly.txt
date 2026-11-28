@@ -1,0 +1,8 @@
+id	work_order_id	qa_regulation_id	qa_regulation_version_id	pqc_qa_source_version_ids_json
+12	1188864	12	16	[16, 14, 15]
+id	regulation_version_id	qa_process_id	inspection_type	item_code	first_inspection_quantity	inspection_level	sampling_plan_text
+1173	14	211	FIRST	PQC-CR-003-I001	20	NULL	首件：20件 巡检：GB/T 2828.1，一般水平I，AQL=0.25。
+1174	14	211	PATROL	PQC-CR-003-I001	NULL	I	首件：20件 巡检：GB/T 2828.1，一般水平I，AQL=0.25。
+1175	14	211	FIRST	PQC-CR-003-I002	5	NULL	首件：5件。
+1176	14	211	FIRST	PQC-CR-003-I003	5	NULL	首件：5件。
+1177	14	211	FIRST	PQC-CR-003-I004	5	NULL	首件：5件。

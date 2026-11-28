@@ -1,0 +1,115 @@
+import json
+import subprocess
+from datetime import datetime
+from pathlib import Path
+
+ROOT = Path(r'D:\ProjectPackage\IntRuoyi\IntRuoyiAll\workspace\协调部\注册协调员')
+OUTPUT = ROOT / 'output' / 'mainchain-20261127-1446'
+REPORT_DIR = ROOT / 'report'
+REPORT_DIR.mkdir(exist_ok=True)
+REPORT = REPORT_DIR / (datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + '.xlsx')
+BASE = '打开本地 http://localhost:8081，选择测试1租户。'
+COMPANY = '上海七木医疗器械有限公司'
+BATCH = 'SIM-REG-20261127-1446'
+NEW = BASE + '用徐翠 xucui 登录，进入注册证管理、注册证，点击新建注册证，选择' + COMPANY + '、IDI项目及自动带出的DCC产品0313170202。'
+OLD = BASE + '用褚冬传 chudongchuan 登录，进入注册证，按证号查询 SIM-REG-20261126-1401。'
+RENEW = OLD + '找到CE证，点击延续，批准日期填2026年11月27日，有效期至填2031年1月20日，上传本轮 previous-CE-renewal.pdf，正常提交。'
+REVIEW = BASE + '用徐翠 xucui 登录，进入审批中心、待办，找到褚冬传于2026年11月27日18时33分16秒提交的CE延续申请717，查看申请，在线查看材料，关闭查看器，点击审核。'
+rows = {name: [] for name in ['已通过', '未通过', '存疑']}
+
+def case(sheet, code, node, state, actual, expected, path, impact, image):
+    rows[sheet].append([code, node, state, actual, expected, path, impact, image])
+
+case('已通过','P01','主管登录及环境核对','本轮已核实','徐翠成功进入本地系统，页面显示测试1租户及本人身份。只证明该账号本轮登录成功。','登录指定环境、租户，账号身份正确。',BASE+'使用徐翠 xucui 登录，查看页面顶部身份和租户，再进入注册证新建页。','不代表其他账号及其他服务器已验证。','01-company-project.png')
+case('已通过','P02','专员管理权限边界','本轮已核实','黄泽宇成功登录测试1；访问注册证配置时显示无权查看，未通过管理员方式绕过。','普通专员不能擅自修改管理配置。',BASE+'用黄泽宇 huangzeyu 登录，访问注册证配置页，读取拒绝提示及当前身份。','仅验证配置权限，证书可见范围还需逐项复核。','10-specialist-denied-config.png')
+case('已通过','P03','另一主管登录','本轮已核实','褚冬传成功登录测试1并查询到本任务上一轮的模拟证书。','第二名主管能使用本人账号进入指定租户。',OLD,'不代表该账号所有审批能力都已通过。','12-old-sample-status.png')
+case('已通过','P04','公司项目与DCC产品选择','本轮已核实','本轮新建页选择IDI项目后，页面带出DCC产品0313170202及按压式压力泵。','产品应来自所选项目绑定的DCC产品，不能任意拼接。',NEW+'查看项目和产品显示，不提交。','只证明新建页选择结果，不代表已经建档。','01-company-project.png')
+case('已通过','P05','FDA缺少产品描述的拦截','本轮已核实','未上传批准后的产品描述材料时，页面明确提示必须上传该材料，没有继续提交。','缺少FDA必要材料时明确指出缺少哪一项。',NEW+'选FDA，填写本轮FDA字段并选择批准信函，暂不选产品描述材料，点击确认提交审批。','此项通过不代表FDA有效资料能够成功提交。','04-fda-description-required.png')
+case('已通过','P06','缺少产品分类的拦截','本轮已核实','将产品分类清空后提交，页面提示请填写产品分类。','必要字段未填时明确拦截。',NEW+'选FDA，清空产品分类，点击确认提交审批，查看字段错误。','本轮仅取该字段的实测结论，不推断其他字段。','06-class-required.png')
+case('已通过','P07','FDA日期字段展示','本轮已核实','本轮FDA新建表保留批准日期，没有要求独立生效日期或有效期，符合已确认规则。','不能把FDA没有有效期或独立生效日期记为缺陷。',NEW+'切换FDA，查看日期字段，填写批准日期2026年11月27日。','仅字段设计核对，不是FDA主链通过。','05-fda-submit-error.png')
+case('已通过','P08','搜索无结果的显示','本轮已核实','黄泽宇按本轮唯一前缀查询，页面正常显示暂无数据。','找不到匹配证书时应明确显示无结果。',BASE+'用黄泽宇登录，进入注册证，添加证号筛选，输入 '+BATCH+'，点击查询。','无结果不能单独证明服务端没有残留申请。','11-new-round-no-results.png')
+case('已通过','P09','查询已有模拟证书','本轮回查通过','按上一轮证号前缀查到CE当前版、国内当前版及国内待生效版三条记录，页面显示项目IDPR。','证号筛选能显示匹配记录及版本状态。',OLD+'阅读三条结果的类型、项目、有效期及版本状态。','使用的是本任务上一轮样本，不冒充本轮新建成功。','12-old-sample-status.png')
+case('已通过','P10','提醒配置读取','只验证配置读取','提醒配置页可读取启用状态、每日北京时间9点及国内和CE提醒阈值。未修改配置。','主管可查看当前提醒规则。',BASE+'用徐翠登录，进入注册证管理、注册证配置，读取到期提醒设置。','配置存在不等于提醒已经发送或接收。','09-config.png')
+case('已通过','P11','独立CE续证提交','已提交并回查','关联本任务旧CE证提交延续申请，生成唯一申请717，申请时间2026年11月27日18时33分16秒，详情显示审批中，有效期至2031年1月20日。','续证提交后有可查询的申请号及审批中状态。',RENEW+'进入我的上传申请及申请详情，核对申请717、时间和状态。','仅提交节点通过；材料有不一致，尚未批准，不能算续证完成。','13-renewal-717-submitted.png')
+case('已通过','P12','主管实际查看系统材料','本轮实际打开','徐翠从申请717打开系统在线材料，可读到带身份水印的模拟PDF正文，而不是只看文件名。','审核人必须实际核对系统内的申请材料。',REVIEW+'点击在线查看，阅读正文顶部的模拟标识及项目资料。','阅读动作完成；不一致资料不应直接批准。','14-renewal-717-pdf-top.png')
+case('已通过','P13','续证PDF日期核对','本轮实际阅读','继续阅读申请717系统PDF下半部，能看到批准日期和延长后的有效期。','材料应可读，便于与申请字段核对。',REVIEW+'在线查看材料，滚动至正文下方，核对批准日期2026年11月27日及有效期2031年1月20日。','不代表材料所有内容与原证一致。','15-renewal-717-pdf-dates.png')
+case('已通过','P14','未来版生效前的状态','本轮回查通过','上一轮国内证仍显示当前版与2026年11月28日待生效版；本轮未调整日期或手动触发自动任务。','到真实生效日之前，未来版保持待生效，原版仍为当前版。',OLD+'查看国内证当前版本及待生效版本，核对待生效日期为2026年11月28日。','只验证切换前状态，尚未验证真实日期自动切换。','12-old-sample-status.png')
+
+case('未通过','F01','国内新证正常提交','实测失败','填写国内新证及主文件、附件后，点击确认提交审批，窗口显示系统异常；未获得本轮新申请号。','正常资料提交后应生成可查询的审批申请，或明确指出具体资料问题。',NEW+'选择国内、二类，持证主体填公司，自产选是、委托生产选否，证号填 '+BATCH+'-CN，首次获证2026年11月26日、生效2026年11月27日、到期2027年1月20日，选择本轮CN-certificate.pdf和CN-attachment.pdf，填写模拟备注，点击确认提交审批。','阻断国内新建、审批和正式建档；需开发人员定位系统异常，恢复后先查有无残留申请，不能直接重复提交。','02-cn-submit-error.png')
+case('未通过','F02','CE新证正常提交','实测失败','填写CE字段及文件后提交，窗口显示系统异常；未取得本轮CE新申请号。','应生成唯一申请，或给出明确可操作的字段错误。',NEW+'选CE、分类II，持证主体填公司，英文名Simulated Pressure Pump，产品代码SIM-IDI，商品名SIM-PUMP，公告机构0123，自产是、委托否，到期2027年1月20日；Rev填0，证书编号 '+BATCH+'-CE，签发2026年11月27日；选择CE-certificate.pdf，点击确认提交审批。','阻断CE新证后续链；没有额外要求独立生效日期。需开发人员排查正常提交失败。','03-ce-submit-error.png')
+case('未通过','F03','FDA新证正常提交','实测失败','补齐批准信函及产品描述材料后提交，仍提示系统异常；缺项提示虽正常，但完整资料没有进入审批。','齐备资料应进入审批，不应只给出笼统系统异常。',NEW+'选FDA、分类II，持证主体填公司，英文名Simulated Pressure Pump，产品代码SIM-IDI，持证主体为客户选否，申请类型Traditional 510(k)，KP号K271446，批准2026年11月27日，批准信函有效、工厂Active；选择FDA-certificate.pdf和FDA-attachment.pdf，点击确认提交审批。','阻断FDA新建和审批；该错误不能当成FDA无有效期的设计问题。','05-fda-submit-error.png')
+case('未通过','F04','测试中页面编译错误','本轮观察到','重新打开申请717详情时，页面被编译错误覆盖。错误指向展厅公司版本页面中voiceLabel重复声明，不是注册证资料缺项。','正常业务页面不应被其他模块的编译错误覆盖。',BASE+'徐翠已登录时打开申请717详情，观察页面出现编译错误遮罩。具体文件为 IntRuoyiFronted/src/views/showroom-admin/company-version/CompanyVersionWorkbench.vue，提示voiceLabel重复声明。','影响当时页面操作；刷新后遮罩曾消失。需相关开发人员确认当前代码稳定，不认定这是新证系统异常的已证实根因。','16-frontend-compile-error.png')
+case('未通过','F05','系统初始化与继续测试','环境故障阻塞','最后从申请717详情打开原证详情，权限、字典及租户读取返回500，系统退回登录页并显示500错误。没有按密码错误继续重试。','已登录系统应能正常加载权限、租户及页面资料。',BASE+'徐翠登录后打开 http://localhost:8081/mdm/registration-certificate/detail/990824388 ，观察初始化失败、退回登录页及500提示。故障前申请717仍为审批中。','此后所有依赖页面登录的独立项目也受阻。由本地服务维护人员恢复可用环境后，再核对当前状态并继续；本轮没有重启服务。','19-initialization-500.png')
+
+case('存疑','U01','第四名账号与可见范围','未执行，环境阻塞','本轮核实了徐翠、褚冬传、黄泽宇；未完成徐晨重新登录及其本轮可见范围检查。不能沿用上轮结果当作本轮通过。','四个参与账号分别验证租户、身份及实际权限。',BASE+'本应由徐晨 xuchen 登录后进入注册证，核对证书可见范围及操作入口；本轮最终到登录页时系统初始化已返回500，后续未执行。','服务恢复后从徐晨登录开始；不需要重做已确认的前三人登录。','19-initialization-500.png')
+case('存疑','U02','异常文件格式拦截','实测但无法判断','选取明确损坏的PDF后提交，只显示系统异常，与正常资料的失败提示相同。无法据此证明是格式检查正确拦截。','损坏文件应明确指出格式无效，不能进入审批。',NEW+'选FDA并补齐其他字段，使用本轮仅63字节的 invalid-format.pdf 作为主文件，选择产品描述材料，点击确认提交审批，对比正常文件的错误。','需先恢复正常提交，再单独验证损坏文件；不能把上轮格式问题或本轮笼统错误混记为通过。','07-invalid-format-uncertain.png')
+case('存疑','U03','重复证号及重复申请','未执行，提交前置失败','本轮三类初始申请均未正常提交，未完成重复证号和重复申请的页面验证。','重复证号或重复提交应按已确认规则明确处理。',NEW+'先正常提交并回查唯一申请，再用相同证号重复提交并检查提示；本轮实际停在第一次提交系统异常，重复步骤未执行。','恢复后先核对是否已有申请，再做一次有明确对象的重复测试，避免制造多份申请。','08-no-new-request.png')
+case('存疑','U04','不匹配资料自动检查','未完成验证','人工查看717时发现材料项目资料与列表原证项目不一致；本轮未证明系统是否会自动拦截这种不一致。','按确认的业务规则处理不匹配资料，不能靠猜测判定自动检查通过。',REVIEW+'阅读材料中的IDI及0313170202，再回查原证列表的IDPR；核对系统是否有明确不匹配提示。本轮没有确认自动拦截结果。','材料不一致先核对来源，不把人工发现等同系统自动拦截。','14-renewal-717-pdf-top.png')
+case('存疑','U05','续证资料与原证来源','待核对测试资料','本轮717所用模拟PDF仍写IDI及0313170202，而回查旧证列表显示IDPR，之前打开的变更表带出0313170201。没有证据确认由谁、何时改动。','原证关联项目、DCC产品和续证材料必须一致。',OLD+'查看CE原证项目；进入变更表只读查看关联产品后取消；再进入申请717在线阅读续证材料，比较项目及DCC产品。','这是待核对的数据差异，不直接判为程序改错数据。717不得未经核对批准；补正材料应另存新文件以保留原稿。','12-old-sample-status.png')
+case('存疑','U06','主管驳回717及测试签名','已尝试，结果未生效','选择审核不通过并填写资料不一致意见，尝试签名确认；最终重新打开717仍是审批中，待办仍有该申请，没有确认驳回成功。','提交审核后应能回查明确的驳回结果和意见。',REVIEW+'选审核不通过，意见说明材料IDI及0313170202与当前原证IDPR及0313170201不一致，使用已授权测试签名后确认；重新查询申请717，实际仍审批中。','不写成已驳回，也不写成已批准。操作时页面曾发生错误及重载，无法排除输入或运行环境影响，需恢复后先查状态再决定是否重试。','18-renewal-717-final-status.png')
+case('存疑','U07','退回意见及补正重提关联','未执行，待有效退回','717尚未确认驳回，未进行申请人查看意见、补正后重提及关联核对。','申请人看到真实审批意见，补正保留原申请联系。',REVIEW+'有效退回后由褚冬传登录我的上传申请，查看717意见，上传与原证一致的新模拟材料，重提并核对关联；本轮停在717审批中。','恢复审核并确认退回结果后继续；不得另建无关联新申请冒充补正。','18-renewal-717-final-status.png')
+case('存疑','U08','新证审批通过与正式建档','未执行，初始提交失败','国内、CE、FDA本轮新申请均未正常取得申请号，未执行这些新证的批准、正式建档及字段回查。','从申请到批准到正式证书的字段与附件应一致。',NEW+'分别正常提交三类新证，主管从待办实际查看材料后审核，申请人回查正式证书；本轮实际均停在系统异常，无可批准的新申请。','三类新证主链均不能判通过。恢复提交后从各自最后成功节点续接。','08-no-new-request.png')
+case('存疑','U09','单条件及组合搜索','仅部分查询，未完整执行','已实际测试证号查询及无结果；公司、项目、分类单条件和组合条件没有在本轮全部执行。','每种条件及组合条件都能找到正确范围的证书。',OLD+'已按证号查询；随后应分别添加公司、项目、分类条件，逐一查询，再组合查询并比较结果。本轮后续被环境500阻塞。','保留证号查询通过结论，其余不得一并判通过。','19-initialization-500.png')
+case('存疑','U10','预览申请审批与实际使用','未执行，环境阻塞','已查看主管审批材料，但未完成专员对正式证书文件的新预览申请、主管审批及专员实际打开。','文件预览须按角色权限及审批结果执行。',BASE+'专员进入本任务正式证书详情，申请文件预览，主管审核，原专员重新查询后实际打开文件并核对内容；本轮这些步骤未执行，最终登录页显示500。','主管查看申请附件不等于专员正式文件预览授权通过。','19-initialization-500.png')
+case('存疑','U11','下载申请审批与实际文件','未执行，环境阻塞','本轮没有完成新下载申请、审批及实际下载文件内容和文件名核对。不能把上轮已下载文件算作本轮通过。','批准后确实下载正确文件，文件名和内容与申请对象一致。',BASE+'专员打开本任务正式证书，申请下载，主管审核，再由申请人实际下载并核对本地文件名称及正文；本轮最终环境500，未执行上述闭环。','服务恢复后继续；没有实际下载就不能报告下载完成。','19-initialization-500.png')
+case('存疑','U12','文件访问与审批记录','未核实，环境阻塞','本轮未核实正式文件预览、下载对应的访问记录、拒绝记录及审批历史完整性。','每次适用的访问和审批操作都能追溯。',BASE+'完成本轮文件访问后，从页面查看对应记录，核对申请人、文件、动作、时间和结果；本轮尚无新的文件访问闭环，后续页面初始化500。','只读取已观察到的记录，不调用接口或写库补造记录。','19-initialization-500.png')
+case('存疑','U13','国内及FDA适用的续证分支','未完整执行','本轮仅独立提交CE续证717；国内续证没有重新提交，FDA本身没有有效期，不凭空要求FDA续证。','国内及CE按规则续证；FDA是否有其他适用维护路径按页面和规则判断。',OLD+'对国内当前版办理续证；查看FDA是否存在适用维护入口。本轮没有执行新的国内续证，最终环境500；FDA不设置虚假的到期续证验收。','国内分支待恢复；FDA无有效期不是缺陷，未执行不能冒充不适用已核实。','19-initialization-500.png')
+case('存疑','U14','关联原证办理变更','只打开表单，未提交','曾打开CE变更表核对关联项目和产品，发现资料差异后取消。国内、CE及FDA新的变更闭环均未完成。','变更应保留原证关联，只改允许修改的字段和相应材料。',OLD+'选CE当前版点击变更，核对项目IDPR和DCC0313170201，因材料仍为IDI而取消；其他类型应分别进入变更、提交、审批及回查，本轮后续未执行。','先核对测试资料来源，再补齐适用变更分支；不批准已知不一致材料。','12-old-sample-status.png')
+case('存疑','U15','续证批准后的字段与版本','未执行，717仍待审','717只在申请中显示到期2031年1月20日，未批准，因此没有本轮新正式版本可核对。','批准后新版字段、附件及历史正确，未改字段不应丢失。',RENEW+'主管实际核对并作出有效审批后，申请人回查原证的当前版本、到期日期、未改字段、附件及续证历史；本轮717尚审批中，后续未执行。','不能把申请字段当作正式证书已经变更。','18-renewal-717-final-status.png')
+case('存疑','U16','变更前后字段和历史','未执行，变更未提交','本轮没有成功提交并批准新的变更，未比对变更后的产品信息、未改字段、材料及历史。','允许修改的字段正确更新，未改字段保留，变更履历可查。',OLD+'分别对适用类型提交变更，主管审核，再回查新版与旧版逐字段及附件对照；本轮只打开CE表后取消，最终环境500。','新变更完成后才有可验收的新版，不能沿用上轮历史结论。','19-initialization-500.png')
+case('存疑','U17','真实日期自动切换','待真实时间及服务恢复','国内未来版生效日期为2026年11月28日；本轮日期为11月27日，尚未到自然切换时间。','真实生效日期和正常自动任务到来后，新版成为当前版、旧版归档。',OLD+'先确认国内待生效日期2026年11月28日；到当天正常自动任务完成后重新查询版本状态与归档记录。本轮未改系统日期或手动触发任务。','保留既有11月28日复查安排；到时还需服务可用，不能提前宣称自动切换通过。','12-old-sample-status.png')
+case('存疑','U18','切换后新版文件与旧版规则','未执行，等待自然切换','尚未到国内未来版生效日，因此没有执行自然切换后的新版搜索、文件实际使用及旧版访问规则核对。','切换后搜索和访问指向正确新版，旧版按规定保留和限制。',OLD+'在2026年11月28日自然切换后，分别查询当前版和旧版，再按授权实际预览或下载新版材料，并检查旧版可见和访问规则；本轮尚未执行。','依赖真实切换和文件权限审批，不用手动改数据代替。','12-old-sample-status.png')
+case('存疑','U19','提醒发送及接收人','配置可读，投递未核实','本轮只读取提醒配置，未核实每名接收人的新通知、发送记录、异常状态和适用阈值的实际执行。','到期提醒按规则发给正确人员，并保留可核对的记录。',BASE+'主管查看配置，按国内和CE阈值定位本任务证书，再分别登录接收人读取通知及对应记录；本轮仅完成配置读取，最终环境500阻塞后续。','不能以启用状态代替实际投递成功；FDA没有有效期，不凭空要求到期提醒。','09-config.png')
+case('存疑','U20','无主文件时的拦截证据','观察到提示，证据不完整','测试过程中删除FDA主文件后提交，曾看到请上传注册证或FDA批准信函，但没有为该次动作单独保留截图。','缺少主文件时明确拦截且证据对应同一次操作。',NEW+'选FDA，补齐其他必要资料后移除主文件，点击确认提交审批，检查主文件提示；本轮该提示没有对应单独截图，当前截图仅证明另一缺项分支。','按证据要求不归入已通过；环境恢复后补一次对应截图，不扩展为其他规则通过。','04-fda-description-required.png')
+case('存疑','U21','本轮完整主链结论','未达到完整验收终点','所有指南节点已逐项列明去向，但并非所有业务动作都实际走通。新证三类提交失败，717待审，后续部分未执行或待真实时间。','完整测试应有可核验的建档、审批、使用文件、续证变更、版本及提醒结果。','先按F01至F05处理实际故障，恢复后查询本轮前缀及717正式状态，再仅继续本表未完成节点；不重跑无变化的已通过检查。','测试动作受阻，不报告整条链路通过。开发人员处理系统错误，资料责任人核对项目差异，测试人员在环境恢复后接续。','19-initialization-500.png')
+
+headers = ['用例编号','主链节点','状态说明','本轮实际结果','期望结果','完整操作路径','影响及恢复条件','证据截图']
+commands = []
+colors = {'已通过':'14836F','未通过':'B73F46','存疑':'A46B16'}
+widths = [14,25,22,58,44,80,55,121]
+
+def command(verb, path, props, **extra):
+    commands.append({'command':verb, 'path':path, 'props':props, **extra})
+
+for sheet, cases in rows.items():
+    commands.append({'command':'add','parent':'/','type':'sheet','props':{'name':sheet}})
+    for column, width in zip('ABCDEFGH',widths):
+        command('set',f'/{sheet}/col[{column}]',{'width':str(width)})
+    command('set',f'/{sheet}/A1:H1',{'merge':'true','fill':colors[sheet],'font.name':'Microsoft YaHei','font.size':'16','font.bold':'true','font.color':'FFFFFF','alignment.vertical':'center'})
+    command('set',f'/{sheet}/A1',{'value':f'本地注册证主链测试  2026年11月27日  {sheet}  共{len(cases)}项','type':'string'})
+    command('set',f'/{sheet}/row[1]',{'height':'32'})
+    command('set',f'/{sheet}/A2:H2',{'merge':'true','fill':'F0F3F7','font.name':'Microsoft YaHei','font.size':'11','alignment.wrapText':'true','alignment.vertical':'center'})
+    command('set',f'/{sheet}/A2',{'value':f'本地8081，测试1；指南全部节点逐项归类，不代表全部已执行。14项节点通过，5项实测失败，21项存疑或未完成。新证批次{BATCH}；独立续证717仍待审。截图来自本轮真实页面，阻塞截图不冒充后续动作证据。','type':'string'})
+    command('set',f'/{sheet}/row[2]',{'height':'42'})
+    command('set',f'/{sheet}/A3:H3',{'fill':'203A56','font.name':'Microsoft YaHei','font.size':'11','font.bold':'true','font.color':'FFFFFF','alignment.wrapText':'true','alignment.vertical':'center'})
+    command('set',f'/{sheet}/row[3]',{'height':'28'})
+    for column, header in zip('ABCDEFGH',headers):
+        command('set',f'/{sheet}/{column}3',{'value':header,'type':'string'})
+    for index, values in enumerate(cases, start=4):
+        command('set',f'/{sheet}/row[{index}]',{'height':'360'})
+        command('set',f'/{sheet}/A{index}:H{index}',{'font.name':'Microsoft YaHei','font.size':'11','alignment.wrapText':'true','alignment.vertical':'top','fill':'FFFFFF' if index % 2 == 0 else 'F4F7FA'})
+        for column, value in zip('ABCDEFG',values[:7]):
+            command('set',f'/{sheet}/{column}{index}',{'value':value,'type':'string'})
+        commands.append({'command':'add','parent':f'/{sheet}','type':'picture','props':{'src':str(OUTPUT / values[7]),'anchor':f'H{index}:I{index+1}','alt':f'{values[0]}本轮页面截图。{values[2]}；以结果栏说明为准。'}})
+    command('set',f'/{sheet}',{'freeze':'D4','autoFilter':f'A3:H{len(cases)+3}','tabColor':colors[sheet]})
+
+commands.append({'command':'remove','path':'/Sheet1'})
+
+def run(*args):
+    result = subprocess.run(['officecli', *args], capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=120)
+    if result.returncode:
+        raise RuntimeError(result.stdout + result.stderr)
+    return result.stdout
+
+batch_path = OUTPUT / 'report-commands.json'
+batch_path.write_text(json.dumps(commands,ensure_ascii=False),encoding='utf-8')
+run('create',str(REPORT),'--locale','zh-CN','--json')
+initial = json.loads(run('get',str(REPORT),'/','--json'))
+(OUTPUT / 'report-initial-structure.json').write_text(json.dumps(initial,ensure_ascii=False,indent=2),encoding='utf-8')
+result = run('batch',str(REPORT),'--input',str(batch_path),'--stop-on-error','--json')
+(OUTPUT / 'report-build-result.json').write_text(result,encoding='utf-8')
+run('close',str(REPORT))
+manifest = {'report':str(REPORT),'date':datetime.now().isoformat(timespec='seconds'),'counts':{key:len(value) for key,value in rows.items()},'cases':rows}
+(OUTPUT / 'report-manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
+print(str(REPORT))
+print(json.dumps(manifest['counts'],ensure_ascii=False))

@@ -1,0 +1,3672 @@
+[
+  {
+    "props": {
+      "name": "已通过"
+    },
+    "command": "set",
+    "path": "/Sheet1"
+  },
+  {
+    "props": {
+      "name": "未通过"
+    },
+    "command": "add",
+    "type": "sheet",
+    "path": "/"
+  },
+  {
+    "props": {
+      "name": "存疑"
+    },
+    "command": "add",
+    "type": "sheet",
+    "path": "/"
+  },
+  {
+    "props": {
+      "font.color": "008060",
+      "font.bold": "true",
+      "font.size": "16",
+      "value": "本地主链测试｜已通过"
+    },
+    "command": "set",
+    "path": "/已通过/A1"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A1:G1"
+  },
+  {
+    "props": {
+      "value": "2026-11-27｜本地 localhost:8081｜测试1｜页面王艺茹；沿用登录；完整主链0/5通过",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A2"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A2:G2"
+  },
+  {
+    "props": {
+      "value": "口径：26个guide节点，2个未通过、24个存疑；5个辅助检查通过不等于主链通过。未提交任何业务写入。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A3"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A3:G3"
+  },
+  {
+    "props": {
+      "fill": "008060",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "编号"
+    },
+    "command": "set",
+    "path": "/已通过/A5"
+  },
+  {
+    "props": {
+      "fill": "008060",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "主链"
+    },
+    "command": "set",
+    "path": "/已通过/B5"
+  },
+  {
+    "props": {
+      "fill": "008060",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "节点"
+    },
+    "command": "set",
+    "path": "/已通过/C5"
+  },
+  {
+    "props": {
+      "fill": "008060",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "预期结果"
+    },
+    "command": "set",
+    "path": "/已通过/D5"
+  },
+  {
+    "props": {
+      "fill": "008060",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "实际结果"
+    },
+    "command": "set",
+    "path": "/已通过/E5"
+  },
+  {
+    "props": {
+      "fill": "008060",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "证据"
+    },
+    "command": "set",
+    "path": "/已通过/F5"
+  },
+  {
+    "props": {
+      "fill": "008060",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "阻塞与恢复条件"
+    },
+    "command": "set",
+    "path": "/已通过/G5"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "A01",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A6"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "辅助检查",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B6"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "本地环境页面",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C6"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "进入本地测试1页面",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D6"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "本地 localhost:8081；测试1；页面王艺茹。人员选择器核对wangyiru/王艺茹/9908100506；本轮沿用已有登录，未重新登录。",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E6"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "01-项目代码列表.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F6"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "仅证明页面环境和显示身份，不代表业务链通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/G6"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/已通过/row[6]"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "A02",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A7"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "辅助检查",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B7"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "项目页联合新建入口",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C7"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "能打开新建表单",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D7"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "点击新建项目及产品后进入产品目录并打开联合新建表单；未填写或提交",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E7"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "02-联合新建表单.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F7"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "仅入口通过，创建未覆盖",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/G7"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/已通过/row[7]"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "A03",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A8"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "辅助检查",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B8"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "产品页联合新建入口",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C8"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "能打开同一新建表单",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D8"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "独立点击产品目录的新建项目代码及产品，表单打开；未提交",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E8"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "02-联合新建表单.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F8"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "仅入口通过，未创建第二样本",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/G8"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/已通过/row[8]"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "A04",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A9"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "辅助检查",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B9"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "人员选择与模板选项读取",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C9"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "可查询准确负责人及默认模板",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D9"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "人员选择器按账号wangyiru查到王艺茹9908100506；模板下拉可见测试模板01-研发设计及02/03/04；未保存选择",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E9"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "执行记录.md",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F9"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "仅选择器及选项可读，未核验模板实际目录或OWNER",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/G9"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/已通过/row[9]"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "A05",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/A10"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "辅助检查",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/B10"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "申请记录入口",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/C10"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "可打开记录窗口",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/D10"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "项目申请与审批入口打开；表头项目代码、产品编码、产品名称、状态、操作；当前暂无数据",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/E10"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-申请审批记录.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/F10"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "仅窗口打开通过；空记录不证明审批资格或审批功能通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/已通过/G10"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/已通过/row[10]"
+  },
+  {
+    "props": {
+      "freeze": "D6",
+      "tabColor": "008060",
+      "autoFilter": "A5:G10"
+    },
+    "command": "set",
+    "path": "/已通过"
+  },
+  {
+    "props": {
+      "width": "12"
+    },
+    "command": "set",
+    "path": "/已通过/col[A]"
+  },
+  {
+    "props": {
+      "width": "26"
+    },
+    "command": "set",
+    "path": "/已通过/col[B]"
+  },
+  {
+    "props": {
+      "width": "28"
+    },
+    "command": "set",
+    "path": "/已通过/col[C]"
+  },
+  {
+    "props": {
+      "width": "43"
+    },
+    "command": "set",
+    "path": "/已通过/col[D]"
+  },
+  {
+    "props": {
+      "width": "70"
+    },
+    "command": "set",
+    "path": "/已通过/col[E]"
+  },
+  {
+    "props": {
+      "width": "36"
+    },
+    "command": "set",
+    "path": "/已通过/col[F]"
+  },
+  {
+    "props": {
+      "width": "60"
+    },
+    "command": "set",
+    "path": "/已通过/col[G]"
+  },
+  {
+    "props": {
+      "height": "30"
+    },
+    "command": "set",
+    "path": "/已通过/row[1]"
+  },
+  {
+    "props": {
+      "height": "30"
+    },
+    "command": "set",
+    "path": "/已通过/row[2]"
+  },
+  {
+    "props": {
+      "height": "30"
+    },
+    "command": "set",
+    "path": "/已通过/row[3]"
+  },
+  {
+    "props": {
+      "font.color": "C53B32",
+      "font.bold": "true",
+      "font.size": "16",
+      "value": "本地主链测试｜未通过"
+    },
+    "command": "set",
+    "path": "/未通过/A1"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/未通过/A1:G1"
+  },
+  {
+    "props": {
+      "value": "2026-11-27｜本地 localhost:8081｜测试1｜页面王艺茹；沿用登录；完整主链0/5通过",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/未通过/A2"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/未通过/A2:G2"
+  },
+  {
+    "props": {
+      "value": "口径：26个guide节点，2个未通过、24个存疑；5个辅助检查通过不等于主链通过。未提交任何业务写入。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/未通过/A3"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/未通过/A3:G3"
+  },
+  {
+    "props": {
+      "fill": "C53B32",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "编号"
+    },
+    "command": "set",
+    "path": "/未通过/A5"
+  },
+  {
+    "props": {
+      "fill": "C53B32",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "主链"
+    },
+    "command": "set",
+    "path": "/未通过/B5"
+  },
+  {
+    "props": {
+      "fill": "C53B32",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "节点"
+    },
+    "command": "set",
+    "path": "/未通过/C5"
+  },
+  {
+    "props": {
+      "fill": "C53B32",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "预期结果"
+    },
+    "command": "set",
+    "path": "/未通过/D5"
+  },
+  {
+    "props": {
+      "fill": "C53B32",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "实际结果"
+    },
+    "command": "set",
+    "path": "/未通过/E5"
+  },
+  {
+    "props": {
+      "fill": "C53B32",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "证据"
+    },
+    "command": "set",
+    "path": "/未通过/F5"
+  },
+  {
+    "props": {
+      "fill": "C53B32",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "阻塞与恢复条件"
+    },
+    "command": "set",
+    "path": "/未通过/G5"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "03-2",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/未通过/A6"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "03-项目查询与默认属性维护",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/未通过/B6"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "条件查询",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/未通过/C6"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "按产品编码、名称、负责人查询并清空后找回",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/未通过/D6"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "实际以项目名称“主链测试202611271057”点击查询，页面显示红色“系统异常”且暂无数据；筛选下拉未见独立产品编码、负责人，存在“主编码”但未确认等价关系",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/未通过/E6"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-项目查询系统异常.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/未通过/F6"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "本地系统维护方修复真实查询错误并确认筛选字段业务映射；不从空表推断无记录",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/未通过/G6"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/未通过/row[6]"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-2",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/未通过/A7"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-权限边界",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/未通过/B7"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "列表详情创建审批入口",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/未通过/C7"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "授权内列表、详情及入口可用",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/未通过/D7"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "两页入口和表单可达，但项目列表条件查询实际报系统异常，详情无法继续；入口可达不等于业务可用",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/未通过/E7"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-项目查询系统异常.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/未通过/F7"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "本地维护方修复列表异常后，继续详情、创建与正式数据核验",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/未通过/G7"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/未通过/row[7]"
+  },
+  {
+    "props": {
+      "freeze": "D6",
+      "tabColor": "C53B32",
+      "autoFilter": "A5:G7"
+    },
+    "command": "set",
+    "path": "/未通过"
+  },
+  {
+    "props": {
+      "width": "12"
+    },
+    "command": "set",
+    "path": "/未通过/col[A]"
+  },
+  {
+    "props": {
+      "width": "26"
+    },
+    "command": "set",
+    "path": "/未通过/col[B]"
+  },
+  {
+    "props": {
+      "width": "28"
+    },
+    "command": "set",
+    "path": "/未通过/col[C]"
+  },
+  {
+    "props": {
+      "width": "43"
+    },
+    "command": "set",
+    "path": "/未通过/col[D]"
+  },
+  {
+    "props": {
+      "width": "70"
+    },
+    "command": "set",
+    "path": "/未通过/col[E]"
+  },
+  {
+    "props": {
+      "width": "36"
+    },
+    "command": "set",
+    "path": "/未通过/col[F]"
+  },
+  {
+    "props": {
+      "width": "60"
+    },
+    "command": "set",
+    "path": "/未通过/col[G]"
+  },
+  {
+    "props": {
+      "height": "30"
+    },
+    "command": "set",
+    "path": "/未通过/row[1]"
+  },
+  {
+    "props": {
+      "height": "30"
+    },
+    "command": "set",
+    "path": "/未通过/row[2]"
+  },
+  {
+    "props": {
+      "height": "30"
+    },
+    "command": "set",
+    "path": "/未通过/row[3]"
+  },
+  {
+    "props": {
+      "font.color": "9A6700",
+      "font.bold": "true",
+      "font.size": "16",
+      "value": "本地主链测试｜存疑"
+    },
+    "command": "set",
+    "path": "/存疑/A1"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A1:G1"
+  },
+  {
+    "props": {
+      "value": "2026-11-27｜本地 localhost:8081｜测试1｜页面王艺茹；沿用登录；完整主链0/5通过",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A2"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A2:G2"
+  },
+  {
+    "props": {
+      "value": "口径：26个guide节点，2个未通过、24个存疑；5个辅助检查通过不等于主链通过。未提交任何业务写入。",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A3"
+  },
+  {
+    "props": {
+      "merge": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A3:G3"
+  },
+  {
+    "props": {
+      "fill": "9A6700",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "编号"
+    },
+    "command": "set",
+    "path": "/存疑/A5"
+  },
+  {
+    "props": {
+      "fill": "9A6700",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "主链"
+    },
+    "command": "set",
+    "path": "/存疑/B5"
+  },
+  {
+    "props": {
+      "fill": "9A6700",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "节点"
+    },
+    "command": "set",
+    "path": "/存疑/C5"
+  },
+  {
+    "props": {
+      "fill": "9A6700",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "预期结果"
+    },
+    "command": "set",
+    "path": "/存疑/D5"
+  },
+  {
+    "props": {
+      "fill": "9A6700",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "实际结果"
+    },
+    "command": "set",
+    "path": "/存疑/E5"
+  },
+  {
+    "props": {
+      "fill": "9A6700",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "证据"
+    },
+    "command": "set",
+    "path": "/存疑/F5"
+  },
+  {
+    "props": {
+      "fill": "9A6700",
+      "font.color": "FFFFFF",
+      "alignment.wrapText": "true",
+      "font.bold": "true",
+      "value": "阻塞与恢复条件"
+    },
+    "command": "set",
+    "path": "/存疑/G5"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "01-1",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A6"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "01-创建审批通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B6"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "两个入口及独立样本",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C6"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "两个入口分别创建独立样本",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D6"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "两入口均已打开；项目列表加载报系统异常，必要查重未完成，未创建样本",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E6"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "02-联合新建表单.png；05-项目查询系统异常.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F6"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "本地维护方修复项目查询后，在同一账号环境查重并创建任务自有样本",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G6"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[6]"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "01-2",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A7"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "01-创建审批通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B7"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "填写、确认与提交",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C7"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "完整填写并提交",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D7"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "未填写、未提交；无法可靠核实项目代码及名称是否已存在",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E7"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-项目查询系统异常.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F7"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "查询恢复且查重完成后继续，不以空列表当作无重复",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G7"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[7]"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "01-3",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A8"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "01-创建审批通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B8"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "待审批内容与状态",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C8"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "申请内容准确且待审批时未建正式数据",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D8"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "记录窗口暂无数据；本轮无申请，不操作历史记录",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E8"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-申请审批记录.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F8"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "当前岗位规则为直接创建；guide仍要求审批，需业务维护方统一基线",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G8"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[8]"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "01-4",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A9"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "01-创建审批通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B9"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "本人资格审批通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C9"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "核对资格并审批通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D9"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "未审批；缺少本轮待审样本，且现行岗位规则规定新建无需项目审核",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E9"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-申请审批记录.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F9"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "先统一直接创建与旧审批guide的口径，不配置审核角色或切换管理员绕过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G9"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[9]"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "01-5",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A10"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "01-创建审批通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B10"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "项目产品与属性交叉核验",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C10"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "正式项目、产品、负责人和默认属性一致",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D10"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "无本轮成功创建样本；两页当前无可核验记录",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E10"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-项目查询系统异常.png；02-联合新建表单.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F10"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "创建成功后按准确编码核对产品绑定、OWNER、模板目录与默认属性",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G10"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[10]"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "01-6",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A11"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "01-创建审批通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B11"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "刷新持久化及审批追溯",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C11"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "刷新后结果保留且审批信息完整",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D11"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "无本轮创建回执和审批记录，未声称持久化成功",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E11"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-申请审批记录.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F11"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "创建样本及有效业务流程具备后再核验",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G11"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[11]"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "02-1",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A12"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "02-创建审批未通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B12"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "独立拒绝样本提交",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C12"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "提交完整独立申请",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D12"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "未提交；必要查重受项目查询异常阻塞，当前岗位规则不要求项目审批",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E12"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-项目查询系统异常.png；02-联合新建表单.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F12"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "查询恢复并统一guide与现行直接创建流程后确定本链适用性",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G12"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[12]"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "02-2",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A13"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "02-创建审批未通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B13"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "待审批与未正式创建",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C13"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "核对待审批申请及无正式项目产品",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D13"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "无本轮申请，无法做正反两面核验",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E13"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-申请审批记录.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F13"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "需存在本任务合法待审样本；不把空表计为通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G13"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[13]"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "02-3",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A14"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "02-创建审批未通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B14"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "审批不通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C14"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "按本人资格办理拒绝",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D14"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "未办理拒绝；没有本轮待审对象，也未证实独立审批资格",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E14"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-申请审批记录.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F14"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "业务方统一审批流程适用性后，使用真实授权入口；不扩大权限",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G14"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[14]"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "02-4",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A15"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "02-创建审批未通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B15"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "拒绝记录追溯",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C15"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "拒绝结果、审批人和时间可追溯",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D15"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "没有本轮拒绝动作，未核验拒绝记录",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E15"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-申请审批记录.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F15"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "依赖真实拒绝动作与回执",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G15"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[15]"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "02-5",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A16"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "02-创建审批未通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B16"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "拒绝后不建正式记录",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C16"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "无正式项目产品且其他对象不受影响",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D16"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "没有本轮申请或拒绝样本，不能以当前空列表证明拒绝规则",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E16"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-申请审批记录.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F16"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "依赖合法拒绝样本及正常项目产品查询",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G16"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[16]"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "03-1",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A17"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "03-项目查询与默认属性维护",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B17"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "选择本次创建项目",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C17"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "准确选定任务自有正式项目",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D17"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "本轮未建成项目，未改用既有他人项目做修改测试",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E17"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-项目查询系统异常.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F17"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "项目查询修复并完成任务自有样本创建",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G17"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[17]"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "03-3",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A18"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "03-项目查询与默认属性维护",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B18"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "详情交叉核对",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C18"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "名称、代码、产品、负责人、备注及默认属性一致",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D18"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "无任务自有样本和可用详情，未核验",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E18"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-项目查询系统异常.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F18"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "需正常查询及任务自有项目产品",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G18"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[18]"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "03-4",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A19"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "03-项目查询与默认属性维护",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B19"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "维护默认属性并重开",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C19"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "保存修改后刷新保留",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D19"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "未修改任何项目；缺少本次已创建对象",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E19"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-项目查询系统异常.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F19"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "任务自有样本具备后按页面要求填写修改原因并保存重开",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G19"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[19]"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "03-5",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A20"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "03-项目查询与默认属性维护",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B20"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "绑定及其他对象不变",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C20"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "维护不改变绑定及其他项目信息",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D20"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "没有执行维护动作，未建立修改前后对照，不声称无副作用验证通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E20"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-项目查询系统异常.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F20"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "依赖真实维护动作与前后对照",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G20"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[20]"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-1",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A21"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-产品分类查询与项目对应",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B21"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "分类树和产品明细",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C21"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "切换本次产品分类并读明细",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D21"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "产品页仅显示“全部产品0”和“0条产品明细”；无分类分支、无任务自有产品可选。进入联合页期间另捕获系统异常，未定位具体失败请求",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E21"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "03-产品无匹配条件.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F21"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "正常加载且有本轮样本后核验；不认定租户产品真实为零",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G21"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[21]"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-2",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A22"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-产品分类查询与项目对应",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B22"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "产品字段与创建信息一致",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C22"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "产品名称编码分类项目代码一致",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D22"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "无已创建样本，未核验",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E22"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "02-联合新建表单.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F22"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "依赖本次正式创建成功和产品明细可查",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G22"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[22]"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-3",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A23"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-产品分类查询与项目对应",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B23"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "分类及正负条件查询",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C23"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "分类正确，无匹配不冒出其他数据",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D23"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "按项目代码MC202611271057NONE查询显示0条，随后重置；因基线也为0，且无正向样本，不能证明过滤或分类正确",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E23"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "03-产品无匹配条件.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F23"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "需非空正常基线和任务自有正向样本后复核；本轮不计通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G23"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[23]"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-4",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A24"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-产品分类查询与项目对应",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B24"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "一一对应与编码唯一",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C24"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "项目产品一一对应且编码不重复",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D24"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "项目查询异常，未完成查重或跨页绑定核验",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E24"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-项目查询系统异常.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F24"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "两页可正常查询且任务自有对象已创建",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G24"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[24]"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-5",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A25"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-产品分类查询与项目对应",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B25"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "刷新、清空和重新进入",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C25"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "保存值及绑定持久化且其他产品不变",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D25"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "已执行条件重置和页面切换，但无成功写入样本，未验证持久化与其他产品不变",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E25"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "03-产品无匹配条件.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F25"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "依赖本次成功写入及前后对照",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G25"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[25]"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-1",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A26"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-权限边界",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B26"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "账号范围和独立审批资格",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C26"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "核实实际数据权限及审批资格",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D26"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "页面显示王艺茹，两业务菜单可达；无可核验授权清单、待审对象或明确拒绝场景",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E26"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "执行记录.md",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F26"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "不能由按钮可见推断已授权；需可验证对象与有效规则",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G26"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[26]"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-3",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A27"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-权限边界",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B27"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "未授权范围拒绝",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C27"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "未获授权对象不能读写",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D27"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "未识别明确未获授权的任务范围，未尝试读取或修改其他对象；反向权限场景未覆盖",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E27"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "执行记录.md",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F27"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "需明确合法测试对象及其授权边界，不能拿有权限操作充当拒绝测试",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G27"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[27]"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-4",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A28"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-权限边界",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B28"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "审批资格正反验证",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C28"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "按真实资格允许或拒绝审批",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D28"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "无任务待审样本，且审批guide与现行直接创建规则不一致；未操作审批",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E28"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "04-申请审批记录.png",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F28"
+  },
+  {
+    "props": {
+      "fill": "F3F6FA",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "先统一业务基线，再按实际适用场景核验；不提权",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G28"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[28]"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-5",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/A29"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "05-权限边界",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/B29"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "检查后业务和权限不变",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/C29"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "核对项目产品及授权未被改写",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/D29"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "本轮未提交任何创建、修改、审批或权限保存；但无可读前后业务样本，不能声称完整不变性测试通过",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/E29"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "执行记录.md",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/F29"
+  },
+  {
+    "props": {
+      "fill": "FFFFFF",
+      "type": "string",
+      "font.size": "11",
+      "alignment.vertical": "top",
+      "value": "需正常项目产品读取后建立前后对照",
+      "font.name": "等线",
+      "alignment.wrapText": "true"
+    },
+    "command": "set",
+    "path": "/存疑/G29"
+  },
+  {
+    "props": {
+      "height": "112"
+    },
+    "command": "set",
+    "path": "/存疑/row[29]"
+  },
+  {
+    "props": {
+      "freeze": "D6",
+      "tabColor": "9A6700",
+      "autoFilter": "A5:G29"
+    },
+    "command": "set",
+    "path": "/存疑"
+  },
+  {
+    "props": {
+      "width": "12"
+    },
+    "command": "set",
+    "path": "/存疑/col[A]"
+  },
+  {
+    "props": {
+      "width": "26"
+    },
+    "command": "set",
+    "path": "/存疑/col[B]"
+  },
+  {
+    "props": {
+      "width": "28"
+    },
+    "command": "set",
+    "path": "/存疑/col[C]"
+  },
+  {
+    "props": {
+      "width": "43"
+    },
+    "command": "set",
+    "path": "/存疑/col[D]"
+  },
+  {
+    "props": {
+      "width": "70"
+    },
+    "command": "set",
+    "path": "/存疑/col[E]"
+  },
+  {
+    "props": {
+      "width": "36"
+    },
+    "command": "set",
+    "path": "/存疑/col[F]"
+  },
+  {
+    "props": {
+      "width": "60"
+    },
+    "command": "set",
+    "path": "/存疑/col[G]"
+  },
+  {
+    "props": {
+      "height": "30"
+    },
+    "command": "set",
+    "path": "/存疑/row[1]"
+  },
+  {
+    "props": {
+      "height": "30"
+    },
+    "command": "set",
+    "path": "/存疑/row[2]"
+  },
+  {
+    "props": {
+      "height": "30"
+    },
+    "command": "set",
+    "path": "/存疑/row[3]"
+  }
+]

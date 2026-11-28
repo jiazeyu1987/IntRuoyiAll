@@ -1,0 +1,10 @@
+id	route_id	version_no	active	lifecycle_status	published_time	frozen_route_status	snapshot_keys
+29	922036	V2	1	ACTIVE	2026-11-24 10:47:44	1	["id", "code", "name", "remark", "status", "routeId", "routeCode", "routeName", "description", "routeVersionId", "configSnapshots"]
+id	code	status	create_time	update_time	deleted
+922036	IDPR-GYLC-0001	1	2026-11-24 10:09:07	2026-11-24 10:47:44	0
+completion_receipts
+0
+release_applications
+0
+enabled_bound_routes
+0

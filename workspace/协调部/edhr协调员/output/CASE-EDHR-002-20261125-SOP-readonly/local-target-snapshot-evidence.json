@@ -1,0 +1,722 @@
+{
+  "observed_at": "2026-11-25T12:17:32.137653",
+  "connection_scope": "127.0.0.1:23306, read-only transaction",
+  "tenant": {
+    "id": 186,
+    "name": "测试1"
+  },
+  "active_order": {
+    "id": 1009200644,
+    "tenant_id": 186,
+    "leader_user_id": 9908100913,
+    "work_order_id": 2120759355571990528,
+    "route_id": 2117828464080138254,
+    "route_version_id": 2121453182031057239,
+    "current_route_version_id": 2121453182031057239,
+    "active_status": "ACTIVE",
+    "business_status": "ACTIVE",
+    "joined_at": "2026-11-20 19:21:43",
+    "create_time": "2026-11-20 19:21:43",
+    "update_time": "2026-11-20 19:21:42"
+  },
+  "work_order": {
+    "id": 2120759355571990528,
+    "code": "SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891",
+    "batch_code": "SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891",
+    "product_id": 2120759355559407616,
+    "quantity": "5000.00",
+    "quantity_produced": "0.00",
+    "status": 1
+  },
+  "route": [
+    {
+      "id": 2117828464080138254,
+      "code": "IDI-GYLC-0001",
+      "name": "按压式球囊扩充压力泵(IDI)",
+      "status": 0,
+      "update_time": "2026-11-20 18:48:50"
+    }
+  ],
+  "route_versions": [
+    {
+      "id": 2121453182031057239,
+      "route_id": 2117828464080138254,
+      "version_no": "V31",
+      "active": "b'\\x01'",
+      "lifecycle_status": "ACTIVE",
+      "route_snapshot_sha256": "4003d46a079f58efb7a707225fb8fe94d1de2534df8ee5c6430494204bc979c9",
+      "route_snapshot_format_version": "MES_ROUTE_SNAPSHOT_CANONICAL_V1",
+      "create_time": "2026-11-20 18:48:49",
+      "update_time": "2026-11-20 18:48:50",
+      "published_time": "2026-11-20 18:48:50",
+      "flow_node_evidence": [
+        {
+          "routeProcessId": 2121453182219802539,
+          "processId": 2117828464390516931,
+          "processCode": "IDI-GX-0001",
+          "processName": "粗洗工序",
+          "keys": [
+            "checkFlag",
+            "keyFlag",
+            "processCode",
+            "processId",
+            "processName",
+            "routeProcessId",
+            "routeProcessWorkstationId",
+            "sort",
+            "workstationCode",
+            "workstationId",
+            "workstationName",
+            "x",
+            "y"
+          ],
+          "sop_field_present": false,
+          "sop_state": "MISSING"
+        },
+        {
+          "routeProcessId": 2121453182219802540,
+          "processId": 2117828464390516932,
+          "processCode": "IDI-GX-0002",
+          "processName": "精洗工序",
+          "keys": [
+            "checkFlag",
+            "keyFlag",
+            "processCode",
+            "processId",
+            "processName",
+            "routeProcessId",
+            "routeProcessWorkstationId",
+            "sort",
+            "workstationCode",
+            "workstationId",
+            "workstationName",
+            "x",
+            "y"
+          ],
+          "sop_field_present": false,
+          "sop_state": "MISSING"
+        },
+        {
+          "routeProcessId": 2121453182219802541,
+          "processId": 2117828464390516933,
+          "processCode": "IDI-GX-0003",
+          "processName": "清洗工序",
+          "keys": [
+            "checkFlag",
+            "keyFlag",
+            "processCode",
+            "processId",
+            "processName",
+            "routeProcessId",
+            "routeProcessWorkstationId",
+            "sort",
+            "workstationCode",
+            "workstationId",
+            "workstationName",
+            "x",
+            "y"
+          ],
+          "sop_field_present": false,
+          "sop_state": "MISSING"
+        },
+        {
+          "routeProcessId": 2121453182219802542,
+          "processId": 2117828464390516934,
+          "processCode": "IDI-GX-0004",
+          "processName": "清洁工序",
+          "keys": [
+            "checkFlag",
+            "keyFlag",
+            "processCode",
+            "processId",
+            "processName",
+            "routeProcessId",
+            "routeProcessWorkstationId",
+            "sort",
+            "workstationCode",
+            "workstationId",
+            "workstationName",
+            "x",
+            "y"
+          ],
+          "sop_field_present": false,
+          "sop_state": "MISSING"
+        },
+        {
+          "routeProcessId": 2121453182219802543,
+          "processId": 2117828464390516935,
+          "processCode": "IDI-GX-0005",
+          "processName": "组装Ⅰ工序",
+          "keys": [
+            "checkFlag",
+            "keyFlag",
+            "processCode",
+            "processId",
+            "processName",
+            "routeProcessId",
+            "routeProcessWorkstationId",
+            "sort",
+            "workstationCode",
+            "workstationId",
+            "workstationName",
+            "x",
+            "y"
+          ],
+          "sop_field_present": false,
+          "sop_state": "MISSING"
+        },
+        {
+          "routeProcessId": 2121453182219802544,
+          "processId": 2117828464390516936,
+          "processCode": "IDI-GX-0006",
+          "processName": "硅化Ⅰ工序",
+          "keys": [
+            "checkFlag",
+            "keyFlag",
+            "processCode",
+            "processId",
+            "processName",
+            "routeProcessId",
+            "routeProcessWorkstationId",
+            "sort",
+            "workstationCode",
+            "workstationId",
+            "workstationName",
+            "x",
+            "y"
+          ],
+          "sop_field_present": false,
+          "sop_state": "MISSING"
+        },
+        {
+          "routeProcessId": 2121453182219802545,
+          "processId": 2117828464390516937,
+          "processCode": "IDI-GX-0007",
+          "processName": "组装Ⅱ工序",
+          "keys": [
+            "checkFlag",
+            "keyFlag",
+            "processCode",
+            "processId",
+            "processName",
+            "routeProcessId",
+            "routeProcessWorkstationId",
+            "sort",
+            "workstationCode",
+            "workstationId",
+            "workstationName",
+            "x",
+            "y"
+          ],
+          "sop_field_present": false,
+          "sop_state": "MISSING"
+        },
+        {
+          "routeProcessId": 2121453182219802546,
+          "processId": 2117828464390516938,
+          "processCode": "IDI-GX-0008",
+          "processName": "光固工序",
+          "keys": [
+            "checkFlag",
+            "keyFlag",
+            "processCode",
+            "processId",
+            "processName",
+            "routeProcessId",
+            "routeProcessWorkstationId",
+            "sort",
+            "workstationCode",
+            "workstationId",
+            "workstationName",
+            "x",
+            "y"
+          ],
+          "sop_field_present": false,
+          "sop_state": "MISSING"
+        },
+        {
+          "routeProcessId": 2121453182219802547,
+          "processId": 2117828464390516939,
+          "processCode": "IDI-GX-0009",
+          "processName": "硅化Ⅱ工序",
+          "keys": [
+            "checkFlag",
+            "keyFlag",
+            "processCode",
+            "processId",
+            "processName",
+            "routeProcessId",
+            "routeProcessWorkstationId",
+            "sort",
+            "workstationCode",
+            "workstationId",
+            "workstationName",
+            "x",
+            "y"
+          ],
+          "sop_field_present": false,
+          "sop_state": "MISSING"
+        },
+        {
+          "routeProcessId": 2121453182219802548,
+          "processId": 2117828464390516940,
+          "processCode": "IDI-GX-0010",
+          "processName": "硅化Ⅲ工序",
+          "keys": [
+            "checkFlag",
+            "keyFlag",
+            "processCode",
+            "processId",
+            "processName",
+            "routeProcessId",
+            "routeProcessWorkstationId",
+            "sort",
+            "workstationCode",
+            "workstationId",
+            "workstationName",
+            "x",
+            "y"
+          ],
+          "sop_field_present": false,
+          "sop_state": "MISSING"
+        },
+        {
+          "routeProcessId": 2121453182219802549,
+          "processId": 2117828464390516941,
+          "processCode": "IDI-GX-0011",
+          "processName": "组装Ⅲ工序",
+          "keys": [
+            "checkFlag",
+            "keyFlag",
+            "processCode",
+            "processId",
+            "processName",
+            "routeProcessId",
+            "routeProcessWorkstationId",
+            "sort",
+            "workstationCode",
+            "workstationId",
+            "workstationName",
+            "x",
+            "y"
+          ],
+          "sop_field_present": false,
+          "sop_state": "MISSING"
+        },
+        {
+          "routeProcessId": 2121453182219802550,
+          "processId": 2117828464390516942,
+          "processCode": "IDI-GX-0012",
+          "processName": "检测工序",
+          "keys": [
+            "checkFlag",
+            "keyFlag",
+            "processCode",
+            "processId",
+            "processName",
+            "routeProcessId",
+            "routeProcessWorkstationId",
+            "sort",
+            "workstationCode",
+            "workstationId",
+            "workstationName",
+            "x",
+            "y"
+          ],
+          "sop_field_present": false,
+          "sop_state": "MISSING"
+        },
+        {
+          "routeProcessId": 2121453182219802551,
+          "processId": 2117828464390516943,
+          "processCode": "IDI-GX-0013",
+          "processName": "单包装工序",
+          "keys": [
+            "checkFlag",
+            "keyFlag",
+            "processCode",
+            "processId",
+            "processName",
+            "routeProcessId",
+            "routeProcessWorkstationId",
+            "sort",
+            "workstationCode",
+            "workstationId",
+            "workstationName",
+            "x",
+            "y"
+          ],
+          "sop_field_present": false,
+          "sop_state": "MISSING"
+        },
+        {
+          "routeProcessId": 2121453182219802552,
+          "processId": 2117828464390516944,
+          "processCode": "IDI-GX-0014",
+          "processName": "中包装工序",
+          "keys": [
+            "checkFlag",
+            "keyFlag",
+            "processCode",
+            "processId",
+            "processName",
+            "routeProcessId",
+            "routeProcessWorkstationId",
+            "sort",
+            "workstationCode",
+            "workstationId",
+            "workstationName",
+            "x",
+            "y"
+          ],
+          "sop_field_present": false,
+          "sop_state": "MISSING"
+        },
+        {
+          "routeProcessId": 2121453182219802553,
+          "processId": 2117828464390516945,
+          "processCode": "IDI-GX-0015",
+          "processName": "大包装工序",
+          "keys": [
+            "checkFlag",
+            "keyFlag",
+            "processCode",
+            "processId",
+            "processName",
+            "routeProcessId",
+            "routeProcessWorkstationId",
+            "sort",
+            "workstationCode",
+            "workstationId",
+            "workstationName",
+            "x",
+            "y"
+          ],
+          "sop_field_present": false,
+          "sop_state": "MISSING"
+        }
+      ],
+      "flow_node_count": 15,
+      "missing_sop_field_count": 15
+    }
+  ],
+  "current_route_processes": [
+    {
+      "route_process_id": 2121453182219802539,
+      "process_id": 2117828464390516931,
+      "sort": 1,
+      "code": "IDI-GX-0001",
+      "name": "粗洗工序",
+      "sop_is_null": 1,
+      "sop_is_empty": null,
+      "process_update_time": "2026-11-12 10:38:50"
+    },
+    {
+      "route_process_id": 2121453182219802540,
+      "process_id": 2117828464390516932,
+      "sort": 2,
+      "code": "IDI-GX-0002",
+      "name": "精洗工序",
+      "sop_is_null": 1,
+      "sop_is_empty": null,
+      "process_update_time": "2026-11-12 10:38:50"
+    },
+    {
+      "route_process_id": 2121453182219802541,
+      "process_id": 2117828464390516933,
+      "sort": 3,
+      "code": "IDI-GX-0003",
+      "name": "清洗工序",
+      "sop_is_null": 1,
+      "sop_is_empty": null,
+      "process_update_time": "2026-11-12 10:38:50"
+    },
+    {
+      "route_process_id": 2121453182219802542,
+      "process_id": 2117828464390516934,
+      "sort": 4,
+      "code": "IDI-GX-0004",
+      "name": "清洁工序",
+      "sop_is_null": 1,
+      "sop_is_empty": null,
+      "process_update_time": "2026-11-12 10:38:50"
+    },
+    {
+      "route_process_id": 2121453182219802543,
+      "process_id": 2117828464390516935,
+      "sort": 5,
+      "code": "IDI-GX-0005",
+      "name": "组装Ⅰ工序",
+      "sop_is_null": 1,
+      "sop_is_empty": null,
+      "process_update_time": "2026-11-12 10:38:50"
+    },
+    {
+      "route_process_id": 2121453182219802544,
+      "process_id": 2117828464390516936,
+      "sort": 6,
+      "code": "IDI-GX-0006",
+      "name": "硅化Ⅰ工序",
+      "sop_is_null": 1,
+      "sop_is_empty": null,
+      "process_update_time": "2026-11-12 10:38:50"
+    },
+    {
+      "route_process_id": 2121453182219802545,
+      "process_id": 2117828464390516937,
+      "sort": 7,
+      "code": "IDI-GX-0007",
+      "name": "组装Ⅱ工序",
+      "sop_is_null": 1,
+      "sop_is_empty": null,
+      "process_update_time": "2026-11-12 10:38:50"
+    },
+    {
+      "route_process_id": 2121453182219802546,
+      "process_id": 2117828464390516938,
+      "sort": 8,
+      "code": "IDI-GX-0008",
+      "name": "光固工序",
+      "sop_is_null": 1,
+      "sop_is_empty": null,
+      "process_update_time": "2026-11-12 10:38:50"
+    },
+    {
+      "route_process_id": 2121453182219802547,
+      "process_id": 2117828464390516939,
+      "sort": 9,
+      "code": "IDI-GX-0009",
+      "name": "硅化Ⅱ工序",
+      "sop_is_null": 1,
+      "sop_is_empty": null,
+      "process_update_time": "2026-11-12 10:38:50"
+    },
+    {
+      "route_process_id": 2121453182219802548,
+      "process_id": 2117828464390516940,
+      "sort": 10,
+      "code": "IDI-GX-0010",
+      "name": "硅化Ⅲ工序",
+      "sop_is_null": 1,
+      "sop_is_empty": null,
+      "process_update_time": "2026-11-12 10:38:50"
+    },
+    {
+      "route_process_id": 2121453182219802549,
+      "process_id": 2117828464390516941,
+      "sort": 11,
+      "code": "IDI-GX-0011",
+      "name": "组装Ⅲ工序",
+      "sop_is_null": 1,
+      "sop_is_empty": null,
+      "process_update_time": "2026-11-12 10:38:50"
+    },
+    {
+      "route_process_id": 2121453182219802550,
+      "process_id": 2117828464390516942,
+      "sort": 12,
+      "code": "IDI-GX-0012",
+      "name": "检测工序",
+      "sop_is_null": 1,
+      "sop_is_empty": null,
+      "process_update_time": "2026-11-12 10:38:51"
+    },
+    {
+      "route_process_id": 2121453182219802551,
+      "process_id": 2117828464390516943,
+      "sort": 13,
+      "code": "IDI-GX-0013",
+      "name": "单包装工序",
+      "sop_is_null": 1,
+      "sop_is_empty": null,
+      "process_update_time": "2026-11-12 10:38:51"
+    },
+    {
+      "route_process_id": 2121453182219802552,
+      "process_id": 2117828464390516944,
+      "sort": 14,
+      "code": "IDI-GX-0014",
+      "name": "中包装工序",
+      "sop_is_null": 1,
+      "sop_is_empty": null,
+      "process_update_time": "2026-11-12 10:38:51"
+    },
+    {
+      "route_process_id": 2121453182219802553,
+      "process_id": 2117828464390516945,
+      "sort": 15,
+      "code": "IDI-GX-0015",
+      "name": "大包装工序",
+      "sop_is_null": 1,
+      "sop_is_empty": null,
+      "process_update_time": "2026-11-12 10:38:51"
+    }
+  ],
+  "active_order_process_targets": [
+    {
+      "id": 1009209717,
+      "route_id": 2117828464080138254,
+      "route_version_id": 2121453182031057239,
+      "route_process_id": 2121453182219802539,
+      "process_id": 2117828464390516931,
+      "process_code_snapshot": "IDI-GX-0001",
+      "process_name_snapshot": "粗洗工序",
+      "planned_quantity_snapshot": "5000.000000",
+      "create_time": "2026-11-20 19:21:43"
+    },
+    {
+      "id": 1009209718,
+      "route_id": 2117828464080138254,
+      "route_version_id": 2121453182031057239,
+      "route_process_id": 2121453182219802540,
+      "process_id": 2117828464390516932,
+      "process_code_snapshot": "IDI-GX-0002",
+      "process_name_snapshot": "精洗工序",
+      "planned_quantity_snapshot": "5000.000000",
+      "create_time": "2026-11-20 19:21:43"
+    },
+    {
+      "id": 1009209719,
+      "route_id": 2117828464080138254,
+      "route_version_id": 2121453182031057239,
+      "route_process_id": 2121453182219802541,
+      "process_id": 2117828464390516933,
+      "process_code_snapshot": "IDI-GX-0003",
+      "process_name_snapshot": "清洗工序",
+      "planned_quantity_snapshot": "5000.000000",
+      "create_time": "2026-11-20 19:21:43"
+    },
+    {
+      "id": 1009209720,
+      "route_id": 2117828464080138254,
+      "route_version_id": 2121453182031057239,
+      "route_process_id": 2121453182219802542,
+      "process_id": 2117828464390516934,
+      "process_code_snapshot": "IDI-GX-0004",
+      "process_name_snapshot": "清洁工序",
+      "planned_quantity_snapshot": "5000.000000",
+      "create_time": "2026-11-20 19:21:43"
+    },
+    {
+      "id": 1009209721,
+      "route_id": 2117828464080138254,
+      "route_version_id": 2121453182031057239,
+      "route_process_id": 2121453182219802543,
+      "process_id": 2117828464390516935,
+      "process_code_snapshot": "IDI-GX-0005",
+      "process_name_snapshot": "组装Ⅰ工序",
+      "planned_quantity_snapshot": "5000.000000",
+      "create_time": "2026-11-20 19:21:43"
+    },
+    {
+      "id": 1009209722,
+      "route_id": 2117828464080138254,
+      "route_version_id": 2121453182031057239,
+      "route_process_id": 2121453182219802544,
+      "process_id": 2117828464390516936,
+      "process_code_snapshot": "IDI-GX-0006",
+      "process_name_snapshot": "硅化Ⅰ工序",
+      "planned_quantity_snapshot": "5000.000000",
+      "create_time": "2026-11-20 19:21:43"
+    },
+    {
+      "id": 1009209723,
+      "route_id": 2117828464080138254,
+      "route_version_id": 2121453182031057239,
+      "route_process_id": 2121453182219802545,
+      "process_id": 2117828464390516937,
+      "process_code_snapshot": "IDI-GX-0007",
+      "process_name_snapshot": "组装Ⅱ工序",
+      "planned_quantity_snapshot": "5000.000000",
+      "create_time": "2026-11-20 19:21:43"
+    },
+    {
+      "id": 1009209724,
+      "route_id": 2117828464080138254,
+      "route_version_id": 2121453182031057239,
+      "route_process_id": 2121453182219802546,
+      "process_id": 2117828464390516938,
+      "process_code_snapshot": "IDI-GX-0008",
+      "process_name_snapshot": "光固工序",
+      "planned_quantity_snapshot": "5000.000000",
+      "create_time": "2026-11-20 19:21:43"
+    },
+    {
+      "id": 1009209725,
+      "route_id": 2117828464080138254,
+      "route_version_id": 2121453182031057239,
+      "route_process_id": 2121453182219802547,
+      "process_id": 2117828464390516939,
+      "process_code_snapshot": "IDI-GX-0009",
+      "process_name_snapshot": "硅化Ⅱ工序",
+      "planned_quantity_snapshot": "5000.000000",
+      "create_time": "2026-11-20 19:21:43"
+    },
+    {
+      "id": 1009209726,
+      "route_id": 2117828464080138254,
+      "route_version_id": 2121453182031057239,
+      "route_process_id": 2121453182219802548,
+      "process_id": 2117828464390516940,
+      "process_code_snapshot": "IDI-GX-0010",
+      "process_name_snapshot": "硅化Ⅲ工序",
+      "planned_quantity_snapshot": "5000.000000",
+      "create_time": "2026-11-20 19:21:43"
+    },
+    {
+      "id": 1009209727,
+      "route_id": 2117828464080138254,
+      "route_version_id": 2121453182031057239,
+      "route_process_id": 2121453182219802549,
+      "process_id": 2117828464390516941,
+      "process_code_snapshot": "IDI-GX-0011",
+      "process_name_snapshot": "组装Ⅲ工序",
+      "planned_quantity_snapshot": "5000.000000",
+      "create_time": "2026-11-20 19:21:43"
+    },
+    {
+      "id": 1009209728,
+      "route_id": 2117828464080138254,
+      "route_version_id": 2121453182031057239,
+      "route_process_id": 2121453182219802550,
+      "process_id": 2117828464390516942,
+      "process_code_snapshot": "IDI-GX-0012",
+      "process_name_snapshot": "检测工序",
+      "planned_quantity_snapshot": "5000.000000",
+      "create_time": "2026-11-20 19:21:43"
+    },
+    {
+      "id": 1009209729,
+      "route_id": 2117828464080138254,
+      "route_version_id": 2121453182031057239,
+      "route_process_id": 2121453182219802551,
+      "process_id": 2117828464390516943,
+      "process_code_snapshot": "IDI-GX-0013",
+      "process_name_snapshot": "单包装工序",
+      "planned_quantity_snapshot": "5000.000000",
+      "create_time": "2026-11-20 19:21:43"
+    },
+    {
+      "id": 1009209730,
+      "route_id": 2117828464080138254,
+      "route_version_id": 2121453182031057239,
+      "route_process_id": 2121453182219802552,
+      "process_id": 2117828464390516944,
+      "process_code_snapshot": "IDI-GX-0014",
+      "process_name_snapshot": "中包装工序",
+      "planned_quantity_snapshot": "5000.000000",
+      "create_time": "2026-11-20 19:21:43"
+    },
+    {
+      "id": 1009209731,
+      "route_id": 2117828464080138254,
+      "route_version_id": 2121453182031057239,
+      "route_process_id": 2121453182219802553,
+      "process_id": 2117828464390516945,
+      "process_code_snapshot": "IDI-GX-0015",
+      "process_name_snapshot": "大包装工序",
+      "planned_quantity_snapshot": "5000.000000",
+      "create_time": "2026-11-20 19:21:43"
+    }
+  ]
+}

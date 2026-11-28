@@ -1,0 +1,1861 @@
+[
+  {
+    "props": {
+      "name": "已通过"
+    },
+    "path": "/Sheet1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "tabColor": "28785B",
+      "autoFilter": "A4:H8",
+      "freeze": "C5"
+    },
+    "path": "/已通过",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "第03主链本地重测结果：已通过",
+      "bold": "true",
+      "font.color": "FFFFFF",
+      "size": "20",
+      "font": "Microsoft YaHei",
+      "fill": "28785B",
+      "merge": "A1:H1"
+    },
+    "path": "/已通过/A1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "merge": "A2:H2",
+      "font": "Microsoft YaHei",
+      "size": "11",
+      "wrapText": "true",
+      "value": "本地，测试1；订单881MO000017，实例1009200682，计划5012件。依据截至2026年11月28日05时54分收到的执行岗证据。"
+    },
+    "path": "/已通过/A2",
+    "command": "set"
+  },
+  {
+    "props": {
+      "merge": "A3:H3",
+      "font": "Microsoft YaHei",
+      "size": "11",
+      "wrapText": "true",
+      "value": "仅第03主链。整链未完成：双100%且30条复核完成，正式批号空，完工及下游未执行。均为模拟测试，不代表真实质量批准。生产旧记录仅查回，不冒称本轮重新执行。"
+    },
+    "path": "/已通过/A3",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "34"
+    },
+    "path": "/已通过/row[1]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "34"
+    },
+    "path": "/已通过/row[2]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "34"
+    },
+    "path": "/已通过/row[3]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "34"
+    },
+    "path": "/已通过/row[4]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "12"
+    },
+    "path": "/已通过/col[A]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "编号",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/已通过/A4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "27"
+    },
+    "path": "/已通过/col[B]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "检查内容",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/已通过/B4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "34"
+    },
+    "path": "/已通过/col[C]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "判定与状态",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/已通过/C4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "36"
+    },
+    "path": "/已通过/col[D]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "应当怎样",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/已通过/D4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "48"
+    },
+    "path": "/已通过/col[E]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "实际发生什么",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/已通过/E4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "65"
+    },
+    "path": "/已通过/col[F]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "完整测试路径与复现边界",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/已通过/F4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "52"
+    },
+    "path": "/已通过/col[G]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "恢复条件与证据限制",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/已通过/G4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "98"
+    },
+    "path": "/已通过/col[H]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "证据截图",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/已通过/H4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "290"
+    },
+    "path": "/已通过/row[5]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "通过01",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/A5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "生产和检验进度",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/B5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "两个进度均为100%，不等于已完工。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/C5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "生产检验及必要复核完成。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/D5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "张飞红刷新同一实例查回双100%，放行申请未申请。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/E5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "本地，测试1，张飞红；生产执行、生产班长、活跃订单池；查881MO000017，确认实例1009200682。刷新查询正式进度。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/F5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "生产为已有记录查回，本轮未重复报工。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/G5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/H5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "name": "通过01",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\2026-11-28-03-本地重测\\生产组长\\续办-生产检验双100未申请.png",
+      "anchor": "H5:I6",
+      "alt": "生产和检验进度"
+    },
+    "parent": "/已通过",
+    "type": "picture",
+    "command": "add"
+  },
+  {
+    "props": {
+      "height": "290"
+    },
+    "path": "/已通过/row[6]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "通过02",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/A6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "检验填报",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/B6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "首检8条，两轮巡检各11条，共30条已提交。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/C6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "按本单要求提交后刷新仍可查到。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/D6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "杨珊逐工序提交并查回30条，巡检统一随机为2轮。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/E6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "本地，测试1，杨珊；生产执行、检验填报；选881MO000017、对应工序、首检或巡检轮次。分别查看首检及两轮巡检。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/F6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "不是各工序独立随机轮数；计数不等于复核通过。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/G6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/H6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "name": "通过02",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\2026-11-28-03-本地重测\\PQC检验员\\04-刷新查回首检8及两轮巡检各11.png",
+      "anchor": "H6:I7",
+      "alt": "检验填报"
+    },
+    "parent": "/已通过",
+    "type": "picture",
+    "command": "add"
+  },
+  {
+    "props": {
+      "height": "290"
+    },
+    "path": "/已通过/row[7]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "通过03",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/A7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "退回补正及最终复核",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/B7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "三条补正闭环，30条全部复核完成。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/C7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "原检验员补正后由吴学燕独立复核。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/D7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "组装一巡检第一轮、硅化一巡检第一轮、小包装首检已重提并复核通过；其余27条此前通过。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/E7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "本地，测试1，吴学燕；生产执行、检验组长、PQC管理及历史表单；按881MO000017查工序、类型和轮次。退回这三条；杨珊从检验填报补正重提；吴学燕复核后刷新查审核人及时间。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/F7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "小包装第二密封强度明确确认5份模拟结果及标准，未沿用默认值；未发起不合格评审。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/G7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/H7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "name": "通过03",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\2026-11-28-03-本地重测\\PQC组长\\13-小包装首检第二密封强度复核通过.png",
+      "anchor": "H7:I8",
+      "alt": "退回补正及最终复核"
+    },
+    "parent": "/已通过",
+    "type": "picture",
+    "command": "add"
+  },
+  {
+    "props": {
+      "height": "290"
+    },
+    "path": "/已通过/row[8]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "通过04",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/A8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "第四工序数量差异澄清",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/B8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "不是同一字段前后不一致。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/C8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "原始生产量与本单分配量分别核对。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/D8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "原始生产5262件，本单分配5012件，相差250件，与此前未分配数量一致。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/E8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "本地，测试1，张飞红；生产执行、生产班长、活跃订单池；查881MO000017，确认实例1009200682。详情、生产表单、第四工序，对照原始生产和本单分配。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/F8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "撤回旧报告数量冲突疑点；未重复分配。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/G8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/已通过/H8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "name": "通过04",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\2026-11-28-03-本地重测\\生产组长\\第四工序-原始5262本单5012.png",
+      "anchor": "H8:I9",
+      "alt": "第四工序数量差异澄清"
+    },
+    "parent": "/已通过",
+    "type": "picture",
+    "command": "add"
+  },
+  {
+    "props": {
+      "name": "未通过"
+    },
+    "parent": "/",
+    "type": "sheet",
+    "command": "add"
+  },
+  {
+    "props": {
+      "tabColor": "AF3947",
+      "autoFilter": "A4:H12",
+      "freeze": "C5"
+    },
+    "path": "/未通过",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "第03主链本地重测结果：未通过",
+      "bold": "true",
+      "font.color": "FFFFFF",
+      "size": "20",
+      "font": "Microsoft YaHei",
+      "fill": "AF3947",
+      "merge": "A1:H1"
+    },
+    "path": "/未通过/A1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "merge": "A2:H2",
+      "font": "Microsoft YaHei",
+      "size": "11",
+      "wrapText": "true",
+      "value": "本地，测试1；订单881MO000017，实例1009200682，计划5012件。依据截至2026年11月28日05时54分收到的执行岗证据。"
+    },
+    "path": "/未通过/A2",
+    "command": "set"
+  },
+  {
+    "props": {
+      "merge": "A3:H3",
+      "font": "Microsoft YaHei",
+      "size": "11",
+      "wrapText": "true",
+      "value": "仅第03主链。整链未完成：双100%且30条复核完成，正式批号空，完工及下游未执行。均为模拟测试，不代表真实质量批准。生产旧记录仅查回，不冒称本轮重新执行。"
+    },
+    "path": "/未通过/A3",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "34"
+    },
+    "path": "/未通过/row[1]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "34"
+    },
+    "path": "/未通过/row[2]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "34"
+    },
+    "path": "/未通过/row[3]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "34"
+    },
+    "path": "/未通过/row[4]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "12"
+    },
+    "path": "/未通过/col[A]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "编号",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/未通过/A4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "27"
+    },
+    "path": "/未通过/col[B]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "检查内容",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/未通过/B4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "34"
+    },
+    "path": "/未通过/col[C]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "判定与状态",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/未通过/C4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "36"
+    },
+    "path": "/未通过/col[D]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "应当怎样",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/未通过/D4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "48"
+    },
+    "path": "/未通过/col[E]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "实际发生什么",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/未通过/E4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "65"
+    },
+    "path": "/未通过/col[F]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "完整测试路径与复现边界",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/未通过/F4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "52"
+    },
+    "path": "/未通过/col[G]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "恢复条件与证据限制",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/未通过/G4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "98"
+    },
+    "path": "/未通过/col[H]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "证据截图",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/未通过/H4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "290"
+    },
+    "path": "/未通过/row[5]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "阻塞01",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/未通过/A5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "双100%后无法完工",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/未通过/B5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "本单完工未通过，缺正式生产批号。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/未通过/C5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "批号等正式前置齐备后才允许完工申请。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/未通过/D5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "批号为空、完工按钮禁用，提示缺少正式生产批号，请由上游岗位维护后再申请完工。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/未通过/E5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "本地，测试1，张飞红；生产执行、生产班长、活跃订单池；查881MO000017，确认实例1009200682。刷新查询双100%，查看批号及完工按钮提示；管理员进入数据同步、生产订单，工单编号包含881MO000017查询并打开详情，批次号也为空且禁用。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/未通过/F5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "是数据前置缺失造成的阻塞，未确定程序根因；未完工、未申请、未猜填批号。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/未通过/G5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/未通过/H5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "name": "阻塞01",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\2026-11-28-03-本地重测\\生产组长\\续办-刷新批号空完工禁用.png",
+      "anchor": "H5:I6",
+      "alt": "双100%后无法完工"
+    },
+    "parent": "/未通过",
+    "type": "picture",
+    "command": "add"
+  },
+  {
+    "props": {
+      "name": "存疑"
+    },
+    "parent": "/",
+    "type": "sheet",
+    "command": "add"
+  },
+  {
+    "props": {
+      "tabColor": "A87318",
+      "autoFilter": "A4:H9",
+      "freeze": "C5"
+    },
+    "path": "/存疑",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "第03主链本地重测结果：存疑",
+      "bold": "true",
+      "font.color": "FFFFFF",
+      "size": "20",
+      "font": "Microsoft YaHei",
+      "fill": "A87318",
+      "merge": "A1:H1"
+    },
+    "path": "/存疑/A1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "merge": "A2:H2",
+      "font": "Microsoft YaHei",
+      "size": "11",
+      "wrapText": "true",
+      "value": "本地，测试1；订单881MO000017，实例1009200682，计划5012件。依据截至2026年11月28日05时54分收到的执行岗证据。"
+    },
+    "path": "/存疑/A2",
+    "command": "set"
+  },
+  {
+    "props": {
+      "merge": "A3:H3",
+      "font": "Microsoft YaHei",
+      "size": "11",
+      "wrapText": "true",
+      "value": "仅第03主链。整链未完成：双100%且30条复核完成，正式批号空，完工及下游未执行。均为模拟测试，不代表真实质量批准。生产旧记录仅查回，不冒称本轮重新执行。"
+    },
+    "path": "/存疑/A3",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "34"
+    },
+    "path": "/存疑/row[1]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "34"
+    },
+    "path": "/存疑/row[2]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "34"
+    },
+    "path": "/存疑/row[3]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "34"
+    },
+    "path": "/存疑/row[4]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "12"
+    },
+    "path": "/存疑/col[A]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "编号",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/存疑/A4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "27"
+    },
+    "path": "/存疑/col[B]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "检查内容",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/存疑/B4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "34"
+    },
+    "path": "/存疑/col[C]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "判定与状态",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/存疑/C4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "36"
+    },
+    "path": "/存疑/col[D]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "应当怎样",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/存疑/D4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "48"
+    },
+    "path": "/存疑/col[E]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "实际发生什么",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/存疑/E4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "65"
+    },
+    "path": "/存疑/col[F]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "完整测试路径与复现边界",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/存疑/F4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "52"
+    },
+    "path": "/存疑/col[G]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "恢复条件与证据限制",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/存疑/G4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "98"
+    },
+    "path": "/存疑/col[H]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "证据截图",
+      "wrapText": "true",
+      "bold": "true",
+      "size": "11",
+      "font.color": "FFFFFF",
+      "fill": "253E50",
+      "font": "Microsoft YaHei"
+    },
+    "path": "/存疑/H4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "290"
+    },
+    "path": "/存疑/row[5]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "存疑01",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/A5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "严格5%及第二工序超限",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/B5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "严格比例未满足，参数超限缺少条件。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/C5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "5012件增加5%为5262.6件；超出20%须有正式上限。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/D5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "第一工序保存5262件，增加约4.988%；第二工序缺明确上限，无法验证超出20%。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/E5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "本地，测试1，张飞红；生产执行、生产班长、活跃订单池；查881MO000017，确认实例1009200682。详情、生产表单；第一工序对照计划及原产数量，第二工序精洗查看参数范围与实际值。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/F5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "数量取整口径未确认，不重复报工；截图仅展示第二工序范围不足，第一工序数量依据生产回执。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/G5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/H5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "name": "存疑01",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\2026-11-28-03-本地重测\\生产组长\\第二工序-参数范围查回.png",
+      "anchor": "H5:I6",
+      "alt": "严格5%及第二工序超限"
+    },
+    "parent": "/存疑",
+    "type": "picture",
+    "command": "add"
+  },
+  {
+    "props": {
+      "height": "290"
+    },
+    "path": "/存疑/row[6]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "存疑02",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/A6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "第四工序参数超范围",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/B6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "没有设备参数，条件不适用。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/C6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "指南要求有参数时才测超范围。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/D6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "本工序没有可填写参数，未输入超限值。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/E6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "本地，测试1，张飞红；生产执行、生产班长、活跃订单池；查881MO000017，确认实例1009200682。详情、生产表单、第四工序清洁；查看设备和参数区域。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/F6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "不为测试擅自增加设备参数；不适用不等于功能故障。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/G6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/H6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "name": "存疑02",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\2026-11-28-03-本地重测\\生产组长\\第四工序-原始5262本单5012.png",
+      "anchor": "H6:I7",
+      "alt": "第四工序参数超范围"
+    },
+    "parent": "/存疑",
+    "type": "picture",
+    "command": "add"
+  },
+  {
+    "props": {
+      "height": "290"
+    },
+    "path": "/存疑/row[7]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "存疑03",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/A7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "金蝶原单正式批号",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/B7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "未取得原单批号，历史来源与组织未确认。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/C7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "需可对应的原单批号证据，不能凭同名工单跨环境匹配。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/D7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "本地详情批号空；不能据此断定ERP原单为空。当前配置指向正式账套，但不证明本单历史来源。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/E7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "本地，测试1，管理员；数据同步、生产订单；工单编号包含881MO000017查询，核对物料AW.107.02.01.4002、5012件，再打开详情查看批次号。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/F7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "需集成配置责任人确认本单历史来源及组织，再由该来源ERP订单责任人核对原单。未执行同步或远程ERP操作。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/G7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/H7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "name": "存疑03",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\2026-11-28-03-本地重测\\ERP批号核实\\02-本单详情批号为空.png",
+      "anchor": "H7:I8",
+      "alt": "金蝶原单正式批号"
+    },
+    "parent": "/存疑",
+    "type": "picture",
+    "command": "add"
+  },
+  {
+    "props": {
+      "height": "290"
+    },
+    "path": "/存疑/row[8]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "存疑04",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/A8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "本地当前连接正式账套",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/B8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "当前配置已查明，本单来源仍未确认。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/C8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "本地测试不得据当前配置猜测本单历史来源。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/D8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "11月28日05时46至05时51分，真实页面显示当前连接为正式账套；具体组织及维护人未证实。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/E8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "本地，测试1，管理员；ERP连接配置查看当前连接；配置管理搜索当前金蝶连接参数并核对值。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/F8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "未切换连接、未保存配置、未访问正式ERP。原单维护和同步需要先明确来源与权限边界。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/G8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/H8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "name": "存疑04",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\2026-11-28-03-本地重测\\来源配置核实\\01-测试1当前正式账套.png",
+      "anchor": "H8:I9",
+      "alt": "本地当前连接正式账套"
+    },
+    "parent": "/存疑",
+    "type": "picture",
+    "command": "add"
+  },
+  {
+    "props": {
+      "height": "290"
+    },
+    "path": "/存疑/row[9]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "存疑05",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/A9",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "完工至上市放行",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/B9",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "前置阻塞，以下节点均未执行。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/C9",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "完工申请、生产放行、四类上传、上市放行依次完成。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/D9",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "尚无生产放行申请，未生产放行、未上传四类资料、未上市放行或归档。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/E9",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "本地，测试1，张飞红；生产执行、生产班长、活跃订单池；查881MO000017，确认实例1009200682。批号恢复后张飞红完工申请；朱利江验证签名生产放行；成功后朱月浪上传来料检、丁加美上传灭菌、钱凤琴分别上传成品报告与记录；四类保存查回后宋媛验证签名上市放行，再刷新核对结果。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/F9",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "未测不等于已确认功能失败；不提前上传，不执行归档。整条主链尚未完成。",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/G9",
+    "command": "set"
+  },
+  {
+    "props": {
+      "value": "",
+      "wrapText": "true",
+      "size": "11",
+      "font": "Microsoft YaHei",
+      "valign": "top",
+      "fill": "FFFFFF"
+    },
+    "path": "/存疑/H9",
+    "command": "set"
+  },
+  {
+    "props": {
+      "name": "存疑05",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\2026-11-28-03-本地重测\\生产组长\\续办-生产检验双100未申请.png",
+      "anchor": "H9:I10",
+      "alt": "完工至上市放行"
+    },
+    "parent": "/存疑",
+    "type": "picture",
+    "command": "add"
+  }
+]

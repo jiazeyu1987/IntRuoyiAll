@@ -1,0 +1,544 @@
+{
+  "success": true,
+  "data": {
+    "matches": 1,
+    "results": [
+      {
+        "path": "/工艺路线",
+        "type": "sheet",
+        "preview": "工艺路线",
+        "childCount": 6,
+        "format": {
+          "margin.top": "0.75in",
+          "margin.bottom": "0.75in",
+          "margin.left": "0.7in",
+          "margin.right": "0.7in",
+          "margin.header": "0.3in",
+          "margin.footer": "0.3in"
+        },
+        "children": [
+          {
+            "path": "/工艺路线/row[1]",
+            "type": "row",
+            "childCount": 7,
+            "format": {},
+            "children": [
+              {
+                "path": "/工艺路线/A1",
+                "type": "cell",
+                "text": "路线编码",
+                "preview": "A1",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/B1",
+                "type": "cell",
+                "text": "路线名称",
+                "preview": "B1",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/C1",
+                "type": "cell",
+                "text": "状态",
+                "preview": "C1",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/D1",
+                "type": "cell",
+                "text": "负责人",
+                "preview": "D1",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/E1",
+                "type": "cell",
+                "text": "说明",
+                "preview": "E1",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/F1",
+                "type": "cell",
+                "text": "备注",
+                "preview": "F1",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/G1",
+                "type": "cell",
+                "text": "项目代码",
+                "preview": "G1",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              }
+            ]
+          },
+          {
+            "path": "/工艺路线/row[2]",
+            "type": "row",
+            "childCount": 7,
+            "format": {},
+            "children": [
+              {
+                "path": "/工艺路线/A2",
+                "type": "cell",
+                "text": "IDPR-GYLC-0001",
+                "preview": "A2",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/B2",
+                "type": "cell",
+                "text": "按压式球囊扩张压力泵工艺流程",
+                "preview": "B2",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/C2",
+                "type": "cell",
+                "text": "0.0",
+                "preview": "C2",
+                "childCount": 0,
+                "format": {
+                  "type": "Number"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/D2",
+                "type": "cell",
+                "text": "",
+                "preview": "D2",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString",
+                  "empty": true
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/E2",
+                "type": "cell",
+                "text": "",
+                "preview": "E2",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString",
+                  "empty": true
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/F2",
+                "type": "cell",
+                "text": "简易解析确认创建，需完成路线治理配置后启用",
+                "preview": "F2",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/G2",
+                "type": "cell",
+                "text": "IDPR",
+                "preview": "G2",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              }
+            ]
+          },
+          {
+            "path": "/工艺路线/row[3]",
+            "type": "row",
+            "childCount": 7,
+            "format": {},
+            "children": [
+              {
+                "path": "/工艺路线/A3",
+                "type": "cell",
+                "text": "IDML-GYLC-0001",
+                "preview": "A3",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/B3",
+                "type": "cell",
+                "text": "生产记录工艺流程",
+                "preview": "B3",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/C3",
+                "type": "cell",
+                "text": "0.0",
+                "preview": "C3",
+                "childCount": 0,
+                "format": {
+                  "type": "Number"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/D3",
+                "type": "cell",
+                "text": "",
+                "preview": "D3",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString",
+                  "empty": true
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/E3",
+                "type": "cell",
+                "text": "",
+                "preview": "E3",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString",
+                  "empty": true
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/F3",
+                "type": "cell",
+                "text": "简易解析确认创建，需完成路线治理配置后启用",
+                "preview": "F3",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/G3",
+                "type": "cell",
+                "text": "IDML",
+                "preview": "G3",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              }
+            ]
+          },
+          {
+            "path": "/工艺路线/row[4]",
+            "type": "row",
+            "childCount": 7,
+            "format": {},
+            "children": [
+              {
+                "path": "/工艺路线/A4",
+                "type": "cell",
+                "text": "IDE-GYLC-0001",
+                "preview": "A4",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/B4",
+                "type": "cell",
+                "text": "数显球囊扩张压力泵工艺流程",
+                "preview": "B4",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/C4",
+                "type": "cell",
+                "text": "0.0",
+                "preview": "C4",
+                "childCount": 0,
+                "format": {
+                  "type": "Number"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/D4",
+                "type": "cell",
+                "text": "",
+                "preview": "D4",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString",
+                  "empty": true
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/E4",
+                "type": "cell",
+                "text": "",
+                "preview": "E4",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString",
+                  "empty": true
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/F4",
+                "type": "cell",
+                "text": "简易解析确认创建，需完成路线治理配置后启用",
+                "preview": "F4",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/G4",
+                "type": "cell",
+                "text": "IDE",
+                "preview": "G4",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              }
+            ]
+          },
+          {
+            "path": "/工艺路线/row[5]",
+            "type": "row",
+            "childCount": 7,
+            "format": {},
+            "children": [
+              {
+                "path": "/工艺路线/A5",
+                "type": "cell",
+                "text": "ID-GYLC-0001",
+                "preview": "A5",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/B5",
+                "type": "cell",
+                "text": "球囊扩张压力泵工艺流程",
+                "preview": "B5",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/C5",
+                "type": "cell",
+                "text": "0.0",
+                "preview": "C5",
+                "childCount": 0,
+                "format": {
+                  "type": "Number"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/D5",
+                "type": "cell",
+                "text": "",
+                "preview": "D5",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString",
+                  "empty": true
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/E5",
+                "type": "cell",
+                "text": "",
+                "preview": "E5",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString",
+                  "empty": true
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/F5",
+                "type": "cell",
+                "text": "简易解析确认创建，需完成路线治理配置后启用",
+                "preview": "F5",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/G5",
+                "type": "cell",
+                "text": "ID",
+                "preview": "G5",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              }
+            ]
+          },
+          {
+            "path": "/工艺路线/row[6]",
+            "type": "row",
+            "childCount": 7,
+            "format": {},
+            "children": [
+              {
+                "path": "/工艺路线/A6",
+                "type": "cell",
+                "text": "IDI-GYLC-0001",
+                "preview": "A6",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/B6",
+                "type": "cell",
+                "text": "按压式球囊扩充压力泵工艺流程",
+                "preview": "B6",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/C6",
+                "type": "cell",
+                "text": "0.0",
+                "preview": "C6",
+                "childCount": 0,
+                "format": {
+                  "type": "Number"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/D6",
+                "type": "cell",
+                "text": "",
+                "preview": "D6",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString",
+                  "empty": true
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/E6",
+                "type": "cell",
+                "text": "",
+                "preview": "E6",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString",
+                  "empty": true
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/F6",
+                "type": "cell",
+                "text": "简易解析确认创建，需完成路线治理配置后启用",
+                "preview": "F6",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              },
+              {
+                "path": "/工艺路线/G6",
+                "type": "cell",
+                "text": "IDI",
+                "preview": "G6",
+                "childCount": 0,
+                "format": {
+                  "type": "SharedString"
+                },
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

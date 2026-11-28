@@ -1,0 +1,10 @@
+# Preserve document and evidence bytes on Windows checkouts.
+*.pdf -text
+*.doc -text
+*.docx -text
+*.xlsx -text
+*.png -text
+*.jpg -text
+*.zip -text
+*.jar -text
+*.class -text

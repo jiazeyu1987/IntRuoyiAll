@@ -1,0 +1,2353 @@
+[
+  {
+    "props": {
+      "name": "已通过"
+    },
+    "path": "/Sheet1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "name": "未通过"
+    },
+    "type": "sheet",
+    "parent": "/",
+    "command": "add"
+  },
+  {
+    "props": {
+      "name": "存疑"
+    },
+    "type": "sheet",
+    "parent": "/",
+    "command": "add"
+  },
+  {
+    "props": {
+      "gridlines": "false",
+      "zoom": "60",
+      "freeze": "A2"
+    },
+    "path": "/已通过",
+    "command": "set"
+  },
+  {
+    "props": {
+      "wrapText": "true",
+      "font.color": "FFFFFF",
+      "font.name": "Calibri",
+      "fill": "16324F",
+      "bold": "true",
+      "value": "测试内容"
+    },
+    "path": "/已通过/A1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "29"
+    },
+    "path": "/已通过/col[A]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "wrapText": "true",
+      "font.color": "FFFFFF",
+      "font.name": "Calibri",
+      "fill": "16324F",
+      "bold": "true",
+      "value": "预期结果"
+    },
+    "path": "/已通过/B1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "44"
+    },
+    "path": "/已通过/col[B]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "wrapText": "true",
+      "font.color": "FFFFFF",
+      "font.name": "Calibri",
+      "fill": "16324F",
+      "bold": "true",
+      "value": "本轮实际结果"
+    },
+    "path": "/已通过/C1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "72"
+    },
+    "path": "/已通过/col[C]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "wrapText": "true",
+      "font.color": "FFFFFF",
+      "font.name": "Calibri",
+      "fill": "16324F",
+      "bold": "true",
+      "value": "完整测试路径"
+    },
+    "path": "/已通过/D1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "84"
+    },
+    "path": "/已通过/col[D]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "wrapText": "true",
+      "font.color": "FFFFFF",
+      "font.name": "Calibri",
+      "fill": "16324F",
+      "bold": "true",
+      "value": "证据截图"
+    },
+    "path": "/已通过/E1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "100"
+    },
+    "path": "/已通过/col[E]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "环境及页面姓名",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/A2",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "确认本地开发、测试1、潘鑫。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/B2",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "真实页面显示本地开发、测试1和潘鑫；沿用现有登录，没有重新核验账号字符串。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/C2",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：环境及页面姓名。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/D2",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/E2",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/已通过/row[2]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E2:F3",
+      "alt": "环境及页面姓名",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\03-未选项目操作限制.png"
+    },
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "五个指定项目路线基线",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/A3",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "查清旧路线编号与版本。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/B3",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "IBPTR、PBAP、XSCX、PTCABC、QSN各有一条路线，编号为项目代码后接-GYLC-0001；全部第一版生效、第二版草稿、零个产品关联。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/C3",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：五个指定项目路线基线。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/D3",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/E3",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/已通过/row[3]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E3:F4",
+      "alt": "五个指定项目路线基线",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\01-路线列表.png"
+    },
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未选项目的操作限制",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/A4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未选项目不能导入、导出、保存和预览发布。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/B4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "四个入口均禁用。恢复草稿可见但未执行恢复旧内容。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/C4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：未选项目的操作限制。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/D4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/E4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/已通过/row[4]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E4:F5",
+      "alt": "未选项目的操作限制",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\03-未选项目操作限制.png"
+    },
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "目标项目占用提示",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/A5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "目标项目显示已有路线。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/B5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "五个候选均显示已有工艺流程；选择IBPTR后导入入口启用，没有上传文件。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/C5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：目标项目占用提示。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/D5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/已通过/E5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/已通过/row[5]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E5:F6",
+      "alt": "目标项目占用提示",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\04-项目已占用.png"
+    },
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add"
+  },
+  {
+    "props": {
+      "gridlines": "false",
+      "zoom": "60",
+      "freeze": "A2"
+    },
+    "path": "/未通过",
+    "command": "set"
+  },
+  {
+    "props": {
+      "wrapText": "true",
+      "font.color": "FFFFFF",
+      "font.name": "Calibri",
+      "fill": "16324F",
+      "bold": "true",
+      "value": "测试内容"
+    },
+    "path": "/未通过/A1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "29"
+    },
+    "path": "/未通过/col[A]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "wrapText": "true",
+      "font.color": "FFFFFF",
+      "font.name": "Calibri",
+      "fill": "16324F",
+      "bold": "true",
+      "value": "预期结果"
+    },
+    "path": "/未通过/B1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "44"
+    },
+    "path": "/未通过/col[B]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "wrapText": "true",
+      "font.color": "FFFFFF",
+      "font.name": "Calibri",
+      "fill": "16324F",
+      "bold": "true",
+      "value": "本轮实际结果"
+    },
+    "path": "/未通过/C1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "72"
+    },
+    "path": "/未通过/col[C]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "wrapText": "true",
+      "font.color": "FFFFFF",
+      "font.name": "Calibri",
+      "fill": "16324F",
+      "bold": "true",
+      "value": "完整测试路径"
+    },
+    "path": "/未通过/D1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "84"
+    },
+    "path": "/未通过/col[D]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "wrapText": "true",
+      "font.color": "FFFFFF",
+      "font.name": "Calibri",
+      "fill": "16324F",
+      "bold": "true",
+      "value": "证据截图"
+    },
+    "path": "/未通过/E1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "100"
+    },
+    "path": "/未通过/col[E]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "删除五条旧路线前置",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/未通过/A2",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "真实前端删除五条旧测试路线，再查询确认。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/未通过/B2",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "列表仅有编辑、复制、版本；树形详情有发布、修改、查看、版本和移动，没有找到删除入口。未提交删除，旧路线仍在。不能断定根因是权限还是功能设计。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/未通过/C2",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：删除五条旧路线前置。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/未通过/D2",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/未通过/E2",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/未通过/row[2]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E2:F3",
+      "alt": "删除五条旧路线前置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/未通过",
+    "command": "add"
+  },
+  {
+    "props": {
+      "gridlines": "false",
+      "zoom": "60",
+      "freeze": "A2"
+    },
+    "path": "/存疑",
+    "command": "set"
+  },
+  {
+    "props": {
+      "wrapText": "true",
+      "font.color": "FFFFFF",
+      "font.name": "Calibri",
+      "fill": "16324F",
+      "bold": "true",
+      "value": "测试内容"
+    },
+    "path": "/存疑/A1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "29"
+    },
+    "path": "/存疑/col[A]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "wrapText": "true",
+      "font.color": "FFFFFF",
+      "font.name": "Calibri",
+      "fill": "16324F",
+      "bold": "true",
+      "value": "预期结果"
+    },
+    "path": "/存疑/B1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "44"
+    },
+    "path": "/存疑/col[B]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "wrapText": "true",
+      "font.color": "FFFFFF",
+      "font.name": "Calibri",
+      "fill": "16324F",
+      "bold": "true",
+      "value": "本轮实际结果"
+    },
+    "path": "/存疑/C1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "72"
+    },
+    "path": "/存疑/col[C]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "wrapText": "true",
+      "font.color": "FFFFFF",
+      "font.name": "Calibri",
+      "fill": "16324F",
+      "bold": "true",
+      "value": "完整测试路径"
+    },
+    "path": "/存疑/D1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "84"
+    },
+    "path": "/存疑/col[D]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "wrapText": "true",
+      "font.color": "FFFFFF",
+      "font.name": "Calibri",
+      "fill": "16324F",
+      "bold": "true",
+      "value": "证据截图"
+    },
+    "path": "/存疑/E1",
+    "command": "set"
+  },
+  {
+    "props": {
+      "width": "100"
+    },
+    "path": "/存疑/col[E]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "登录账号字符串独立核验",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A2",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "核对登录账号为panxin。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B2",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "姓名潘鑫和测试1已核实，但页面没有显示账号字符串；未退出重登，不计为账号字符串独立验证通过。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C2",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：登录账号字符串独立核验。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D2",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E2",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[2]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E2:F3",
+      "alt": "登录账号字符串独立核验",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\03-未选项目操作限制.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "Word导入与工序物料设备参数解析",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A3",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B3",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C3",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：Word导入与工序物料设备参数解析。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D3",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E3",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[3]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E3:F4",
+      "alt": "Word导入与工序物料设备参数解析",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "错误文件和重新导入取消保留",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：错误文件和重新导入取消保留。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E4",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[4]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E4:F5",
+      "alt": "错误文件和重新导入取消保留",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "流程名称与车间必填及保存",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：流程名称与车间必填及保存。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E5",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[5]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E5:F6",
+      "alt": "流程名称与车间必填及保存",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "工序增删改排序和撤销",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：工序增删改排序和撤销。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E6",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[6]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E6:F7",
+      "alt": "工序增删改排序和撤销",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "已有工序复用及重复拦截",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：已有工序复用及重复拦截。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E7",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[7]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E7:F8",
+      "alt": "已有工序复用及重复拦截",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "输入输出物料搜索修正增删",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：输入输出物料搜索修正增删。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E8",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[8]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E8:F9",
+      "alt": "输入输出物料搜索修正增删",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "设备目录复用新建及失败重载",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A9",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B9",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C9",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：设备目录复用新建及失败重载。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D9",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E9",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[9]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E9:F10",
+      "alt": "设备目录复用新建及失败重载",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "设备组增删单选多选及开关恢复",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A10",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B10",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C10",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：设备组增删单选多选及开关恢复。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D10",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E10",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[10]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E10:F11",
+      "alt": "设备组增删单选多选及开关恢复",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "参数增删改及缺项非法配置",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A11",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B11",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C11",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：参数增删改及缺项非法配置。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D11",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E11",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[11]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E11:F12",
+      "alt": "参数增删改及缺项非法配置",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "已有工艺带入与编辑限制",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A12",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B12",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C12",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：已有工艺带入与编辑限制。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D12",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E12",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[12]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E12:F13",
+      "alt": "已有工艺带入与编辑限制",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "逐工序试填预览与填写校验",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A13",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B13",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C13",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：逐工序试填预览与填写校验。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D13",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E13",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[13]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E13:F14",
+      "alt": "逐工序试填预览与填写校验",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "保存草稿刷新恢复及替换确认",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A14",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B14",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C14",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：保存草稿刷新恢复及替换确认。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D14",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E14",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[14]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E14:F15",
+      "alt": "保存草稿刷新恢复及替换确认",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "导出Word并重新导入完整恢复",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A15",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B15",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C15",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：导出Word并重新导入完整恢复。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D15",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E15",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[15]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E15:F16",
+      "alt": "导出Word并重新导入完整恢复",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "待修正项定位与补正",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A16",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B16",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C16",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：待修正项定位与补正。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D16",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E16",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[16]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E16:F17",
+      "alt": "待修正项定位与补正",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "复用确认取消返回与重新预览",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A17",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B17",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C17",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：复用确认取消返回与重新预览。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D17",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E17",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[17]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E17:F18",
+      "alt": "复用确认取消返回与重新预览",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "工序设备工艺流程四页签预览",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A18",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B18",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C18",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：工序设备工艺流程四页签预览。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D18",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E18",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[18]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E18:F19",
+      "alt": "工序设备工艺流程四页签预览",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "发布缺项拦截及取消不建档",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A19",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B19",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C19",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：发布缺项拦截及取消不建档。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D19",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E19",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[19]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E19:F20",
+      "alt": "发布缺项拦截及取消不建档",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "确认发布结果编号与重复建档检查",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A20",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B20",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C20",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：确认发布结果编号与重复建档检查。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D20",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E20",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[20]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E20:F21",
+      "alt": "确认发布结果编号与重复建档检查",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "配置并发布进入本次候选版本",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A21",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B21",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C21",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：配置并发布进入本次候选版本。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D21",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E21",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[21]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E21:F22",
+      "alt": "配置并发布进入本次候选版本",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "逐道核对候选版本内容一致性",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A22",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B22",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C22",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：逐道核对候选版本内容一致性。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D22",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E22",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[22]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E22:F23",
+      "alt": "逐道核对候选版本内容一致性",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "退出重开确认本轮流程终点",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A23",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B23",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C23",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：退出重开确认本轮流程终点。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D23",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E23",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[23]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E23:F24",
+      "alt": "退出重开确认本轮流程终点",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "范围外资料前后对照",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/A24",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "依指南在本轮新建测试内容上完成并核验。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/B24",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "未执行。规定先删除五条旧路线，当前没有前端删除入口，因此没有开始依赖此前置的新一轮导入、编辑或创建。覆盖五个指定项目，不以历史结果代替本轮通过。截图仅说明共同前置阻塞，不代表本节点已经执行。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/C24",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "打开本地服务器 http://localhost:8081，测试1租户，页面用户潘鑫。进入eDHR批记录的工艺流程，列表查询与新增查看五条目标路线；切换树形管理，展开待分配并选择目标路线，查找删除入口。删除并重新查询确认后，进入生产编制，按固定映射继续。当前节点：范围外资料前后对照。项目与来源对应：IBPTR用ID，PBAP用IDE，XSCX用IDI，PTCABC用IDML，QSN用IDPR。源文件在C:\\Users\\BJB110\\Desktop\\初始化文件包\\产品中，各代码目录下的生产记录；ID、IDE、IDML为doc，IDI、IDPR为docx。",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/D24",
+    "command": "set"
+  },
+  {
+    "props": {
+      "font.size": "11",
+      "wrapText": "true",
+      "value": "",
+      "font.name": "Calibri",
+      "alignment.vertical": "top"
+    },
+    "path": "/存疑/E24",
+    "command": "set"
+  },
+  {
+    "props": {
+      "height": "260"
+    },
+    "path": "/存疑/row[24]",
+    "command": "set"
+  },
+  {
+    "props": {
+      "anchor": "E24:F25",
+      "alt": "范围外资料前后对照",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\生产解析重测202611281542\\evidence\\02-树形详情无删除入口.png"
+    },
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add"
+  }
+]

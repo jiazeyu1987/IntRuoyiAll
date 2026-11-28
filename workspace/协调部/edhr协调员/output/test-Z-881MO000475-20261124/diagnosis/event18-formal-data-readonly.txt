@@ -1,0 +1,21 @@
+db_time	time_zone
+2026-11-24 18:12:18	SYSTEM
+id	event_type	work_order_id	qa_process_id	feedback_source_type	feedback_source_id	server_submit_time	actual_employee_id	submission_group	inspection_type
+12	PQC_INSPECTION	1188864	211	MES_PQC_INSPECTION_TASK	123	2026-11-24 14:51:40	912178	"PQC-22d8b3b3-3d06-483c-b736-3a34bcc1c3ee"	"FIRST"
+18	PQC_INSPECTION	1188864	211	MES_PQC_INSPECTION_TASK	124	2026-11-24 14:58:44	912178	"PQC-76304110-a6cb-4ec7-8c2b-578af195d356"	"PATROL"
+task_id	item_code	item_name	inspection_method	samples	min_sample	max_sample	ok_count	judgements
+123	PQC-CR-003-I001	外观	在正常视力或矫正视力在光线充足的情况下，距离产品30-40cm观察。	20	1	20	0	SUCCESS
+123	PQC-CR-003-I002	密封强度	将样品裁成宽度为15±1mm，轻轻用1.2N砝码悬吊于样品条一端，用手轻轻拉起另一端，观察30s，封口处应不剥离脱落。	5	1	5	0	SUCCESS
+123	PQC-CR-003-I003	密封强度	将样品裁成宽度为15±1mm，轻轻用1.5N砝码悬吊于样品条一端，用手轻轻拉起另一端，观察30s，封口处应不剥离脱落。	5	1	5	0	SUCCESS
+123	PQC-CR-003-I004	密封泄漏	用注射器向包装内注入足够的染色液（0.5%TritonX-100、0.05%Toluidine（甲苯胺蓝）、99.45%纯化水），使能覆盖包装的最长边，深约5mm，旋转包装，对于四面封口的包装每个边最多接触5S，总时间小于或等于20S。在这一时间段内，通过包装的透明面，目力检验密封区有无染料穿透，形成泄漏通道。	5	1	5	0	SUCCESS
+124	PQC-CR-003-I001	外观	在正常视力或矫正视力在光线充足的情况下，距离产品30-40cm观察。	80	1	80	0	SUCCESS
+id	regulation_version_id	qa_process_id	inspection_type	item_code	item_name	inspection_method	first_inspection_quantity	inspection_level	aql	source_note	source_original_item
+1173	14	211	FIRST	PQC-CR-003-I001	外观	在正常视力或矫正视力在光线充足的情况下，距离产品30-40cm观察。	20	NULL	0.250000	导入自 QA 模板：1-初包装过程检验规程.docx	初包装过程检验规程 / 外观
+1174	14	211	PATROL	PQC-CR-003-I001	外观	在正常视力或矫正视力在光线充足的情况下，距离产品30-40cm观察。	NULL	I	0.250000	导入自 QA 模板：1-初包装过程检验规程.docx	初包装过程检验规程 / 外观
+1175	14	211	FIRST	PQC-CR-003-I002	密封强度	将样品裁成宽度为15±1mm，轻轻用1.2N砝码悬吊于样品条一端，用手轻轻拉起另一端，观察30s，封口处应不剥离脱落。	5	NULL	NULL	导入自 QA 模板：1-初包装过程检验规程.docx	初包装过程检验规程 / 密封强度
+1176	14	211	FIRST	PQC-CR-003-I003	密封强度	将样品裁成宽度为15±1mm，轻轻用1.5N砝码悬吊于样品条一端，用手轻轻拉起另一端，观察30s，封口处应不剥离脱落。	5	NULL	NULL	导入自 QA 模板：1-初包装过程检验规程.docx	初包装过程检验规程 / 密封强度
+1177	14	211	FIRST	PQC-CR-003-I004	密封泄漏	用注射器向包装内注入足够的染色液（0.5%TritonX-100、0.05%Toluidine（甲苯胺蓝）、99.45%纯化水），使能覆盖包装的最长边，深约5mm，旋转包装，对于四面封口的包装每个边最多接触5S，总时间小于或等于20S。在这一时间段内，通过包装的透明面，目力检验密封区有无染料穿透，形成泄漏通道。	5	NULL	NULL	导入自 QA 模板：1-初包装过程检验规程.docx	初包装过程检验规程 / 密封泄漏
+id	regulation_id	version_no	lifecycle_status	inspection_type_rules_json	snapshot_keys	published_at
+14	10	A/8	PUBLISHED	[{"inspectionType":"FIRST","key":"FIRST","label":"首检","releaseGate":"缺少适用检验项目时不能发布","required":true,"roundLabel":"每个适用订单开始前","taskRule":"按发布规程固定数量生成首检任务"},{"inspectionType":"PATROL","key":"PATROL","label":"巡检","releaseGate":"缺少适用检验项目时不能发布","required":true,"roundLabel":"按实际创建次数编号","taskRule":"按订单批量与项目检验水平查询抽样矩阵生成任务"},{"inspectionType":"FINAL","key":"FINAL","label":"末检","notApplicableReason":"导入后按检验工序设置末检，当前均未开启","releaseGate":"末检适用性必须明确","required":false,"roundLabel":"订单结束前","taskRule":"启用末检时生成末检任务"}]	["processes", "versionNo", "ownerModule", "regulationId", "effectiveDate", "regulationCode", "regulationName", "inspectionTypeRules", "expectedDraftRevision", "finalInspectionApplicable", "finalInspectionNotApplicableReason"]	2026-11-24 11:07:26
+id	event_id	qa_process_id	inspection_result	process_inspection_aggregation_status	server_submit_time
+11	18	211	SUCCESS	PENDING	2026-11-24 14:58:44

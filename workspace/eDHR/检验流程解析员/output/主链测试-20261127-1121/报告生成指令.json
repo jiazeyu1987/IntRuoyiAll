@@ -1,0 +1,5588 @@
+[
+  {
+    "type": "sheet",
+    "parent": "/",
+    "command": "add",
+    "props": {
+      "name": "已通过"
+    }
+  },
+  {
+    "type": "sheet",
+    "parent": "/",
+    "command": "add",
+    "props": {
+      "name": "未通过"
+    }
+  },
+  {
+    "type": "sheet",
+    "parent": "/",
+    "command": "add",
+    "props": {
+      "name": "存疑"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过",
+    "props": {
+      "freeze": "D3",
+      "autoFilter": "A2:H27"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A1:G1",
+    "props": {
+      "merge": "true",
+      "fill": "EAF0F6",
+      "value": "本地主链复测：已通过 25项。2026年11月27日，测试1，潘鑫。全链未通过，项目列表异常使部分节点未执行。",
+      "wrapText": "true",
+      "bold": "true"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[1]",
+    "props": {
+      "height": "42"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/col[A]",
+    "props": {
+      "width": "9"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A2",
+    "props": {
+      "value": "编号",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/col[B]",
+    "props": {
+      "width": "24"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B2",
+    "props": {
+      "value": "测试环节",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/col[C]",
+    "props": {
+      "width": "28"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C2",
+    "props": {
+      "value": "测试对象",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/col[D]",
+    "props": {
+      "width": "34"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D2",
+    "props": {
+      "value": "操作方法",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/col[E]",
+    "props": {
+      "width": "34"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E2",
+    "props": {
+      "value": "应有结果",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/col[F]",
+    "props": {
+      "width": "48"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F2",
+    "props": {
+      "value": "实际结果",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/col[G]",
+    "props": {
+      "width": "48"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G2",
+    "props": {
+      "value": "限制及后续处理",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/col[H]",
+    "props": {
+      "width": "80"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H2",
+    "props": {
+      "value": "证据截图",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[2]",
+    "props": {
+      "height": "28"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA01",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "环境身份和入口",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "本地，测试1，潘鑫",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "进入系统核对身份及检验菜单。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "环境、租户和账号正确。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "页面显示测试1和潘鑫，检验编制、通用编制和正式规程菜单可见。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "菜单可见不代表全部操作均可完成。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[3]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H3:I4",
+      "alt": "环境身份和入口：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\02-ID导入九工序十九项目.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA02",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "产品文件解析",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "ID产品",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "选择真实产品，导入对应规程。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "生成可编辑的工序和项目。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "生成9道工序、19个检验项目。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "按指南不核对原文是否正确。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[4]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H4:I5",
+      "alt": "产品文件解析：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\02-ID导入九工序十九项目.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA03",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "产品文件解析",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "IDE产品",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "选择真实产品，导入对应规程。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "显示工序、项目和待补充内容。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "生成7道工序、28项，12处设备待补充。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "本项仅验证导入，本次未发布该产品。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[5]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H5:I6",
+      "alt": "产品文件解析：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\17-IDE导入.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A6",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA04",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B6",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "产品文件解析",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C6",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "IDI产品",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D6",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "选择真实产品，导入对应规程。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E6",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "显示工序、项目和待补充内容。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F6",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "生成6道工序、22项，8处设备待补充。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G6",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "本项仅验证导入，本次未发布该产品。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H6",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[6]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H6:I7",
+      "alt": "产品文件解析：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\18-IDI导入.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A7",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA05",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B7",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "产品文件解析",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C7",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "IDML产品",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D7",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "选择真实产品，导入对应规程。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E7",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "显示工序、项目和待补充内容。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F7",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "生成10道工序、27项，9处设备待补充。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G7",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "本项仅验证导入，本次未发布该产品。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H7",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[7]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H7:I8",
+      "alt": "产品文件解析：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\19-IDML导入.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A8",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA06",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B8",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "产品文件解析",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C8",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "IDPR产品",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D8",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "选择真实产品，导入对应规程。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E8",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "显示工序、项目和待补充内容。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F8",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "生成10道工序、27项，9处设备待补充。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G8",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "本项仅验证导入，本次未发布该产品。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H8",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[8]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H8:I9",
+      "alt": "产品文件解析：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\20-IDPR导入.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A9",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA07",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B9",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "错误文件拦截",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C9",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "通用编制",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D9",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "导入内容无效的文档。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E9",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "拒绝错误文件，不允许空内容发布。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F9",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "解析失败且发布不可用，没有生成正式版本。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G9",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "英文提示不易懂的问题另列未通过。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H9",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[9]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H9:I10",
+      "alt": "错误文件拦截：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\08-错误文件拦截.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A10",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA08",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B10",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "失败后恢复",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C10",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "大中包装通用规程",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D10",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "错误文件之后导入有效文件。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E10",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "可以恢复正常解析和发布。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F10",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "有效文件生成1道工序3项，成功发布第4版。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G10",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "没有绕过失败或伪造解析结果。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H10",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[10]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H10:I11",
+      "alt": "失败后恢复：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\09-大中包装A4发布结果.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A11",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA09",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B11",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "缺项发布拦截",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C11",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "ID产品",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D11",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "缺设备时打开发布预览。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E11",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "指出缺失项并禁止发布。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F11",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "显示8处设备缺失，确认发布不可用。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G11",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "补齐设备后再继续，不关闭设备要求。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H11",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[11]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H11:I12",
+      "alt": "缺项发布拦截：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\03-缺设备发布预览.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A12",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA10",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B12",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "新增修改和排序",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C12",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "ID清洗工序",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D12",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "新增临时项目、改名并上移。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E12",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "数量、名称和顺序正确变化。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F12",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "清洗从1项变2项，临时项目上移到外观之前。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G12",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "临时项目未发布，后续已删除。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H12",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[12]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H12:I13",
+      "alt": "新增修改和排序：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\04-新增修改上移临时项目.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A13",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA11",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B13",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "取消删除和确认删除",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C13",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "ID清洗工序",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D13",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "先取消删除，再确认删除。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E13",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "取消保留项目，确认恢复原数量。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F13",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "取消后仍保留；确认后清洗恢复1项，总数恢复19项。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G13",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "截图是删除后保存恢复状态，不是删除弹窗截图。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H13",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[13]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H13:I14",
+      "alt": "取消删除和确认删除：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\05-刷新恢复浏览器草稿.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A14",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA12",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B14",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "设备配置",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C14",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "ID的8处设备要求",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D14",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "逐项选择符合要求的真实设备候选项。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E14",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "设备缺项归零。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F14",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "撤压、砝码、扭力、高压和低压等8处完成绑定，待修正问题归零。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G14",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "仅证明编制器配置，正式版设备回查受阻。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H14",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[14]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H14:I15",
+      "alt": "设备配置：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\05-刷新恢复浏览器草稿.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A15",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA13",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B15",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "保存重复保存和刷新恢复",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C15",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "ID编制草稿",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D15",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "连续保存两次，再刷新并恢复。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E15",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "无重复保存错误，内容能恢复。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F15",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "两次提示保存在当前浏览器；恢复后仍为9道工序19项，设备缺项为零。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G15",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "浏览器草稿不等于服务器正式版本。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H15",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[15]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H15:I16",
+      "alt": "保存重复保存和刷新恢复：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\05-刷新恢复浏览器草稿.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A16",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA14",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B16",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "发布提交反馈",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C16",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "ID产品",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D16",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "补齐设备后预览并确认发布一次。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E16",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "出现明确发布完成反馈。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F16",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "页面显示发布完成，G的第6版。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G16",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "只确认提交反馈，正式内容重新读取另列存疑。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H16",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[16]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H16:I17",
+      "alt": "发布提交反馈：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\06-ID发布完成G6.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A17",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA15",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B17",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "通用规程发布前基线",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C17",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "大中包装与初包装",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D17",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "读取现有正式版本和数量。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E17",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "取得本次实际基线。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F17",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "大中包装为A的第3版，1道工序3项；初包装为A的第8版，1道工序4项。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G17",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "美联旧版本未独立取证，不使用上次报告代替。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H17",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[17]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H17:I18",
+      "alt": "通用规程发布前基线：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\07-大中包装基线A3.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A18",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA16",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B18",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "通用导入保存预览发布",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C18",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "大中包装通用规程",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D18",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "导入文件，保存并预览发布。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E18",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "发布后显示版本和项目。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F18",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "发布A的第4版，结果窗口显示1道工序3项。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G18",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "随后从正式页面读取成功，并继续升到第5版。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H18",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[18]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H18:I19",
+      "alt": "通用导入保存预览发布：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\09-大中包装A4发布结果.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A19",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA17",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B19",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "通用导入保存预览发布",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C19",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "初包装通用规程",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D19",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "导入、保存、预览发布，再从正式页面查询。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E19",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "正式页面可找到新版本。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F19",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "发布A的第9版，1道工序4项；正式页面重新选择仍显示第9版和4项。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G19",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "器具原文仍保留，不代表执行前设备已全部绑定。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H19",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[19]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H19:I20",
+      "alt": "通用导入保存预览发布：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\21-初包装A9发布结果.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A20",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA18",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B20",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "通用导入保存预览发布",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C20",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "美联初包装通用规程",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D20",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "导入、保存、预览发布并重新查询。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E20",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "新版本及数量持久保留。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F20",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "发布B的第3版，重新查询为已发布、1道工序4项。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G20",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "没有发布临时抽样修改。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H20",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[20]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H20:I21",
+      "alt": "通用导入保存预览发布：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\23-美联B3重新查询.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A21",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA19",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B21",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "通用草稿隔离",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C21",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "大中包装通用规程",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D21",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "修改名称保存草稿，再查看旧正式版。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E21",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "草稿修改不覆盖正式版。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F21",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "草稿第5版名称增加主链复测；正式第4版仍保留原名称。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G21",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "仅验证名称与数量，未完整比较设备及产品关联。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H21",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[21]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H21:I22",
+      "alt": "通用草稿隔离：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\13-通用草稿未改变正式版.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A22",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA20",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B22",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "通用升级与刷新核验",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C22",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "大中包装通用规程",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D22",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "发布第5版并整页重新加载。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E22",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "新名称和数量保留。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F22",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "重新加载为A的第5版、已发布，名称含主链复测，仍为1道工序3项。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G22",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "该测试名称保留，未执行重置。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H22",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[22]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H22:I23",
+      "alt": "通用升级与刷新核验：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\15-通用A5刷新验证.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A23",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA21",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B23",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "历史内容保留",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C23",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "大中包装历史第4版",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D23",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "发布第5版后再选历史第4版。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E23",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "旧版名称和数量不被新版覆盖。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F23",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "旧版原名称和1道工序3项仍在，页面只读。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G23",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "版本字段显示矛盾另列未通过，不据此认定内容丢失。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H23",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[23]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H23:I24",
+      "alt": "历史内容保留：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\16-历史版本编辑版本显示错误.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A24",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA22",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B24",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "导出回导主要字段",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C24",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "大中包装第4版的3项",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D24",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "导出实际文件再回导，逐项查看。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E24",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "主要字段和顺序保持一致。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F24",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "外观、标签说明书合格证、包装标识三项的顺序、接受标准、方法、器具及抽样说明一致。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G24",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "隐藏字段及内部设备编号未完整核对，另列存疑。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H24",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[24]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H24:I25",
+      "alt": "导出回导主要字段：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\11-回导第三项要求.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A25",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA23",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B25",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "抽样编辑和放弃修改",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C25",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "美联初包装外观项",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D25",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "首检数量从20临时改21，不保存，刷新。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E25",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "未保存改动不进入正式版。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F25",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "先显示21和未保存修改；刷新恢复20，未保存提示消失。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G25",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "没有保存或发布临时数值。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H25",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[25]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H25:I26",
+      "alt": "抽样编辑和放弃修改：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\25-刷新丢弃未保存修改.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A26",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA24",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B26",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "筛选与无匹配提示",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C26",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "通用规程选择框",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D26",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "搜不存在的名称，再搜大中包装。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E26",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "无结果有提示，有结果只显示符合项。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F26",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "不存在的名称显示无匹配数据；搜索大中包装只显示对应规程。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G26",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "不是产品检验项目表的筛选。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H26",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[26]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H26:I27",
+      "alt": "筛选与无匹配提示：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\26-无匹配数据.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/A27",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA25",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/B27",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "单页数量与翻页边界",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/C27",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "美联初包装4项",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/D27",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "查看总数、页码及翻页按钮。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/E27",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "总数4项，一页即可显示。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/F27",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "共4条，每页20条，页码1，上下页均不可用。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/G27",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "跨页未覆盖，不能用单页状态代替。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/H27",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/已通过/row[27]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/已通过",
+    "command": "add",
+    "props": {
+      "anchor": "H27:I28",
+      "alt": "单页数量与翻页边界：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\25-刷新丢弃未保存修改.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过",
+    "props": {
+      "freeze": "D3",
+      "autoFilter": "A2:H5"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/A1:G1",
+    "props": {
+      "merge": "true",
+      "fill": "EAF0F6",
+      "value": "本地主链复测：未通过 3项。2026年11月27日，测试1，潘鑫。全链未通过，项目列表异常使部分节点未执行。",
+      "wrapText": "true",
+      "bold": "true"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/row[1]",
+    "props": {
+      "height": "42"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/col[A]",
+    "props": {
+      "width": "9"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/A2",
+    "props": {
+      "value": "编号",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/col[B]",
+    "props": {
+      "width": "24"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/B2",
+    "props": {
+      "value": "测试环节",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/col[C]",
+    "props": {
+      "width": "28"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/C2",
+    "props": {
+      "value": "测试对象",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/col[D]",
+    "props": {
+      "width": "34"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/D2",
+    "props": {
+      "value": "操作方法",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/col[E]",
+    "props": {
+      "width": "34"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/E2",
+    "props": {
+      "value": "应有结果",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/col[F]",
+    "props": {
+      "width": "48"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/F2",
+    "props": {
+      "value": "实际结果",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/col[G]",
+    "props": {
+      "width": "48"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/G2",
+    "props": {
+      "value": "限制及后续处理",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/col[H]",
+    "props": {
+      "width": "80"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/H2",
+    "props": {
+      "value": "证据截图",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/row[2]",
+    "props": {
+      "height": "28"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/A3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA26",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/B3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "正式产品项目列表加载",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/C3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "检验规程页面",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/D3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "打开页面并重新加载一次。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/E3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "能选择产品并读取正式规程。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/F3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "持续显示项目代码加载失败和系统异常，产品列表不可用。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/G3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "需维护方修复本地列表加载；关联、产品历史和重置依赖它。本次未改代码或服务。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/H3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/row[3]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/未通过",
+    "command": "add",
+    "props": {
+      "anchor": "H3:I4",
+      "alt": "正式产品项目列表加载：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\01-正式规程项目加载失败.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/A4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA27",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/B4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "历史版本显示一致性",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/C4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "大中包装历史第4版",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/D4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "新第5版发布后查看历史第4版。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/E4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "当前选择与只读版本说明一致。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/F4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "顶部选择历史第4版且名称正确，但只读编辑版本显示第6版，容易误认。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/G4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "需维护方核实并修正展示；未证明数据库版本错误或数据丢失。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/H4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/row[4]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/未通过",
+    "command": "add",
+    "props": {
+      "anchor": "H4:I5",
+      "alt": "历史版本显示一致性：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\16-历史版本编辑版本显示错误.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/A5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA28",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/B5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "错误提示可读性",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/C5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "通用编制无效文件",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/D5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "查看解析失败提示。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/E5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "用中文说明文件格式有误及处理办法。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/F5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "页面显示英文压缩结构错误，普通用户不易理解。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/G5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "拒绝文件功能本身已通过，本项只评价提示文字。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/H5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/未通过/row[5]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/未通过",
+    "command": "add",
+    "props": {
+      "anchor": "H5:I6",
+      "alt": "错误提示可读性：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\08-错误文件拦截.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑",
+    "props": {
+      "freeze": "D3",
+      "autoFilter": "A2:H13"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/A1:G1",
+    "props": {
+      "merge": "true",
+      "fill": "EAF0F6",
+      "value": "本地主链复测：存疑 11项。2026年11月27日，测试1，潘鑫。全链未通过，项目列表异常使部分节点未执行。",
+      "wrapText": "true",
+      "bold": "true"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/row[1]",
+    "props": {
+      "height": "42"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/col[A]",
+    "props": {
+      "width": "9"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/A2",
+    "props": {
+      "value": "编号",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/col[B]",
+    "props": {
+      "width": "24"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/B2",
+    "props": {
+      "value": "测试环节",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/col[C]",
+    "props": {
+      "width": "28"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/C2",
+    "props": {
+      "value": "测试对象",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/col[D]",
+    "props": {
+      "width": "34"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/D2",
+    "props": {
+      "value": "操作方法",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/col[E]",
+    "props": {
+      "width": "34"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/E2",
+    "props": {
+      "value": "应有结果",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/col[F]",
+    "props": {
+      "width": "48"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/F2",
+    "props": {
+      "value": "实际结果",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/col[G]",
+    "props": {
+      "width": "48"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/G2",
+    "props": {
+      "value": "限制及后续处理",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/col[H]",
+    "props": {
+      "width": "80"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/H2",
+    "props": {
+      "value": "证据截图",
+      "fill": "21445A",
+      "bold": "true",
+      "wrapText": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/row[2]",
+    "props": {
+      "height": "28"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/A3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA29",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/B3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "产品正式基线与发布回查",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/C3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "ID和非目标产品",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/D3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "准备读取正式版本及发布后的内容。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/E3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "取得本次前后版本和完整正式内容。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/F3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "产品列表不可用；ID显示发布第6版完成，但尚未重新读取正式内容。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/G3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "截图是阻塞证据，不是该业务动作已执行的证据。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/H3",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/row[3]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add",
+    "props": {
+      "anchor": "H3:I4",
+      "alt": "产品正式基线与发布回查：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\01-正式规程项目加载失败.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/A4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA30",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/B4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "指定通用版本关联并发布",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/C4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "ID产品与通用规程",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/D4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "准备关联指定通用版本。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/E4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "产品发布后保留确定版本。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/F4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "产品正式入口受阻，未提交关联。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/G4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "列表修复后从本节点恢复，不重复已通过的解析。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/H4",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/row[4]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add",
+    "props": {
+      "anchor": "H4:I5",
+      "alt": "指定通用版本关联并发布：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\01-正式规程项目加载失败.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/A5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA31",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/B5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "产品草稿修改和升版",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/C5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "ID正式产品规程",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/D5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "准备改草稿、比较旧版并发布新版。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/E5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "旧正式版不变，新版含修改。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/F5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "未进入正式产品编辑页；编制器草稿恢复不能代替产品正式草稿测试。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/G5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "等待产品列表恢复。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/H5",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/row[5]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add",
+    "props": {
+      "anchor": "H5:I6",
+      "alt": "产品草稿修改和升版：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\01-正式规程项目加载失败.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/A6",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA32",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/B6",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "通用升级后旧关联不变",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/C6",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "ID产品的原通用关联",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/D6",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "通用升版后准备回查产品旧关联。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/E6",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "旧关联仍固定旧通用版本。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/F6",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "大中包装第5版已核实，产品旧关联因列表故障未核实。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/G6",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "发布确认框说保留关联，不等于实际关联已核验。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/H6",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/row[6]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add",
+    "props": {
+      "anchor": "H6:I7",
+      "alt": "通用升级后旧关联不变：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\15-通用A5刷新验证.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/A7",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA33",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/B7",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "产品主动改绑新版",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/C7",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "ID产品",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/D7",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "准备主动改绑通用新版并发布。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/E7",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "主动操作后才采用新版。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/F7",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "未执行改绑或发布，产品正式入口受阻。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/G7",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "先完成旧版关联核实，再继续此节点。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/H7",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/row[7]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add",
+    "props": {
+      "anchor": "H7:I8",
+      "alt": "产品主动改绑新版：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\01-正式规程项目加载失败.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/A8",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA34",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/B8",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "产品历史完整对照",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/C8",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "ID新旧正式版本",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/D8",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "准备比较内容、设备、抽样和关联。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/E8",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "新旧版本各自完整保留。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/F8",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "本次未取得产品历史页证据，无法判断上次历史设备问题是否修复。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/G8",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "未复用上次问题作为本次复现结论。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/H8",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/row[8]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add",
+    "props": {
+      "anchor": "H8:I9",
+      "alt": "产品历史完整对照：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\01-正式规程项目加载失败.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/A9",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA35",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/B9",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "回导全部字段一致性",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/C9",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "大中包装导出文件",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/D9",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "检查逐项对照覆盖范围。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/E9",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "所有字段都能确认一致。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/F9",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "主要展示字段已比对；导出前结构化首检数量和隐藏设备编号没有逐项独立取证。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/G9",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "回导可见首检3件、巡检特殊水平二及接收质量限2.5，仍不足以证明所有隐藏字段一致。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/H9",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/row[9]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add",
+    "props": {
+      "anchor": "H9:I10",
+      "alt": "回导全部字段一致性：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\12-回导抽样设备.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/A10",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA36",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/B10",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "产品项目筛选和跨页",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/C10",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "正式产品项目表",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/D10",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "准备验证项目筛选、无结果和跨页。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/E10",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "表格结果、页码及总数一致。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/F10",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "编制器增删总数和通用下拉筛选已测；产品正式表不可进入，通用仅4项不能验证跨页。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/G10",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "需要实际可进入的产品项目表，不以其他控件代替。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/H10",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/row[10]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add",
+    "props": {
+      "anchor": "H10:I11",
+      "alt": "产品项目筛选和跨页：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\25-刷新丢弃未保存修改.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/A11",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA37",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/B11",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "抽样保存后正式生效",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/C11",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "产品抽样规则",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/D11",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "准备修改、保存并重新读取正式规则。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/E11",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "保存后规则持久保留且旧版不变。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/F11",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "只完成抽样临时编辑后放弃；未完成产品抽样保存后正式回查。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/G11",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "临时21件已恢复20件，没有正式抽样变更。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/H11",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/row[11]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add",
+    "props": {
+      "anchor": "H11:I12",
+      "alt": "抽样保存后正式生效：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\24-抽样临时改为21.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/A12",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA38",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/B12",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "目标项目重置",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/C12",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "ID产品",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/D12",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "准备重置后重新查询。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/E12",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "按说明清理目标数据。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/F12",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "目标产品和基线不可读，未执行重置；上次重置失败不能当作本次复现。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/G12",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "待列表恢复后执行并核实。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/H12",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "F3F7FA"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/row[12]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add",
+    "props": {
+      "anchor": "H12:I13",
+      "alt": "目标项目重置：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\01-正式规程项目加载失败.png"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/A13",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "QA39",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/B13",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "清理范围及非目标保护",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/C13",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "ID及其他产品和通用规程",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/D13",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "准备重置后对照基线。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/E13",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "只清理目标，不影响其他对象。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/F13",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "未执行重置，也缺少产品非目标基线，不能判定范围正确。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/G13",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "本次保留ID第6版发布反馈；通用大中包装第5版、初包装第9版、美联第3版已发布，没有清理。",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/H13",
+    "props": {
+      "font.name": "微软雅黑",
+      "value": "",
+      "border": "thin",
+      "border.color": "D9E2EA",
+      "alignment.vertical": "top",
+      "wrapText": "true",
+      "font.size": "11",
+      "fill": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/存疑/row[13]",
+    "props": {
+      "height": "238"
+    }
+  },
+  {
+    "type": "picture",
+    "parent": "/存疑",
+    "command": "add",
+    "props": {
+      "anchor": "H13:I14",
+      "alt": "清理范围及非目标保护：本次页面证据",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\检验流程解析员\\output\\主链测试-20261127-1121\\截图\\15-通用A5刷新验证.png"
+    }
+  }
+]

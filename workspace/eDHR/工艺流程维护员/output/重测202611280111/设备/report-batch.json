@@ -1,0 +1,1320 @@
+[
+  {
+    "path": "/Sheet1",
+    "command": "set",
+    "props": {
+      "name": "已通过"
+    }
+  },
+  {
+    "type": "sheet",
+    "command": "add",
+    "props": {
+      "name": "未通过"
+    },
+    "parent": "/"
+  },
+  {
+    "type": "sheet",
+    "command": "add",
+    "props": {
+      "name": "存疑"
+    },
+    "parent": "/"
+  },
+  {
+    "path": "/已通过",
+    "command": "set",
+    "props": {
+      "gridlines": "false",
+      "zoom": "70",
+      "freeze": "A2"
+    }
+  },
+  {
+    "path": "/已通过/A1",
+    "command": "set",
+    "props": {
+      "fill": "16324F",
+      "value": "用例",
+      "bold": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "path": "/已通过/col[A]",
+    "command": "set",
+    "props": {
+      "width": "28"
+    }
+  },
+  {
+    "path": "/已通过/B1",
+    "command": "set",
+    "props": {
+      "fill": "16324F",
+      "value": "预期结果",
+      "bold": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "path": "/已通过/col[B]",
+    "command": "set",
+    "props": {
+      "width": "32"
+    }
+  },
+  {
+    "path": "/已通过/C1",
+    "command": "set",
+    "props": {
+      "fill": "16324F",
+      "value": "实际结果",
+      "bold": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "path": "/已通过/col[C]",
+    "command": "set",
+    "props": {
+      "width": "65"
+    }
+  },
+  {
+    "path": "/已通过/D1",
+    "command": "set",
+    "props": {
+      "fill": "16324F",
+      "value": "完整测试路径",
+      "bold": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "path": "/已通过/col[D]",
+    "command": "set",
+    "props": {
+      "width": "72"
+    }
+  },
+  {
+    "path": "/已通过/E1",
+    "command": "set",
+    "props": {
+      "fill": "16324F",
+      "value": "证据截图",
+      "bold": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "path": "/已通过/col[E]",
+    "command": "set",
+    "props": {
+      "width": "92"
+    }
+  },
+  {
+    "path": "/已通过/A2",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "车间编码查重",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/B2",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "新增前本轮编码不存在",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/C2",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "列表5条全部可见，没有WS-MN202611280111",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/D2",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "本地localhost:8081，测试1，李鑫，设备管理，车间设置，检查全部5条及分页",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/E2",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/row[2]",
+    "command": "set",
+    "props": {
+      "height": "270"
+    }
+  },
+  {
+    "type": "picture",
+    "command": "add",
+    "props": {
+      "anchor": "E2:F3",
+      "alt": "车间编码查重",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\重测202611280111\\设备\\1795800276230.png"
+    },
+    "parent": "/已通过"
+  },
+  {
+    "path": "/已通过/A3",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "车间必填拦截",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/B3",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "缺少编码名称不能保存",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/C3",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "编码和名称均提示不能为空，表单未关闭",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/D3",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "本地localhost:8081，测试1，李鑫，设备管理，车间设置，新增，留空，确定",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/E3",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/row[3]",
+    "command": "set",
+    "props": {
+      "height": "270"
+    }
+  },
+  {
+    "type": "picture",
+    "command": "add",
+    "props": {
+      "anchor": "E3:F4",
+      "alt": "车间必填拦截",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\重测202611280111\\设备\\1795800487699.png"
+    },
+    "parent": "/已通过"
+  },
+  {
+    "path": "/已通过/A4",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "车间新增及刷新",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/B4",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "专用车间成功保存",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/C4",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "WS-MN202611280111，模拟主链202611280111设备车间，开启。刷新详情一致",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/D4",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "本地localhost:8081，测试1，李鑫，设备管理，车间设置，新增，填写本轮编码名称及模拟备注，保存，刷新，详情",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/E4",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/row[4]",
+    "command": "set",
+    "props": {
+      "height": "270"
+    }
+  },
+  {
+    "type": "picture",
+    "command": "add",
+    "props": {
+      "anchor": "E4:F5",
+      "alt": "车间新增及刷新",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\重测202611280111\\设备\\1795801336455.png"
+    },
+    "parent": "/已通过"
+  },
+  {
+    "path": "/已通过/A5",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "车间取消编辑",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/B5",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "取消不保存",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/C5",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "临时备注取消，刷新后仍为模拟测试MN202611280111原始备注",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/D5",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "本地localhost:8081，测试1，李鑫，设备管理，车间设置，本轮车间编辑，只改备注，取消，刷新",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/E5",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/row[5]",
+    "command": "set",
+    "props": {
+      "height": "270"
+    }
+  },
+  {
+    "type": "picture",
+    "command": "add",
+    "props": {
+      "anchor": "E5:F6",
+      "alt": "车间取消编辑",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\重测202611280111\\设备\\1795801029102.png"
+    },
+    "parent": "/已通过"
+  },
+  {
+    "path": "/已通过/A6",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "车间修改保留字段",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/B6",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "仅备注变化",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/C6",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "备注为模拟测试MN202611280111修改保留字段验证，编码名称开启状态保留，面积负责人仍为空",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/D6",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "本地localhost:8081，测试1，李鑫，设备管理，车间设置，本轮车间编辑，只改备注，确定，刷新，详情",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/E6",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/row[6]",
+    "command": "set",
+    "props": {
+      "height": "270"
+    }
+  },
+  {
+    "type": "picture",
+    "command": "add",
+    "props": {
+      "anchor": "E6:F7",
+      "alt": "车间修改保留字段",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\重测202611280111\\设备\\1795801336455.png"
+    },
+    "parent": "/已通过"
+  },
+  {
+    "path": "/已通过/A7",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "车间重复编码",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/B7",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "阻止重复新增",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/C7",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "页面返回车间编码已存在，取消后总数仍6条。截图是提交后表单，提示原文见原始结果",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/D7",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "本地localhost:8081，测试1，李鑫，设备管理，车间设置，新增，编码WS-MN202611280111，名称模拟重复车间不应新建，确定，取消",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/E7",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/row[7]",
+    "command": "set",
+    "props": {
+      "height": "270"
+    }
+  },
+  {
+    "type": "picture",
+    "command": "add",
+    "props": {
+      "anchor": "E7:F8",
+      "alt": "车间重复编码",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\重测202611280111\\设备\\1795801700286.png"
+    },
+    "parent": "/已通过"
+  },
+  {
+    "path": "/已通过/A8",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "设备编码查重",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/B8",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "新增前本轮编码不存在",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/C8",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "按完整编码EQ-MN202611280111查询，暂无数据",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/D8",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "本地localhost:8081，测试1，李鑫，设备管理，设备台账，新增筛选条件，设备编码，输入EQ-MN202611280111，查询",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/E8",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/row[8]",
+    "command": "set",
+    "props": {
+      "height": "270"
+    }
+  },
+  {
+    "type": "picture",
+    "command": "add",
+    "props": {
+      "anchor": "E8:F9",
+      "alt": "设备编码查重",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\重测202611280111\\设备\\1795802142979.png"
+    },
+    "parent": "/已通过"
+  },
+  {
+    "path": "/已通过/A9",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "设备必填拦截",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/B9",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "缺项不能保存",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/C9",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "编码名称类型车间均提示不能为空，默认停机未改",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/D9",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "本地localhost:8081，测试1，李鑫，设备管理，设备台账，新增，留空，确定",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/E9",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/row[9]",
+    "command": "set",
+    "props": {
+      "height": "270"
+    }
+  },
+  {
+    "type": "picture",
+    "command": "add",
+    "props": {
+      "anchor": "E9:F10",
+      "alt": "设备必填拦截",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\重测202611280111\\设备\\1795802323548.png"
+    },
+    "parent": "/已通过"
+  },
+  {
+    "path": "/已通过/A10",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "设备新增及刷新详情",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/B10",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "专用设备关联专用车间",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/C10",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "EQ-MN202611280111，模拟主链202611280111设备，模拟品牌，MN-0111，瑛泰设备，本轮专用车间，产能120，停机，工序为空。刷新详情一致",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/D10",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "本地localhost:8081，测试1，李鑫，设备管理，设备台账，新增，填写本轮资料，选择瑛泰设备及本轮车间，产能120，保存，刷新，详情",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/E10",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/row[10]",
+    "command": "set",
+    "props": {
+      "height": "270"
+    }
+  },
+  {
+    "type": "picture",
+    "command": "add",
+    "props": {
+      "anchor": "E10:F11",
+      "alt": "设备新增及刷新详情",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\重测202611280111\\设备\\1795803387058.png"
+    },
+    "parent": "/已通过"
+  },
+  {
+    "path": "/已通过/A11",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "设备取消编辑",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/B11",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "取消不保存",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/C11",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "备注临时修改并取消，刷新重开仍为模拟测试MN202611280111原始备注，其他字段保留",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/D11",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "本地localhost:8081，测试1，李鑫，设备管理，设备台账，本轮设备编辑，只改备注为模拟测试取消不应保存，取消，刷新，编辑",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/E11",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/row[11]",
+    "command": "set",
+    "props": {
+      "height": "270"
+    }
+  },
+  {
+    "type": "picture",
+    "command": "add",
+    "props": {
+      "anchor": "E11:F12",
+      "alt": "设备取消编辑",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\重测202611280111\\设备\\1795803796432.png"
+    },
+    "parent": "/已通过"
+  },
+  {
+    "path": "/已通过/A12",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "重测只改备注零影响提交",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/B12",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "备注保存且其他字段不变",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/C12",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "影响确认只列备注，受影响路线0条。填写模拟原因确认提交成功；刷新详情备注为模拟测试MN202611280111只改备注验证，其他字段保留，未出现上轮没有该操作权限",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/D12",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "本地localhost:8081，测试1，李鑫，设备管理，设备台账，本轮设备编辑，只改备注，确定，影响确认0条，填写原因模拟测试只修改备注验证设备维护权限及原字段保留，确认并提交，刷新，详情",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/E12",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/row[12]",
+    "command": "set",
+    "props": {
+      "height": "270"
+    }
+  },
+  {
+    "type": "picture",
+    "command": "add",
+    "props": {
+      "anchor": "E12:F13",
+      "alt": "重测只改备注零影响提交",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\重测202611280111\\设备\\1795804594032.png"
+    },
+    "parent": "/已通过"
+  },
+  {
+    "path": "/已通过/A13",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "设备重复编码",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/B13",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "阻止重复新增",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/C13",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "页面返回设备编码已存在，取消刷新后同编码仅1条，总数仍60。截图为提交后表单，提示原文见原始结果",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/D13",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "本地localhost:8081，测试1，李鑫，设备管理，设备台账，新增，编码EQ-MN202611280111，名称模拟重复设备不应创建，类型瑛泰设备，车间本轮车间，确定，取消，刷新",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/E13",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/row[13]",
+    "command": "set",
+    "props": {
+      "height": "270"
+    }
+  },
+  {
+    "type": "picture",
+    "command": "add",
+    "props": {
+      "anchor": "E13:F14",
+      "alt": "设备重复编码",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\重测202611280111\\设备\\1795805686631.png"
+    },
+    "parent": "/已通过"
+  },
+  {
+    "path": "/已通过/A14",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "逐工序产能正式入口",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/B14",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "可打开维护入口",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/C14",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "可打开维护设备工序产能，包含工序、单台标准小时产能、维护说明。仅查看并取消，没有保存关联",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/D14",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "本地localhost:8081，测试1，李鑫，设备管理，设备台账，本轮设备编辑，工序明细，维护工序产能，查看，取消",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/E14",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/已通过/row[14]",
+    "command": "set",
+    "props": {
+      "height": "270"
+    }
+  },
+  {
+    "type": "picture",
+    "command": "add",
+    "props": {
+      "anchor": "E14:F15",
+      "alt": "逐工序产能正式入口",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\重测202611280111\\设备\\1795806558950.png"
+    },
+    "parent": "/已通过"
+  },
+  {
+    "path": "/未通过",
+    "command": "set",
+    "props": {
+      "gridlines": "false",
+      "zoom": "70",
+      "freeze": "A2"
+    }
+  },
+  {
+    "path": "/未通过/A1",
+    "command": "set",
+    "props": {
+      "fill": "16324F",
+      "value": "用例",
+      "bold": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "path": "/未通过/col[A]",
+    "command": "set",
+    "props": {
+      "width": "28"
+    }
+  },
+  {
+    "path": "/未通过/B1",
+    "command": "set",
+    "props": {
+      "fill": "16324F",
+      "value": "预期结果",
+      "bold": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "path": "/未通过/col[B]",
+    "command": "set",
+    "props": {
+      "width": "32"
+    }
+  },
+  {
+    "path": "/未通过/C1",
+    "command": "set",
+    "props": {
+      "fill": "16324F",
+      "value": "实际结果",
+      "bold": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "path": "/未通过/col[C]",
+    "command": "set",
+    "props": {
+      "width": "65"
+    }
+  },
+  {
+    "path": "/未通过/D1",
+    "command": "set",
+    "props": {
+      "fill": "16324F",
+      "value": "完整测试路径",
+      "bold": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "path": "/未通过/col[D]",
+    "command": "set",
+    "props": {
+      "width": "72"
+    }
+  },
+  {
+    "path": "/未通过/E1",
+    "command": "set",
+    "props": {
+      "fill": "16324F",
+      "value": "证据截图",
+      "bold": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "path": "/未通过/col[E]",
+    "command": "set",
+    "props": {
+      "width": "92"
+    }
+  },
+  {
+    "path": "/未通过/A2",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "本轮独立范围未发现未通过项；未执行见存疑表，不代表完整主链通过。"
+    }
+  },
+  {
+    "path": "/存疑",
+    "command": "set",
+    "props": {
+      "gridlines": "false",
+      "zoom": "70",
+      "freeze": "A2"
+    }
+  },
+  {
+    "path": "/存疑/A1",
+    "command": "set",
+    "props": {
+      "fill": "16324F",
+      "value": "用例",
+      "bold": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "path": "/存疑/col[A]",
+    "command": "set",
+    "props": {
+      "width": "28"
+    }
+  },
+  {
+    "path": "/存疑/B1",
+    "command": "set",
+    "props": {
+      "fill": "16324F",
+      "value": "预期结果",
+      "bold": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "path": "/存疑/col[B]",
+    "command": "set",
+    "props": {
+      "width": "32"
+    }
+  },
+  {
+    "path": "/存疑/C1",
+    "command": "set",
+    "props": {
+      "fill": "16324F",
+      "value": "实际结果",
+      "bold": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "path": "/存疑/col[C]",
+    "command": "set",
+    "props": {
+      "width": "65"
+    }
+  },
+  {
+    "path": "/存疑/D1",
+    "command": "set",
+    "props": {
+      "fill": "16324F",
+      "value": "完整测试路径",
+      "bold": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "path": "/存疑/col[D]",
+    "command": "set",
+    "props": {
+      "width": "72"
+    }
+  },
+  {
+    "path": "/存疑/E1",
+    "command": "set",
+    "props": {
+      "fill": "16324F",
+      "value": "证据截图",
+      "bold": "true",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "path": "/存疑/col[E]",
+    "command": "set",
+    "props": {
+      "width": "92"
+    }
+  },
+  {
+    "path": "/存疑/A2",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "工序维护入口及创建未执行",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/存疑/B2",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "有正式入口维护本轮工序",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/存疑/C2",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "侧栏仅个人中心审批中心设备管理，菜单搜索工序无数据，未找到维护入口。不代表系统没有功能；未借旧工序、未加权",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/存疑/D2",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "本地localhost:8081，测试1，李鑫，设备管理，设备台账，顶部菜单搜索工序，显示无数据。需工序岗位提供本轮专用工序",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/存疑/E2",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/存疑/row[2]",
+    "command": "set",
+    "props": {
+      "height": "270"
+    }
+  },
+  {
+    "type": "picture",
+    "command": "add",
+    "props": {
+      "anchor": "E2:F3",
+      "alt": "工序维护入口及创建未执行",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\重测202611280111\\设备\\1795806001246.png"
+    },
+    "parent": "/存疑"
+  },
+  {
+    "path": "/存疑/A3",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "设备工序关联双端核验未执行",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/存疑/B3",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "专用工序关联后双端核对",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/存疑/C3",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "按任务要求待本轮专用工序具备后续做，尚未收到编号。未保存关联，工序端工作站端及逐工序产能未核验，不判通过",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/存疑/D3",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "本地localhost:8081，测试1，李鑫，设备管理，设备台账，本轮设备编辑，工序明细，维护工序产能。待提供本轮专用工序编号，选择该工序填写模拟产能说明，保存刷新，再核对工序端",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/存疑/E3",
+    "command": "set",
+    "props": {
+      "wrapText": "true",
+      "value": "",
+      "size": "11",
+      "alignment.vertical": "top"
+    }
+  },
+  {
+    "path": "/存疑/row[3]",
+    "command": "set",
+    "props": {
+      "height": "270"
+    }
+  },
+  {
+    "type": "picture",
+    "command": "add",
+    "props": {
+      "anchor": "E3:F4",
+      "alt": "设备工序关联双端核验未执行",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\工艺流程维护员\\output\\重测202611280111\\设备\\1795806558950.png"
+    },
+    "parent": "/存疑"
+  }
+]

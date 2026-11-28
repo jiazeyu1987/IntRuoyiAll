@@ -1,0 +1,25 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ------------------< cn.iocoder.boot:yudao-module-mes >------------------
+[INFO] Building yudao-module-mes 2026.04-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[WARNING] The POM for cn.iocoder.boot:yudao-module-mes-device:jar:2026.04-SNAPSHOT is missing, no dependency information available
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  12.368 s
+[INFO] Finished at: 2026-11-16T10:39:43+08:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal on project yudao-module-mes: Could not resolve dependencies for project cn.iocoder.boot:yudao-module-mes:jar:2026.04-SNAPSHOT
+[ERROR] dependency: cn.iocoder.boot:yudao-module-mes-device:jar:2026.04-SNAPSHOT (compile)
+[ERROR] 	Cannot access huaweicloud (https://mirrors.huaweicloud.com/repository/maven/) in offline mode and the artifact cn.iocoder.boot:yudao-module-mes-device:jar:2026.04-SNAPSHOT has not been downloaded from it before.
+[ERROR] 	Cannot access aliyunmaven (https://maven.aliyun.com/repository/public) in offline mode and the artifact cn.iocoder.boot:yudao-module-mes-device:jar:2026.04-SNAPSHOT has not been downloaded from it before.
+[ERROR] 
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/DependencyResolutionException

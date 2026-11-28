@@ -1,0 +1,146 @@
+--- D:\ProjectPackage\IntRuoyi\IntRuoyiAll\IntRuoyiBackend\yudao-module-mes\src\main\java\cn\iocoder\yudao\module\mes\controller\admin\pro\feedback\MesFrontlineDeviceAccountController.java
+142:     @GetMapping("/process-sop")
+143:     @Operation(summary = "获得活跃订单锁定工艺版本的工序 SOP 文件")
+144:     @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
+145:     public CommonResult<MesProProcessSopRespVO> getProductionProcessSop(
+146:             @RequestParam("activeOrderId") @NotNull Long activeOrderId,
+147:             @RequestParam("routeId") @NotNull Long routeId,
+148:             @RequestParam("routeProcessId") @NotNull Long routeProcessId,
+149:             @RequestParam("processId") @NotNull Long processId) {
+150:         Long leaderUserId = contextService.resolveResponsibleLeaderUserId(getLoginUserId());
+151:         String fileUrl = activeOrderProcessService.getFrozenSopFileUrl(
+152:                 leaderUserId, activeOrderId, routeId, routeProcessId, processId);
+153:         MesProProcessSopRespVO result = new MesProProcessSopRespVO();
+154:         result.setProcessId(processId);
+155:         result.setFileUrl(fileUrl);
+156:         return success(result);
+157:     }
+--- D:\ProjectPackage\IntRuoyi\IntRuoyiAll\IntRuoyiBackend\yudao-module-mes\src\main\java\cn\iocoder\yudao\module\mes\service\pro\frontline\MesFrontlineActiveOrderProcessServiceImpl.java
+114:     @Override
+115:     public String getFrozenSopFileUrl(Long leaderUserId, Long activeOrderId, Long routeId,
+116:                                       Long routeProcessId, Long processId) {
+117:         MesFrontlineActiveOrderProcess process = requireProcess(
+118:                 leaderUserId, activeOrderId, routeId, routeProcessId, processId);
+119:         MesProcessPoolActiveOrderDO activeOrder = requireActiveOrder(leaderUserId, activeOrderId);
+120:         if (!Objects.equals(process.routeId(), activeOrder.getRouteId())
+121:                 || !Objects.equals(process.routeVersionId(), activeOrder.getRouteVersionId())) {
+122:             throw snapshotInvalid(activeOrderId, "读取 SOP 时锁定工艺路线或版本发生变化");
+123:         }
+124:         JSONObject node = parseProcessNodes(activeOrder,
+125:                 parseRouteSnapshot(activeOrder, requireLockedRouteVersion(activeOrder)))
+126:                 .get(new ProcessIdentity(routeProcessId, processId));
+127:         if (node == null || !node.containsKey("sopFileUrl")) {
+128:             throw snapshotInvalid(activeOrderId, "冻结工序缺少 SOP 文件绑定字段");
+129:         }
+130:         Object fileUrl = node.get("sopFileUrl");
+131:         if (fileUrl != null && !(fileUrl instanceof String)) {
+132:             throw snapshotInvalid(activeOrderId, "冻结工序 SOP 文件绑定字段格式无效");
+133:         }
+134:         return normalize((String) fileUrl);
+135:     }
+136: 
+137:     private MesProcessPoolActiveOrderDO requireActiveOrder(Long leaderUserId, Long activeOrderId) {
+138:         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectById(activeOrderId);
+139:         if (activeOrder == null || !(Objects.equals(activeOrder.getLeaderUserId(), leaderUserId) || packagingAccess.canAccess(leaderUserId, activeOrder))
+140:                 || !STATUS_ACTIVE.equals(activeOrder.getActiveStatus())
+141:                 || !STATUS_ACTIVE.equals(activeOrder.getBusinessStatus())) {
+142:             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
+143:         }
+144:         if (activeOrder.getRouteId() == null || activeOrder.getRouteVersionId() == null) {
+145:             throw snapshotInvalid(activeOrderId, "缺少锁定工艺路线或版本");
+146:         }
+147:         return activeOrder;
+148:     }
+149: 
+150:     private MesProRouteVersionDO requireLockedRouteVersion(MesProcessPoolActiveOrderDO activeOrder) {
+151:         MesProRouteVersionDO routeVersion = routeVersionMapper.selectById(activeOrder.getRouteVersionId());
+152:         if (routeVersion == null || !Objects.equals(routeVersion.getRouteId(), activeOrder.getRouteId())) {
+153:             throw snapshotInvalid(activeOrder.getId(), "锁定工艺版本不存在或路线身份不一致");
+154:         }
+155:         return routeVersion;
+--- D:\ProjectPackage\IntRuoyi\IntRuoyiAll\IntRuoyiBackend\yudao-module-mes\src\main\java\cn\iocoder\yudao\module\mes\service\pro\route\MesProRouteServiceImpl.java
+1015:     @Override
+1016:     public String buildCurrentRouteSnapshotJson(Long routeId, Long routeVersionId) {
+1017:         MesProRouteDO route = routeMapper.selectById(routeId);
+1018:         if (route == null) {
+1019:             throw exception(PRO_ROUTE_NOT_EXISTS);
+1020:         }
+1021:         return buildRouteSnapshotJson(route, routeVersionId,
+1022:                 buildCompleteRouteConfigSnapshots(routeId, routeVersionId));
+1023:     }
+1024: 
+1025:     private JSONObject buildCompleteRouteConfigSnapshots(Long routeId, Long routeVersionId) {
+1026:         JSONObject configSnapshots = new JSONObject(true);
+1027:         configSnapshots.put(FLOW_GRAPH_KEY, JSON.toJSON(routeProcessFlowService.getGraph(routeId)));
+1028:         configSnapshots.put(PRODUCTS_KEY, JSON.toJSON(routeProductMapper.selectListByRouteId(routeId)));
+1029:         configSnapshots.put(PRODUCT_BOMS_KEY, JSON.toJSON(routeProductBomMapper.selectList(routeId, null, null)));
+--- D:\ProjectPackage\IntRuoyi\IntRuoyiAll\IntRuoyiBackend\yudao-module-mes\src\main\java\cn\iocoder\yudao\module\mes\service\pro\route\MesProRouteVersionSnapshotIdentityWriter.java
+20:     /** Keeps an explicitly unbound frozen SOP distinct from an absent snapshot field. */
+21:     public static String toSnapshotJson(Object snapshot) {
+22:         return JSON.toJSONString(snapshot,
+23:                 (PropertyFilter) (source, name, value) -> value != null || "sopFileUrl".equals(name),
+24:                 SerializerFeature.WriteMapNullValue, SerializerFeature.DisableCircularReferenceDetect);
+25:     }
+--- D:\ProjectPackage\IntRuoyi\IntRuoyiAll\IntRuoyiBackend\yudao-module-mes\src\main\java\cn\iocoder\yudao\module\mes\service\pro\route\MesProRouteVersionSnapshotValidator.java
+59:             JSONArray nodes = flowGraph.getJSONArray("nodes");
+60:             if (nodes == null || nodes.isEmpty()) {
+61:                 return false;
+62:             }
+63:             for (Object value : nodes) {
+64:                 if (!(value instanceof JSONObject node) || !node.containsKey("sopFileUrl")) {
+65:                     return false;
+66:                 }
+67:                 Object sopFileUrl = node.get("sopFileUrl");
+68:                 // null 表示明确未绑定；字段缺失或其他类型不能进入生产冻结版本。
+69:                 if (sopFileUrl != null && !(sopFileUrl instanceof String)) {
+70:                     return false;
+71:                 }
+72:             }
+--- D:\ProjectPackage\IntRuoyi\IntRuoyiAll\IntRuoyiBackend\yudao-module-mes\src\main\java\cn\iocoder\yudao\module\mes\service\pro\route\MesProRouteVersionWorkflowServiceImpl.java
+126:         String routeSnapshotJson = routeService.buildCurrentRouteSnapshotJson(reqVO.getRouteId(), active.getId());
+127:         if (Boolean.TRUE.equals(reqVO.getMigrateLegacyProductionConfig())) {
+128:             routeSnapshotJson = migrateLegacyProductionConfigs(
+129:                     active, routeSnapshotJson, reqVO.getMissingOveragePercent());
+130:         }
+131:         if (!MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(routeSnapshotJson)) {
+132:             throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, active.getId());
+133:         }
+134:         MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+--- D:\ProjectPackage\IntRuoyi\IntRuoyiAll\IntRuoyiBackend\yudao-module-mes\src\main\java\cn\iocoder\yudao\module\mes\service\pro\route\MesProRouteProcessFlowServiceImpl.java
+1349:                         throw exception(PRO_PROCESS_NOT_EXISTS);
+1350:                     }
+1351:                     MesProRouteProcessFlowNodeRespVO node = new MesProRouteProcessFlowNodeRespVO();
+1352:                     node.setRouteProcessId(routeProcess.getId());
+1353:                     node.setProcessId(routeProcess.getProcessId());
+1354:                     node.setProcessCode(process.getCode());
+1355:                     node.setProcessName(process.getName());
+1356:                     node.setSopFileUrl(process.getSopFileUrl());
+1357:                     node.setRouteProcessWorkstationId(routeProcess.getWorkstationId());
+1358:                     applyWorkstation(node, routeProcess,
+--- D:\ProjectPackage\IntRuoyi\IntRuoyiAll\IntRuoyiBackend\yudao-module-mes\src\main\java\cn\iocoder\yudao\module\mes\service\pro\processpool\team\MesTeamLeaderActiveOrderServiceImpl.java
+713:         List<MesProRouteVersionDO> activeRouteVersions = context.activeRouteVersionsByRouteId()
+714:                 .getOrDefault(routeId, Collections.emptyList());
+715:         if (activeRouteVersions.isEmpty()) {
+716:             return routeSourceFailure("工艺路线缺少ACTIVE版本", RouteSourceFailureType.ROUTE);
+717:         }
+718:         if (activeRouteVersions.size() > 1) {
+719:             return routeSourceFailure("工艺路线ACTIVE版本不唯一", RouteSourceFailureType.ROUTE);
+720:         }
+721:         MesProRouteVersionDO activeRouteVersion = activeRouteVersions.get(0);
+722:         List<MesProScheduleOrderProcessDO> routeProcesses = toRouteProcessSources(workOrder, activeRouteVersion);
+723:         if (routeProcesses.isEmpty()) {
+724:             return routeSourceFailure("工艺路线快照缺少正式工序", RouteSourceFailureType.ROUTE);
+725:         }
+726:         return new RouteSourceResolution(new ActiveOrderRouteSource(routeId,
+727:                 activeRouteVersion.getId(), routeProcesses), null, null);
+728:     }
+--- D:\ProjectPackage\IntRuoyi\IntRuoyiAll\IntRuoyiBackend\yudao-module-mes\src\main\java\cn\iocoder\yudao\module\mes\service\pro\processpool\team\MesTeamLeaderActiveOrderServiceImpl.java
+1279:         if (!activeOrderIds.isEmpty()) {
+1280:             dataCleanupMapper.deleteReleaseApplications(tenantId, activeOrderIds);
+1281:             dataCleanupMapper.deleteNonconformanceReviewsByActiveOrderIds(tenantId, activeOrderIds);
+1282:             dataCleanupMapper.deleteActiveOrders(tenantId, activeOrderIds);
+1283:         }
+1284:         MesTeamLeaderActiveOrderAddResult addResult = addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
+1285:                 .leaderUserId(leaderUserId).workOrderId(workOrder.getId())
+1286:                 .idempotencyKey("ACTIVE_ORDER_TEST_RESET:" + tenantId + ":" + workOrder.getId()).build());
+1287:         if (addResult == null || addResult.getActiveOrderId() == null) {

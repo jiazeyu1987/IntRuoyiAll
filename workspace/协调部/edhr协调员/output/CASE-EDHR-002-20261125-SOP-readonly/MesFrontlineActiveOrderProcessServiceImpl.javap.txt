@@ -1,0 +1,941 @@
+Compiled from "MesFrontlineActiveOrderProcessServiceImpl.java"
+public class cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcessServiceImpl implements cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcessService {
+  private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess packagingAccess;
+
+  private static final java.lang.String STATUS_ACTIVE;
+
+  private final cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper activeOrderMapper;
+
+  private final cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
+
+  private final cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper routeVersionMapper;
+
+  private final cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper reportAllocationMapper;
+
+  private final cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper processPoolEventMapper;
+
+  public cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcessServiceImpl(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper, cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper, cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper, cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper, cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper);
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: aload_1
+       6: putfield      #7                  // Field activeOrderMapper:Lcn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/team/MesProcessPoolActiveOrderMapper;
+       9: aload_0
+      10: aload_2
+      11: putfield      #13                 // Field processSnapshotMapper:Lcn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotMapper;
+      14: aload_0
+      15: aload_3
+      16: putfield      #17                 // Field routeVersionMapper:Lcn/iocoder/yudao/module/mes/dal/mysql/pro/route/MesProRouteVersionMapper;
+      19: aload_0
+      20: aload         4
+      22: putfield      #21                 // Field reportAllocationMapper:Lcn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/team/MesProcessPoolReportAllocationMapper;
+      25: aload_0
+      26: aload         5
+      28: putfield      #25                 // Field processPoolEventMapper:Lcn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/MesProProcessPoolEventMapper;
+      31: return
+
+  public java.util.List<cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcess> listProcesses(java.lang.Long, java.lang.Long);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: invokevirtual #29                 // Method requireActiveOrder:(Ljava/lang/Long;Ljava/lang/Long;)Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO;
+       6: astore_3
+       7: aload_0
+       8: aload_3
+       9: invokevirtual #33                 // Method requireLockedRouteVersion:(Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO;)Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/route/MesProRouteVersionDO;
+      12: astore        4
+      14: aload_0
+      15: aload_3
+      16: aload         4
+      18: invokevirtual #37                 // Method parseRouteSnapshot:(Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO;Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/route/MesProRouteVersionDO;)Lcom/alibaba/fastjson/JSONObject;
+      21: astore        5
+      23: aload_0
+      24: aload_3
+      25: aload         5
+      27: invokevirtual #41                 // Method parseProcessNodes:(Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO;Lcom/alibaba/fastjson/JSONObject;)Ljava/util/Map;
+      30: astore        6
+      32: aload_0
+      33: getfield      #13                 // Field processSnapshotMapper:Lcn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotMapper;
+      36: aload_2
+      37: invokeinterface #45,  2           // InterfaceMethod cn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotMapper.selectListByActiveOrderId:(Ljava/lang/Long;)Ljava/util/List;
+      42: astore        7
+      44: aload         7
+      46: ifnull        59
+      49: aload         7
+      51: invokeinterface #51,  1           // InterfaceMethod java/util/List.isEmpty:()Z
+      56: ifeq          66
+      59: aload_2
+      60: ldc           #57                 // String ȱ������Ŀ�����
+      62: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+      65: athrow
+      66: aload         7
+      68: invokeinterface #63,  1           // InterfaceMethod java/util/List.size:()I
+      73: aload         6
+      75: invokeinterface #67,  1           // InterfaceMethod java/util/Map.size:()I
+      80: if_icmpeq     90
+      83: aload_2
+      84: ldc           #70                 // String �������̹���������Ŀ�����������һ��
+      86: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+      89: athrow
+      90: new           #72                 // class java/util/LinkedHashSet
+      93: dup
+      94: invokespecial #74                 // Method java/util/LinkedHashSet."<init>":()V
+      97: astore        8
+      99: aload         7
+     101: invokeinterface #75,  1           // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+     106: astore        9
+     108: aload         9
+     110: invokeinterface #79,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+     115: ifeq          188
+     118: aload         9
+     120: invokeinterface #84,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     125: checkcast     #88                 // class cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO
+     128: astore        10
+     130: aload         10
+     132: ifnull        178
+     135: aload         10
+     137: invokevirtual #90                 // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getRouteProcessId:()Ljava/lang/Long;
+     140: ifnull        178
+     143: aload         10
+     145: invokevirtual #94                 // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getProcessId:()Ljava/lang/Long;
+     148: ifnull        178
+     151: aload         8
+     153: new           #97                 // class cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity
+     156: dup
+     157: aload         10
+     159: invokevirtual #90                 // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getRouteProcessId:()Ljava/lang/Long;
+     162: aload         10
+     164: invokevirtual #94                 // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getProcessId:()Ljava/lang/Long;
+     167: invokespecial #99                 // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity."<init>":(Ljava/lang/Long;Ljava/lang/Long;)V
+     170: invokeinterface #102,  2          // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     175: ifne          185
+     178: aload_2
+     179: ldc           #108                // String ����Ŀ���������ȱʧ���ظ�
+     181: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+     184: athrow
+     185: goto          108
+     188: aload         8
+     190: aload         6
+     192: invokeinterface #110,  1          // InterfaceMethod java/util/Map.keySet:()Ljava/util/Set;
+     197: invokeinterface #114,  2          // InterfaceMethod java/util/Set.equals:(Ljava/lang/Object;)Z
+     202: ifne          212
+     205: aload_2
+     206: ldc           #117                // String ����Ŀ��������������հ汾����һ��
+     208: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+     211: athrow
+     212: aload_0
+     213: aload_3
+     214: aload         7
+     216: invokevirtual #119                // Method resolveSubmittedQuantities:(Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO;Ljava/util/List;)Ljava/util/Map;
+     219: astore        9
+     221: aload         5
+     223: ldc           #123                // String routeCode
+     225: invokevirtual #125                // Method com/alibaba/fastjson/JSONObject.getString:(Ljava/lang/String;)Ljava/lang/String;
+     228: invokestatic  #131                // Method normalize:(Ljava/lang/String;)Ljava/lang/String;
+     231: astore        10
+     233: aload         5
+     235: ldc           #134                // String routeName
+     237: invokevirtual #125                // Method com/alibaba/fastjson/JSONObject.getString:(Ljava/lang/String;)Ljava/lang/String;
+     240: invokestatic  #131                // Method normalize:(Ljava/lang/String;)Ljava/lang/String;
+     243: astore        11
+     245: aload         7
+     247: invokeinterface #136,  1          // InterfaceMethod java/util/List.stream:()Ljava/util/stream/Stream;
+     252: aload_0
+     253: aload_3
+     254: aload         4
+     256: aload         10
+     258: aload         11
+     260: aload         6
+     262: aload         9
+     264: invokedynamic #140,  0            // InvokeDynamic #0:apply:(Lcn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl;Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO;Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/route/MesProRouteVersionDO;Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;Ljava/util/Map;)Ljava/util/function/Function;
+     269: invokeinterface #144,  2          // InterfaceMethod java/util/stream/Stream.map:(Ljava/util/function/Function;)Ljava/util/stream/Stream;
+     274: invokedynamic #150,  0            // InvokeDynamic #1:apply:()Ljava/util/function/Function;
+     279: invokedynamic #153,  0            // InvokeDynamic #2:compare:()Ljava/util/Comparator;
+     284: invokestatic  #157                // InterfaceMethod java/util/Comparator.nullsLast:(Ljava/util/Comparator;)Ljava/util/Comparator;
+     287: invokestatic  #163                // InterfaceMethod java/util/Comparator.comparing:(Ljava/util/function/Function;Ljava/util/Comparator;)Ljava/util/Comparator;
+     290: invokedynamic #167,  0            // InvokeDynamic #3:apply:()Ljava/util/function/Function;
+     295: invokeinterface #168,  2          // InterfaceMethod java/util/Comparator.thenComparing:(Ljava/util/function/Function;)Ljava/util/Comparator;
+     300: invokeinterface #172,  2          // InterfaceMethod java/util/stream/Stream.sorted:(Ljava/util/Comparator;)Ljava/util/stream/Stream;
+     305: invokeinterface #176,  1          // InterfaceMethod java/util/stream/Stream.toList:()Ljava/util/List;
+     310: areturn
+
+  public cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcess requireProcess(java.lang.Long, java.lang.Long, java.lang.Long, java.lang.Long, java.lang.Long);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: invokevirtual #180                // Method listProcesses:(Ljava/lang/Long;Ljava/lang/Long;)Ljava/util/List;
+       6: invokeinterface #136,  1          // InterfaceMethod java/util/List.stream:()Ljava/util/stream/Stream;
+      11: aload_3
+      12: aload         4
+      14: aload         5
+      16: invokedynamic #184,  0            // InvokeDynamic #4:test:(Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/Long;)Ljava/util/function/Predicate;
+      21: invokeinterface #188,  2          // InterfaceMethod java/util/stream/Stream.filter:(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;
+      26: invokeinterface #192,  1          // InterfaceMethod java/util/stream/Stream.findFirst:()Ljava/util/Optional;
+      31: aload_2
+      32: aload         4
+      34: aload         5
+      36: invokedynamic #196,  0            // InvokeDynamic #5:get:(Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/Long;)Ljava/util/function/Supplier;
+      41: invokevirtual #200                // Method java/util/Optional.orElseThrow:(Ljava/util/function/Supplier;)Ljava/lang/Object;
+      44: checkcast     #206                // class cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcess
+      47: areturn
+
+  public java.lang.String getFrozenSopFileUrl(java.lang.Long, java.lang.Long, java.lang.Long, java.lang.Long, java.lang.Long);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: aload_3
+       4: aload         4
+       6: aload         5
+       8: invokevirtual #208                // Method requireProcess:(Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/Long;)Lcn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcess;
+      11: astore        6
+      13: aload_0
+      14: aload_1
+      15: aload_2
+      16: invokevirtual #29                 // Method requireActiveOrder:(Ljava/lang/Long;Ljava/lang/Long;)Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO;
+      19: astore        7
+      21: aload         6
+      23: invokevirtual #212                // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcess.routeId:()Ljava/lang/Long;
+      26: aload         7
+      28: invokevirtual #215                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getRouteId:()Ljava/lang/Long;
+      31: invokestatic  #220                // Method java/util/Objects.equals:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      34: ifeq          53
+      37: aload         6
+      39: invokevirtual #225                // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcess.routeVersionId:()Ljava/lang/Long;
+      42: aload         7
+      44: invokevirtual #228                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getRouteVersionId:()Ljava/lang/Long;
+      47: invokestatic  #220                // Method java/util/Objects.equals:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      50: ifne          60
+      53: aload_2
+      54: ldc           #231                // String ��ȡ SOP ʱ��������·�߻�汾�����仯
+      56: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+      59: athrow
+      60: aload_0
+      61: aload         7
+      63: aload_0
+      64: aload         7
+      66: aload_0
+      67: aload         7
+      69: invokevirtual #33                 // Method requireLockedRouteVersion:(Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO;)Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/route/MesProRouteVersionDO;
+      72: invokevirtual #37                 // Method parseRouteSnapshot:(Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO;Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/route/MesProRouteVersionDO;)Lcom/alibaba/fastjson/JSONObject;
+      75: invokevirtual #41                 // Method parseProcessNodes:(Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO;Lcom/alibaba/fastjson/JSONObject;)Ljava/util/Map;
+      78: new           #97                 // class cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity
+      81: dup
+      82: aload         4
+      84: aload         5
+      86: invokespecial #99                 // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity."<init>":(Ljava/lang/Long;Ljava/lang/Long;)V
+      89: invokeinterface #233,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      94: checkcast     #126                // class com/alibaba/fastjson/JSONObject
+      97: astore        8
+      99: aload         8
+     101: ifnull        114
+     104: aload         8
+     106: ldc           #236                // String sopFileUrl
+     108: invokevirtual #238                // Method com/alibaba/fastjson/JSONObject.containsKey:(Ljava/lang/Object;)Z
+     111: ifne          121
+     114: aload_2
+     115: ldc           #241                // String ���Ṥ��ȱ�� SOP �ļ����ֶ�
+     117: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+     120: athrow
+     121: aload         8
+     123: ldc           #236                // String sopFileUrl
+     125: invokevirtual #243                // Method com/alibaba/fastjson/JSONObject.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     128: astore        9
+     130: aload         9
+     132: ifnull        150
+     135: aload         9
+     137: instanceof    #244                // class java/lang/String
+     140: ifne          150
+     143: aload_2
+     144: ldc           #246                // String ���Ṥ�� SOP �ļ����ֶθ�ʽ��Ч
+     146: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+     149: athrow
+     150: aload         9
+     152: checkcast     #244                // class java/lang/String
+     155: invokestatic  #131                // Method normalize:(Ljava/lang/String;)Ljava/lang/String;
+     158: areturn
+
+  private cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO requireActiveOrder(java.lang.Long, java.lang.Long);
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field activeOrderMapper:Lcn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/team/MesProcessPoolActiveOrderMapper;
+       4: aload_2
+       5: invokeinterface #248,  2          // InterfaceMethod cn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/team/MesProcessPoolActiveOrderMapper.selectById:(Ljava/io/Serializable;)Ljava/lang/Object;
+      10: checkcast     #216                // class cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO
+      13: astore_3
+      14: aload_3
+      15: ifnull        67
+      18: aload_3
+      19: invokevirtual #254                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getLeaderUserId:()Ljava/lang/Long;
+      22: aload_1
+      23: invokestatic  #220                // Method java/util/Objects.equals:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      26: ifne          41
+      29: aload_0
+      30: getfield      #257                // Field packagingAccess:Lcn/iocoder/yudao/module/mes/service/pro/processpool/team/MesPackagingLeaderAccess;
+      33: aload_1
+      34: aload_3
+      35: invokevirtual #261                // Method cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesPackagingLeaderAccess.canAccess:(Ljava/lang/Long;Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO;)Z
+      38: ifeq          67
+      41: ldc_w         #267                // String ACTIVE
+      44: aload_3
+      45: invokevirtual #269                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getActiveStatus:()Ljava/lang/String;
+      48: invokevirtual #273                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      51: ifeq          67
+      54: ldc_w         #267                // String ACTIVE
+      57: aload_3
+      58: invokevirtual #274                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getBusinessStatus:()Ljava/lang/String;
+      61: invokevirtual #273                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      64: ifne          82
+      67: getstatic     #277                // Field cn/iocoder/yudao/module/mes/enums/ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS:Lcn/iocoder/yudao/framework/common/exception/ErrorCode;
+      70: iconst_1
+      71: anewarray     #2                  // class java/lang/Object
+      74: dup
+      75: iconst_0
+      76: aload_2
+      77: aastore
+      78: invokestatic  #283                // Method cn/iocoder/yudao/framework/common/exception/util/ServiceExceptionUtil.exception:(Lcn/iocoder/yudao/framework/common/exception/ErrorCode;[Ljava/lang/Object;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+      81: athrow
+      82: aload_3
+      83: invokevirtual #215                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getRouteId:()Ljava/lang/Long;
+      86: ifnull        96
+      89: aload_3
+      90: invokevirtual #228                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getRouteVersionId:()Ljava/lang/Long;
+      93: ifnonnull     104
+      96: aload_2
+      97: ldc_w         #289                // String ȱ����������·�߻�汾
+     100: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+     103: athrow
+     104: aload_3
+     105: areturn
+
+  private cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO requireLockedRouteVersion(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO);
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field routeVersionMapper:Lcn/iocoder/yudao/module/mes/dal/mysql/pro/route/MesProRouteVersionMapper;
+       4: aload_1
+       5: invokevirtual #228                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getRouteVersionId:()Ljava/lang/Long;
+       8: invokeinterface #291,  2          // InterfaceMethod cn/iocoder/yudao/module/mes/dal/mysql/pro/route/MesProRouteVersionMapper.selectById:(Ljava/io/Serializable;)Ljava/lang/Object;
+      13: checkcast     #294                // class cn/iocoder/yudao/module/mes/dal/dataobject/pro/route/MesProRouteVersionDO
+      16: astore_2
+      17: aload_2
+      18: ifnull        35
+      21: aload_2
+      22: invokevirtual #296                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/route/MesProRouteVersionDO.getRouteId:()Ljava/lang/Long;
+      25: aload_1
+      26: invokevirtual #215                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getRouteId:()Ljava/lang/Long;
+      29: invokestatic  #220                // Method java/util/Objects.equals:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      32: ifne          46
+      35: aload_1
+      36: invokevirtual #297                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getId:()Ljava/lang/Long;
+      39: ldc_w         #300                // String �������հ汾�����ڻ�·�����ݲ�һ��
+      42: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+      45: athrow
+      46: aload_2
+      47: areturn
+
+  private com.alibaba.fastjson.JSONObject parseRouteSnapshot(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO, cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO);
+    Code:
+       0: aload_2
+       1: invokevirtual #302                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/route/MesProRouteVersionDO.getRouteSnapshotJson:()Ljava/lang/String;
+       4: ifnull        17
+       7: aload_2
+       8: invokevirtual #302                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/route/MesProRouteVersionDO.getRouteSnapshotJson:()Ljava/lang/String;
+      11: invokevirtual #305                // Method java/lang/String.isBlank:()Z
+      14: ifeq          28
+      17: aload_1
+      18: invokevirtual #297                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getId:()Ljava/lang/Long;
+      21: ldc_w         #308                // String �������հ汾ȱ��·�߿���
+      24: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+      27: athrow
+      28: aload_2
+      29: invokevirtual #302                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/route/MesProRouteVersionDO.getRouteSnapshotJson:()Ljava/lang/String;
+      32: invokestatic  #310                // Method com/alibaba/fastjson/JSON.parseObject:(Ljava/lang/String;)Lcom/alibaba/fastjson/JSONObject;
+      35: astore_3
+      36: aload_3
+      37: ifnull        57
+      40: aload_3
+      41: ldc_w         #316                // String routeId
+      44: invokevirtual #317                // Method com/alibaba/fastjson/JSONObject.getLong:(Ljava/lang/String;)Ljava/lang/Long;
+      47: aload_1
+      48: invokevirtual #215                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getRouteId:()Ljava/lang/Long;
+      51: invokestatic  #220                // Method java/util/Objects.equals:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      54: ifne          68
+      57: aload_1
+      58: invokevirtual #297                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getId:()Ljava/lang/Long;
+      61: ldc_w         #321                // String ·�߿����������Ծ������һ��
+      64: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+      67: athrow
+      68: aload_3
+      69: areturn
+      70: astore_3
+      71: aload_3
+      72: athrow
+      73: astore_3
+      74: aload_1
+      75: invokevirtual #297                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getId:()Ljava/lang/Long;
+      78: ldc_w         #327                // String ·�߿��� JSON ��Ч
+      81: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+      84: athrow
+    Exception table:
+       from    to  target type
+          28    69    70   Class cn/iocoder/yudao/framework/common/exception/ServiceException
+          28    69    73   Class java/lang/RuntimeException
+
+  private java.util.Map<cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity, com.alibaba.fastjson.JSONObject> parseProcessNodes(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO, com.alibaba.fastjson.JSONObject);
+    Code:
+       0: aload_2
+       1: ldc_w         #329                // String configSnapshots
+       4: invokevirtual #331                // Method com/alibaba/fastjson/JSONObject.getJSONObject:(Ljava/lang/String;)Lcom/alibaba/fastjson/JSONObject;
+       7: astore_3
+       8: aload_3
+       9: ifnonnull     16
+      12: aconst_null
+      13: goto          23
+      16: aload_3
+      17: ldc_w         #334                // String flowGraph
+      20: invokevirtual #331                // Method com/alibaba/fastjson/JSONObject.getJSONObject:(Ljava/lang/String;)Lcom/alibaba/fastjson/JSONObject;
+      23: astore        4
+      25: aload         4
+      27: ifnonnull     34
+      30: aconst_null
+      31: goto          42
+      34: aload         4
+      36: ldc_w         #336                // String nodes
+      39: invokevirtual #338                // Method com/alibaba/fastjson/JSONObject.getJSONArray:(Ljava/lang/String;)Lcom/alibaba/fastjson/JSONArray;
+      42: astore        5
+      44: aload         5
+      46: ifnull        57
+      49: aload         5
+      51: invokevirtual #342                // Method com/alibaba/fastjson/JSONArray.isEmpty:()Z
+      54: ifeq          68
+      57: aload_1
+      58: invokevirtual #297                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getId:()Ljava/lang/Long;
+      61: ldc_w         #345                // String ·�߿���ȱ�����̹���
+      64: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+      67: athrow
+      68: new           #347                // class java/util/LinkedHashMap
+      71: dup
+      72: invokespecial #349                // Method java/util/LinkedHashMap."<init>":()V
+      75: astore        6
+      77: iconst_0
+      78: istore        7
+      80: iload         7
+      82: aload         5
+      84: invokevirtual #350                // Method com/alibaba/fastjson/JSONArray.size:()I
+      87: if_icmpge     187
+      90: aload         5
+      92: iload         7
+      94: invokevirtual #351                // Method com/alibaba/fastjson/JSONArray.getJSONObject:(I)Lcom/alibaba/fastjson/JSONObject;
+      97: astore        8
+      99: aload         8
+     101: ifnonnull     108
+     104: aconst_null
+     105: goto          116
+     108: aload         8
+     110: ldc_w         #354                // String routeProcessId
+     113: invokevirtual #317                // Method com/alibaba/fastjson/JSONObject.getLong:(Ljava/lang/String;)Ljava/lang/Long;
+     116: astore        9
+     118: aload         8
+     120: ifnonnull     127
+     123: aconst_null
+     124: goto          135
+     127: aload         8
+     129: ldc_w         #356                // String processId
+     132: invokevirtual #317                // Method com/alibaba/fastjson/JSONObject.getLong:(Ljava/lang/String;)Ljava/lang/Long;
+     135: astore        10
+     137: aload         9
+     139: ifnull        170
+     142: aload         10
+     144: ifnull        170
+     147: aload         6
+     149: new           #97                 // class cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity
+     152: dup
+     153: aload         9
+     155: aload         10
+     157: invokespecial #99                 // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity."<init>":(Ljava/lang/Long;Ljava/lang/Long;)V
+     160: aload         8
+     162: invokeinterface #358,  3          // InterfaceMethod java/util/Map.putIfAbsent:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     167: ifnull        181
+     170: aload_1
+     171: invokevirtual #297                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getId:()Ljava/lang/Long;
+     174: ldc_w         #362                // String ���̹�������ȱʧ���ظ�
+     177: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+     180: athrow
+     181: iinc          7, 1
+     184: goto          80
+     187: aload         6
+     189: areturn
+
+  private cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcess toProcess(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO, cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO, java.lang.String, java.lang.String, java.util.Map<cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity, com.alibaba.fastjson.JSONObject>, cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO, cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcessServiceImpl$ProcessProgress);
+    Code:
+       0: aload         6
+       2: ifnull        82
+       5: aload         6
+       7: invokevirtual #364                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getActiveOrderId:()Ljava/lang/Long;
+      10: aload_1
+      11: invokevirtual #297                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getId:()Ljava/lang/Long;
+      14: invokestatic  #220                // Method java/util/Objects.equals:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      17: ifeq          82
+      20: aload         6
+      22: invokevirtual #367                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getRouteId:()Ljava/lang/Long;
+      25: aload_1
+      26: invokevirtual #215                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getRouteId:()Ljava/lang/Long;
+      29: invokestatic  #220                // Method java/util/Objects.equals:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      32: ifeq          82
+      35: aload         6
+      37: invokevirtual #368                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getRouteVersionId:()Ljava/lang/Long;
+      40: aload_2
+      41: invokevirtual #369                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/route/MesProRouteVersionDO.getId:()Ljava/lang/Long;
+      44: invokestatic  #220                // Method java/util/Objects.equals:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      47: ifeq          82
+      50: aload         6
+      52: invokevirtual #90                 // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getRouteProcessId:()Ljava/lang/Long;
+      55: ifnull        82
+      58: aload         6
+      60: invokevirtual #94                 // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getProcessId:()Ljava/lang/Long;
+      63: ifnull        82
+      66: aload         6
+      68: invokevirtual #370                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getProductionQuantityFactorSnapshot:()Ljava/math/BigDecimal;
+      71: ifnull        82
+      74: aload         6
+      76: invokevirtual #374                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getPlannedQuantitySnapshot:()Ljava/math/BigDecimal;
+      79: ifnonnull     93
+      82: aload_1
+      83: invokevirtual #297                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getId:()Ljava/lang/Long;
+      86: ldc_w         #377                // String ����Ŀ��������ݻ������ֶβ�����
+      89: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+      92: athrow
+      93: aload         5
+      95: new           #97                 // class cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity
+      98: dup
+      99: aload         6
+     101: invokevirtual #90                 // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getRouteProcessId:()Ljava/lang/Long;
+     104: aload         6
+     106: invokevirtual #94                 // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getProcessId:()Ljava/lang/Long;
+     109: invokespecial #99                 // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity."<init>":(Ljava/lang/Long;Ljava/lang/Long;)V
+     112: invokeinterface #233,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     117: checkcast     #126                // class com/alibaba/fastjson/JSONObject
+     120: astore        8
+     122: aload         8
+     124: ifnonnull     138
+     127: aload_1
+     128: invokevirtual #297                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getId:()Ljava/lang/Long;
+     131: ldc_w         #379                // String ����Ŀ����ղ������������հ汾
+     134: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+     137: athrow
+     138: aload_0
+     139: aload_1
+     140: invokevirtual #297                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getId:()Ljava/lang/Long;
+     143: aload         6
+     145: aload         8
+     147: invokevirtual #381                // Method resolveProcessLabel:(Ljava/lang/Long;Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO;Lcom/alibaba/fastjson/JSONObject;)Lcn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$FrozenProcessLabel;
+     150: astore        9
+     152: aload         9
+     154: invokevirtual #385                // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$FrozenProcessLabel.processCode:()Ljava/lang/String;
+     157: astore        10
+     159: aload         9
+     161: invokevirtual #390                // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$FrozenProcessLabel.processName:()Ljava/lang/String;
+     164: astore        11
+     166: aload         10
+     168: ifnull        176
+     171: aload         11
+     173: ifnonnull     187
+     176: aload_1
+     177: invokevirtual #297                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getId:()Ljava/lang/Long;
+     180: ldc_w         #393                // String ���̹���ȱ�ٶ�����������
+     183: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+     186: athrow
+     187: aload         7
+     189: ifnull        200
+     192: aload         7
+     194: invokevirtual #395                // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessProgress.quantity:()Ljava/math/BigDecimal;
+     197: ifnonnull     211
+     200: aload_1
+     201: invokevirtual #297                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getId:()Ljava/lang/Long;
+     204: ldc_w         #400                // String ȱ�ٹ������ύ����
+     207: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+     210: athrow
+     211: aload         8
+     213: ldc_w         #402                // String routeProcessWorkstationId
+     216: invokevirtual #317                // Method com/alibaba/fastjson/JSONObject.getLong:(Ljava/lang/String;)Ljava/lang/Long;
+     219: astore        12
+     221: aload         12
+     223: ifnull        236
+     226: aload         12
+     228: invokevirtual #404                // Method java/lang/Long.longValue:()J
+     231: lconst_0
+     232: lcmp
+     233: ifgt          262
+     236: getstatic     #410                // Field cn/iocoder/yudao/module/mes/enums/ErrorCodeConstants.PRO_FRONTLINE_ROUTE_PROCESS_WORKSTATION_REQUIRED:Lcn/iocoder/yudao/framework/common/exception/ErrorCode;
+     239: iconst_2
+     240: anewarray     #2                  // class java/lang/Object
+     243: dup
+     244: iconst_0
+     245: aload_1
+     246: invokevirtual #215                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getRouteId:()Ljava/lang/Long;
+     249: aastore
+     250: dup
+     251: iconst_1
+     252: aload         6
+     254: invokevirtual #94                 // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getProcessId:()Ljava/lang/Long;
+     257: aastore
+     258: invokestatic  #283                // Method cn/iocoder/yudao/framework/common/exception/util/ServiceExceptionUtil.exception:(Lcn/iocoder/yudao/framework/common/exception/ErrorCode;[Ljava/lang/Object;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+     261: athrow
+     262: new           #206                // class cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcess
+     265: dup
+     266: aload_1
+     267: invokevirtual #297                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getId:()Ljava/lang/Long;
+     270: aload_1
+     271: invokevirtual #215                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getRouteId:()Ljava/lang/Long;
+     274: aload_2
+     275: invokevirtual #369                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/route/MesProRouteVersionDO.getId:()Ljava/lang/Long;
+     278: aload_3
+     279: aload         4
+     281: aload         6
+     283: invokevirtual #90                 // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getRouteProcessId:()Ljava/lang/Long;
+     286: aload         6
+     288: invokevirtual #94                 // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getProcessId:()Ljava/lang/Long;
+     291: aload         10
+     293: aload         11
+     295: aload         8
+     297: ldc_w         #413                // String sort
+     300: invokevirtual #415                // Method com/alibaba/fastjson/JSONObject.getInteger:(Ljava/lang/String;)Ljava/lang/Integer;
+     303: aload         12
+     305: aload         8
+     307: ldc_w         #419                // String workstationCode
+     310: invokevirtual #125                // Method com/alibaba/fastjson/JSONObject.getString:(Ljava/lang/String;)Ljava/lang/String;
+     313: invokestatic  #131                // Method normalize:(Ljava/lang/String;)Ljava/lang/String;
+     316: aload         8
+     318: ldc_w         #421                // String workstationName
+     321: invokevirtual #125                // Method com/alibaba/fastjson/JSONObject.getString:(Ljava/lang/String;)Ljava/lang/String;
+     324: invokestatic  #131                // Method normalize:(Ljava/lang/String;)Ljava/lang/String;
+     327: aload         6
+     329: invokevirtual #423                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getProductionConfigSnapshotJson:()Ljava/lang/String;
+     332: invokestatic  #426                // Method cn/iocoder/yudao/module/mes/service/pro/route/MesRouteLossCoefficient.frozen:(Ljava/lang/String;)Ljava/math/BigDecimal;
+     335: aload         6
+     337: invokestatic  #432                // Method cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesProductionQuantityRange.of:(Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO;)Lcn/iocoder/yudao/module/mes/service/pro/processpool/team/MesProductionQuantityRange;
+     340: invokevirtual #438                // Method cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesProductionQuantityRange.lower:()Ljava/math/BigDecimal;
+     343: aload         7
+     345: invokevirtual #395                // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessProgress.quantity:()Ljava/math/BigDecimal;
+     348: getstatic     #441                // Field java/lang/Boolean.TRUE:Ljava/lang/Boolean;
+     351: aload         8
+     353: ldc_w         #447                // String checkFlag
+     356: invokevirtual #449                // Method com/alibaba/fastjson/JSONObject.getBoolean:(Ljava/lang/String;)Ljava/lang/Boolean;
+     359: invokevirtual #453                // Method java/lang/Boolean.equals:(Ljava/lang/Object;)Z
+     362: invokestatic  #454                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+     365: aload         7
+     367: invokevirtual #458                // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessProgress.outputQuantities:()Ljava/util/Map;
+     370: invokespecial #462                // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcess."<init>":(Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/String;Ljava/math/BigDecimal;Ljava/math/BigDecimal;Ljava/math/BigDecimal;Ljava/lang/Boolean;Ljava/util/Map;)V
+     373: areturn
+
+  private java.util.Map<cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity, cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcessServiceImpl$ProcessProgress> resolveSubmittedQuantities(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO, java.util.List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO>);
+    Code:
+       0: aload_0
+       1: getfield      #21                 // Field reportAllocationMapper:Lcn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/team/MesProcessPoolReportAllocationMapper;
+       4: aload_1
+       5: invokevirtual #297                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getId:()Ljava/lang/Long;
+       8: invokestatic  #465                // InterfaceMethod java/util/List.of:(Ljava/lang/Object;)Ljava/util/List;
+      11: invokeinterface #468,  2          // InterfaceMethod cn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/team/MesProcessPoolReportAllocationMapper.selectListByActiveOrderIds:(Ljava/util/Collection;)Ljava/util/List;
+      16: astore_3
+      17: aload_3
+      18: ifnonnull     32
+      21: aload_1
+      22: invokevirtual #297                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO.getId:()Ljava/lang/Long;
+      25: ldc_w         #474                // String ��ʽ�����ѯ���Ϊ��
+      28: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+      31: athrow
+      32: aload_3
+      33: invokeinterface #136,  1          // InterfaceMethod java/util/List.stream:()Ljava/util/stream/Stream;
+      38: invokedynamic #476,  0            // InvokeDynamic #6:apply:()Ljava/util/function/Function;
+      43: invokeinterface #144,  2          // InterfaceMethod java/util/stream/Stream.map:(Ljava/util/function/Function;)Ljava/util/stream/Stream;
+      48: invokedynamic #477,  0            // InvokeDynamic #7:test:()Ljava/util/function/Predicate;
+      53: invokeinterface #188,  2          // InterfaceMethod java/util/stream/Stream.filter:(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;
+      58: invokeinterface #480,  1          // InterfaceMethod java/util/stream/Stream.distinct:()Ljava/util/stream/Stream;
+      63: invokeinterface #176,  1          // InterfaceMethod java/util/stream/Stream.toList:()Ljava/util/List;
+      68: astore        4
+      70: aload         4
+      72: invokeinterface #51,  1           // InterfaceMethod java/util/List.isEmpty:()Z
+      77: ifeq          86
+      80: invokestatic  #483                // InterfaceMethod java/util/List.of:()Ljava/util/List;
+      83: goto          97
+      86: aload_0
+      87: getfield      #25                 // Field processPoolEventMapper:Lcn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/MesProProcessPoolEventMapper;
+      90: aload         4
+      92: invokeinterface #485,  2          // InterfaceMethod cn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/MesProProcessPoolEventMapper.selectBatchIds:(Ljava/util/Collection;)Ljava/util/List;
+      97: astore        5
+      99: new           #347                // class java/util/LinkedHashMap
+     102: dup
+     103: invokespecial #349                // Method java/util/LinkedHashMap."<init>":()V
+     106: astore        6
+     108: aload_2
+     109: invokeinterface #75,  1           // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+     114: astore        7
+     116: aload         7
+     118: invokeinterface #79,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+     123: ifeq          216
+     126: aload         7
+     128: invokeinterface #84,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     133: checkcast     #88                 // class cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO
+     136: astore        8
+     138: new           #97                 // class cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity
+     141: dup
+     142: aload         8
+     144: invokevirtual #90                 // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getRouteProcessId:()Ljava/lang/Long;
+     147: aload         8
+     149: invokevirtual #94                 // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getProcessId:()Ljava/lang/Long;
+     152: invokespecial #99                 // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity."<init>":(Ljava/lang/Long;Ljava/lang/Long;)V
+     155: astore        9
+     157: aload         9
+     159: aload_3
+     160: invokestatic  #490                // Method hasSubmittedAllocation:(Lcn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity;Ljava/util/List;)Z
+     163: ifeq          178
+     166: aload_1
+     167: aload         8
+     169: aload         5
+     171: aload_3
+     172: invokestatic  #494                // Method cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress:(Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO;Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO;Ljava/util/List;Ljava/util/Collection;)Ljava/math/BigDecimal;
+     175: goto          183
+     178: aload         8
+     180: invokestatic  #500                // Method zeroSubmittedQuantity:(Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO;)Ljava/math/BigDecimal;
+     183: astore        10
+     185: aload         6
+     187: aload         9
+     189: new           #396                // class cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessProgress
+     192: dup
+     193: aload         10
+     195: aload_1
+     196: aload         8
+     198: aload         5
+     200: aload_3
+     201: invokestatic  #504                // Method cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesOutputMaterialProgressCalculator.cumulativeOutputQuantities:(Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO;Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO;Ljava/util/List;Ljava/util/Collection;)Ljava/util/Map;
+     204: invokespecial #508                // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessProgress."<init>":(Ljava/math/BigDecimal;Ljava/util/Map;)V
+     207: invokeinterface #511,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     212: pop
+     213: goto          116
+     216: aload         6
+     218: areturn
+
+  private static boolean hasSubmittedAllocation(cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity, java.util.List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO>);
+    Code:
+       0: aload_1
+       1: invokeinterface #136,  1          // InterfaceMethod java/util/List.stream:()Ljava/util/stream/Stream;
+       6: aload_0
+       7: invokedynamic #514,  0            // InvokeDynamic #8:test:(Lcn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity;)Ljava/util/function/Predicate;
+      12: invokeinterface #517,  2          // InterfaceMethod java/util/stream/Stream.anyMatch:(Ljava/util/function/Predicate;)Z
+      17: ireturn
+
+  private static java.math.BigDecimal zeroSubmittedQuantity(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO);
+    Code:
+       0: aload_0
+       1: ifnonnull     8
+       4: aconst_null
+       5: goto          12
+       8: aload_0
+       9: invokevirtual #374                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getPlannedQuantitySnapshot:()Ljava/math/BigDecimal;
+      12: astore_1
+      13: aload_1
+      14: ifnonnull     22
+      17: bipush        6
+      19: goto          31
+      22: bipush        6
+      24: aload_1
+      25: invokevirtual #521                // Method java/math/BigDecimal.scale:()I
+      28: invokestatic  #526                // Method java/lang/Math.max:(II)I
+      31: istore_2
+      32: getstatic     #532                // Field java/math/BigDecimal.ZERO:Ljava/math/BigDecimal;
+      35: iload_2
+      36: getstatic     #536                // Field java/math/RoundingMode.HALF_UP:Ljava/math/RoundingMode;
+      39: invokevirtual #542                // Method java/math/BigDecimal.setScale:(ILjava/math/RoundingMode;)Ljava/math/BigDecimal;
+      42: areturn
+
+  private static cn.iocoder.yudao.framework.common.exception.ServiceException snapshotInvalid(java.lang.Long, java.lang.String);
+    Code:
+       0: getstatic     #546                // Field cn/iocoder/yudao/module/mes/enums/ErrorCodeConstants.PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_SNAPSHOT_INVALID:Lcn/iocoder/yudao/framework/common/exception/ErrorCode;
+       3: iconst_2
+       4: anewarray     #2                  // class java/lang/Object
+       7: dup
+       8: iconst_0
+       9: aload_0
+      10: aastore
+      11: dup
+      12: iconst_1
+      13: aload_1
+      14: aastore
+      15: invokestatic  #283                // Method cn/iocoder/yudao/framework/common/exception/util/ServiceExceptionUtil.exception:(Lcn/iocoder/yudao/framework/common/exception/ErrorCode;[Ljava/lang/Object;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+      18: areturn
+
+  private cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcessServiceImpl$FrozenProcessLabel resolveProcessLabel(java.lang.Long, cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO, com.alibaba.fastjson.JSONObject);
+    Code:
+       0: aload_2
+       1: invokevirtual #549                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getProcessCodeSnapshot:()Ljava/lang/String;
+       4: invokestatic  #131                // Method normalize:(Ljava/lang/String;)Ljava/lang/String;
+       7: astore        4
+       9: aload_2
+      10: invokevirtual #552                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getProcessNameSnapshot:()Ljava/lang/String;
+      13: invokestatic  #131                // Method normalize:(Ljava/lang/String;)Ljava/lang/String;
+      16: astore        5
+      18: aload_3
+      19: ldc_w         #555                // String processCode
+      22: invokevirtual #125                // Method com/alibaba/fastjson/JSONObject.getString:(Ljava/lang/String;)Ljava/lang/String;
+      25: invokestatic  #131                // Method normalize:(Ljava/lang/String;)Ljava/lang/String;
+      28: astore        6
+      30: aload_3
+      31: ldc_w         #556                // String processName
+      34: invokevirtual #125                // Method com/alibaba/fastjson/JSONObject.getString:(Ljava/lang/String;)Ljava/lang/String;
+      37: invokestatic  #131                // Method normalize:(Ljava/lang/String;)Ljava/lang/String;
+      40: astore        7
+      42: aload         4
+      44: ifnull        70
+      47: aload         6
+      49: ifnull        70
+      52: aload         4
+      54: aload         6
+      56: invokestatic  #220                // Method java/util/Objects.equals:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      59: ifne          70
+      62: aload_1
+      63: ldc_w         #557                // String ���Ṥ�������·�߰汾���ղ�һ��
+      66: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+      69: athrow
+      70: aload         5
+      72: ifnull        98
+      75: aload         7
+      77: ifnull        98
+      80: aload         5
+      82: aload         7
+      84: invokestatic  #220                // Method java/util/Objects.equals:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      87: ifne          98
+      90: aload_1
+      91: ldc_w         #559                // String ���Ṥ��������·�߰汾���ղ�һ��
+      94: invokestatic  #59                 // Method snapshotInvalid:(Ljava/lang/Long;Ljava/lang/String;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+      97: athrow
+      98: aload         4
+     100: ifnonnull     108
+     103: aload         6
+     105: goto          110
+     108: aload         4
+     110: astore        8
+     112: aload         5
+     114: ifnonnull     122
+     117: aload         7
+     119: goto          124
+     122: aload         5
+     124: astore        9
+     126: new           #386                // class cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$FrozenProcessLabel
+     129: dup
+     130: aload         8
+     132: aload         9
+     134: invokespecial #561                // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$FrozenProcessLabel."<init>":(Ljava/lang/String;Ljava/lang/String;)V
+     137: areturn
+
+  private static java.lang.String normalize(java.lang.String);
+    Code:
+       0: aload_0
+       1: ifnonnull     6
+       4: aconst_null
+       5: areturn
+       6: aload_0
+       7: invokevirtual #564                // Method java/lang/String.trim:()Ljava/lang/String;
+      10: astore_1
+      11: aload_1
+      12: invokevirtual #567                // Method java/lang/String.isEmpty:()Z
+      15: ifeq          22
+      18: aconst_null
+      19: goto          23
+      22: aload_1
+      23: areturn
+
+  private static boolean lambda$hasSubmittedAllocation$3(cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity, cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO);
+    Code:
+       0: aload_1
+       1: ifnull        53
+       4: aload_0
+       5: invokevirtual #568                // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity.routeProcessId:()Ljava/lang/Long;
+       8: aload_1
+       9: invokevirtual #570                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolReportAllocationDO.getRouteProcessId:()Ljava/lang/Long;
+      12: invokestatic  #220                // Method java/util/Objects.equals:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      15: ifeq          53
+      18: aload_0
+      19: invokevirtual #573                // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity.processId:()Ljava/lang/Long;
+      22: aload_1
+      23: invokevirtual #575                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolReportAllocationDO.getProcessId:()Ljava/lang/Long;
+      26: invokestatic  #220                // Method java/util/Objects.equals:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      29: ifeq          53
+      32: aload_1
+      33: invokevirtual #576                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolReportAllocationDO.getAllocatedQuantity:()Ljava/math/BigDecimal;
+      36: ifnull        53
+      39: aload_1
+      40: invokevirtual #576                // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolReportAllocationDO.getAllocatedQuantity:()Ljava/math/BigDecimal;
+      43: invokevirtual #579                // Method java/math/BigDecimal.signum:()I
+      46: ifle          53
+      49: iconst_1
+      50: goto          54
+      53: iconst_0
+      54: ireturn
+
+  private static cn.iocoder.yudao.framework.common.exception.ServiceException lambda$requireProcess$2(java.lang.Long, java.lang.Long, java.lang.Long);
+    Code:
+       0: getstatic     #582                // Field cn/iocoder/yudao/module/mes/enums/ErrorCodeConstants.PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_MISMATCH:Lcn/iocoder/yudao/framework/common/exception/ErrorCode;
+       3: iconst_3
+       4: anewarray     #2                  // class java/lang/Object
+       7: dup
+       8: iconst_0
+       9: aload_0
+      10: aastore
+      11: dup
+      12: iconst_1
+      13: aload_1
+      14: aastore
+      15: dup
+      16: iconst_2
+      17: aload_2
+      18: aastore
+      19: invokestatic  #283                // Method cn/iocoder/yudao/framework/common/exception/util/ServiceExceptionUtil.exception:(Lcn/iocoder/yudao/framework/common/exception/ErrorCode;[Ljava/lang/Object;)Lcn/iocoder/yudao/framework/common/exception/ServiceException;
+      22: areturn
+
+  private static boolean lambda$requireProcess$1(java.lang.Long, java.lang.Long, java.lang.Long, cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcess);
+    Code:
+       0: aload_3
+       1: invokevirtual #212                // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcess.routeId:()Ljava/lang/Long;
+       4: aload_0
+       5: invokestatic  #220                // Method java/util/Objects.equals:(Ljava/lang/Object;Ljava/lang/Object;)Z
+       8: ifeq          37
+      11: aload_3
+      12: invokevirtual #585                // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcess.routeProcessId:()Ljava/lang/Long;
+      15: aload_1
+      16: invokestatic  #220                // Method java/util/Objects.equals:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      19: ifeq          37
+      22: aload_3
+      23: invokevirtual #586                // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcess.processId:()Ljava/lang/Long;
+      26: aload_2
+      27: invokestatic  #220                // Method java/util/Objects.equals:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      30: ifeq          37
+      33: iconst_1
+      34: goto          38
+      37: iconst_0
+      38: ireturn
+
+  private cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcess lambda$listProcesses$0(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO, cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO, java.lang.String, java.lang.String, java.util.Map, java.util.Map, cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: aload_3
+       4: aload         4
+       6: aload         5
+       8: aload         7
+      10: aload         6
+      12: new           #97                 // class cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity
+      15: dup
+      16: aload         7
+      18: invokevirtual #90                 // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getRouteProcessId:()Ljava/lang/Long;
+      21: aload         7
+      23: invokevirtual #94                 // Method cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.getProcessId:()Ljava/lang/Long;
+      26: invokespecial #99                 // Method cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessIdentity."<init>":(Ljava/lang/Long;Ljava/lang/Long;)V
+      29: invokeinterface #233,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      34: checkcast     #396                // class cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessProgress
+      37: invokevirtual #587                // Method toProcess:(Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderDO;Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/route/MesProRouteVersionDO;Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;Lcn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO;Lcn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl$ProcessProgress;)Lcn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcess;
+      40: areturn
+}

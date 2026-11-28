@@ -1,0 +1,10 @@
+{
+  "file": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\eDHR\\流程协调员\\output\\full-market-validation-20261118\\documents\\SIM-1009200626-sterilization-test.pdf",
+  "pages": 1,
+  "bytes": 43636,
+  "sha256": "13b255e53dd4653f148f12e15df78dc5724921ca68eaaf8d49525ec1ec187ebe",
+  "strict_pdf_parse": true,
+  "required_text_checks": true,
+  "visual_review": "已查看单页渲染图：中文、工单及警示完整清晰，无截断或重叠",
+  "business_actions": "无页面操作、无上传、无批准、无签名"
+}

@@ -1,0 +1,508 @@
+[
+  {
+    "caseId": "04-01",
+    "chain": "04",
+    "title": "创建撤回测试专用文件",
+    "account": "chenpeipei",
+    "object": "DCC-R1127P-04，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "正文和两个附件上传成功，审批路线有效，可创建第一轮申请。",
+    "actual": "主文件显示上传大小策略缺失或无效；审批人链路显示系统异常，附件上传失败，创建受控文件按钮禁用。未能提交。",
+    "status": "未通过",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-04，初始版本A/1。正文04-A1.txt，选择文控审核后立即生效；点击查看校验详情。15:10首次截图。 主文件显示上传大小策略缺失或无效；审批人链路显示系统异常，附件上传失败，创建受控文件按钮禁用。未能提交。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\04-01-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "02-01",
+    "chain": "02",
+    "title": "建立本轮延迟升版所需的初始有效版本",
+    "account": "chenpeipei",
+    "object": "DCC-R1127P-02，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "建立本轮新编号的有效A/1，并完成当版查看下载签收，供后续检出升版。",
+    "actual": "主文件预览与审批路线均显示系统异常，附件上传失败，创建按钮禁用。未建立初始有效版，不能使用旧轮文件替代。",
+    "status": "未通过",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-02，初始版本A/1。正文02-A1.txt。初始准备选立即生效，随后独立检查延迟生效及需要培训选项；点击查看校验详情，仍不能创建。15:21至15:25截图。 主文件预览与审批路线均显示系统异常，附件上传失败，创建按钮禁用。未建立初始有效版，不能使用旧轮文件替代。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-01-延迟选项及异常.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-02-项目及主文件.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-03-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "02-02",
+    "chain": "02",
+    "title": "当版有效期间查看下载和签收",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-02，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "张鑫悦查看并下载A/1正文及两个附件，合法收件人签收后再升版。",
+    "actual": "未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-02，初始版本A/1。拟执行路径：文控中心→受控浏览→查询本轮文件→操作面板→对应步骤；因文件不存在无可用操作。 未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-01-延迟选项及异常.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-02-项目及主文件.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-03-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "02-03",
+    "chain": "02",
+    "title": "检出修改正文附件并检入草稿",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-02，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "陈佩佩检出A/1，修改本轮正文及附件，检入形成草稿。",
+    "actual": "未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-02，初始版本A/1。拟执行路径：文控中心→受控浏览→查询本轮文件→操作面板→对应步骤；因文件不存在无可用操作。 未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-01-延迟选项及异常.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-02-项目及主文件.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-03-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "02-04",
+    "chain": "02",
+    "title": "选择草稿正式升版并选延迟生效",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-02，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "由草稿建立新版本，提交时只选延迟方式，不要求具体时间，旧版保持可用。",
+    "actual": "未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-02，初始版本A/1。拟执行路径：文控中心→受控浏览→查询本轮文件→操作面板→对应步骤；因文件不存在无可用操作。 未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-01-延迟选项及异常.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-02-项目及主文件.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-03-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "02-05",
+    "chain": "02",
+    "title": "九次岗位签名完整审批",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-02，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "潘鑫审核，三部门分别指派和会签，朱利江批准，赵海辰文控审核。",
+    "actual": "未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-02，初始版本A/1。拟执行路径：文控中心→受控浏览→查询本轮文件→操作面板→对应步骤；因文件不存在无可用操作。 未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-01-延迟选项及异常.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-02-项目及主文件.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-03-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "02-06",
+    "chain": "02",
+    "title": "培训与申请人确认任务",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-02，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "陈佩佩上传本轮模拟培训记录；培训完成前不能提前确认，完成后产生本人确认任务。",
+    "actual": "未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-02，初始版本A/1。拟执行路径：文控中心→受控浏览→查询本轮文件→操作面板→对应步骤；因文件不存在无可用操作。 未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-01-延迟选项及异常.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-02-项目及主文件.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-03-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "02-07",
+    "chain": "02",
+    "title": "确认页提示与审批内容保护",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-02，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "确认页说明时间选择依据，不能修改已审核正文、附件、审批信息。",
+    "actual": "未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-02，初始版本A/1。拟执行路径：文控中心→受控浏览→查询本轮文件→操作面板→对应步骤；因文件不存在无可用操作。 未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-01-延迟选项及异常.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-02-项目及主文件.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-03-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "02-08",
+    "chain": "02",
+    "title": "空时间不能确认",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-02，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "保持计划时间为空，签名确认不能继续。",
+    "actual": "未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-02，初始版本A/1。拟执行路径：文控中心→受控浏览→查询本轮文件→操作面板→对应步骤；因文件不存在无可用操作。 未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-01-延迟选项及异常.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-02-项目及主文件.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-03-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "02-09",
+    "chain": "02",
+    "title": "过去时间不能确认",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-02，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "选择过去时间，确认被阻止且对象状态不变。",
+    "actual": "未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-02，初始版本A/1。拟执行路径：文控中心→受控浏览→查询本轮文件→操作面板→对应步骤；因文件不存在无可用操作。 未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-01-延迟选项及异常.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-02-项目及主文件.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-03-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "02-10",
+    "chain": "02",
+    "title": "未签名不能确认",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-02，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "选择合法未来时间但不签名，确认不能继续。",
+    "actual": "未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-02，初始版本A/1。拟执行路径：文控中心→受控浏览→查询本轮文件→操作面板→对应步骤；因文件不存在无可用操作。 未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-01-延迟选项及异常.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-02-项目及主文件.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-03-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "02-11",
+    "chain": "02",
+    "title": "合法未来时间签名与受控盖章",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-02，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "选择未来时间并由编制人签名，分别记录计划、签名、受控、执行结果与实际生效时间，核对盖章。",
+    "actual": "未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-02，初始版本A/1。拟执行路径：文控中心→受控浏览→查询本轮文件→操作面板→对应步骤；因文件不存在无可用操作。 未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-01-延迟选项及异常.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-02-项目及主文件.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-03-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "02-12",
+    "chain": "02",
+    "title": "到期前禁止提前切版分发",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-02，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "受控未到计划时保持待生效，不替换旧版、不开放日常新版、不产生分发签收。",
+    "actual": "未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-02，初始版本A/1。拟执行路径：文控中心→受控浏览→查询本轮文件→操作面板→对应步骤；因文件不存在无可用操作。 未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-01-延迟选项及异常.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-02-项目及主文件.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-03-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "02-13",
+    "chain": "02",
+    "title": "到期自动切版作废归档与分发",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-02，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "自动扫描后新版生效、旧版作废归档并指向新版，自动下发，不等待全部签收。",
+    "actual": "未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-02，初始版本A/1。拟执行路径：文控中心→受控浏览→查询本轮文件→操作面板→对应步骤；因文件不存在无可用操作。 未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-01-延迟选项及异常.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-02-项目及主文件.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-03-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "02-14",
+    "chain": "02",
+    "title": "到期后查询查看下载及留痕",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-02，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "赵海辰核历史，张鑫悦搜索查看下载新版正文和两个附件，核版本内容与留痕。",
+    "actual": "未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-02，初始版本A/1。拟执行路径：文控中心→受控浏览→查询本轮文件→操作面板→对应步骤；因文件不存在无可用操作。 未执行：本轮初始A/1无法创建，缺少直接业务前置；没有复用旧轮文件，没有手工调度或绕过审批。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-01-延迟选项及异常.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-02-项目及主文件.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-03-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "02-15",
+    "chain": "02",
+    "title": "受控执行失败不得假成功",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-02，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "安全失败样本中不能标成功、切换或下发。",
+    "actual": "未覆盖：没有本轮安全受控失败样本；未人为破坏配置制造失败。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-02，初始版本A/1。拟执行路径：文控中心→受控浏览→查询本轮文件→操作面板→对应步骤；因文件不存在无可用操作。 未覆盖：没有本轮安全受控失败样本；未人为破坏配置制造失败。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-01-延迟选项及异常.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-02-项目及主文件.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\02-03-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "04-02",
+    "chain": "04",
+    "title": "编制人在文控前合法撤回",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-04，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "陈佩佩填写原因并确认撤回，结束该轮，取消待办，保留历史与原受控版。",
+    "actual": "未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-04，初始版本A/1。拟执行路径：文控中心→受控浏览→查询DCC-R1127P-04→操作面板→对应申请或撤回步骤；因文件未创建而阻塞。 未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\04-01-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "04-03",
+    "chain": "04",
+    "title": "文控未签名时禁止编制人撤回",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-04，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "进入文控但尚未签名，陈佩佩不得撤回；只按正常入口验证。",
+    "actual": "未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-04，初始版本A/1。拟执行路径：文控中心→受控浏览→查询DCC-R1127P-04→操作面板→对应申请或撤回步骤；因文件未创建而阻塞。 未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\04-01-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "04-04",
+    "chain": "04",
+    "title": "其他账号不得撤回",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-04，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "其他账号不得撤回本次申请；无正常入口只记录界面边界，不声称服务端拒绝已测。",
+    "actual": "未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-04，初始版本A/1。拟执行路径：文控中心→受控浏览→查询DCC-R1127P-04→操作面板→对应申请或撤回步骤；因文件未创建而阻塞。 未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\04-01-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "04-05",
+    "chain": "04",
+    "title": "已结束申请不得撤回",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-04，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "已结束申请不能再次撤回，历史保持不变。",
+    "actual": "未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-04，初始版本A/1。拟执行路径：文控中心→受控浏览→查询DCC-R1127P-04→操作面板→对应申请或撤回步骤；因文件未创建而阻塞。 未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\04-01-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "04-06",
+    "chain": "04",
+    "title": "同一对象重提并完整新轮审批",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-04，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "保留对象业务类型版本关系，重新提交，从主管到三部门及批准、文控重新完成九次签名，不沿用旧签名。",
+    "actual": "未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-04，初始版本A/1。拟执行路径：文控中心→受控浏览→查询DCC-R1127P-04→操作面板→对应申请或撤回步骤；因文件未创建而阻塞。 未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\04-01-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "04-07",
+    "chain": "04",
+    "title": "培训受控生效及盖章",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-04，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "需要时上传培训并完成生效确认，核对受控、生效及盖章。",
+    "actual": "未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-04，初始版本A/1。拟执行路径：文控中心→受控浏览→查询DCC-R1127P-04→操作面板→对应申请或撤回步骤；因文件未创建而阻塞。 未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\04-01-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "04-08",
+    "chain": "04",
+    "title": "本轮版本查看下载及原轮历史",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-04，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "张鑫悦搜索查看下载本版正文和两个附件，核对版本内容、留痕和原轮历史。",
+    "actual": "未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-04，初始版本A/1。拟执行路径：文控中心→受控浏览→查询DCC-R1127P-04→操作面板→对应申请或撤回步骤；因文件未创建而阻塞。 未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\04-01-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "04-09",
+    "chain": "04",
+    "title": "作废申请主管阶段撤回",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-04，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "本次编制人在作废主管阶段撤回，原有效版不变，重提仍为同一对象作废。",
+    "actual": "未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-04，初始版本A/1。拟执行路径：文控中心→受控浏览→查询DCC-R1127P-04→操作面板→对应申请或撤回步骤；因文件未创建而阻塞。 未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\04-01-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "04-10",
+    "chain": "04",
+    "title": "作废申请指派阶段撤回",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-04，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "本次编制人在作废指派阶段可撤回且保留原有效版。",
+    "actual": "未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-04，初始版本A/1。拟执行路径：文控中心→受控浏览→查询DCC-R1127P-04→操作面板→对应申请或撤回步骤；因文件未创建而阻塞。 未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\04-01-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "04-11",
+    "chain": "04",
+    "title": "作废申请会签阶段撤回",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-04，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "本次编制人在作废会签阶段可撤回且保留原有效版。",
+    "actual": "未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-04，初始版本A/1。拟执行路径：文控中心→受控浏览→查询DCC-R1127P-04→操作面板→对应申请或撤回步骤；因文件未创建而阻塞。 未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\04-01-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "04-12",
+    "chain": "04",
+    "title": "作废申请批准阶段撤回",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-04，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "本次编制人在作废批准阶段可撤回且保留原有效版。",
+    "actual": "未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-04，初始版本A/1。拟执行路径：文控中心→受控浏览→查询DCC-R1127P-04→操作面板→对应申请或撤回步骤；因文件未创建而阻塞。 未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\04-01-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  },
+  {
+    "caseId": "04-13",
+    "chain": "04",
+    "title": "作废完成后禁止撤回",
+    "account": "未切换至下游账号",
+    "object": "DCC-R1127P-04，拟建A/1，未创建成功，无文件ID、申请ID或流程轮次",
+    "expected": "完成批准作废后，不再允许撤回。",
+    "actual": "未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "status": "存疑",
+    "reproduction": "本地 http://localhost:8081，测试1，陈佩佩 chenpeipei；文控中心→文件上传→项目→IDI→DCC0-IDI三部门会签测试→技术文档／设计和开发验证／DCC0流程验证文件；选择本轮正文与附件一、附件二；会签部门选质量体系中心、新品开发部、生产制造中心。 文件编号DCC-R1127P-04，初始版本A/1。拟执行路径：文控中心→受控浏览→查询DCC-R1127P-04→操作面板→对应申请或撤回步骤；因文件未创建而阻塞。 未执行：独立新编号样本无法创建，未生成申请或待办，不能进入对应节点。原有文件未改动。",
+    "screenshotPaths": [
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\04-01-创建前校验失败.png",
+      "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\文控协调员\\output\\20261127-1418-完整复测\\02-04\\00-查询本轮编号无结果.png"
+    ],
+    "evidenceNote": "截图为本轮真实页面。未执行步骤所附为直接前置阻塞证据，不是该步骤执行截图。",
+    "observedAt": "2026-11-27 15:10至15:46（北京时间）"
+  }
+]

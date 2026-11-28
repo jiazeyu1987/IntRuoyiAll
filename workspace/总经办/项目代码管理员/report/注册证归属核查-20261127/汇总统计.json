@@ -1,0 +1,15 @@
+{
+  "all": 388,
+  "ownProduct": 163,
+  "source": 119,
+  "consistentSource": 109,
+  "conflict": 10,
+  "formalSnapshot": 30,
+  "formalWithMatchingApproval": 30,
+  "formalTestMarked": 30,
+  "legacyTest": 14,
+  "sourceBlankProject": 44,
+  "blockedSource": 64,
+  "blockedTest": 38,
+  "ownUnbound": 133
+}

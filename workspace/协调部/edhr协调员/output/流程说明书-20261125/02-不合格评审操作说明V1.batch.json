@@ -1,0 +1,508 @@
+[
+  {
+    "command": "set",
+    "props": {
+      "pageWidth": "21cm",
+      "marginLeft": "2cm",
+      "marginRight": "2cm",
+      "pageHeight": "29.7cm",
+      "marginTop": "2cm",
+      "marginBottom": "2cm"
+    },
+    "path": "/section[1]"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "bold": "true",
+      "size": "18pt",
+      "lineSpacing": "1.25x",
+      "style": "Title",
+      "keepNext": "true",
+      "spaceAfter": "5pt",
+      "keepLines": "true",
+      "font": "微软雅黑",
+      "text": "不合格评审操作说明 V1",
+      "color": "#17365D"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "size": "9pt",
+      "lineSpacing": "1.25x",
+      "spaceAfter": "6pt",
+      "keepLines": "true",
+      "font": "微软雅黑",
+      "text": "适用：eDHR业务操作｜编写日期：2026-11-25｜版本：V1",
+      "color": "#595959"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "lineSpacing": "1.25x",
+      "text": "目的：把需要评审的问题交给指定QA（质量保证责任人），决定让步放行、返工或作废，再由原岗位接续处理。评审关闭不等于产品已上市放行。",
+      "spaceAfter": "6pt",
+      "size": "11pt",
+      "font": "微软雅黑",
+      "keepLines": "true",
+      "color": "#222222"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "size": "9pt",
+      "lineSpacing": "1.25x",
+      "spaceAfter": "6pt",
+      "keepLines": "true",
+      "font": "微软雅黑",
+      "text": "截图为2026-11-23—25的历史测试界面，包含不同租户、订单及周期，仅说明操作位置，不是同一订单的连续记录，也不代表本次重新实测。实际办理以当前租户、本人正式任务和页面要求为准。",
+      "color": "#595959"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "keepNext": "true",
+      "bold": "true",
+      "size": "14pt",
+      "lineSpacing": "1.25x",
+      "style": "Heading1",
+      "pageBreakBefore": "false",
+      "spaceAfter": "8pt",
+      "keepLines": "true",
+      "font": "微软雅黑",
+      "text": "一、确认问题，从正确入口发起",
+      "color": "#17365D",
+      "spaceBefore": "4pt"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "lineSpacing": "1.25x",
+      "text": "准备：确认订单、批次、产品、问题工序、涉及数量与问题事实，整理照片、检验结果等依据。损耗非零、参数标红、数量超限，本身不自动等于不合格，不能直接据此作结论。",
+      "spaceAfter": "6pt",
+      "size": "11pt",
+      "font": "微软雅黑",
+      "keepLines": "true",
+      "color": "#222222"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "lineSpacing": "1.25x",
+      "text": "步骤 1｜检验复核阶段：PQC组长进入“PQC管理”，找到本轮待复核记录，使用该条的“不合格审查／不合格评审”操作。需要从这里发起时，不要先普通审核通过，把入口办没了。",
+      "spaceAfter": "6pt",
+      "size": "11pt",
+      "font": "微软雅黑",
+      "keepLines": "true",
+      "color": "#222222"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "lineSpacing": "1.25x",
+      "text": "另一入口｜生产放行阶段：生产与检验双100%、完工申请成功后，PQC负责人进入“生产放行”，从本单正式申请发起“不合格审查”。按问题所在阶段选择，不为同一问题重复发起。",
+      "spaceAfter": "6pt",
+      "size": "11pt",
+      "font": "微软雅黑",
+      "keepLines": "true",
+      "color": "#222222"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "size": "11pt",
+      "lineSpacing": "1.25x",
+      "keepNext": "true",
+      "spaceAfter": "3pt",
+      "align": "center",
+      "keepLines": "true",
+      "font": "微软雅黑",
+      "text": "",
+      "color": "#222222"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "props": {
+      "alt": "图 1 不合格审查发起框示例。这是正式评审，不是普通退回，也不是“重大偏差”流程。",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\PQC四单_20261123_续办\\P02_返工QA选中及原因.png",
+      "height": "9.45cm",
+      "width": "16.8cm"
+    },
+    "parent": "/body/p[9]"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "size": "9pt",
+      "lineSpacing": "1.25x",
+      "spaceAfter": "8pt",
+      "keepLines": "true",
+      "font": "微软雅黑",
+      "text": "图 1 不合格审查发起框示例。这是正式评审，不是普通退回，也不是“重大偏差”流程。",
+      "color": "#595959"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "keepNext": "true",
+      "bold": "true",
+      "size": "14pt",
+      "lineSpacing": "1.25x",
+      "style": "Heading1",
+      "pageBreakBefore": "true",
+      "spaceAfter": "8pt",
+      "keepLines": "true",
+      "font": "微软雅黑",
+      "text": "二、写清原因，选择本次QA并提交",
+      "color": "#17365D",
+      "spaceBefore": "4pt"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "lineSpacing": "1.25x",
+      "text": "步骤 2｜原因至少说清：哪一单、哪里有问题、涉及多少、依据是什么、要评审什么。只写“异常”“请处理”不足以支持决定；测试注明模拟，实际业务使用真实依据。",
+      "spaceAfter": "6pt",
+      "size": "11pt",
+      "font": "微软雅黑",
+      "keepLines": "true",
+      "color": "#222222"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "lineSpacing": "1.25x",
+      "text": "步骤 3｜从本次系统提供的QA候选中选择已确定的责任人，确认姓名／账号回显正确，再提交一次。没有合适候选时联系配置责任岗，不随便选列表第一人。",
+      "spaceAfter": "6pt",
+      "size": "11pt",
+      "font": "微软雅黑",
+      "keepLines": "true",
+      "color": "#222222"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "size": "11pt",
+      "lineSpacing": "1.25x",
+      "keepNext": "true",
+      "spaceAfter": "3pt",
+      "align": "center",
+      "keepLines": "true",
+      "font": "微软雅黑",
+      "text": "",
+      "color": "#222222"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "props": {
+      "alt": "图 2 正式QA候选选择示例。截图中的人是历史测试候选，不是所有订单的固定审批人。",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\four-cases-20261123-evening\\pqc-release\\04-003正式候选选择上官冰彦.png",
+      "height": "9.45cm",
+      "width": "16.8cm"
+    },
+    "parent": "/body/p[14]"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "size": "9pt",
+      "lineSpacing": "1.25x",
+      "spaceAfter": "8pt",
+      "keepLines": "true",
+      "font": "微软雅黑",
+      "text": "图 2 正式QA候选选择示例。截图中的人是历史测试候选，不是所有订单的固定审批人。",
+      "color": "#595959"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "lineSpacing": "1.25x",
+      "text": "检查结果：刷新评审列表／详情，确认本单有唯一正式评审，当前待处置／进行中，关联订单和QA正确。评审期间原申请按系统规则受控，不绕过评审继续普通放行。",
+      "spaceAfter": "6pt",
+      "size": "11pt",
+      "font": "微软雅黑",
+      "keepLines": "true",
+      "color": "#222222"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "keepNext": "true",
+      "bold": "true",
+      "size": "14pt",
+      "lineSpacing": "1.25x",
+      "style": "Heading1",
+      "pageBreakBefore": "true",
+      "spaceAfter": "8pt",
+      "keepLines": "true",
+      "font": "微软雅黑",
+      "text": "三、QA核对材料，作出明确处置",
+      "color": "#17365D",
+      "spaceBefore": "4pt"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "lineSpacing": "1.25x",
+      "text": "步骤 4｜被指定QA从本人工作台待办或正常评审菜单进入，核对本人责任、订单和问题。按页面要求上传并保存材料，填写包含事实、依据、对象和范围的处置意见。",
+      "spaceAfter": "6pt",
+      "size": "11pt",
+      "font": "微软雅黑",
+      "keepLines": "true",
+      "color": "#222222"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "lineSpacing": "1.25x",
+      "text": "步骤 5｜选择准确结论：让步放行＝在明确条件和范围内接受差异；返工＝按要求重做并再生产／再检验；作废＝原对象停止继续办理，保留追溯。不把“同意”当作对所有差异的自动认可。",
+      "spaceAfter": "6pt",
+      "size": "11pt",
+      "font": "微软雅黑",
+      "keepLines": "true",
+      "color": "#222222"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "size": "11pt",
+      "lineSpacing": "1.25x",
+      "keepNext": "true",
+      "spaceAfter": "3pt",
+      "align": "center",
+      "keepLines": "true",
+      "font": "微软雅黑",
+      "text": "",
+      "color": "#222222"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "props": {
+      "alt": "图 3 QA材料和意见示例。材料需保存并核对归属，结论与理由必须对应实际问题。",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\QA-G两单-20261123-0438\\Q02_让步材料上传及模拟意见.png",
+      "height": "9.45cm",
+      "width": "16.8cm"
+    },
+    "parent": "/body/p[20]"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "size": "9pt",
+      "lineSpacing": "1.25x",
+      "spaceAfter": "8pt",
+      "keepLines": "true",
+      "font": "微软雅黑",
+      "text": "图 3 QA材料和意见示例。材料需保存并核对归属，结论与理由必须对应实际问题。",
+      "color": "#595959"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "lineSpacing": "1.25x",
+      "text": "步骤 6｜确认对象、材料、意见和结论，完成系统身份验证并提交一次。刷新查回准确结论、处置人、时间及可见回执；未查清不重签重提。",
+      "spaceAfter": "6pt",
+      "size": "11pt",
+      "font": "微软雅黑",
+      "keepLines": "true",
+      "color": "#222222"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "keepNext": "true",
+      "bold": "true",
+      "size": "14pt",
+      "lineSpacing": "1.25x",
+      "style": "Heading1",
+      "pageBreakBefore": "true",
+      "spaceAfter": "8pt",
+      "keepLines": "true",
+      "font": "微软雅黑",
+      "text": "四、接续下游，核对真正办到哪里",
+      "color": "#17365D",
+      "spaceBefore": "4pt"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "lineSpacing": "1.25x",
+      "text": "步骤 7｜让步：原发起岗核对结果，接续本单正确的生产／复核／放行节点，完成要求的后续动作。QA让步不代替PQC生产放行，更不代替资料上传和上市放行。",
+      "spaceAfter": "6pt",
+      "size": "11pt",
+      "font": "微软雅黑",
+      "keepLines": "true",
+      "color": "#222222"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "lineSpacing": "1.25x",
+      "text": "步骤 8｜返工：按《返工操作说明》核对旧周期、新周期、返工范围及重新生产检验要求，由生产组长实际接手；看到“返工”结论还不能结束。",
+      "spaceAfter": "6pt",
+      "size": "11pt",
+      "font": "微软雅黑",
+      "keepLines": "true",
+      "color": "#222222"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "lineSpacing": "1.25x",
+      "text": "步骤 9｜作废：核对原订单／周期已停止可办理，原待办及放行申请按实际结果结束并可追溯。不要继续生产或放行，也不要删除旧记录。",
+      "spaceAfter": "6pt",
+      "size": "11pt",
+      "font": "微软雅黑",
+      "keepLines": "true",
+      "color": "#222222"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "size": "11pt",
+      "lineSpacing": "1.25x",
+      "keepNext": "true",
+      "spaceAfter": "3pt",
+      "align": "center",
+      "keepLines": "true",
+      "font": "微软雅黑",
+      "text": "",
+      "color": "#222222"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "picture",
+    "props": {
+      "alt": "图 4 历史评审列表的处置结论。列表关闭只说明QA已处置，还需核对相应分支的下游结果。",
+      "src": "D:\\ProjectPackage\\IntRuoyi\\IntRuoyiAll\\workspace\\协调部\\edhr协调员\\output\\QA-G两单-20261123-0438\\Q06_正常菜单两条正式关闭结论.png",
+      "height": "9.45cm",
+      "width": "16.8cm"
+    },
+    "parent": "/body/p[27]"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "size": "9pt",
+      "lineSpacing": "1.25x",
+      "spaceAfter": "8pt",
+      "keepLines": "true",
+      "font": "微软雅黑",
+      "text": "图 4 历史评审列表的处置结论。列表关闭只说明QA已处置，还需核对相应分支的下游结果。",
+      "color": "#595959"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "paragraph",
+    "props": {
+      "lineSpacing": "1.25x",
+      "text": "完成标准：唯一评审及准确QA → 依据和材料齐备 → 处置结果已查回 → 对应下游已办理并核对交接。没有执行的入口／分支，不写成已测试通过。",
+      "spaceAfter": "6pt",
+      "size": "11pt",
+      "font": "微软雅黑",
+      "keepLines": "true",
+      "color": "#222222"
+    },
+    "parent": "/body"
+  },
+  {
+    "command": "add",
+    "type": "footer",
+    "props": {
+      "text": "不合格评审 V1 · ",
+      "align": "center",
+      "font": "微软雅黑",
+      "color": "#17365D",
+      "field": "page",
+      "size": "9pt"
+    },
+    "parent": "/"
+  }
+]
